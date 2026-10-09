@@ -41,13 +41,13 @@
                            │ HTTPS                    │ HTTPS + token
                 ┌──────────▼──────────────────────────▼───────────┐
                 │                 API (FastAPI)                   │
-                │  auth · tickets · teams · sla · kb · ai · admin │
+                │  auth · tickets · teams · kb · ai · admin       │
                 └──────────┬──────────────────────────┬───────────┘
                            │                          │ enfileira tarefas
                 ┌──────────▼───────────┐   ┌──────────▼───────────┐
                 │     PostgreSQL       │◄──┤      Worker(s)       │
                 │ dados · fila · FTS · │   │ e-mail · webhooks ·  │
-                │ pgvector · auditoria │   │ SLA · IA · embeddings│
+                │ pgvector · auditoria │   │ IA · embeddings      │
                 └──────────────────────┘   └──────────┬───────────┘
                                                       │
                                 ┌─────────────────────┼─────────────────────┐
@@ -60,8 +60,8 @@
 **Processos:**
 
 - `api`: servidor ASGI (uvicorn), sem estado, escala horizontalmente
-- `worker`: consome a fila de tarefas (envio de e-mail, webhooks, cálculo de SLA, chamadas de IA, geração de embeddings)
-- `scheduler`: tarefas periódicas (verificação de SLA, fechamento automático, leitura da caixa de e-mail). Pode rodar dentro do worker com lock (`pg_try_advisory_lock`) para garantir uma única instância ativa
+- `worker`: consome a fila de tarefas (envio de e-mail, webhooks, chamadas de IA, geração de embeddings)
+- `scheduler`: tarefas periódicas (leitura da caixa de e-mail, lembretes de aprovação, limpeza de uploads). Pode rodar dentro do worker com lock (`pg_try_advisory_lock`) para garantir uma única instância ativa
 
 ## Estrutura de código proposta
 
@@ -84,7 +84,6 @@ backend/
     │   ├── tickets/             # chamados, comentários, transições, histórico, aprovações
     │   ├── attachments/         # upload, armazenamento, antivírus
     │   ├── audit/               # audit_log
-    │   ├── sla/                 # políticas, calendários, cálculo
     │   ├── knowledge/           # base de conhecimento
     │   ├── notifications/       # e-mail, preferências
     │   ├── webhooks/            # assinaturas e entregas
@@ -120,7 +119,6 @@ Toda mudança relevante gera um evento gravado **na mesma transação** em `tick
 - notificações por e-mail
 - webhooks de saída
 - tarefas de IA (classificar, gerar embedding, resumir)
-- recálculo de SLA
 
 Assim nenhuma notificação é enviada para uma transação que deu rollback, e nenhum evento se perde se o processo cair.
 

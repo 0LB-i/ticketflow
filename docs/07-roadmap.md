@@ -13,7 +13,7 @@
 |------|---------|---------|-----------|-------|
 | **0. Fundação** | 1 | 2 sem. | Repositório, CI, esqueletos backend e frontend, banco | M0: "roda no meu computador e no CI" |
 | **1. MVP** | 2–5 | 8 sem. | Chamados de ponta a ponta com login local, setores, grupos, permissões, anexos e e-mail | **M1: piloto com a TI** |
-| **2. Operação completa** | 6–9 | 8 sem. | SLA, SSO, MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento, API pública | **M2: expansão para outras áreas** |
+| **2. Operação completa** | 6–9 | 8 sem. | SSO, MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento, API pública | **M2: expansão para outras áreas** |
 | **3. IA assistiva** | 10–12 | 6 sem. | Classificação, resumo, sugestão de resposta, busca semântica | M3: IA em modo sugestão |
 | **4. IA agêntica e autoatendimento** | 13–14 | 4 sem. | Servidor MCP, deflexão no portal, artigos gerados de chamados | M4: versão 1.0 |
 
@@ -89,7 +89,7 @@ flowchart LR
 | F1-S4-02 | Download com verificação de permissão; imagens coladas no editor | 11 |
 | F1-S4-03 | **Outbox + worker + fila de tarefas** no PostgreSQL | [03](03-arquitetura.md#eventos-de-domínio) |
 | F1-S4-04 | **Notificações por e-mail** (templates em pt-BR) | [10.10](10-chamados.md#1010-notificações) |
-| F1-S4-05 | **Visões do agente**: não atribuídos, meus chamados, aguardando minha ação, em espera, todos do grupo | 10.6 |
+| F1-S4-05 | **Visões do agente**: não atribuídos, meus chamados, aguardando minha ação, aguardando cliente, entregues, todos do grupo | 10.6 |
 | F1-S4-06 | Botão "Pegar o próximo" | 10.6 |
 | F1-S4-07 | **Busca textual** em português + filtros | — |
 | F1-S4-08 | Indicador de colisão ("Fulano está vendo") + `ETag` | 10.6 |
@@ -98,8 +98,8 @@ flowchart LR
 
 | Código | Entrega | Referência |
 |--------|---------|------------|
-| F1-S5-01 | Resolver (solução + código), confirmar, **reabrir**, cancelar | 10.5 |
-| F1-S5-02 | Rotinas automáticas: fechar resolvidos, lembrete e resolução por falta de retorno | [10.11](10-chamados.md#1011-rotinas-automáticas-worker) |
+| F1-S5-01 | Entregar (solução + código), concluir, **reabrir**, cancelar | 10.5 |
+| F1-S5-02 | Status personalizados criados pelo administrador (com `kind`) | [10.5](10-chamados.md#105-status-e-fluxo) |
 | F1-S5-03 | Visão do **gestor de setor** (chamados do setor, somente leitura) | 08 |
 | F1-S5-04 | Respostas prontas (pessoais e do grupo) | 10.6 |
 | F1-S5-05 | Ocultar comentário ou anexo com motivo | 10.7 |
@@ -114,17 +114,16 @@ flowchart LR
 
 ## Fase 2 — Operação completa (Sprints 6 a 9)
 
-**Objetivo:** o sistema está pronto para RH, Facilities, Financeiro e outras áreas, com SSO e SLA confiável.
+**Objetivo:** o sistema está pronto para RH, Facilities, Financeiro e outras áreas, com SSO.
 
-### Sprint 6 — SLA e notificações no sistema
+### Sprint 6 — Notificações no sistema e produtividade
 
 | Código | Entrega |
 |--------|---------|
-| F2-S6-01 | Calendários de expediente e feriados (por grupo) |
-| F2-S6-02 | Políticas de SLA (prioridade, tipo, categoria), cálculo em horas úteis, pausa, recálculo |
-| F2-S6-03 | Alertas de 75% e vencimento; visão "Vencendo SLA" |
-| F2-S6-04 | Notificações no sistema (sino) + preferências de notificação |
-| F2-S6-05 | Atalhos de teclado e visões salvas |
+| F2-S6-01 | Notificações no sistema (sino) + preferências de notificação |
+| F2-S6-02 | Atalhos de teclado e visões salvas |
+
+Sem SLA, esta sprint ficou mais leve e pode antecipar itens das Sprints 7 a 9.
 
 ### Sprint 7 — SSO, MFA e aprovações
 
@@ -151,14 +150,14 @@ flowchart LR
 
 | Código | Entrega |
 |--------|---------|
-| F2-S9-01 | Painel e relatórios: volume, SLA, tempos, satisfação, por grupo, setor e agente; exportação CSV |
+| F2-S9-01 | Painel e relatórios: volume, tempos, satisfação, por grupo, setor e agente; exportação CSV |
 | F2-S9-02 | Base de conhecimento (artigos internos e públicos, busca, sugestão na abertura) |
 | F2-S9-03 | Tokens de API com escopos, `Idempotency-Key`, rate limit |
 | F2-S9-04 | Webhooks de saída assinados |
 | F2-S9-05 | Papéis personalizados |
 | F2-S9-06 | Gestão de membros do grupo pelo supervisor |
 
-**Pronto quando (M2):** pelo menos 3 áreas além da TI operando, SSO ativo e cumprimento de SLA medido por 4 semanas.
+**Pronto quando (M2):** pelo menos 3 áreas além da TI operando, SSO ativo e relatórios de atendimento em uso.
 
 ---
 
@@ -202,5 +201,4 @@ Detalhes em [Integração com IA](06-integracao-ia.md).
 | Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
 | Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
 | Adoção baixa pelos colaboradores | Portal simples, abertura por e-mail na Fase 2, piloto com feedback semanal |
-| Cálculo de SLA em horas úteis com bugs | Biblioteca de cálculo isolada, com testes de propriedade (Hypothesis) e casos de feriado e fuso |
 | Qualidade da IA variar entre modelos | Evals no CI; modo sugestão por padrão; métricas de aceitação |

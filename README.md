@@ -17,7 +17,7 @@ Sistema interno de chamados (help desk / service desk) para empresas, escrito em
 | 7 | [Roadmap](docs/07-roadmap.md) | Fases, sprints, entregas e critérios de pronto |
 | 8 | [Organização e permissões](docs/08-organizacao-e-permissoes.md) | Setores, grupos, papéis, permissões e visibilidade |
 | 9 | [Login e autenticação](docs/09-login-e-autenticacao.md) | Login local, SSO, MFA, sessões |
-| 10 | [Como funcionam os chamados](docs/10-chamados.md) | Abertura, status, fluxo, trabalho do agente, aprovações, SLA, notificações |
+| 10 | [Como funcionam os chamados](docs/10-chamados.md) | Abertura, status, fluxo, trabalho do agente, aprovações, notificações |
 | 11 | [Anexos e arquivos](docs/11-anexos-e-arquivos.md) | Onde se anexa, tipos, limites, armazenamento, permissões |
 | 12 | [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md) | GitHub, branches, CI, definição de pronto, testes |
 | — | [Glossário](docs/glossario.md) | Termos do domínio e nomes no código |

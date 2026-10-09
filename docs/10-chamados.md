@@ -23,7 +23,6 @@ Este documento descreve o ciclo de vida de um chamado, do ponto de vista de quem
 | Tags | Marcadores livres | Agentes |
 | Vínculos | Duplicado de, relacionado a, bloqueado por | Agentes |
 | Anexos | Ver [Anexos e arquivos](11-anexos-e-arquivos.md) | Todos que comentam |
-| SLA | Prazos de 1ª resposta e de resolução (10.9) | Política de SLA |
 | Resolução | Código + texto da solução | Agente |
 | Avaliação | Nota de 1 a 5 + comentário | Solicitante |
 
@@ -31,11 +30,11 @@ Este documento descreve o ciclo de vida de um chamado, do ponto de vista de quem
 
 | Tipo | Quando usar | Exemplo | Efeito |
 |------|-------------|---------|--------|
-| **Incidente** | Algo que funcionava parou ou está com defeito | "Não consigo acessar o ERP" | SLA mais curto; foco em restaurar o serviço |
+| **Incidente** | Algo que funcionava parou ou está com defeito | "Não consigo acessar o ERP" | Foco em restaurar o serviço |
 | **Requisição** | Pedido de algo novo ou de uma mudança padrão | "Acesso à pasta do Financeiro", "Notebook para novo colaborador" | Pode exigir **aprovação** (10.8) |
-| **Dúvida** | Orientação, sem nada quebrado | "Como configuro a assinatura de e-mail?" | SLA mais longo; boa candidata a artigo da base de conhecimento |
+| **Dúvida** | Orientação, sem nada quebrado | "Como configuro a assinatura de e-mail?" | Boa candidata a artigo da base de conhecimento |
 
-O tipo vem da categoria e o agente pode corrigi-lo. Ele é usado nas políticas de SLA e nos relatórios.
+O tipo vem da categoria e o agente pode corrigi-lo. Ele é usado nos relatórios.
 
 ## 10.3 Prioridade: impacto × urgência
 
@@ -72,56 +71,51 @@ O solicitante não escolhe "prioridade" diretamente, porque todo mundo escolheri
 1. "Do que você precisa?"  → busca + árvore do catálogo (categorias com ícone e descrição)
 2. Artigos sugeridos        → "Isso resolve?" (deflexão; reforçada por IA na Fase 4)
 3. Formulário               → título, descrição, campos extras da categoria, urgência, impacto, anexos
-4. Confirmação              → número do chamado, prazo previsto de 1ª resposta (a partir da Fase 2), link para acompanhar
+4. Confirmação              → número do chamado e link para acompanhar
 ```
 
 Ao enviar o formulário:
 
 1. O sistema calcula a prioridade, define o grupo pela categoria e grava o setor do solicitante.
-2. Se a categoria **exige aprovação**, o chamado nasce em **Aguardando aprovação** (10.8).
-3. Senão, nasce em **Novo** e o SLA começa a contar.
+2. Se a categoria **exige aprovação**, o chamado nasce no status de aprovação (10.8).
+3. Senão, nasce em **Pendente**, na fila do grupo e sem responsável.
 4. O solicitante recebe a confirmação por e-mail.
 5. O grupo é notificado conforme a configuração do grupo: e-mail para todos os membros ou só a fila.
 
 ## 10.5 Status e fluxo
 
+> As etapas abaixo são o **padrão proposto** e ainda serão discutidas pela equipe. O administrador pode criar outras.
+
 ### Status padrão
 
-| Status | `kind` | Pausa o SLA? | Significado |
-|--------|--------|:-:|-------------|
-| **Aguardando aprovação** | `approval` | Não conta¹ | Requisição esperando o aprovador |
-| **Novo** | `new` | Não | Na fila do grupo, ninguém assumiu ainda |
-| **Em atendimento** | `open` | Não | Um agente está trabalhando |
-| **Aguardando solicitante** | `pending` | **Sim** | Agente pediu informação ou teste ao solicitante |
-| **Aguardando terceiro** | `pending` | Configurável (padrão: **não**) | Depende de fornecedor ou de outra área externa |
-| **Resolvido** | `resolved` | — | Agente informou a solução; aguardando confirmação |
-| **Fechado** | `closed` | — | Final. Não pode ser reaberto |
-| **Cancelado** | `canceled` | — | Final. Não era necessário, era duplicado ou foi reprovado |
+| Status | `kind` | Significado |
+|--------|--------|-------------|
+| **Pendente** | `open` | Chamado em aberto: na fila do grupo (sem responsável) ou em atendimento |
+| **Aguardando cliente** | `waiting` | O agente pediu uma informação ou ação ao solicitante. "Cliente" é quem abriu o chamado, sempre um colaborador interno |
+| **Entregue** | `resolved` | O agente entregou a solução; falta concluir |
+| **Concluído** | `closed` | Final |
+| **Cancelado** | `canceled` | Final. Não era necessário, era duplicado ou foi reprovado |
 
-¹ O SLA só começa a contar depois da aprovação.
+**Status criados pelo administrador:** cada um tem um nome e um `kind`: `open`, `waiting`, `resolved`, `closed`, `canceled` ou `approval` (usado nas aprovações, 10.8). As regras do sistema dependem do `kind`, não do nome. Exemplos: "Em análise" (`open`), "Aguardando aprovação" (`approval`). Entre status do mesmo `kind`, o agente muda livremente.
 
-O administrador pode **renomear** status e **criar** novos (ex.: "Aguardando peça"), mas todo status pertence a um dos `kind` acima. As regras do sistema dependem do `kind`, não do nome.
+**Nada muda de status sozinho com o passar do tempo:** não há fechamento automático. Concluir é sempre uma ação de uma pessoa.
 
 ### Diagrama
 
 ```mermaid
 stateDiagram-v2
+    [*] --> Pendente
     [*] --> AguardandoAprovacao: categoria exige aprovação
-    [*] --> Novo
-    AguardandoAprovacao --> Novo: aprovado
+    AguardandoAprovacao --> Pendente: aprovado
     AguardandoAprovacao --> Cancelado: reprovado
-    Novo --> EmAtendimento: agente assume / 1ª resposta
-    EmAtendimento --> AguardandoSolicitante: agente pergunta
-    AguardandoSolicitante --> EmAtendimento: solicitante responde
-    EmAtendimento --> AguardandoTerceiro
-    AguardandoTerceiro --> EmAtendimento
-    EmAtendimento --> Resolvido: solução informada
-    AguardandoSolicitante --> Resolvido: sem retorno no prazo
-    Resolvido --> Fechado: solicitante confirma / prazo expira
-    Resolvido --> EmAtendimento: reaberto
-    Novo --> Cancelado
-    EmAtendimento --> Cancelado
-    Fechado --> [*]
+    Pendente --> AguardandoCliente: agente pergunta
+    AguardandoCliente --> Pendente: solicitante responde
+    Pendente --> Entregue: solução informada
+    Entregue --> Concluido: concluído manualmente
+    Entregue --> Pendente: reaberto
+    Pendente --> Cancelado
+    AguardandoCliente --> Cancelado
+    Concluido --> [*]
     Cancelado --> [*]
 ```
 
@@ -129,24 +123,20 @@ stateDiagram-v2
 
 | De | Para | Quem | Exigências / efeitos |
 |----|------|------|----------------------|
-| Aguardando aprovação | Novo | Aprovador | Comentário opcional. O SLA começa |
-| Aguardando aprovação | Cancelado | Aprovador | **Motivo obrigatório**, enviado ao solicitante |
-| Novo | Em atendimento | Agente do grupo | Automático quando o agente assume o chamado ou envia o 1º comentário público |
-| Em atendimento | Aguardando solicitante | Responsável | **Comentário público obrigatório** (a pergunta) |
-| Aguardando solicitante | Em atendimento | Solicitante (automático) | Volta sozinho quando o solicitante responde |
-| Aguardando solicitante | Resolvido | Sistema | Após N dias úteis sem resposta (padrão: 5), com lembrete no 2º dia. Código: "Sem retorno do solicitante" |
-| Em atendimento | Aguardando terceiro | Responsável | **Nota interna obrigatória** (com quem, protocolo externo) |
-| Aguardando terceiro | Em atendimento | Responsável | — |
-| Em atendimento | Resolvido | Responsável | **Solução (texto público) + código de resolução obrigatórios** |
-| Resolvido | Fechado | Solicitante ou sistema | Solicitante confirma, ou automático após N dias úteis (padrão: 3) |
-| Resolvido | Em atendimento | Solicitante ou agente | **Motivo obrigatório**. Contador de reaberturas +1. Volta para o mesmo responsável |
-| Novo, Aguardando aprovação, Em atendimento, Aguardando * | Cancelado | Solicitante | Só os próprios chamados. Motivo opcional |
+| Aprovação (`approval`) | Pendente | Aprovador | Comentário opcional |
+| Aprovação (`approval`) | Cancelado | Aprovador | **Motivo obrigatório**, enviado ao solicitante |
+| Pendente | Aguardando cliente | Responsável | **Comentário público obrigatório** (a pergunta) |
+| Aguardando cliente | Pendente | Solicitante ou agente | Volta quando o solicitante responde, ou manualmente pelo agente |
+| Pendente | Entregue | Responsável | **Solução (texto público) + código de resolução obrigatórios** |
+| Entregue | Concluído | Agente do grupo ou solicitante (**a definir**) | Sempre manual |
+| Entregue | Pendente | Solicitante ou agente | **Motivo obrigatório**. Contador de reaberturas +1. Volta para o mesmo responsável |
+| Pendente, Aguardando cliente, aprovação | Cancelado | Solicitante | Só os próprios chamados. Motivo opcional |
 | Qualquer não final | Cancelado | Agente | **Motivo obrigatório** (ex.: duplicado → usar mesclagem) |
-| Fechado | — | — | Final. O botão "Abrir novo chamado relacionado" cria um chamado vinculado |
+| Concluído | — | — | Final. O botão "Abrir novo chamado relacionado" cria um chamado vinculado |
 
 ### Códigos de resolução
 
-Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora do escopo do grupo · Sem retorno do solicitante. A lista é configurável e serve para os relatórios.
+Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora do escopo do grupo. A lista é configurável e serve para os relatórios.
 
 ## 10.6 Como o agente trabalha
 
@@ -157,14 +147,14 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 | **Não atribuídos** | Chamados dos meus grupos sem responsável | Agentes |
 | **Meus chamados** | Chamados em que sou o responsável, ainda abertos | Agentes |
 | **Aguardando minha ação** | Meus chamados com resposta nova do solicitante, recém-aprovados ou reabertos | Agentes |
-| **Vencendo SLA** | Chamados dos meus grupos com SLA vencido ou nas próximas 2 h | Agentes e supervisores |
-| **Em espera** | Aguardando solicitante ou terceiro | Agentes |
+| **Aguardando cliente** | Chamados dos meus grupos esperando o solicitante | Agentes |
+| **Entregues** | Chamados entregues que ainda não foram concluídos | Agentes |
 | **Todos do grupo** | Tudo do grupo, com filtro por responsável | Supervisores |
 | **Visões salvas** | Filtros personalizados, pessoais ou do grupo | Todos (Fase 2) |
 
-**Ordenação padrão:** primeiro o SLA mais perto de vencer, depois a prioridade, depois a data de abertura (mais antigo primeiro).
+**Ordenação padrão:** primeiro a prioridade, depois a data de abertura (mais antigo primeiro).
 
-**Indicadores na lista:** prioridade (cor), tempo restante de SLA, ícone de "resposta nova", responsável, há quanto tempo está parado.
+**Indicadores na lista:** prioridade (cor), ícone de "resposta nova", responsável, há quanto tempo está parado.
 
 ### Distribuição do trabalho
 
@@ -176,8 +166,8 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ #1234  Impressora do 3º andar não imprime     [Em atendimento ▾] [Alta]     │
-│ SLA resolução: 3h12 restantes ▓▓▓▓▓▓░░░   ·  Maria também está vendo         │
+│ #1234  Impressora do 3º andar não imprime     [Pendente ▾] [Alta]            │
+│ Aberto há 2h10  ·  Maria também está vendo                                   │
 ├───────────────────────────────────────────────┬──────────────────────────────┤
 │ LINHA DO TEMPO                                │ SOLICITANTE                  │
 │ ● João (solicitante) · 09:02                  │ João Silva · Financeiro      │
@@ -196,12 +186,12 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 │ │                                           │ │ · Resposta sugerida          │
 │ └───────────────────────────────────────────┘ │ · Chamados semelhantes       │
 │ 📎 Anexar  ⚡ Resposta pronta                  │                              │
-│ [Enviar]  [Enviar e aguardar solicitante ▾]   │                              │
+│ [Enviar]  [Enviar e aguardar cliente ▾]       │                              │
 └───────────────────────────────────────────────┴──────────────────────────────┘
 ```
 
 - **Público × interno:** notas internas têm fundo e rótulo diferentes e uma confirmação visual antes de enviar. Trocar de aba não apaga o rascunho.
-- **Enviar e mudar status:** a resposta e a mudança de status saem numa única ação (ex.: "Enviar e resolver", "Enviar e aguardar solicitante").
+- **Enviar e mudar status:** a resposta e a mudança de status saem numa única ação (ex.: "Enviar e entregar", "Enviar e aguardar cliente").
 - **Menções:** `@nome` em nota interna notifica o colega, que ganha acesso de leitura ao chamado se ainda não tiver.
 - **Colisão:** o sistema mostra quem mais está com o chamado aberto. Se chegou um comentário novo depois que a tela foi carregada, aparece um aviso antes de enviar. Alterações de campos usam `ETag` para não sobrescrever a mudança de outra pessoa.
 - **Rascunho automático:** o texto em edição é salvo localmente no navegador e restaurado se a página for recarregada.
@@ -218,8 +208,7 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 
 | Situação | Como funciona |
 |----------|---------------|
-| **Transferência** (escalonamento funcional, ex.: N1 → N2) | O agente escolhe o grupo de destino e escreve um **motivo obrigatório** (nota interna). O chamado volta para **Novo** na fila do novo grupo, sem responsável. **O SLA não reinicia.** O grupo anterior mantém acesso de leitura. Na Fase 3 a IA pode gerar um resumo para quem recebe |
-| **Escalonamento hierárquico** | Automático: com 75% do prazo de SLA consumido, o responsável é avisado. No vencimento, o responsável e o supervisor são avisados e o chamado vai para a visão "Vencendo SLA" |
+| **Transferência** (escalonamento funcional, ex.: N1 → N2) | O agente escolhe o grupo de destino e escreve um **motivo obrigatório** (nota interna). O chamado continua **Pendente**, na fila do novo grupo e sem responsável. O grupo anterior mantém acesso de leitura. Na Fase 3 a IA pode gerar um resumo para quem recebe |
 | **Pedir ajuda sem transferir** | Nota interna com `@menção` a um colega de outro grupo |
 
 ### Duplicados e vínculos
@@ -229,13 +218,13 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 
 ### Ações em massa (supervisor ou permissão `ticket.bulk`)
 
-Atribuir, transferir, mudar prioridade, adicionar tag, resolver com a mesma solução (ex.: incidente geral resolvido) e adicionar comentário público.
+Atribuir, transferir, mudar prioridade, adicionar tag, entregar com a mesma solução (ex.: incidente geral resolvido) e adicionar comentário público.
 
 ## 10.7 Experiência do solicitante
 
 - **Meus chamados:** lista com status em linguagem simples ("Estamos trabalhando nisso", "Precisamos de uma resposta sua").
-- **Detalhe:** só a parte pública: comentários, anexos públicos, status, prazo previsto e quem está atendendo.
-- **Ações:** responder, anexar, adicionar observadores, confirmar a solução ("Resolveu"), reabrir ("Não resolveu", com motivo), cancelar e avaliar.
+- **Detalhe:** só a parte pública: comentários, anexos públicos, status e quem está atendendo.
+- **Ações:** responder, anexar, adicionar observadores, concluir ("Resolveu"), reabrir ("Não resolveu", com motivo), cancelar e avaliar.
 - **Por e-mail** (Fase 2): responder ao e-mail de notificação adiciona um comentário ao chamado.
 - **Gestor de setor:** abas "Chamados do meu setor" (somente leitura) e "Aprovações pendentes".
 
@@ -254,28 +243,13 @@ Atribuir, transferir, mudar prioridade, adicionar tag, resolver com a mesma solu
   - **qualquer membro de um grupo** (ex.: Segurança da Informação).
 - Se o solicitante for o próprio gestor, a aprovação sobe para o gestor do setor acima. Se não houver, o chamado vai para o administrador.
 - O aprovador recebe um e-mail com link e decide na tela: **Aprovar** (comentário opcional) ou **Reprovar** (motivo obrigatório).
-- Lembretes após 1 e 3 dias úteis. O administrador pode redirecionar a aprovação a outra pessoa (ex.: aprovador de férias).
+- Para usar aprovações, o administrador cria um status com `kind = approval` (ex.: "Aguardando aprovação"). Ele não faz parte dos status padrão.
+- Lembretes após 1 e 3 dias. O administrador pode redirecionar a aprovação a outra pessoa (ex.: aprovador de férias).
 - Fase 2: um nível de aprovação. Aprovação em vários níveis e delegação por férias ficam para o futuro.
 
-## 10.9 SLA (Fase 2)
+## 10.9 Prazos: sem SLA
 
-- **Duas metas:** tempo até a **1ª resposta** (1º comentário público de um agente; mensagens automáticas não contam) e tempo até a **resolução**.
-- **Política aplicada:** a mais específica que combina com o chamado, avaliada em ordem: categoria + prioridade + tipo → prioridade + tipo → só prioridade.
-- **Horas úteis:** contadas no **calendário do grupo** (expediente e feriados).
-- **Pausa:** enquanto o status pausar o SLA (ex.: Aguardando solicitante). Em Aguardando aprovação o relógio ainda não começou.
-- **Mudança de prioridade:** os prazos são recalculados a partir da abertura com a nova meta. O histórico registra a mudança.
-- **Reabertura:** o relógio de resolução volta a correr de onde parou. O tempo em "Resolvido" não conta.
-- **Transferência:** o relógio não reinicia.
-- **Alertas:** aos 75% do prazo (responsável) e no vencimento (responsável + supervisor). O vencimento fica marcado no chamado e nos relatórios.
-
-**Metas sugeridas** (cada empresa ajusta):
-
-| Prioridade | 1ª resposta | Resolução |
-|------------|-------------|-----------|
-| Crítica | 30 min | 4 h úteis |
-| Alta | 1 h | 8 h úteis |
-| Média | 4 h | 2 dias úteis |
-| Baixa | 8 h | 5 dias úteis |
+Não há SLA: o atendimento é todo interno, e não existem metas de prazo, alertas de vencimento nem calendário de expediente (decisão de 2026-10-09). O sistema só **mede** os tempos (até a 1ª resposta, até a entrega, até a conclusão) para os relatórios.
 
 ## 10.10 Notificações
 
@@ -289,26 +263,23 @@ Atribuir, transferir, mudar prioridade, adicionar tag, resolver com a mesma solu
 | Resposta do solicitante | | | ✉️🔔 | 🔔 se sem responsável | | |
 | Nota interna com @menção | | | | | | Mencionado 🔔 |
 | Transferido | | | | 🔔 novo grupo | | |
-| SLA em 75% | | | 🔔 | | | |
-| SLA vencido | | | ✉️🔔 | | ✉️🔔 | |
-| Resolvido | ✉️ com "Resolveu" / "Não resolveu" | ✉️ | | | | |
+| Entregue | ✉️ com "Concluir" / "Não resolveu" | ✉️ | | | | |
 | Reaberto | | | ✉️🔔 | | | |
-| Fechado | ✉️ pesquisa de satisfação | | | | | |
+| Concluído | ✉️ pesquisa de satisfação | | | | | |
 | Avaliação ≤ 2 | | | 🔔 | | 🔔 | |
 
-✉️ e-mail · 🔔 notificação dentro do sistema (Fase 2). Cada usuário escolhe nas preferências como quer receber, exceto as notificações essenciais (aprovação pendente, pedido de resposta, resolvido), que não podem ser desligadas.
+✉️ e-mail · 🔔 notificação dentro do sistema (Fase 2). Cada usuário escolhe nas preferências como quer receber, exceto as notificações essenciais (aprovação pendente, pedido de resposta, entregue), que não podem ser desligadas.
 
 ## 10.11 Rotinas automáticas (worker)
 
 | Rotina | Frequência |
 |--------|------------|
-| Verificar alertas e vencimentos de SLA | A cada minuto |
-| Lembrar o solicitante (Aguardando solicitante) e resolver por falta de retorno | A cada hora |
-| Fechar chamados resolvidos após o prazo | A cada hora |
 | Lembrar aprovadores | Diária |
 | Limpar uploads não vinculados há mais de 24 h | Diária |
 | Ler a caixa de e-mail de entrada | A cada minuto (Fase 2) |
 
+Nenhuma rotina muda o status de um chamado.
+
 ## 10.12 Avaliação de satisfação (Fase 2)
 
-Após o **fechamento**, o solicitante recebe um único convite: nota de 1 a 5 e comentário opcional, respondidos com um clique no e-mail ou no portal. Uma nota ≤ 2 avisa o responsável e o supervisor. Ninguém é obrigado a responder.
+Após a **conclusão**, o solicitante recebe um único convite: nota de 1 a 5 e comentário opcional, respondidos com um clique no e-mail ou no portal. Uma nota ≤ 2 avisa o responsável e o supervisor. Ninguém é obrigado a responder.

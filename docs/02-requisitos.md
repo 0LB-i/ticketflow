@@ -42,12 +42,7 @@ Fluxo de status, transições e regras de trabalho: ver [Como funcionam os chama
 
 ### RF-03 SLA
 
-| ID | Requisito | Prior. |
-|----|-----------|--------|
-| RF-03.1 | Políticas de SLA por prioridade e categoria: prazo de 1ª resposta e de resolução | S |
-| RF-03.2 | Calendário de expediente e feriados | S |
-| RF-03.3 | Alertas de SLA próximo do vencimento e vencido | S |
-| RF-03.4 | Escalonamento automático ao vencer | C |
+Removido: não haverá SLA (metas de prazo, calendário de expediente, alertas). Decisão de 2026-10-09.
 
 ### RF-04 Usuários e acesso
 
@@ -104,8 +99,8 @@ Detalhado em [06-integracao-ia.md](06-integracao-ia.md).
 
 | ID | Requisito | Prior. |
 |----|-----------|--------|
-| RF-08.1 | Painel: abertos, por status, por equipe, vencendo SLA | S |
-| RF-08.2 | Indicadores: tempo de 1ª resposta, tempo de resolução, % SLA, satisfação | S |
+| RF-08.1 | Painel: abertos, por status, por equipe | S |
+| RF-08.2 | Indicadores: tempo de 1ª resposta, tempo até a entrega, satisfação | S |
 | RF-08.3 | Exportação CSV | S |
 
 ## Requisitos não funcionais

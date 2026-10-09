@@ -32,7 +32,7 @@ erDiagram
 - Todo usuário tem **exatamente um setor** e **exatamente um papel global**.
 - Um usuário pode ser membro de **vários grupos**. Em cada grupo ele é `member` ou `supervisor`.
 - Um setor pode ter **vários gestores**. Um gestor enxerga o seu setor **e os subsetores**.
-- Um grupo tem: nome, e-mail de entrada (opcional), calendário de expediente (para o SLA), categorias atendidas e se está ativo.
+- Um grupo tem: nome, e-mail de entrada (opcional), categorias atendidas e se está ativo.
 - Uma categoria tem: grupo padrão, tipo padrão (incidente, requisição, dúvida), formulário de campos extras, se exige aprovação, se é **confidencial** e se permite IA.
 - Setores, grupos e categorias **não são apagados**, só desativados, para preservar o histórico e os relatórios.
 - O chamado guarda o **setor do solicitante no momento da abertura** (`tickets.department_id`). Se a pessoa mudar de setor, os relatórios antigos continuam corretos.
@@ -97,8 +97,7 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `report.view_all` | Relatórios de todos os grupos e setores |
 | `admin.users` | Usuários: criar, desativar, alterar papel e setor |
 | `admin.organization` | Setores, grupos e membros |
-| `admin.catalog` | Categorias, formulários, tipos e status |
-| `admin.sla` | Calendários e políticas de SLA |
+| `admin.catalog` | Categorias, formulários, tipos e status (inclusive criar novos status) |
 | `admin.roles` | Papéis personalizados (Fase 2) |
 | `admin.integrations` | Tokens de API, webhooks, e-mail de entrada, SSO |
 | `admin.ai` | Endpoints e funcionalidades de IA |
@@ -112,7 +111,7 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `ticket.create` | ✅ | ✅ | ✅ | — |
 | `ticket.create_on_behalf` | — | ✅ | ✅ | — |
 | `ticket.view_team` | — | ✅ | ✅ | ✅ |
-| `ticket.view_all` | — | ⚙️ | ✅ | ✅ |
+| `ticket.view_all` | — | — | ✅ | ✅ |
 | `ticket.view_internal` | — | ✅ | ✅ | ✅ |
 | `ticket.comment` | ✅¹ | ✅ | ✅ | — |
 | `ticket.note_internal` | — | ✅ | ✅ | — |
@@ -135,8 +134,8 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `admin.*` | — | — | ✅ | — |
 | `audit.view` | — | — | ✅ | ✅ |
 
-**Legenda:** ✅ sim · — não · 👤 só para quem é **supervisor** do grupo do chamado · ⚙️ depende da configuração "agentes veem chamados de outros grupos" (padrão: **não**)
-¹ só nos chamados que pode ver · ² só nos próprios chamados e só até o atendimento começar · ³ só as transições do solicitante: confirmar solução, reabrir, cancelar · ⁴ só os próprios chamados, antes de resolvidos
+**Legenda:** ✅ sim · — não · 👤 só para quem é **supervisor** do grupo do chamado
+¹ só nos chamados que pode ver · ² só nos próprios chamados e só até o atendimento começar · ³ só as transições do solicitante: concluir, reabrir, cancelar · ⁴ só os próprios chamados, antes de entregues
 
 ## 8.4 Regras de visibilidade de chamados
 
@@ -178,7 +177,7 @@ Um usuário **vê** um chamado se **pelo menos uma** condição for verdadeira:
 | Impacto e prioridade | — | Sim, com motivo se mudar a prioridade calculada | Sim |
 | Grupo (transferência) | — | Sim, com motivo | Sim |
 | Responsável | — | Só assumir para si | Qualquer membro do grupo |
-| Status | Confirmar solução, reabrir, cancelar | Conforme o fluxo | Conforme o fluxo |
+| Status | Concluir, reabrir, cancelar | Conforme o fluxo | Conforme o fluxo |
 | Observadores | Adicionar e remover | Sim | Sim |
 | Tags e campos extras | Campos extras na abertura | Sim | Sim |
 

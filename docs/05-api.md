@@ -88,11 +88,11 @@ O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", 
 
 ### Demais recursos
 
-`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/departments`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/canned-responses`, `/saved-views`, `/notifications`, `/sla-policies`, `/calendars`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/idp-mappings`, `/admin/settings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
+`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/departments`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/canned-responses`, `/saved-views`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/idp-mappings`, `/admin/settings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
 
 ## Webhooks de saída
 
-**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.sla_warning`, `ticket.sla_breached`, `ticket.resolved`, `ticket.closed`
+**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.resolved`, `ticket.closed`
 
 **Entrega:**
 
@@ -140,9 +140,8 @@ Location: /api/v1/tickets/7d2e...
 {
   "id": "7d2e...",
   "number": 1234,
-  "status": { "name": "Novo", "kind": "new" },
+  "status": { "name": "Pendente", "kind": "open" },
   "team": { "id": "...", "name": "TI - Suporte" },
-  "sla": { "first_response_due_at": "2026-10-09T16:30:00-03:00" },
   "...": "..."
 }
 ```
