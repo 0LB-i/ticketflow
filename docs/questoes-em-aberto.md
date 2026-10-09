@@ -6,9 +6,9 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 
 | # | Questão | Opções | Recomendação | Bloqueia |
 |---|---------|--------|--------------|----------|
-| 1 | **Armazenamento de anexos** | Disco local, S3-compatível | Local como padrão + S3 opcional, atrás da mesma interface ([11.6](11-anexos-e-arquivos.md#116-armazenamento)) | Sprint 4 |
-| 2 | **Provedor de identidade** | Entra ID, Google Workspace, Keycloak | OIDC genérico cobre os três | Sprint 7 |
-| 3 | **Entrada por e-mail** | IMAP genérico, Microsoft Graph, Gmail API | IMAP primeiro; Graph se a empresa usar M365 com IMAP desativado | Sprint 8 |
+| 1 | **Servidor de e-mail para envio (SMTP)** das notificações e convites | Conta SMTP do provedor de e-mail da Martiniti, serviço transacional (ex.: Amazon SES, Brevo) | Usar a conta SMTP do provedor atual; precisamos saber qual é | Sprint 2 |
+| 2 | **Servidor de produção** | Sistema operacional, recursos, domínio e certificado HTTPS | Linux (Debian/Ubuntu LTS), 2 vCPU, 4 GB RAM, 50 GB de disco bastam para 50 usuários | Sprint 5 |
+| 3 | **Entrada por e-mail** (abrir chamado mandando e-mail) | IMAP no provedor de e-mail da Martiniti; ou não ter | Decidir no piloto se vale a pena para 50 pessoas | Sprint 7 |
 | 4 | **Editor de texto dos comentários** | Markdown puro (textarea), Tiptap (rich text que salva Markdown) | Tiptap: colar imagens, negrito e listas sem o usuário saber Markdown | Sprint 3 |
 
 ## De negócio (dependem de quem vai usar)
@@ -33,7 +33,11 @@ Os itens 5 a 8 já têm padrão, então **não bloqueiam** o desenvolvimento.
 | 2026-10-09 | Uma instalação por empresa | [ADR 0005](adr/0005-instalacao-por-empresa.md) |
 | 2026-10-09 | Interface: SPA em Vue 3 + TypeScript + Tailwind | [ADR 0007](adr/0007-interface-web-vue.md) |
 | 2026-10-09 | Componentes: Reka UI + design system próprio em Tailwind | [ADR 0008](adr/0008-reka-ui.md) |
-| 2026-10-09 | GitHub (código, Actions, Projects, GHCR) | [ADR 0009](adr/0009-github.md) |
+| 2026-10-09 | GitHub (código, Actions, Projects) | [ADR 0009](adr/0009-github.md) |
+| 2026-10-09 | Produção com systemd + uvicorn + nginx, sem Docker | [ADR 0010](adr/0010-producao-systemd.md) |
+| 2026-10-09 | Login só por e-mail e senha (sem diretório de contas); SSO para o futuro | [09](09-login-e-autenticacao.md) |
+| 2026-10-09 | Anexos em disco local | [11.6](11-anexos-e-arquivos.md#116-armazenamento) |
+| 2026-10-09 | Até 50 usuários | [02](02-requisitos.md) |
 | 2026-10-09 | Modelo de organização: setores, grupos de atendimento, papéis e permissões | [08](08-organizacao-e-permissoes.md) |
 | 2026-10-09 | Fluxo de chamados, login e anexos | [09](09-login-e-autenticacao.md), [10](10-chamados.md), [11](11-anexos-e-arquivos.md) |
 | 2026-10-09 | Agentes veem e trabalham só os chamados dos **próprios grupos** | [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |

@@ -99,7 +99,7 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `admin.organization` | Setores, grupos e membros |
 | `admin.catalog` | Categorias, formulários, tipos e status (inclusive criar novos status) |
 | `admin.roles` | Papéis personalizados (Fase 2) |
-| `admin.integrations` | Tokens de API, webhooks, e-mail de entrada, SSO |
+| `admin.integrations` | Tokens de API, webhooks, e-mail de entrada |
 | `admin.ai` | Endpoints e funcionalidades de IA |
 | `admin.settings` | Configurações gerais e identidade visual |
 | `audit.view` | Log de auditoria (logins, mudanças de configuração e de permissão) |
@@ -195,7 +195,7 @@ Toda alteração gera um evento no histórico do chamado com autor, data, valor 
 
 - **Cadastro manual** pela tela de administração (sempre disponível)
 - **Importação CSV** de usuários e setores (Fase 1, para a carga inicial)
-- **Login SSO** (Fase 2): setor, papel e grupos podem ser preenchidos a partir de atributos e grupos do Entra ID / Google / Keycloak, conforme [Login e autenticação → mapeamento](09-login-e-autenticacao.md#96-mapeamento-de-grupos-do-provedor-de-identidade)
+- **Login SSO** (futuro, se a empresa adotar um diretório de contas): setor, papel e grupos podem ser preenchidos a partir de atributos e grupos do Entra ID / Google / Keycloak, conforme [Login e autenticação → mapeamento](09-login-e-autenticacao.md#96-mapeamento-de-grupos-do-provedor-de-identidade)
 
 Cada vínculo guarda a origem (`source = 'manual' | 'idp' | 'import'`). Vínculos vindos do provedor de identidade são sincronizados a cada login; vínculos manuais não são removidos pela sincronização.
 

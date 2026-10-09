@@ -13,11 +13,11 @@
 |------|---------|---------|-----------|-------|
 | **0. Fundação** | 1 | 2 sem. | Repositório, CI, esqueletos backend e frontend, banco | M0: "roda no meu computador e no CI" |
 | **1. MVP** | 2–5 | 8 sem. | Chamados de ponta a ponta com login local, setores, grupos, permissões, anexos e e-mail | **M1: piloto com a TI** |
-| **2. Operação completa** | 6–9 | 8 sem. | SSO, MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento, API pública | **M2: expansão para outras áreas** |
-| **3. IA assistiva** | 10–12 | 6 sem. | Classificação, resumo, sugestão de resposta, busca semântica | M3: IA em modo sugestão |
-| **4. IA agêntica e autoatendimento** | 13–14 | 4 sem. | Servidor MCP, deflexão no portal, artigos gerados de chamados | M4: versão 1.0 |
+| **2. Operação completa** | 6–8 | 6 sem. | MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento, API pública | **M2: expansão para outras áreas** |
+| **3. IA assistiva** | 9–11 | 6 sem. | Classificação, resumo, sugestão de resposta, busca semântica | M3: IA em modo sugestão |
+| **4. IA agêntica e autoatendimento** | 12–13 | 4 sem. | Servidor MCP, deflexão no portal, artigos gerados de chamados | M4: versão 1.0 |
 
-**Total estimado:** 28 semanas (~7 meses) até a versão 1.0. O piloto começa com cerca de 2 meses e meio.
+**Total estimado:** 26 semanas (~6 meses) até a versão 1.0. O piloto começa com cerca de 2 meses e meio.
 
 ```mermaid
 flowchart LR
@@ -30,11 +30,11 @@ flowchart LR
 
 ## Fase 0 — Fundação (Sprint 1)
 
-**Objetivo:** qualquer pessoa da equipe clona o repositório, sobe o ambiente com um comando e abre um PR com o CI verde.
+**Objetivo:** qualquer pessoa da equipe clona o repositório, sobe o ambiente com um comando e faz push na `main` com o CI verde.
 
 | Código | Entrega |
 |--------|---------|
-| F0-01 | Repositório no GitHub: proteção da `main`, templates de issue e PR, labels, CODEOWNERS, Dependabot, GitHub Projects |
+| F0-01 | Repositório no GitHub: templates de issue, labels, Dependabot, GitHub Projects |
 | F0-02 | Monorepo `backend/` + `frontend/`; README com "como rodar" |
 | F0-03 | Backend: `pyproject.toml` (uv), FastAPI com `/health`, configuração com pydantic-settings, logs estruturados (structlog), tratamento de erros (RFC 9457) |
 | F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`pgvector`, `unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` |
@@ -42,7 +42,7 @@ flowchart LR
 | F0-06 | Design system inicial: cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status |
 | F0-07 | Layout do aplicativo: menu lateral, cabeçalho, área de conteúdo, responsivo |
 | F0-08 | Geração do cliente TypeScript a partir do OpenAPI (`pnpm gen:api`) + verificação no CI |
-| F0-09 | Docker: `docker-compose.yml` (PostgreSQL 17 + pgvector, Mailpit), Dockerfile em várias etapas |
+| F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17 + pgvector, Mailpit); arquivos de exemplo do systemd e do nginx; `scripts/deploy.sh` |
 | F0-10 | GitHub Actions: lint, tipos e testes do backend em **PG 16 e 17**; lint, tipos, testes e build do frontend |
 
 **Pronto quando:** `docker compose up` + `pnpm dev` mostram a tela inicial da SPA consumindo o `/health`, e o CI roda nas duas versões do PostgreSQL.
@@ -79,7 +79,7 @@ flowchart LR
 | F1-S3-06 | **Comentários** públicos e notas internas; edição em 10 min | [10.7](10-chamados.md#107-experiência-do-solicitante) |
 | F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | [10.6](10-chamados.md#106-como-o-agente-trabalha) |
 | F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | — |
-| F1-S3-09 | Telas: abrir chamado, "Meus chamados" (solicitante), detalhe do chamado (solicitante e agente) | — |
+| F1-S3-09 | Telas: abrir chamado, "Meus chamados" (solicitante), detalhe do chamado (solicitante e agente) | [13](13-telas-e-navegacao.md) |
 
 ### Sprint 4 — Anexos, notificações, filas e busca
 
@@ -105,80 +105,71 @@ flowchart LR
 | F1-S5-05 | Ocultar comentário ou anexo com motivo | 10.7 |
 | F1-S5-06 | Testes ponta a ponta (Playwright) dos fluxos principais | — |
 | F1-S5-07 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | — |
-| F1-S5-08 | Guia de instalação e atualização, backup do banco + arquivos | — |
-| F1-S5-09 | Carga inicial da TI: setores, grupos, categorias, usuários | — |
+| F1-S5-08 | Instalação no servidor da Martiniti (systemd, nginx, PostgreSQL 17), guia de atualização, backup do banco + arquivos | [ADR 0010](adr/0010-producao-systemd.md) |
+| F1-S5-09 | Carga inicial da Martiniti: setores, grupos, categorias, usuários | [15](15-estrutura-martiniti.md) |
 
 **Pronto quando (M1):** a TI usa o sistema em produção por 2 semanas sem precisar de outro canal, sem bugs críticos abertos.
 
 ---
 
-## Fase 2 — Operação completa (Sprints 6 a 9)
+## Fase 2 — Operação completa (Sprints 6 a 8)
 
-**Objetivo:** o sistema está pronto para RH, Facilities, Financeiro e outras áreas, com SSO.
+**Objetivo:** o sistema está pronto para RH, Facilities, Financeiro e outras áreas, com MFA para administradores e aprovações.
 
-### Sprint 6 — Notificações no sistema e produtividade
+### Sprint 6 — Notificações, MFA e aprovações
 
 | Código | Entrega |
 |--------|---------|
 | F2-S6-01 | Notificações no sistema (sino) + preferências de notificação |
 | F2-S6-02 | Atalhos de teclado e visões salvas |
+| F2-S6-03 | MFA por TOTP + códigos de recuperação; obrigatório para administradores |
+| F2-S6-04 | Gerenciamento de sessões pelo usuário e pelo admin |
+| F2-S6-05 | **Aprovações** (gestor, usuário específico, grupo), lembretes, redirecionamento |
 
-Sem SLA, esta sprint ficou mais leve e pode antecipar itens das Sprints 7 a 9.
-
-### Sprint 7 — SSO, MFA e aprovações
-
-| Código | Entrega |
-|--------|---------|
-| F2-S7-01 | SSO via OIDC (Entra ID, Google, Keycloak) com criação automática de usuários |
-| F2-S7-02 | Mapeamento de grupos e atributos do provedor de identidade → papel, setor e grupos |
-| F2-S7-03 | MFA por TOTP + códigos de recuperação; obrigatório para admin no login local |
-| F2-S7-04 | Gerenciamento de sessões pelo usuário e pelo admin |
-| F2-S7-05 | **Aprovações** (gestor, usuário específico, grupo), lembretes, redirecionamento |
-
-### Sprint 8 — E-mail e enriquecimento dos chamados
+### Sprint 7 — E-mail e enriquecimento dos chamados
 
 | Código | Entrega |
 |--------|---------|
-| F2-S8-01 | E-mail de entrada (IMAP e/ou Microsoft Graph) → abertura e resposta de chamados |
-| F2-S8-02 | Campos extras por categoria (formulários dinâmicos) |
-| F2-S8-03 | Observadores, vínculos, **mesclagem** de duplicados |
-| F2-S8-04 | Avaliação de satisfação |
-| F2-S8-05 | Ações em massa |
-| F2-S8-06 | Antivírus (ClamAV) e armazenamento S3 |
+| F2-S7-01 | E-mail de entrada (IMAP e/ou Microsoft Graph) → abertura e resposta de chamados |
+| F2-S7-02 | Campos extras por categoria (formulários dinâmicos) |
+| F2-S7-03 | Observadores, vínculos, **mesclagem** de duplicados |
+| F2-S7-04 | Avaliação de satisfação |
+| F2-S7-05 | Ações em massa |
+| F2-S7-06 | Antivírus (ClamAV) |
 
-### Sprint 9 — Relatórios, conhecimento e API pública
+### Sprint 8 — Relatórios, conhecimento e API pública
 
 | Código | Entrega |
 |--------|---------|
-| F2-S9-01 | Painel e relatórios: volume, tempos, satisfação, por grupo, setor e agente; exportação CSV |
-| F2-S9-02 | Base de conhecimento (artigos internos e públicos, busca, sugestão na abertura) |
-| F2-S9-03 | Tokens de API com escopos, `Idempotency-Key`, rate limit |
-| F2-S9-04 | Webhooks de saída assinados |
-| F2-S9-05 | Papéis personalizados |
-| F2-S9-06 | Gestão de membros do grupo pelo supervisor |
+| F2-S8-01 | Painéis e relatórios conforme [14](14-relatorios-e-indicadores.md); exportação CSV |
+| F2-S8-02 | Base de conhecimento (artigos internos e públicos, busca, sugestão na abertura) |
+| F2-S8-03 | Tokens de API com escopos, `Idempotency-Key`, rate limit |
+| F2-S8-04 | Webhooks de saída assinados |
+| F2-S8-05 | Papéis personalizados |
+| F2-S8-06 | Gestão de membros do grupo pelo supervisor |
 
-**Pronto quando (M2):** pelo menos 3 áreas além da TI operando, SSO ativo e relatórios de atendimento em uso.
+**Pronto quando (M2):** pelo menos 3 áreas além da TI operando e relatórios de atendimento em uso.
 
 ---
 
-## Fase 3 — IA assistiva (Sprints 10 a 12)
+## Fase 3 — IA assistiva (Sprints 9 a 11)
 
 Detalhes em [Integração com IA](06-integracao-ia.md).
 
 | Sprint | Entregas |
 |--------|----------|
-| **10** | Cliente genérico de IA (chat + embeddings); cadastro de endpoints e funcionalidades; `ai_runs`; mascaramento de dados pessoais; bloqueio por categoria; embeddings + busca semântica e híbrida |
-| **11** | Classificação automática (modo sugestão); chamados semelhantes / duplicados; painel de sugestões na tela do agente; feedback (aceitar, editar, rejeitar) |
-| **12** | Resumo do chamado (inclusive na transferência); sugestão de resposta com RAG e fontes; painel de qualidade e consumo; evals no CI |
+| **9** | Cliente genérico de IA (chat + embeddings); cadastro de endpoints e funcionalidades; `ai_runs`; mascaramento de dados pessoais; bloqueio por categoria; embeddings + busca semântica e híbrida |
+| **10** | Classificação automática (modo sugestão); chamados semelhantes / duplicados; painel de sugestões na tela do agente; feedback (aceitar, editar, rejeitar) |
+| **11** | Resumo do chamado (inclusive na transferência); sugestão de resposta com RAG e fontes; painel de qualidade e consumo; evals no CI |
 
 **Pronto quando (M3):** taxa de aceitação da classificação ≥ 70% por 4 semanas, e o sistema funciona normalmente com a IA desligada.
 
-## Fase 4 — IA agêntica e autoatendimento (Sprints 13 e 14)
+## Fase 4 — IA agêntica e autoatendimento (Sprints 12 e 13)
 
 | Sprint | Entregas |
 |--------|----------|
-| **13** | Servidor MCP; contas de serviço para agentes de IA; deflexão no portal (artigos sugeridos pela IA antes de abrir) |
-| **14** | Rascunho de artigo a partir de chamado resolvido; classificação com aplicação automática onde a qualidade justificar; extração de texto de anexos (opcional); preparação da v1.0 |
+| **12** | Servidor MCP; contas de serviço para agentes de IA; deflexão no portal (artigos sugeridos pela IA antes de abrir) |
+| **13** | Rascunho de artigo a partir de chamado resolvido; classificação com aplicação automática onde a qualidade justificar; extração de texto de anexos (opcional); preparação da v1.0 |
 
 ---
 
@@ -188,11 +179,12 @@ Detalhes em [Integração com IA](06-integracao-ia.md).
 - Aprovação em vários níveis e delegação por férias
 - Automações configuráveis ("se X então Y")
 - Distribuição automática (rodízio, menor carga)
+- SSO (OIDC) e mapeamento de grupos do provedor de identidade, se a Martiniti adotar um diretório de contas ([09](09-login-e-autenticacao.md))
 - SCIM para provisionamento de usuários, LDAP direto, passkeys
+- Armazenamento de anexos em S3
 - Bot no Teams e no Slack
 - Atualização em tempo real por Server-Sent Events
 - PWA / notificações push no celular
-- Particionamento de `ticket_events`, `audit_log` e `ai_runs`
 
 ## Riscos principais
 
