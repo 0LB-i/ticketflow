@@ -1,6 +1,6 @@
 # 0006. Interface web com Jinja2 + HTMX + Tailwind CSS
 
-- **Status:** Aceita
+- **Status:** Substituída por [0007](0007-interface-web-vue.md)
 - **Data:** 2026-10-09
 
 ## Contexto

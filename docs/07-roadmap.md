@@ -7,13 +7,15 @@ As fases são sequenciais; as entregas dentro de cada fase podem andar em parale
 - [x] Decidir as questões bloqueantes: instalação por empresa, interface web, IA genérica
 - [ ] Esqueleto do projeto: `pyproject.toml` (uv), estrutura `src/chamados`, FastAPI com `/health`
 - [ ] Docker Compose: PostgreSQL 17 + pgvector, Mailpit
-- [ ] Layout base da interface: Jinja2 + HTMX + Tailwind (CLI standalone integrado ao build da imagem)
+- [ ] Esqueleto do frontend: Vue 3 + TypeScript + Vite + Tailwind, Vue Router, Pinia, vue-i18n; layout base e tela de login
+- [ ] Geração do cliente TypeScript a partir do OpenAPI (script + verificação no CI)
+- [ ] Dockerfile em várias etapas (build do frontend → imagem Python servindo API + SPA)
 - [ ] SQLAlchemy + Alembic; primeira migração a partir do [esboço do schema](esboco-schema.sql)
-- [ ] CI (GitHub Actions ou GitLab CI): ruff, mypy, pytest com testcontainers em **PG 16 e 17**
+- [ ] CI (GitHub Actions ou GitLab CI): ruff, mypy, pytest com testcontainers em **PG 16 e 17**; ESLint, vue-tsc e Vitest no frontend
 - [ ] Configuração via variáveis de ambiente (pydantic-settings), logs estruturados
 - [ ] Autenticação local (Argon2id), sessão e RBAC básico
 
-**Pronto quando:** `docker compose up` sobe a API, a migração roda e o CI fica verde nas duas versões do PostgreSQL.
+**Pronto quando:** `docker compose up` sobe a API, a migração roda, o login funciona pela SPA e o CI fica verde nas duas versões do PostgreSQL.
 
 ## Fase 1 — MVP de chamados (≈ 6 semanas)
 
@@ -26,7 +28,8 @@ As fases são sequenciais; as entregas dentro de cada fase podem andar em parale
 - [ ] Outbox + worker + fila de tarefas no PostgreSQL
 - [ ] Notificações por e-mail
 - [ ] Busca textual em português
-- [ ] Interface web para solicitante e agente
+- [ ] Interface web (Vue) para solicitante e agente: lista de chamados, detalhe com linha do tempo, abertura, fila do agente
+- [ ] Testes ponta a ponta (Playwright) dos fluxos principais
 - [ ] API documentada (OpenAPI)
 
 **Pronto quando:** uma equipe piloto (ex.: TI) consegue operar o dia a dia só pelo sistema.

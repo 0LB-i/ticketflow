@@ -2,7 +2,7 @@
 
 ## Princípios
 
-1. **API-first.** Toda regra de negócio fica nos *services*, expostos pela API REST. A interface web (renderizada no servidor) usa os mesmos services, então tudo o que a tela faz também pode ser feito pela API, inclusive por agentes de IA.
+1. **API-first.** Toda funcionalidade existe primeiro na API REST. A interface web (SPA em Vue) é só mais um cliente dela, como as integrações e os agentes de IA. Tudo o que a tela faz também pode ser feito pela API.
 2. **Poucas peças móveis.** O PostgreSQL faz o papel de banco, fila de tarefas, busca textual e busca vetorial. Redis, Elasticsearch etc. só entram se uma medição mostrar que são necessários.
 3. **IA é opcional e degradável.** O sistema funciona 100% sem IA. Toda chamada a IA é assíncrona ou tem timeout e fallback.
 4. **Monólito modular.** Um único deploy, com módulos de domínio bem separados. Microsserviços só se houver motivo concreto.
@@ -22,10 +22,12 @@
 | Fila de tarefas | Tabela no PostgreSQL + `SKIP LOCKED` (avaliar a biblioteca *Procrastinate*) | Sem broker extra; transacional com os dados |
 | Cliente HTTP | httpx | Async, usado para webhooks e para a API de IA |
 | Autenticação | OIDC (Authlib) + sessão/JWT; senhas com Argon2id | SSO corporativo |
-| Interface web | Jinja2 + HTMX + Tailwind CSS (CLI standalone) | Equipe só Python, sem build de Node.js. Ver [ADR 0006](adr/0006-interface-web.md) |
+| Interface web | Vue 3 + TypeScript + Vite + Tailwind CSS, Vue Router, Pinia, TanStack Query | SPA consumindo a API. Ver [ADR 0007](adr/0007-interface-web-vue.md) |
+| Cliente da API no frontend | Tipos gerados do OpenAPI (`openapi-typescript` + `openapi-fetch`) | O contrato do backend vira tipos TypeScript; mudança incompatível quebra o build |
 | IA | Cliente HTTP genérico no formato compatível com OpenAI | Sem acoplamento a provedor ou modelo. Ver [ADR 0004](adr/0004-ia-api-generica-e-assistiva.md) |
 | Gerência de pacotes | uv | Rápido, lockfile reprodutível |
-| Qualidade | ruff, mypy (ou pyright), pytest, testcontainers | |
+| Qualidade (backend) | ruff, mypy (ou pyright), pytest, testcontainers | |
+| Qualidade (frontend) | ESLint, Prettier, vue-tsc, Vitest, Playwright (testes ponta a ponta) | |
 | Observabilidade | structlog, OpenTelemetry, prometheus-client | |
 | Empacotamento | Docker / Docker Compose; Helm opcional | |
 
@@ -63,33 +65,50 @@
 
 ## Estrutura de código proposta
 
+Monorepo com o backend e o frontend no mesmo repositório, versionados juntos:
+
 ```
-src/chamados/
-├── main.py                  # cria a app FastAPI
-├── config.py                # settings (pydantic-settings, variáveis de ambiente)
-├── db/                      # engine, sessão, base declarativa
-├── core/                    # segurança, permissões, erros, paginação, eventos
-├── modules/
-│   ├── identity/            # usuários, papéis, autenticação, tokens de API
-│   ├── teams/               # equipes e membros
-│   ├── tickets/             # chamados, comentários, anexos, status, histórico
-│   ├── sla/                 # políticas, calendários, cálculo
-│   ├── knowledge/           # base de conhecimento
-│   ├── notifications/       # e-mail, preferências
-│   ├── webhooks/            # assinaturas e entregas
-│   ├── ai/                  # cliente genérico, prompts, execuções, embeddings
-│   └── reports/
-│       # cada módulo: models.py · schemas.py · service.py · repository.py · router.py
-├── web/                     # rotas HTML, templates Jinja2, componentes HTMX
-│   ├── templates/
-│   └── static/              # CSS gerado pelo Tailwind, htmx.min.js, ícones
-├── worker/                  # fila de tarefas e handlers
-└── mcp/                     # servidor MCP (fase 4)
-migrations/                  # Alembic
-tests/
+backend/
+├── pyproject.toml
+├── migrations/              # Alembic
+├── tests/
+└── src/chamados/
+    ├── main.py                  # cria a app FastAPI
+    ├── config.py                # settings (pydantic-settings, variáveis de ambiente)
+    ├── db/                      # engine, sessão, base declarativa
+    ├── core/                    # segurança, permissões, erros, paginação, eventos
+    ├── modules/
+    │   ├── identity/            # usuários, papéis, autenticação, tokens de API
+    │   ├── teams/               # equipes e membros
+    │   ├── tickets/             # chamados, comentários, anexos, status, histórico
+    │   ├── sla/                 # políticas, calendários, cálculo
+    │   ├── knowledge/           # base de conhecimento
+    │   ├── notifications/       # e-mail, preferências
+    │   ├── webhooks/            # assinaturas e entregas
+    │   ├── ai/                  # cliente genérico, prompts, execuções, embeddings
+    │   └── reports/
+    │       # cada módulo: models.py · schemas.py · service.py · repository.py · router.py
+    ├── worker/                  # fila de tarefas e handlers
+    └── mcp/                     # servidor MCP (fase 4)
+
+frontend/
+├── package.json             # pnpm
+├── vite.config.ts           # em dev, proxy de /api para o backend
+└── src/
+    ├── main.ts
+    ├── api/                 # cliente tipado gerado do OpenAPI
+    ├── router/              # rotas e guardas por papel (solicitante, agente, admin)
+    ├── stores/              # Pinia: sessão, preferências
+    ├── views/               # páginas: requester/, agent/, admin/
+    ├── components/          # componentes reutilizáveis (base acessível + Tailwind)
+    ├── composables/         # lógica reutilizável (useTickets, usePermissions…)
+    ├── i18n/                # vue-i18n, pt-BR
+    └── assets/main.css      # entrada do Tailwind
 ```
 
-Regra de dependência: `router (API) / web (HTML) → service → repository → models`. Os módulos se comunicam pelos **services** e por **eventos de domínio** (ex.: `ticket.created`), nunca acessando diretamente os repositórios de outro módulo.
+O backend não conhece o frontend: só expõe a API. O frontend nunca contém regra de negócio além de validação de formulário para dar retorno rápido; a validação que vale é a da API.
+
+Regra de dependência no backend: `router → service → repository → models`. Os módulos se comunicam pelos **services** e por **eventos de domínio** (ex.: `ticket.created`), nunca acessando diretamente os repositórios de outro módulo.
 
 ## Eventos de domínio
 
@@ -114,6 +133,8 @@ Assim nenhuma notificação é enviada para uma transação que deu rollback, e 
 
 Cada empresa tem a **sua própria instalação**: aplicação e banco de dados próprios, sem compartilhar nada com outras empresas (ver [ADR 0005](adr/0005-instalacao-por-empresa.md)). O produto é distribuído como imagem Docker versionada, e cada atualização roda as migrações no banco daquela empresa.
 
-- **Desenvolvimento:** `docker compose` (PostgreSQL 17 + pgvector, Mailpit para capturar e-mails)
+A imagem é gerada em várias etapas: o Node.js entra só na etapa que compila o frontend, e o resultado (`frontend/dist`) é servido como arquivos estáticos pelo próprio container da API, **na mesma origem**. Assim a instalação continua sendo só *app + PostgreSQL*, sem CORS e com o cookie de sessão funcionando sem configuração extra. Um proxy reverso (nginx, Caddy) na frente é opcional.
+
+- **Desenvolvimento:** `docker compose` (PostgreSQL 17 + pgvector, Mailpit para capturar e-mails), backend com `uvicorn --reload` e frontend com `pnpm dev` (Vite)
 - **Produção mínima:** 1 VM com Docker: `api` + `worker` + PostgreSQL gerenciado ou local com backup (pgBackRest ou `pg_dump` agendado)
 - **Produção escalável:** Kubernetes com `api` e `worker` em réplicas e PostgreSQL gerenciado

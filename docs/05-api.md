@@ -17,12 +17,13 @@ A API REST é o **contrato principal** do sistema: interface web, integrações 
 | Concorrência | `ETag` / `If-Match` em `PATCH` para evitar sobrescrever alteração de outro usuário |
 | Versionamento | Mudanças incompatíveis só em uma nova versão (`/api/v2`); campos novos são aditivos |
 | Rate limit | Headers `RateLimit-*`; `429` com `Retry-After` |
+| CORS | Desnecessário em produção: a SPA é servida na mesma origem da API. Em desenvolvimento, o proxy do Vite encaminha `/api` |
 
 ## Autenticação
 
 | Cliente | Mecanismo |
 |---------|-----------|
-| Interface web | Sessão via cookie `HttpOnly` + `SameSite=Lax` + proteção CSRF (após login local ou OIDC) |
+| Interface web (SPA Vue) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF enviado em header (após login local ou OIDC). Nenhum token fica no `localStorage` |
 | Integrações e agentes de IA | `Authorization: Bearer <token>`, um token de API com **escopos** |
 
 **Escopos:**

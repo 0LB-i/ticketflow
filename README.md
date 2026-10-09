@@ -25,7 +25,7 @@ Sistema interno de chamados (help desk / service desk) para empresas, escrito em
 - **Banco:** PostgreSQL 17 (compatível com 16) + extensão `pgvector`; uma instalação por empresa
 - **Acesso a dados:** SQLAlchemy 2.x + psycopg 3, migrações com Alembic
 - **Tarefas assíncronas:** fila no próprio PostgreSQL (`SELECT ... FOR UPDATE SKIP LOCKED`)
-- **Interface web:** Jinja2 + HTMX + Tailwind CSS (renderizada no servidor, sem Node.js)
+- **Interface web:** SPA em Vue 3 + TypeScript + Vite + Tailwind CSS, consumindo a API REST
 - **IA:** uma única API genérica (formato compatível com OpenAI), configurada por URL, chave e nome do modelo, sem código específico de provedor
 
 Detalhes e justificativas em [docs/03-arquitetura.md](docs/03-arquitetura.md) e nos [ADRs](docs/adr/).
