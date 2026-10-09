@@ -15,17 +15,14 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 
 | # | Questão | Padrão proposto | Onde está |
 |---|---------|-----------------|-----------|
-| 5 | Agentes veem chamados de **outros grupos**? | Não | [8.3](08-organizacao-e-permissoes.md#83-catálogo-de-permissões) |
-| 6 | Dias úteis até **fechar automaticamente** um chamado resolvido | 3 | [10.5](10-chamados.md#105-status-e-fluxo) |
-| 7 | Dias úteis sem resposta do solicitante até **resolver por falta de retorno** | 5 (lembrete no 2º) | 10.5 |
-| 8 | "Aguardando terceiro" **pausa o SLA**? | Não | 10.5 |
-| 9 | **Metas de SLA** por prioridade | Tabela em [10.9](10-chamados.md#109-sla-fase-2) | 10.9 |
-| 10 | Arquivos **compactados** (zip, 7z) permitidos? | Só com antivírus ativo | [11.2](11-anexos-e-arquivos.md#112-tipos-de-arquivo) |
-| 11 | **Duração da sessão** | 8 h sem uso; 7 dias no máximo | [9.7](09-login-e-autenticacao.md#97-sessões) |
-| 12 | **Política de retenção** de chamados fechados, anexos e `ai_runs` | Definir com jurídico / DPO; configurável por instalação | — |
-| 13 | **Licença e distribuição** do produto | Definir antes de distribuir para outras empresas | — |
+| 5 | **Etapas (status) do chamado**: a equipe ainda vai discutir | Pendente, Aguardando cliente, Entregue, Concluído, Cancelado; o admin pode criar outros | [10.5](10-chamados.md#105-status-e-fluxo) |
+| 6 | **Quem pode concluir** um chamado entregue | Agente do grupo ou solicitante, sempre manualmente | 10.5 |
+| 7 | Arquivos **compactados** (zip, 7z) permitidos? | Só com antivírus ativo | [11.2](11-anexos-e-arquivos.md#112-tipos-de-arquivo) |
+| 8 | **Duração da sessão** | 8 h sem uso; 7 dias no máximo | [9.7](09-login-e-autenticacao.md#97-sessões) |
+| 9 | **Política de retenção** de chamados concluídos, anexos e `ai_runs` | Definir com jurídico / DPO; configurável por instalação | — |
+| 10 | **Licença e distribuição** do produto | Definir antes de distribuir para outras empresas | — |
 
-Os itens 5 a 11 já têm padrão e são configuráveis, então **não bloqueiam** o desenvolvimento. Precisam só ser validados com a área piloto.
+Os itens 5 a 8 já têm padrão, então **não bloqueiam** o desenvolvimento.
 
 ## Decididas
 
@@ -39,3 +36,7 @@ Os itens 5 a 11 já têm padrão e são configuráveis, então **não bloqueiam*
 | 2026-10-09 | GitHub (código, Actions, Projects, GHCR) | [ADR 0009](adr/0009-github.md) |
 | 2026-10-09 | Modelo de organização: setores, grupos de atendimento, papéis e permissões | [08](08-organizacao-e-permissoes.md) |
 | 2026-10-09 | Fluxo de chamados, login e anexos | [09](09-login-e-autenticacao.md), [10](10-chamados.md), [11](11-anexos-e-arquivos.md) |
+| 2026-10-09 | Agentes veem e trabalham só os chamados dos **próprios grupos** | [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |
+| 2026-10-09 | **Sem SLA**: sem metas de prazo, alertas nem calendário de expediente | [10.9](10-chamados.md#109-prazos-sem-sla) |
+| 2026-10-09 | **Nada fecha sozinho**: concluir é sempre manual; não há resolução por falta de retorno | [10.5](10-chamados.md#105-status-e-fluxo) |
+| 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (Martiniti) | [01](01-visao-geral.md#público) |

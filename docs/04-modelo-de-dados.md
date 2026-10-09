@@ -14,7 +14,6 @@ erDiagram
     roles ||--o{ users : papel
     users ||--o{ team_members : participa
     teams ||--o{ team_members : membros
-    business_calendars ||--o{ teams : expediente
     users ||--o{ user_sessions : sessoes
     users ||--o| user_mfa : mfa
     users ||--o{ auth_tokens : "convite / reset"
@@ -46,8 +45,6 @@ erDiagram
     tickets ||--o{ ticket_watchers : observadores
     tickets ||--o{ ticket_links : vinculos
     tickets ||--o{ ticket_approvals : aprovacoes
-    tickets ||--o| ticket_sla : prazos
-    sla_policies ||--o{ ticket_sla : aplica
     kb_articles ||--o{ attachments : anexos
     tickets ||--o{ ai_runs : "IA executada"
 ```
@@ -58,7 +55,7 @@ erDiagram
 |------|---------|--------|
 | Chave primária | `bigint GENERATED ALWAYS AS IDENTITY` internamente + `public_id uuid` exposto na API | Joins e índices compactos; não expõe IDs sequenciais adivinháveis. `gen_random_uuid()` é nativo desde o PG 13 (o `uuidv7()` nativo só existe a partir do PG 18) |
 | Número do chamado | Coluna `number` alimentada pela sequence `ticket_number_seq`, exibida como `#000123` | Legível para humanos |
-| Status | Tabela `ticket_statuses` com um `kind` fixo (`approval`, `new`, `open`, `pending`, `resolved`, `closed`, `canceled`) e `pauses_sla` | Nomes de status configuráveis, enquanto as regras dependem do `kind` |
+| Status | Tabela `ticket_statuses` com um `kind` fixo (`approval`, `open`, `waiting`, `resolved`, `closed`, `canceled`); status novos criados pelo admin escolhem um `kind` | Nomes de status configuráveis, enquanto as regras dependem do `kind` |
 | Prioridade | `impact` e `urgency` (1–3) + `priority` (1–4) calculada pela matriz; `priority_overridden` quando o agente força outro valor | Ver [10.3](10-chamados.md#103-prioridade-impacto--urgência) |
 | Setor do chamado | `tickets.department_id` guarda o setor do solicitante **na abertura** | Relatórios corretos mesmo se a pessoa mudar de setor |
 | Visibilidade | `ticket_teams` (grupos que já atenderam) e `ticket_watchers.kind = 'mentioned'` alimentam o filtro de visibilidade | Regras 6 e 10 de [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) sem varrer o histórico |

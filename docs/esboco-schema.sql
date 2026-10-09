@@ -2,6 +2,7 @@
 -- Esboço do schema do Sistema de Chamados
 -- Alvo: PostgreSQL 16 e 17 (não usar recursos exclusivos do 17)
 -- Modelo: uma instalação por empresa (sem tenant_id) — ADR 0005
+-- Sem SLA (decisão 2026-10-09): não há calendários, políticas nem prazos.
 -- Status: RASCUNHO para discussão. A versão oficial será gerada via Alembic.
 -- Documentos de referência: docs/08 (permissões), 09 (login), 10 (chamados), 11 (anexos)
 -- =============================================================================
@@ -179,22 +180,12 @@ CREATE INDEX audit_log_target_idx  ON audit_log (target_type, target_id);
 -- Grupos de atendimento  (docs/08)
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE business_calendars (
-    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name            text        NOT NULL UNIQUE,
-    timezone        text        NOT NULL DEFAULT 'America/Sao_Paulo',
-    -- ex.: {"mon": [["08:00","12:00"],["13:00","18:00"]], ...}
-    working_hours   jsonb       NOT NULL,
-    holidays        date[]      NOT NULL DEFAULT '{}'
-);
-
 CREATE TABLE teams (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     name            text        NOT NULL UNIQUE,
     description     text,
     email_alias     citext      UNIQUE,                 -- ex.: ti@empresa.com abre chamado nesta fila
-    calendar_id     bigint      REFERENCES business_calendars(id),
     notify_on_new   text        NOT NULL DEFAULT 'queue_only'
                     CHECK (notify_on_new IN ('queue_only', 'email_all_members')),
     is_active       boolean     NOT NULL DEFAULT true,
@@ -257,8 +248,7 @@ CREATE TABLE ticket_statuses (
     name            text        NOT NULL UNIQUE,        -- rótulo exibido (renomeável)
     requester_label text,                               -- texto amigável para o solicitante
     kind            text        NOT NULL
-                    CHECK (kind IN ('approval', 'new', 'open', 'pending', 'resolved', 'closed', 'canceled')),
-    pauses_sla      boolean     NOT NULL DEFAULT false,
+                    CHECK (kind IN ('approval', 'open', 'waiting', 'resolved', 'closed', 'canceled')),
     sort_order      smallint    NOT NULL DEFAULT 0,
     is_default_for_kind boolean NOT NULL DEFAULT false
 );
@@ -267,22 +257,6 @@ CREATE TABLE resolution_codes (
     id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name            text        NOT NULL UNIQUE,        -- Resolvido, Contorno, Não reproduzível, ...
     is_active       boolean     NOT NULL DEFAULT true
-);
-
--- -----------------------------------------------------------------------------
--- SLA  (docs/10 §10.9)
--- -----------------------------------------------------------------------------
-
-CREATE TABLE sla_policies (
-    id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name                    text     NOT NULL,
-    priority                smallint NOT NULL CHECK (priority BETWEEN 1 AND 4),
-    ticket_type             text     CHECK (ticket_type IN ('incident', 'request', 'question')),  -- NULL = qualquer
-    category_id             bigint   REFERENCES categories(id),                                   -- NULL = qualquer
-    first_response_minutes  integer  NOT NULL,          -- em minutos úteis
-    resolution_minutes      integer  NOT NULL,
-    is_active               boolean  NOT NULL DEFAULT true,
-    UNIQUE NULLS NOT DISTINCT (priority, ticket_type, category_id)                                -- PG 15+
 );
 
 -- -----------------------------------------------------------------------------
@@ -412,21 +386,6 @@ CREATE TABLE ticket_approvals (
     CHECK (status <> 'rejected' OR comment IS NOT NULL)        -- reprovação exige motivo
 );
 CREATE INDEX ticket_approvals_pending_idx ON ticket_approvals (ticket_id) WHERE status = 'pending';
-
-CREATE TABLE ticket_sla (
-    ticket_id               bigint      PRIMARY KEY REFERENCES tickets(id) ON DELETE CASCADE,
-    policy_id               bigint      REFERENCES sla_policies(id),
-    started_at              timestamptz,            -- após a aprovação, quando houver
-    first_response_due_at   timestamptz,
-    resolution_due_at       timestamptz,
-    paused_since            timestamptz,            -- preenchido enquanto o status pausar o SLA
-    paused_minutes_total    integer     NOT NULL DEFAULT 0,
-    warning_sent_at         timestamptz,            -- alerta de 75%
-    first_response_breached boolean     NOT NULL DEFAULT false,
-    resolution_breached     boolean     NOT NULL DEFAULT false
-);
-CREATE INDEX ticket_sla_due_idx ON ticket_sla (resolution_due_at)
-    WHERE NOT resolution_breached AND paused_since IS NULL;
 
 -- Histórico do chamado: somente inserção (append-only). Candidata a particionamento mensal.
 CREATE TABLE ticket_events (

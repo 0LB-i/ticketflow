@@ -16,7 +16,7 @@
 |---------|---------|
 | `tipo:` | `feature`, `bug`, `tarefa`, `docs`, `seguranca` |
 | `area:` | `backend`, `frontend`, `infra`, `ia`, `ux` |
-| `modulo:` | `identidade`, `organizacao`, `chamados`, `anexos`, `sla`, `notificacoes`, `kb`, `relatorios`, `integracoes` |
+| `modulo:` | `identidade`, `organizacao`, `chamados`, `anexos`, `notificacoes`, `kb`, `relatorios`, `integracoes` |
 | `prioridade:` | `alta`, `media`, `baixa` |
 
 ### Modelo de história de usuário
@@ -29,8 +29,7 @@
 ### Critérios de aceite
 - [ ] Só membros do grupo atual (ou admin) podem transferir
 - [ ] Motivo obrigatório, registrado como nota interna
-- [ ] Chamado volta para "Novo" no grupo de destino, sem responsável
-- [ ] SLA não reinicia
+- [ ] Chamado continua "Pendente" no grupo de destino, sem responsável
 - [ ] Grupo anterior mantém acesso somente leitura
 - [ ] Evento `ticket.transferred` no histórico e no outbox
 
@@ -94,10 +93,9 @@ Também ficam ativos o **Dependabot** (pip/uv, npm/pnpm, GitHub Actions, Docker)
 
 | Nível | Ferramenta | Cobre |
 |-------|------------|-------|
-| Unitário (backend) | pytest | Regras puras: matriz de prioridade, cálculo de SLA, transições, mascaramento |
+| Unitário (backend) | pytest | Regras puras: matriz de prioridade, transições, mascaramento |
 | Integração (backend) | pytest + testcontainers / services do CI | Repositórios, services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
-| Propriedades | Hypothesis | Cálculo de horas úteis (feriados, fusos, pausas) |
 | Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |
 | Ponta a ponta | Playwright | Fluxos completos: abrir → atender → resolver → confirmar; aprovação; transferência |
 | IA | Evals próprios | Qualidade de classificação, resumo e resposta por versão de prompt |
