@@ -4,9 +4,10 @@ As fases são sequenciais; as entregas dentro de cada fase podem andar em parale
 
 ## Fase 0 — Fundação (≈ 2 semanas)
 
-- [ ] Decidir as [questões em aberto](questoes-em-aberto.md) bloqueantes (multi-empresa, frontend)
+- [x] Decidir as questões bloqueantes: instalação por empresa, interface web, IA genérica
 - [ ] Esqueleto do projeto: `pyproject.toml` (uv), estrutura `src/chamados`, FastAPI com `/health`
 - [ ] Docker Compose: PostgreSQL 17 + pgvector, Mailpit
+- [ ] Layout base da interface: Jinja2 + HTMX + Tailwind (CLI standalone integrado ao build da imagem)
 - [ ] SQLAlchemy + Alembic; primeira migração a partir do [esboço do schema](esboco-schema.sql)
 - [ ] CI (GitHub Actions ou GitLab CI): ruff, mypy, pytest com testcontainers em **PG 16 e 17**
 - [ ] Configuração via variáveis de ambiente (pydantic-settings), logs estruturados
@@ -47,8 +48,9 @@ As fases são sequenciais; as entregas dentro de cada fase podem andar em parale
 
 ## Fase 3 — IA assistiva (≈ 5 semanas)
 
-- [ ] Módulo `ai`: interface `AIProvider` + 2 adaptadores (1 em nuvem + 1 local)
-- [ ] Administração de provedores e funcionalidades; registro de execuções (`ai_runs`)
+- [ ] Módulo `ai`: cliente genérico (chat + embeddings), saída JSON validada com Pydantic
+- [ ] Testes do cliente contra um servidor falso e contra um modelo local real (ex.: Ollama no CI)
+- [ ] Administração de endpoints de IA e funcionalidades; registro de execuções (`ai_runs`)
 - [ ] Mascaramento de dados pessoais + bloqueio por categoria
 - [ ] Embeddings com pgvector; busca semântica e híbrida
 - [ ] Classificação automática (modo sugestão)
@@ -74,5 +76,4 @@ As fases são sequenciais; as entregas dentro de cada fase podem andar em parale
 - Automações configuráveis (regras se X então Y)
 - Atribuição automática por carga
 - Particionamento de `ticket_events` e `ai_runs`
-- Multi-empresa (se decidido)
 - Catálogo de serviços com aprovações

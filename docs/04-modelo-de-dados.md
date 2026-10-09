@@ -44,7 +44,9 @@ erDiagram
 | Busca textual | Coluna gerada `search_vector` com configuração `pt_br` (português + unaccent) e índice GIN | Nativo e mantido automaticamente |
 | Busca semântica | Tabela `embeddings` com `vector` (pgvector) e índice HNSW | Uma tabela para chamados, comentários e artigos |
 | Exclusão | Exclusão lógica (`deleted_at`) para chamados; anonimização para atender à LGPD | Preserva auditoria e permite o direito ao esquecimento |
-| Multi-empresa | **Em aberto**. O esboço é *single-tenant* (uma instalação por empresa) | Ver [questões em aberto](questoes-em-aberto.md) |
+| Multi-empresa | **Uma instalação por empresa** (*single-tenant*): sem `tenant_id` | Isolamento total dos dados e schema mais simples. Ver [ADR 0005](adr/0005-instalacao-por-empresa.md) |
+| Configuração de IA | `ai_endpoints` guarda URL, referência ao segredo e nome do modelo como texto livre | API genérica, sem tabela de provedores. Ver [ADR 0004](adr/0004-ia-api-generica-e-assistiva.md) |
+| Dimensão dos embeddings | Definida na instalação (`AI_EMBEDDING_DIM`) e aplicada pela migração | Depende do modelo configurado; trocar de modelo exige reindexar |
 
 ## Compatibilidade PostgreSQL 16 × 17
 

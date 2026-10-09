@@ -272,22 +272,25 @@ CREATE INDEX kb_articles_search_idx ON kb_articles USING gin (search_vector);
 -- Inteligência artificial
 -- -----------------------------------------------------------------------------
 
--- Provedores e modelos configurados (chaves de API ficam fora do banco ou criptografadas)
-CREATE TABLE ai_providers (
+-- Endpoints de IA: API genérica no formato compatível com OpenAI.
+-- Não existe código por provedor; o modelo é só um texto repassado à API.
+-- (a chave de API fica fora do banco: variável de ambiente ou gerenciador de segredos)
+CREATE TABLE ai_endpoints (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name            text        NOT NULL UNIQUE,    -- ex.: "claude-principal", "ollama-local"
-    driver          text        NOT NULL,           -- ex.: anthropic, openai, openai_compatible, ollama
-    base_url        text,
-    secret_ref      text,                           -- nome da variável de ambiente / segredo
+    name            text        NOT NULL UNIQUE,    -- ex.: "principal", "local-sensivel", "embeddings"
+    base_url        text        NOT NULL,           -- ex.: https://ia.empresa.local/v1
+    secret_ref      text,                           -- nome da variável de ambiente / segredo (NULL = sem auth)
+    model           text        NOT NULL,           -- texto livre, enviado no campo "model" da requisição
+    -- ex.: {"timeout_s": 30, "temperature": 0.2, "max_tokens": 1024,
+    --       "json_schema_mode": false, "extra_headers": {}}
     settings        jsonb       NOT NULL DEFAULT '{}',
     is_active       boolean     NOT NULL DEFAULT true
 );
 
--- Qual provedor/modelo atende cada funcionalidade
+-- Qual endpoint atende cada funcionalidade
 CREATE TABLE ai_features (
     feature         text        PRIMARY KEY,        -- classify, summarize, suggest_reply, embed, ...
-    provider_id     bigint      REFERENCES ai_providers(id),
-    model           text,
+    endpoint_id     bigint      REFERENCES ai_endpoints(id),
     prompt_version  text,
     is_enabled      boolean     NOT NULL DEFAULT false,
     auto_apply      boolean     NOT NULL DEFAULT false,  -- false = só sugere, um humano confirma
@@ -299,8 +302,8 @@ CREATE TABLE ai_runs (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     feature         text        NOT NULL,
     ticket_id       bigint      REFERENCES tickets(id) ON DELETE SET NULL,
-    provider_id     bigint      REFERENCES ai_providers(id),
-    model           text        NOT NULL,
+    endpoint_id     bigint      REFERENCES ai_endpoints(id),
+    model           text        NOT NULL,           -- cópia do modelo usado na época (o endpoint pode mudar)
     prompt_version  text,
     input_redacted  jsonb,                          -- entrada JÁ mascarada (sem dados pessoais)
     output          jsonb,
@@ -318,7 +321,8 @@ ALTER TABLE ticket_comments
     ADD CONSTRAINT ticket_comments_ai_run_fk FOREIGN KEY (ai_run_id) REFERENCES ai_runs(id);
 
 -- Embeddings para busca semântica e detecção de duplicados.
--- A dimensão depende do modelo de embedding escolhido (fixar na migração).
+-- A dimensão depende do modelo de embeddings configurado: definida na instalação
+-- (AI_EMBEDDING_DIM) e aplicada pela migração. Trocar de modelo exige reindexar.
 CREATE TABLE embeddings (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     source_type     text        NOT NULL CHECK (source_type IN ('ticket', 'comment', 'kb_article')),
@@ -326,7 +330,7 @@ CREATE TABLE embeddings (
     chunk_index     smallint    NOT NULL DEFAULT 0,
     content_hash    text        NOT NULL,           -- evita recalcular sem mudança
     model           text        NOT NULL,
-    embedding       vector(1024) NOT NULL,
+    embedding       vector(1024) NOT NULL,          -- 1024 = AI_EMBEDDING_DIM (exemplo)
     created_at      timestamptz NOT NULL DEFAULT now(),
     UNIQUE (source_type, source_id, chunk_index, model)
 );

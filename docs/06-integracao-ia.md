@@ -10,9 +10,9 @@ A integração acontece em **duas direções**:
 | Princípio | Na prática |
 |-----------|------------|
 | **Humano no controle** | Por padrão a IA **sugere** e o agente humano confirma. Aplicar automaticamente é opcional, por funcionalidade (`ai_features.auto_apply`) e com limite mínimo de confiança. |
-| **Agnóstico de provedor** | Interface única `AIProvider` com adaptadores: Anthropic (Claude), OpenAI, Azure OpenAI, APIs compatíveis com OpenAI e modelos locais (Ollama / vLLM) para dados sensíveis. Provedor e modelo são configuráveis por funcionalidade. |
+| **API genérica, sem código por modelo** | Um único cliente HTTP no formato compatível com OpenAI (`/chat/completions` e `/embeddings`). A empresa configura **URL base, chave e nome do modelo**, e só isso. Funciona com qualquer serviço que fale esse formato: nuvem, gateway corporativo (ex.: LiteLLM) ou modelo local. Nenhum SDK de fornecedor nem nome de modelo no código. Ver [ADR 0004](adr/0004-ia-api-generica-e-assistiva.md). |
 | **Degradável** | Falha, lentidão ou desligamento da IA não bloqueia nenhum fluxo. Chamadas pesadas são assíncronas (worker); as síncronas têm timeout curto. |
-| **Privacidade (LGPD)** | Mascaramento de dados pessoais antes do envio, categorias marcadas como `ai_allowed = false` nunca saem para a IA, e é preciso verificar o contrato do provedor (retenção zero, sem uso para treino). |
+| **Privacidade (LGPD)** | Mascaramento de dados pessoais antes do envio, categorias marcadas como `ai_allowed = false` nunca saem para a IA, e é preciso verificar o contrato do serviço de IA escolhido pela empresa (retenção zero, sem uso para treino). Para dados sensíveis, basta apontar a URL para um modelo local. |
 | **Auditável e mensurável** | Toda execução é registrada em `ai_runs`: modelo, versão do prompt, tokens, latência, custo e feedback do humano. |
 | **Prompts versionados** | Prompts ficam no repositório (`src/chamados/modules/ai/prompts/`), com versão e testes de avaliação. |
 
@@ -30,17 +30,24 @@ A integração acontece em **duas direções**:
 
 Toda saída é validada com um schema **Pydantic**. Uma resposta fora do schema conta como erro e não é aplicada.
 
+**Saída estruturada sem depender do modelo:** nem todo serviço compatível suporta `response_format` com JSON Schema. Por isso o padrão é:
+
+1. o prompt pede JSON e inclui o schema esperado;
+2. a resposta é extraída e validada com Pydantic;
+3. se a validação falhar, uma nova tentativa envia o erro de validação de volta ao modelo;
+4. se falhar de novo, a execução é registrada como `error` e nada é aplicado.
+
+Se o endpoint suportar `response_format` com JSON Schema, o administrador pode ligar essa opção (`settings.json_schema_mode`) para mais confiabilidade.
+
 ## Arquitetura do módulo `ai`
 
 ```
 modules/ai/
-├── providers/
-│   ├── base.py           # Protocol AIProvider: complete(), complete_structured(), embed()
-│   ├── anthropic.py
-│   ├── openai.py         # também cobre Azure e APIs compatíveis com OpenAI (vLLM, LM Studio)
-│   └── ollama.py
+├── client.py             # cliente HTTP genérico (httpx): chat(), chat_json(schema), embed()
+│                         #   POST {base_url}/chat/completions · POST {base_url}/embeddings
+│                         #   timeout, retentativas com backoff, contagem de tokens se informada
 ├── features/
-│   ├── classify.py       # monta o contexto, chama o provedor, valida, grava ai_run, gera a sugestão
+│   ├── classify.py       # monta o contexto, chama o cliente, valida, grava ai_run, gera a sugestão
 │   ├── summarize.py
 │   ├── suggest_reply.py
 │   └── similar.py
@@ -57,7 +64,7 @@ modules/ai/
 ticket.created → outbox → worker: ai.classify_ticket
    ├─ categoria/fila permite IA?   não → fim
    ├─ redaction(título, descrição)
-   ├─ provider.complete_structured(prompt classify.v1, schema ClassifyResult)
+   ├─ client.chat_json(prompt classify.v1, schema ClassifyResult)
    ├─ grava ai_runs (entrada mascarada, saída, tokens, latência)
    └─ confiança ≥ min_confidence e auto_apply?
          sim → aplica e registra ticket_event(actor_kind='ai')
@@ -103,7 +110,7 @@ Agentes externos podem reagir a eventos (`ticket.created`, `ticket.comment_added
 | **Prompt injection** (texto do chamado tenta manipular a IA) | O conteúdo do usuário vai sempre delimitado como *dado*, nunca como instrução; as saídas são estruturadas e validadas; a IA de triagem não tem ferramentas com efeito colateral; ações automáticas são limitadas a um conjunto fechado (categoria, prioridade, fila) |
 | **Vazamento de dados** | Mascaramento, `ai_allowed` por categoria, opção de modelo local, a RAG respeita a visibilidade (o solicitante nunca recebe trechos de notas internas ou de chamados de outras pessoas) |
 | **Agente externo com permissão demais** | Escopos mínimos, sem `admin`, conta de serviço dedicada, revogação imediata, auditoria |
-| **Custo descontrolado** | Cota mensal de tokens por funcionalidade, alerta de custo, cache de resumos (só regenera se o chamado mudou) |
+| **Custo descontrolado** | Cota mensal de tokens por funcionalidade, alerta de consumo, cache de resumos (só regenera se o chamado mudou) |
 | **Alucinação na resposta** | A sugestão de resposta cita as fontes (artigos e chamados); o humano revisa antes de enviar; o feedback é medido |
 
 ## Métricas de qualidade
@@ -111,6 +118,6 @@ Agentes externos podem reagir a eventos (`ticket.created`, `ticket.comment_added
 - **Classificação:** acurácia contra a categoria final, medida após o fechamento do chamado
 - **Sugestões:** taxa de aceitação (aceita / editada / rejeitada)
 - **Duplicados:** precisão das sugestões marcadas como duplicadas
-- **Operação:** latência p95, taxa de erro e custo por chamado, por provedor e modelo
+- **Operação:** latência p95, taxa de erro e tokens por chamado, por endpoint e modelo configurado
 
-Esses dados alimentam um painel em `/admin/ai` e permitem comparar provedores e versões de prompt (teste A/B).
+Esses dados alimentam um painel em `/admin/ai` e permitem comparar modelos (trocando só a configuração) e versões de prompt (teste A/B).

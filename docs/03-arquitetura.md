@@ -2,7 +2,7 @@
 
 ## Princípios
 
-1. **API-first.** Toda funcionalidade existe primeiro na API; a interface web e os agentes de IA são clientes dela.
+1. **API-first.** Toda regra de negócio fica nos *services*, expostos pela API REST. A interface web (renderizada no servidor) usa os mesmos services, então tudo o que a tela faz também pode ser feito pela API, inclusive por agentes de IA.
 2. **Poucas peças móveis.** O PostgreSQL faz o papel de banco, fila de tarefas, busca textual e busca vetorial. Redis, Elasticsearch etc. só entram se uma medição mostrar que são necessários.
 3. **IA é opcional e degradável.** O sistema funciona 100% sem IA. Toda chamada a IA é assíncrona ou tem timeout e fallback.
 4. **Monólito modular.** Um único deploy, com módulos de domínio bem separados. Microsserviços só se houver motivo concreto.
@@ -20,9 +20,10 @@
 | Busca textual | `tsvector` com dicionário `portuguese` + `unaccent` | Nativo, sem serviço extra |
 | Busca vetorial | `pgvector` (HNSW) | Nativo, sem serviço extra |
 | Fila de tarefas | Tabela no PostgreSQL + `SKIP LOCKED` (avaliar a biblioteca *Procrastinate*) | Sem broker extra; transacional com os dados |
-| Cliente HTTP | httpx | Async, usado para webhooks e provedores de IA |
+| Cliente HTTP | httpx | Async, usado para webhooks e para a API de IA |
 | Autenticação | OIDC (Authlib) + sessão/JWT; senhas com Argon2id | SSO corporativo |
-| Interface web | **em aberto**, ver [questões em aberto](questoes-em-aberto.md) | |
+| Interface web | Jinja2 + HTMX + Tailwind CSS (CLI standalone) | Equipe só Python, sem build de Node.js. Ver [ADR 0006](adr/0006-interface-web.md) |
+| IA | Cliente HTTP genérico no formato compatível com OpenAI | Sem acoplamento a provedor ou modelo. Ver [ADR 0004](adr/0004-ia-api-generica-e-assistiva.md) |
 | Gerência de pacotes | uv | Rápido, lockfile reprodutível |
 | Qualidade | ruff, mypy (ou pyright), pytest, testcontainers | |
 | Observabilidade | structlog, OpenTelemetry, prometheus-client | |
@@ -49,8 +50,9 @@
                                                       │
                                 ┌─────────────────────┼─────────────────────┐
                                 ▼                     ▼                     ▼
-                         Provedores de IA      Servidor SMTP/IMAP    Webhooks de saída
-                       (Claude, OpenAI, local)
+                       API de IA genérica      Servidor SMTP/IMAP    Webhooks de saída
+                     (compatível com OpenAI:
+                      nuvem, gateway ou local)
 ```
 
 **Processos:**
@@ -75,16 +77,19 @@ src/chamados/
 │   ├── knowledge/           # base de conhecimento
 │   ├── notifications/       # e-mail, preferências
 │   ├── webhooks/            # assinaturas e entregas
-│   ├── ai/                  # provedores, prompts, execuções, embeddings
+│   ├── ai/                  # cliente genérico, prompts, execuções, embeddings
 │   └── reports/
 │       # cada módulo: models.py · schemas.py · service.py · repository.py · router.py
+├── web/                     # rotas HTML, templates Jinja2, componentes HTMX
+│   ├── templates/
+│   └── static/              # CSS gerado pelo Tailwind, htmx.min.js, ícones
 ├── worker/                  # fila de tarefas e handlers
 └── mcp/                     # servidor MCP (fase 4)
 migrations/                  # Alembic
 tests/
 ```
 
-Regra de dependência: `router → service → repository → models`. Os módulos se comunicam pelos **services** e por **eventos de domínio** (ex.: `ticket.created`), nunca acessando diretamente os repositórios de outro módulo.
+Regra de dependência: `router (API) / web (HTML) → service → repository → models`. Os módulos se comunicam pelos **services** e por **eventos de domínio** (ex.: `ticket.created`), nunca acessando diretamente os repositórios de outro módulo.
 
 ## Eventos de domínio
 
@@ -103,9 +108,11 @@ Assim nenhuma notificação é enviada para uma transação que deu rollback, e 
 - Opcionalmente, Row-Level Security do PostgreSQL como segunda camada (avaliar na Fase 2)
 - Anexos: limite de tamanho, verificação de tipo MIME, antivírus opcional (ClamAV), armazenamento em disco ou S3-compatível, download por URL assinada
 - Rate limiting por usuário e por token de API
-- Segredos (chaves de provedores de IA, SMTP) criptografados em repouso ou fornecidos via variáveis de ambiente / gerenciador de segredos
+- Segredos (chave da API de IA, SMTP) criptografados em repouso ou fornecidos via variáveis de ambiente / gerenciador de segredos
 
 ## Implantação
+
+Cada empresa tem a **sua própria instalação**: aplicação e banco de dados próprios, sem compartilhar nada com outras empresas (ver [ADR 0005](adr/0005-instalacao-por-empresa.md)). O produto é distribuído como imagem Docker versionada, e cada atualização roda as migrações no banco daquela empresa.
 
 - **Desenvolvimento:** `docker compose` (PostgreSQL 17 + pgvector, Mailpit para capturar e-mails)
 - **Produção mínima:** 1 VM com Docker: `api` + `worker` + PostgreSQL gerenciado ou local com backup (pgBackRest ou `pg_dump` agendado)
