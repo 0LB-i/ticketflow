@@ -4,30 +4,52 @@ Esboço completo e comentado: [`esboco-schema.sql`](esboco-schema.sql). Ele é o
 
 ## Diagrama de entidades (simplificado)
 
+Organização, identidade e acesso ([08](08-organizacao-e-permissoes.md), [09](09-login-e-autenticacao.md)):
+
 ```mermaid
 erDiagram
+    departments ||--o{ departments : subsetor
+    departments ||--o{ users : lotacao
+    departments ||--o{ department_managers : gestores
+    roles ||--o{ users : papel
     users ||--o{ team_members : participa
-    teams ||--o{ team_members : tem
-    teams ||--o{ categories : "atende (padrão)"
+    teams ||--o{ team_members : membros
+    business_calendars ||--o{ teams : expediente
+    users ||--o{ user_sessions : sessoes
+    users ||--o| user_mfa : mfa
+    users ||--o{ auth_tokens : "convite / reset"
+    idp_group_mappings }o--o| roles : mapeia
+    idp_group_mappings }o--o| teams : mapeia
+    idp_group_mappings }o--o| departments : mapeia
+    users ||--o{ api_clients : "conta de servico"
+    api_clients ||--o{ api_tokens : tokens
+```
+
+Chamados ([10](10-chamados.md), [11](11-anexos-e-arquivos.md)):
+
+```mermaid
+erDiagram
     categories ||--o{ categories : subcategoria
-    users ||--o{ tickets : solicita
-    users ||--o{ tickets : "atende (assignee)"
-    teams ||--o{ tickets : fila
+    teams ||--o{ categories : "grupo padrao"
+    users ||--o{ tickets : solicitante
+    users ||--o{ tickets : responsavel
+    departments ||--o{ tickets : "setor na abertura"
+    teams ||--o{ tickets : "fila atual"
     categories ||--o{ tickets : classifica
     ticket_statuses ||--o{ tickets : status
-    tickets ||--o{ ticket_comments : tem
-    tickets ||--o{ ticket_attachments : tem
+    resolution_codes ||--o{ tickets : resolucao
+    tickets ||--o{ ticket_teams : "grupos que atenderam"
+    tickets ||--o{ ticket_comments : comentarios
+    tickets ||--o{ attachments : anexos
+    ticket_comments ||--o{ attachments : anexos
     tickets ||--o{ ticket_events : historico
     tickets ||--o{ ticket_watchers : observadores
     tickets ||--o{ ticket_links : vinculos
+    tickets ||--o{ ticket_approvals : aprovacoes
     tickets ||--o| ticket_sla : prazos
     sla_policies ||--o{ ticket_sla : aplica
-    business_calendars ||--o{ sla_policies : usa
-    kb_articles ||--o{ embeddings : indexado
-    tickets ||--o{ embeddings : indexado
+    kb_articles ||--o{ attachments : anexos
     tickets ||--o{ ai_runs : "IA executada"
-    api_clients ||--o{ api_tokens : possui
-    webhook_subscriptions ||--o{ webhook_deliveries : entrega
 ```
 
 ## Decisões de modelagem
@@ -36,8 +58,14 @@ erDiagram
 |------|---------|--------|
 | Chave primária | `bigint GENERATED ALWAYS AS IDENTITY` internamente + `public_id uuid` exposto na API | Joins e índices compactos; não expõe IDs sequenciais adivinháveis. `gen_random_uuid()` é nativo desde o PG 13 (o `uuidv7()` nativo só existe a partir do PG 18) |
 | Número do chamado | Coluna `number` alimentada pela sequence `ticket_number_seq`, exibida como `#000123` | Legível para humanos |
-| Status | Tabela `ticket_statuses` com um `kind` fixo (`new`, `open`, `pending`, `resolved`, `closed`, `canceled`) | Nomes de status configuráveis, enquanto as regras (SLA pausa em `pending`) dependem do `kind` |
-| Prioridade | `smallint` 1–4 com `CHECK` | Simples e ordenável |
+| Status | Tabela `ticket_statuses` com um `kind` fixo (`approval`, `new`, `open`, `pending`, `resolved`, `closed`, `canceled`) e `pauses_sla` | Nomes de status configuráveis, enquanto as regras dependem do `kind` |
+| Prioridade | `impact` e `urgency` (1–3) + `priority` (1–4) calculada pela matriz; `priority_overridden` quando o agente força outro valor | Ver [10.3](10-chamados.md#103-prioridade-impacto--urgência) |
+| Setor do chamado | `tickets.department_id` guarda o setor do solicitante **na abertura** | Relatórios corretos mesmo se a pessoa mudar de setor |
+| Visibilidade | `ticket_teams` (grupos que já atenderam) e `ticket_watchers.kind = 'mentioned'` alimentam o filtro de visibilidade | Regras 6 e 10 de [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) sem varrer o histórico |
+| Papéis | Tabela `roles` com `permissions text[]`; papéis do sistema vindos de *seed* | Papéis personalizados na Fase 2 sem mudar o schema |
+| Auditoria | `ticket_events` (o que acontece no chamado) separado de `audit_log` (login, administração, permissões) | Consultas e retenção diferentes |
+| Anexos | Tabela única `attachments` com dono opcional; sem dono = upload temporário | Upload em duas etapas ([11.4](11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas)) |
+| Sessões | `user_sessions` no banco, só com hashes | Revogação imediata, lista de sessões ativas |
 | Datas | Sempre `timestamptz` | Evita problemas de fuso horário |
 | Histórico | `ticket_events` só aceita inserção (append-only), com `payload jsonb` (antes/depois) | Auditoria completa, base para a linha do tempo |
 | Campos personalizados | `custom_fields jsonb` no chamado + definição JSON Schema na categoria | Flexível sem migração a cada novo campo |
@@ -66,5 +94,7 @@ Extensões necessárias:
 | `tickets` | ~500 mil |
 | `ticket_comments` | ~3 milhões |
 | `ticket_events` | ~10 milhões, candidata a particionamento por mês |
+| `audit_log` | ~5 milhões, candidata a particionamento por mês |
+| `attachments` | ~400 mil (os arquivos ocupam ~200 GB a 500 GB no armazenamento) |
 | `embeddings` | ~1 milhão |
 | `ai_runs` | ~2 milhões, candidata a particionamento e expurgo |

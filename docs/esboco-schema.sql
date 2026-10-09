@@ -1,7 +1,9 @@
 -- =============================================================================
 -- Esboço do schema do Sistema de Chamados
 -- Alvo: PostgreSQL 16 e 17 (não usar recursos exclusivos do 17)
+-- Modelo: uma instalação por empresa (sem tenant_id) — ADR 0005
 -- Status: RASCUNHO para discussão. A versão oficial será gerada via Alembic.
+-- Documentos de referência: docs/08 (permissões), 09 (login), 10 (chamados), 11 (anexos)
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS citext;
@@ -16,7 +18,45 @@ ALTER TEXT SEARCH CONFIGURATION pt_br
     ALTER MAPPING FOR hword, hword_part, word WITH unaccent, portuguese_stem;
 
 -- -----------------------------------------------------------------------------
--- Identidade e acesso
+-- Configurações gerais (chave/valor), ex.: matriz de prioridade, prazos de
+-- fechamento automático, tipos de arquivo permitidos, configuração de SSO
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE settings (
+    key             text        PRIMARY KEY,
+    value           jsonb       NOT NULL,
+    updated_by      bigint,                             -- FK adicionada após users
+    updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
+-- Organização: setores e papéis  (docs/08)
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE departments (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    parent_id       bigint      REFERENCES departments(id),
+    name            text        NOT NULL,
+    code            text        UNIQUE,                 -- código / centro de custo; usado no mapeamento do SSO
+    is_active       boolean     NOT NULL DEFAULT true,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (parent_id, name)
+);
+
+-- Papéis globais. Os papéis do sistema (requester, agent, admin, auditor) vêm de seed
+-- e não podem ser alterados; papéis personalizados chegam na Fase 2.
+CREATE TABLE roles (
+    id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code            text        NOT NULL UNIQUE,        -- requester, agent, admin, auditor, ...
+    name            text        NOT NULL,
+    permissions     text[]      NOT NULL,               -- códigos do catálogo (core/permissions.py)
+    is_system       boolean     NOT NULL DEFAULT false,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
+-- Usuários e autenticação  (docs/09)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE users (
@@ -24,17 +64,73 @@ CREATE TABLE users (
     public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     email           citext      NOT NULL UNIQUE,
     full_name       text        NOT NULL,
+    role_id         smallint    NOT NULL REFERENCES roles(id),
+    department_id   bigint      NOT NULL REFERENCES departments(id),
+    job_title       text,
+    phone           text,
     password_hash   text,                               -- NULL quando só usa SSO
-    external_id     text,                               -- "sub" do OIDC / objectGUID do AD
-    role            text        NOT NULL DEFAULT 'requester'
-                    CHECK (role IN ('requester', 'agent', 'supervisor', 'admin')),
-    department      text,
+    password_changed_at timestamptz,
+    local_login_allowed boolean NOT NULL DEFAULT true,  -- exceção quando "SSO obrigatório" está ligado
+    external_id     text        UNIQUE,                 -- "sub" do OIDC
     is_active       boolean     NOT NULL DEFAULT true,
+    failed_logins   smallint    NOT NULL DEFAULT 0,
+    locked_until    timestamptz,
     locale          text        NOT NULL DEFAULT 'pt-BR',
     timezone        text        NOT NULL DEFAULT 'America/Sao_Paulo',
+    avatar_key      text,                               -- chave no armazenamento
+    notification_prefs jsonb    NOT NULL DEFAULT '{}',
+    last_login_at   timestamptz,
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz NOT NULL DEFAULT now(),
     anonymized_at   timestamptz                         -- LGPD
+);
+CREATE INDEX users_department_idx ON users (department_id) WHERE is_active;
+CREATE INDEX users_name_trgm_idx  ON users USING gin (full_name gin_trgm_ops);  -- autocompletar
+
+ALTER TABLE settings
+    ADD CONSTRAINT settings_updated_by_fk FOREIGN KEY (updated_by) REFERENCES users(id);
+
+CREATE TABLE department_managers (
+    department_id   bigint      NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source          text        NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'idp', 'import')),
+    PRIMARY KEY (department_id, user_id)
+);
+
+-- Sessões no servidor; o cookie carrega só um identificador aleatório
+CREATE TABLE user_sessions (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash      text        NOT NULL UNIQUE,        -- SHA-256 do identificador do cookie
+    csrf_token_hash text        NOT NULL,
+    mfa_verified    boolean     NOT NULL DEFAULT false,
+    auth_method     text        NOT NULL CHECK (auth_method IN ('password', 'oidc')),
+    ip              inet,
+    user_agent      text,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    last_seen_at    timestamptz NOT NULL DEFAULT now(),
+    expires_at      timestamptz NOT NULL,               -- limite absoluto (ex.: 7 dias)
+    revoked_at      timestamptz
+);
+CREATE INDEX user_sessions_user_idx ON user_sessions (user_id) WHERE revoked_at IS NULL;
+
+-- Tokens de uso único: convite e redefinição de senha
+CREATE TABLE auth_tokens (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    purpose         text        NOT NULL CHECK (purpose IN ('invite', 'password_reset')),
+    token_hash      text        NOT NULL UNIQUE,
+    expires_at      timestamptz NOT NULL,
+    used_at         timestamptz,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE user_mfa (
+    user_id         bigint      PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    totp_secret_enc bytea       NOT NULL,               -- criptografado com a chave da aplicação
+    recovery_codes  text[]      NOT NULL,               -- hashes dos códigos de recuperação
+    enabled_at      timestamptz NOT NULL DEFAULT now(),
+    last_used_step  bigint                              -- evita reutilizar o mesmo código TOTP
 );
 
 -- Integrações e agentes de IA autenticam como "clientes de API"
@@ -44,7 +140,7 @@ CREATE TABLE api_clients (
     name            text        NOT NULL,
     kind            text        NOT NULL DEFAULT 'integration'
                     CHECK (kind IN ('integration', 'ai_agent')),
-    acts_as_user_id bigint      REFERENCES users(id),   -- identidade usada na auditoria
+    acts_as_user_id bigint      NOT NULL REFERENCES users(id),  -- conta de serviço usada nas permissões
     is_active       boolean     NOT NULL DEFAULT true,
     created_by      bigint      NOT NULL REFERENCES users(id),
     created_at      timestamptz NOT NULL DEFAULT now()
@@ -62,49 +158,25 @@ CREATE TABLE api_tokens (
     created_at      timestamptz NOT NULL DEFAULT now()
 );
 
--- -----------------------------------------------------------------------------
--- Equipes, categorias e status
--- -----------------------------------------------------------------------------
-
-CREATE TABLE teams (
+-- Auditoria de tudo que não é histórico de chamado: login, administração, permissões
+CREATE TABLE audit_log (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
-    name            text        NOT NULL UNIQUE,
-    email_alias     citext      UNIQUE,                 -- ex.: ti@empresa.com abre chamado nesta fila
-    is_active       boolean     NOT NULL DEFAULT true,
+    action          text        NOT NULL,               -- ex.: auth.login_failed, user.role_changed
+    actor_user_id   bigint      REFERENCES users(id),
+    actor_api_client_id bigint  REFERENCES api_clients(id),
+    target_type     text,                               -- ex.: user, team, setting
+    target_id       text,
+    ip              inet,
+    user_agent      text,
+    before          jsonb,
+    after           jsonb,
     created_at      timestamptz NOT NULL DEFAULT now()
 );
-
-CREATE TABLE team_members (
-    team_id         bigint      NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    is_supervisor   boolean     NOT NULL DEFAULT false,
-    PRIMARY KEY (team_id, user_id)
-);
-
-CREATE TABLE categories (
-    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    parent_id       bigint      REFERENCES categories(id),
-    name            text        NOT NULL,
-    description     text,                               -- também usada como contexto para a IA classificar
-    default_team_id bigint      REFERENCES teams(id),
-    form_schema     jsonb,                              -- JSON Schema dos campos personalizados
-    ai_allowed      boolean     NOT NULL DEFAULT true,  -- ex.: false para RH/jurídico sensível
-    is_active       boolean     NOT NULL DEFAULT true,
-    UNIQUE (parent_id, name)
-);
-
-CREATE TABLE ticket_statuses (
-    id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name            text        NOT NULL UNIQUE,        -- rótulo exibido
-    kind            text        NOT NULL
-                    CHECK (kind IN ('new', 'open', 'pending', 'resolved', 'closed', 'canceled')),
-    sort_order      smallint    NOT NULL DEFAULT 0,
-    is_default      boolean     NOT NULL DEFAULT false
-);
+CREATE INDEX audit_log_created_idx ON audit_log (created_at);
+CREATE INDEX audit_log_target_idx  ON audit_log (target_type, target_id);
 
 -- -----------------------------------------------------------------------------
--- SLA
+-- Grupos de atendimento  (docs/08)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE business_calendars (
@@ -116,19 +188,105 @@ CREATE TABLE business_calendars (
     holidays        date[]      NOT NULL DEFAULT '{}'
 );
 
-CREATE TABLE sla_policies (
-    id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name                    text     NOT NULL,
-    calendar_id             bigint   NOT NULL REFERENCES business_calendars(id),
-    priority                smallint NOT NULL CHECK (priority BETWEEN 1 AND 4),
-    category_id             bigint   REFERENCES categories(id),  -- NULL = qualquer categoria
-    first_response_minutes  integer  NOT NULL,
-    resolution_minutes      integer  NOT NULL,
-    UNIQUE NULLS NOT DISTINCT (priority, category_id)            -- PG 15+
+CREATE TABLE teams (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    name            text        NOT NULL UNIQUE,
+    description     text,
+    email_alias     citext      UNIQUE,                 -- ex.: ti@empresa.com abre chamado nesta fila
+    calendar_id     bigint      REFERENCES business_calendars(id),
+    notify_on_new   text        NOT NULL DEFAULT 'queue_only'
+                    CHECK (notify_on_new IN ('queue_only', 'email_all_members')),
+    is_active       boolean     NOT NULL DEFAULT true,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE team_members (
+    team_id         bigint      NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role            text        NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'supervisor')),
+    source          text        NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'idp', 'import')),
+    added_at        timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (team_id, user_id)
+);
+CREATE INDEX team_members_user_idx ON team_members (user_id);
+
+-- Mapeamento de grupos do provedor de identidade (SSO) → papel, grupo ou setor  (docs/09 §9.6)
+CREATE TABLE idp_group_mappings (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    idp_group       text        NOT NULL,               -- id ou nome do grupo no provedor
+    role_id         smallint    REFERENCES roles(id),
+    team_id         bigint      REFERENCES teams(id),
+    team_role       text        CHECK (team_role IN ('member', 'supervisor')),
+    department_id   bigint      REFERENCES departments(id),
+    CHECK (num_nonnulls(role_id, team_id, department_id) = 1),
+    CHECK ((team_id IS NULL) = (team_role IS NULL))
 );
 
 -- -----------------------------------------------------------------------------
--- Chamados
+-- Catálogo: categorias, status, códigos de resolução  (docs/10)
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE categories (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    parent_id       bigint      REFERENCES categories(id),
+    name            text        NOT NULL,
+    description     text,                               -- exibida no catálogo e usada como contexto pela IA
+    icon            text,
+    default_team_id bigint      REFERENCES teams(id),
+    default_type    text        NOT NULL DEFAULT 'incident'
+                    CHECK (default_type IN ('incident', 'request', 'question')),
+    form_schema     jsonb,                              -- JSON Schema dos campos extras
+    requires_approval boolean   NOT NULL DEFAULT false,
+    approver_kind   text        CHECK (approver_kind IN ('department_manager', 'user', 'team')),
+    approver_user_id bigint     REFERENCES users(id),
+    approver_team_id bigint     REFERENCES teams(id),
+    is_confidential boolean     NOT NULL DEFAULT false, -- restringe a visibilidade (docs/08 §8.4)
+    ai_allowed      boolean     NOT NULL DEFAULT true,
+    sort_order      smallint    NOT NULL DEFAULT 0,
+    is_active       boolean     NOT NULL DEFAULT true,
+    UNIQUE (parent_id, name),
+    CHECK (NOT requires_approval OR approver_kind IS NOT NULL),
+    CHECK (approver_kind IS DISTINCT FROM 'user' OR approver_user_id IS NOT NULL),
+    CHECK (approver_kind IS DISTINCT FROM 'team' OR approver_team_id IS NOT NULL)
+);
+
+CREATE TABLE ticket_statuses (
+    id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name            text        NOT NULL UNIQUE,        -- rótulo exibido (renomeável)
+    requester_label text,                               -- texto amigável para o solicitante
+    kind            text        NOT NULL
+                    CHECK (kind IN ('approval', 'new', 'open', 'pending', 'resolved', 'closed', 'canceled')),
+    pauses_sla      boolean     NOT NULL DEFAULT false,
+    sort_order      smallint    NOT NULL DEFAULT 0,
+    is_default_for_kind boolean NOT NULL DEFAULT false
+);
+
+CREATE TABLE resolution_codes (
+    id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name            text        NOT NULL UNIQUE,        -- Resolvido, Contorno, Não reproduzível, ...
+    is_active       boolean     NOT NULL DEFAULT true
+);
+
+-- -----------------------------------------------------------------------------
+-- SLA  (docs/10 §10.9)
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE sla_policies (
+    id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name                    text     NOT NULL,
+    priority                smallint NOT NULL CHECK (priority BETWEEN 1 AND 4),
+    ticket_type             text     CHECK (ticket_type IN ('incident', 'request', 'question')),  -- NULL = qualquer
+    category_id             bigint   REFERENCES categories(id),                                   -- NULL = qualquer
+    first_response_minutes  integer  NOT NULL,          -- em minutos úteis
+    resolution_minutes      integer  NOT NULL,
+    is_active               boolean  NOT NULL DEFAULT true,
+    UNIQUE NULLS NOT DISTINCT (priority, ticket_type, category_id)                                -- PG 15+
+);
+
+-- -----------------------------------------------------------------------------
+-- Chamados  (docs/10)
 -- -----------------------------------------------------------------------------
 
 CREATE SEQUENCE ticket_number_seq START WITH 1000;
@@ -139,17 +297,26 @@ CREATE TABLE tickets (
     number          bigint      NOT NULL DEFAULT nextval('ticket_number_seq') UNIQUE,
     title           text        NOT NULL CHECK (length(title) BETWEEN 3 AND 300),
     description     text        NOT NULL DEFAULT '',
+    type            text        NOT NULL CHECK (type IN ('incident', 'request', 'question')),
     requester_id    bigint      NOT NULL REFERENCES users(id),
+    opened_by_id    bigint      NOT NULL REFERENCES users(id),        -- = requester_id quando o próprio abriu
+    department_id   bigint      NOT NULL REFERENCES departments(id),  -- setor do solicitante NA ABERTURA
     team_id         bigint      REFERENCES teams(id),
     assignee_id     bigint      REFERENCES users(id),
     category_id     bigint      REFERENCES categories(id),
     status_id       smallint    NOT NULL REFERENCES ticket_statuses(id),
-    priority        smallint    NOT NULL DEFAULT 2 CHECK (priority BETWEEN 1 AND 4),  -- 1=baixa … 4=crítica
-    channel         text        NOT NULL DEFAULT 'web'
-                    CHECK (channel IN ('web', 'email', 'api', 'ai_agent', 'chat')),
+    impact          smallint    NOT NULL DEFAULT 1 CHECK (impact BETWEEN 1 AND 3),   -- 1=individual 2=setor 3=empresa
+    urgency         smallint    NOT NULL DEFAULT 1 CHECK (urgency BETWEEN 1 AND 3),  -- 1=pode esperar 3=parado
+    priority        smallint    NOT NULL CHECK (priority BETWEEN 1 AND 4),           -- 1=baixa … 4=crítica
+    priority_overridden boolean NOT NULL DEFAULT false,
+    channel         text        NOT NULL DEFAULT 'portal'
+                    CHECK (channel IN ('portal', 'email', 'phone', 'walk_in', 'api', 'ai_agent')),
     custom_fields   jsonb       NOT NULL DEFAULT '{}',
     tags            text[]      NOT NULL DEFAULT '{}',
+    resolution_code_id smallint REFERENCES resolution_codes(id),
+    reopened_count  smallint    NOT NULL DEFAULT 0,
     satisfaction    smallint    CHECK (satisfaction BETWEEN 1 AND 5),
+    satisfaction_comment text,
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz NOT NULL DEFAULT now(),
     first_response_at timestamptz,
@@ -169,6 +336,16 @@ CREATE INDEX tickets_queue_idx       ON tickets (team_id, status_id, priority DE
                                      WHERE deleted_at IS NULL;
 CREATE INDEX tickets_assignee_idx    ON tickets (assignee_id, status_id) WHERE deleted_at IS NULL;
 CREATE INDEX tickets_requester_idx   ON tickets (requester_id, created_at DESC);
+CREATE INDEX tickets_department_idx  ON tickets (department_id, created_at DESC);
+
+-- Grupos que já atenderam o chamado (regra 6 de visibilidade); mantida a cada transferência
+CREATE TABLE ticket_teams (
+    ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    team_id         bigint      NOT NULL REFERENCES teams(id),
+    first_at        timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (ticket_id, team_id)
+);
+CREATE INDEX ticket_teams_team_idx ON ticket_teams (team_id);
 
 CREATE TABLE ticket_comments (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -180,68 +357,128 @@ CREATE TABLE ticket_comments (
                     CHECK (visibility IN ('public', 'internal')),
     body            text        NOT NULL,
     body_format     text        NOT NULL DEFAULT 'markdown',
+    is_solution     boolean     NOT NULL DEFAULT false, -- texto da solução ao resolver
+    source          text        NOT NULL DEFAULT 'web'
+                    CHECK (source IN ('web', 'email', 'api', 'system')),
     ai_run_id       bigint,                             -- preenchido se originado de sugestão de IA
     created_at      timestamptz NOT NULL DEFAULT now(),
-    edited_at       timestamptz,
+    edited_at       timestamptz,                        -- versões anteriores ficam em ticket_events
+    hidden_at       timestamptz,
+    hidden_by       bigint      REFERENCES users(id),
+    hidden_reason   text,
     search_vector   tsvector GENERATED ALWAYS AS (to_tsvector('pt_br'::regconfig, body)) STORED,
-    CHECK (author_id IS NOT NULL OR api_client_id IS NOT NULL)
+    CHECK (author_id IS NOT NULL OR api_client_id IS NOT NULL OR source = 'system'),
+    CHECK ((hidden_at IS NULL) = (hidden_reason IS NULL))
 );
 CREATE INDEX ticket_comments_ticket_idx ON ticket_comments (ticket_id, created_at);
 CREATE INDEX ticket_comments_search_idx ON ticket_comments USING gin (search_vector);
 
-CREATE TABLE ticket_attachments (
-    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
-    ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    comment_id      bigint      REFERENCES ticket_comments(id) ON DELETE SET NULL,
-    uploaded_by     bigint      REFERENCES users(id),
-    filename        text        NOT NULL,
-    content_type    text        NOT NULL,
-    size_bytes      bigint      NOT NULL,
-    storage_key     text        NOT NULL,               -- caminho em disco ou chave S3
-    sha256          text        NOT NULL,
-    created_at      timestamptz NOT NULL DEFAULT now()
-);
-
 CREATE TABLE ticket_watchers (
-    ticket_id       bigint NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    user_id         bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind            text        NOT NULL DEFAULT 'watcher'
+                    CHECK (kind IN ('watcher', 'mentioned')),   -- 'mentioned' vê notas internas
+    added_by        bigint      REFERENCES users(id),
+    added_at        timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (ticket_id, user_id)
 );
+CREATE INDEX ticket_watchers_user_idx ON ticket_watchers (user_id);
 
 CREATE TABLE ticket_links (
     source_id       bigint NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     target_id       bigint NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     kind            text   NOT NULL CHECK (kind IN ('duplicate_of', 'related_to', 'blocked_by')),
+    created_by      bigint REFERENCES users(id),
+    created_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (source_id, target_id, kind),
     CHECK (source_id <> target_id)
 );
 
+-- Aprovações  (docs/10 §10.8)
+CREATE TABLE ticket_approvals (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    approver_kind   text        NOT NULL CHECK (approver_kind IN ('department_manager', 'user', 'team')),
+    approver_user_id bigint     REFERENCES users(id),
+    approver_team_id bigint     REFERENCES teams(id),
+    approver_department_id bigint REFERENCES departments(id),  -- quando o aprovador é o gestor do setor
+    status          text        NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'approved', 'rejected', 'redirected', 'canceled')),
+    decided_by      bigint      REFERENCES users(id),
+    decided_at      timestamptz,
+    comment         text,
+    reminders_sent  smallint    NOT NULL DEFAULT 0,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    CHECK (status <> 'rejected' OR comment IS NOT NULL)        -- reprovação exige motivo
+);
+CREATE INDEX ticket_approvals_pending_idx ON ticket_approvals (ticket_id) WHERE status = 'pending';
+
 CREATE TABLE ticket_sla (
     ticket_id               bigint      PRIMARY KEY REFERENCES tickets(id) ON DELETE CASCADE,
     policy_id               bigint      REFERENCES sla_policies(id),
+    started_at              timestamptz,            -- após a aprovação, quando houver
     first_response_due_at   timestamptz,
     resolution_due_at       timestamptz,
-    paused_since            timestamptz,            -- preenchido enquanto o status for 'pending'
+    paused_since            timestamptz,            -- preenchido enquanto o status pausar o SLA
     paused_minutes_total    integer     NOT NULL DEFAULT 0,
+    warning_sent_at         timestamptz,            -- alerta de 75%
     first_response_breached boolean     NOT NULL DEFAULT false,
     resolution_breached     boolean     NOT NULL DEFAULT false
 );
 CREATE INDEX ticket_sla_due_idx ON ticket_sla (resolution_due_at)
     WHERE NOT resolution_breached AND paused_since IS NULL;
 
--- Histórico/auditoria: somente inserção (append-only). Candidata a particionamento mensal.
+-- Histórico do chamado: somente inserção (append-only). Candidata a particionamento mensal.
 CREATE TABLE ticket_events (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    event_type      text        NOT NULL,           -- ex.: ticket.created, ticket.status_changed
+    event_type      text        NOT NULL,           -- ex.: ticket.created, ticket.status_changed, ticket.transferred
     actor_user_id   bigint      REFERENCES users(id),
     actor_api_client_id bigint  REFERENCES api_clients(id),
     actor_kind      text        NOT NULL CHECK (actor_kind IN ('user', 'api_client', 'ai', 'system')),
-    payload         jsonb       NOT NULL DEFAULT '{}',  -- {"field": "status", "from": "...", "to": "..."}
+    payload         jsonb       NOT NULL DEFAULT '{}',  -- {"field": "status", "from": "...", "to": "...", "reason": "..."}
     created_at      timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ticket_events_ticket_idx ON ticket_events (ticket_id, created_at);
+
+-- Respostas prontas (macros)  (docs/10 §10.6)
+CREATE TABLE canned_responses (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    scope           text        NOT NULL CHECK (scope IN ('personal', 'team', 'global')),
+    owner_user_id   bigint      REFERENCES users(id) ON DELETE CASCADE,
+    team_id         bigint      REFERENCES teams(id) ON DELETE CASCADE,
+    title           text        NOT NULL,
+    body            text        NOT NULL,           -- com variáveis {{solicitante.nome}} etc.
+    actions         jsonb       NOT NULL DEFAULT '[]',  -- ex.: [{"set_status": "pending"}, {"add_tag": "vpn"}]
+    created_by      bigint      NOT NULL REFERENCES users(id),
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    CHECK (scope <> 'personal' OR owner_user_id IS NOT NULL),
+    CHECK (scope <> 'team' OR team_id IS NOT NULL)
+);
+
+-- Visões salvas (filtros)  (Fase 2)
+CREATE TABLE saved_views (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name            text        NOT NULL,
+    owner_user_id   bigint      REFERENCES users(id) ON DELETE CASCADE,  -- visão pessoal
+    team_id         bigint      REFERENCES teams(id) ON DELETE CASCADE,  -- visão compartilhada do grupo
+    filters         jsonb       NOT NULL,
+    sort            text,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    CHECK (num_nonnulls(owner_user_id, team_id) = 1)
+);
+
+-- Notificações dentro do sistema (sino)  (Fase 2)
+CREATE TABLE notifications (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticket_id       bigint      REFERENCES tickets(id) ON DELETE CASCADE,
+    event_type      text        NOT NULL,
+    payload         jsonb       NOT NULL DEFAULT '{}',
+    read_at         timestamptz,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX notifications_unread_idx ON notifications (user_id, created_at DESC) WHERE read_at IS NULL;
 
 -- -----------------------------------------------------------------------------
 -- Base de conhecimento
@@ -269,7 +506,43 @@ CREATE TABLE kb_articles (
 CREATE INDEX kb_articles_search_idx ON kb_articles USING gin (search_vector);
 
 -- -----------------------------------------------------------------------------
--- Inteligência artificial
+-- Anexos  (docs/11)
+-- Dono: chamado (+ comentário opcional) OU artigo. Todos nulos = upload temporário.
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE attachments (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    ticket_id       bigint      REFERENCES tickets(id) ON DELETE CASCADE,
+    comment_id      bigint      REFERENCES ticket_comments(id) ON DELETE CASCADE,
+    kb_article_id   bigint      REFERENCES kb_articles(id) ON DELETE CASCADE,
+    visibility      text        CHECK (visibility IN ('public', 'internal')),  -- definida ao vincular
+    filename        text        NOT NULL,           -- nome original saneado
+    content_type    text        NOT NULL,           -- detectado pelo conteúdo, não pelo navegador
+    size_bytes      bigint      NOT NULL CHECK (size_bytes > 0),
+    sha256          text        NOT NULL,
+    storage_backend text        NOT NULL CHECK (storage_backend IN ('local', 's3')),
+    storage_key     text        NOT NULL UNIQUE,    -- attachments/AAAA/MM/<uuid>
+    scan_status     text        NOT NULL DEFAULT 'pending'
+                    CHECK (scan_status IN ('pending', 'clean', 'infected', 'error', 'not_scanned')),
+    scanned_at      timestamptz,
+    uploaded_by     bigint      NOT NULL REFERENCES users(id),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    linked_at       timestamptz,
+    hidden_at       timestamptz,
+    hidden_by       bigint      REFERENCES users(id),
+    hidden_reason   text,
+    CHECK (num_nonnulls(ticket_id, kb_article_id) <= 1),
+    CHECK (comment_id IS NULL OR ticket_id IS NOT NULL),
+    CHECK ((linked_at IS NULL) = (ticket_id IS NULL AND kb_article_id IS NULL)),
+    CHECK (linked_at IS NULL OR visibility IS NOT NULL)
+);
+CREATE INDEX attachments_ticket_idx   ON attachments (ticket_id) WHERE ticket_id IS NOT NULL;
+CREATE INDEX attachments_comment_idx  ON attachments (comment_id) WHERE comment_id IS NOT NULL;
+CREATE INDEX attachments_orphans_idx  ON attachments (created_at) WHERE linked_at IS NULL;
+
+-- -----------------------------------------------------------------------------
+-- Inteligência artificial  (docs/06, ADR 0004)
 -- -----------------------------------------------------------------------------
 
 -- Endpoints de IA: API genérica no formato compatível com OpenAI.
@@ -297,7 +570,7 @@ CREATE TABLE ai_features (
     min_confidence  numeric(3,2)
 );
 
--- Log de toda execução de IA: auditoria, custo, qualidade
+-- Log de toda execução de IA: auditoria, consumo, qualidade
 CREATE TABLE ai_runs (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     feature         text        NOT NULL,
@@ -354,7 +627,7 @@ CREATE INDEX outbox_pending_idx ON outbox (id) WHERE processed_at IS NULL;
 CREATE TABLE jobs (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     queue           text        NOT NULL DEFAULT 'default',
-    task            text        NOT NULL,           -- ex.: ai.classify_ticket
+    task            text        NOT NULL,           -- ex.: ai.classify_ticket, attachments.scan
     args            jsonb       NOT NULL DEFAULT '{}',
     status          text        NOT NULL DEFAULT 'queued'
                     CHECK (status IN ('queued', 'running', 'done', 'failed')),

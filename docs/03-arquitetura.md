@@ -76,11 +76,14 @@ backend/
     ├── main.py                  # cria a app FastAPI
     ├── config.py                # settings (pydantic-settings, variáveis de ambiente)
     ├── db/                      # engine, sessão, base declarativa
-    ├── core/                    # segurança, permissões, erros, paginação, eventos
+    ├── core/                    # permissões (catálogo, can(), filtro de visibilidade), erros, paginação, eventos
     ├── modules/
-    │   ├── identity/            # usuários, papéis, autenticação, tokens de API
-    │   ├── teams/               # equipes e membros
-    │   ├── tickets/             # chamados, comentários, anexos, status, histórico
+    │   ├── identity/            # usuários, sessões, login, SSO, MFA, tokens de API
+    │   ├── organization/        # setores, grupos de atendimento, papéis
+    │   ├── catalog/             # categorias, status, códigos de resolução
+    │   ├── tickets/             # chamados, comentários, transições, histórico, aprovações
+    │   ├── attachments/         # upload, armazenamento, antivírus
+    │   ├── audit/               # audit_log
     │   ├── sla/                 # políticas, calendários, cálculo
     │   ├── knowledge/           # base de conhecimento
     │   ├── notifications/       # e-mail, preferências

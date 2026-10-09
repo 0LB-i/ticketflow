@@ -1,82 +1,206 @@
-# 7. Roadmap
+# 7. Roadmap e fases de desenvolvimento
 
-As fases são sequenciais; as entregas dentro de cada fase podem andar em paralelo. As durações são estimativas para uma equipe de 2 a 3 desenvolvedores e serão revistas ao fim de cada fase.
+## Premissas
 
-## Fase 0 — Fundação (≈ 2 semanas)
+- **Equipe de referência:** 2 desenvolvedores full stack (Python + Vue) + 1 pessoa dividida entre produto, QA e design. Com outra composição, as durações mudam.
+- **Sprints de 2 semanas.** No GitHub: cada **fase** é um *milestone* e cada sprint é uma *iteração* no GitHub Projects (ver [processo de desenvolvimento](12-processo-de-desenvolvimento.md)).
+- As estimativas são revistas ao fim de cada sprint. A ordem das fases é fixa; o conteúdo de cada sprint pode ser rearranjado dentro da fase.
+- Cada item abaixo vira uma ou mais *issues* no GitHub. Os códigos (ex.: `F1-S3-02`) servem para rastrear.
 
-- [x] Decidir as questões bloqueantes: instalação por empresa, interface web, IA genérica
-- [ ] Esqueleto do projeto: `pyproject.toml` (uv), estrutura `src/chamados`, FastAPI com `/health`
-- [ ] Docker Compose: PostgreSQL 17 + pgvector, Mailpit
-- [ ] Esqueleto do frontend: Vue 3 + TypeScript + Vite + Tailwind, Vue Router, Pinia, vue-i18n; layout base e tela de login
-- [ ] Geração do cliente TypeScript a partir do OpenAPI (script + verificação no CI)
-- [ ] Dockerfile em várias etapas (build do frontend → imagem Python servindo API + SPA)
-- [ ] SQLAlchemy + Alembic; primeira migração a partir do [esboço do schema](esboco-schema.sql)
-- [ ] CI (GitHub Actions ou GitLab CI): ruff, mypy, pytest com testcontainers em **PG 16 e 17**; ESLint, vue-tsc e Vitest no frontend
-- [ ] Configuração via variáveis de ambiente (pydantic-settings), logs estruturados
-- [ ] Autenticação local (Argon2id), sessão e RBAC básico
+## Visão geral
 
-**Pronto quando:** `docker compose up` sobe a API, a migração roda, o login funciona pela SPA e o CI fica verde nas duas versões do PostgreSQL.
+| Fase | Sprints | Duração | Resultado | Marco |
+|------|---------|---------|-----------|-------|
+| **0. Fundação** | 1 | 2 sem. | Repositório, CI, esqueletos backend e frontend, banco | M0: "roda no meu computador e no CI" |
+| **1. MVP** | 2–5 | 8 sem. | Chamados de ponta a ponta com login local, setores, grupos, permissões, anexos e e-mail | **M1: piloto com a TI** |
+| **2. Operação completa** | 6–9 | 8 sem. | SLA, SSO, MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento, API pública | **M2: expansão para outras áreas** |
+| **3. IA assistiva** | 10–12 | 6 sem. | Classificação, resumo, sugestão de resposta, busca semântica | M3: IA em modo sugestão |
+| **4. IA agêntica e autoatendimento** | 13–14 | 4 sem. | Servidor MCP, deflexão no portal, artigos gerados de chamados | M4: versão 1.0 |
 
-## Fase 1 — MVP de chamados (≈ 6 semanas)
+**Total estimado:** 28 semanas (~7 meses) até a versão 1.0. O piloto começa com cerca de 2 meses e meio.
 
-- [ ] Usuários, equipes, categorias e status (CRUD administrativo)
-- [ ] Abrir, listar, filtrar e ver chamados
-- [ ] Transições de status com validação de fluxo
-- [ ] Atribuição a equipe e agente; roteamento por categoria
-- [ ] Comentários públicos e internos; anexos
-- [ ] Histórico (`ticket_events`) e linha do tempo
-- [ ] Outbox + worker + fila de tarefas no PostgreSQL
-- [ ] Notificações por e-mail
-- [ ] Busca textual em português
-- [ ] Interface web (Vue) para solicitante e agente: lista de chamados, detalhe com linha do tempo, abertura, fila do agente
-- [ ] Testes ponta a ponta (Playwright) dos fluxos principais
-- [ ] API documentada (OpenAPI)
+```mermaid
+flowchart LR
+    F0[Fase 0<br/>Fundação] --> F1[Fase 1<br/>MVP] --> M1((Piloto TI))
+    M1 --> F2[Fase 2<br/>Operação] --> M2((Expansão))
+    M2 --> F3[Fase 3<br/>IA assistiva] --> F4[Fase 4<br/>IA agêntica] --> V1((v1.0))
+```
 
-**Pronto quando:** uma equipe piloto (ex.: TI) consegue operar o dia a dia só pelo sistema.
+---
 
-## Fase 2 — Operação e integrações (≈ 5 semanas)
+## Fase 0 — Fundação (Sprint 1)
 
-- [ ] SLA: políticas, calendário de expediente, pausa, alertas
-- [ ] SSO via OIDC (Entra ID / Google / Keycloak)
-- [ ] Tokens de API com escopos; `Idempotency-Key`; rate limit
-- [ ] Webhooks de saída assinados
-- [ ] Abertura e resposta por e-mail (IMAP / Microsoft Graph)
-- [ ] Campos personalizados por categoria
-- [ ] Observadores, vínculos entre chamados, tags, visões salvas
-- [ ] Pesquisa de satisfação
-- [ ] Painel e relatórios; exportação CSV
-- [ ] Base de conhecimento (sem IA)
+**Objetivo:** qualquer pessoa da equipe clona o repositório, sobe o ambiente com um comando e abre um PR com o CI verde.
 
-**Pronto quando:** todas as equipes piloto migraram e os indicadores de SLA estão confiáveis.
+| Código | Entrega |
+|--------|---------|
+| F0-01 | Repositório no GitHub: proteção da `main`, templates de issue e PR, labels, CODEOWNERS, Dependabot, GitHub Projects |
+| F0-02 | Monorepo `backend/` + `frontend/`; README com "como rodar" |
+| F0-03 | Backend: `pyproject.toml` (uv), FastAPI com `/health`, configuração com pydantic-settings, logs estruturados (structlog), tratamento de erros (RFC 9457) |
+| F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`pgvector`, `unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` |
+| F0-05 | Frontend: Vue 3 + TypeScript + Vite + Tailwind + Reka UI; Vue Router, Pinia, TanStack Query, vue-i18n |
+| F0-06 | Design system inicial: cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status |
+| F0-07 | Layout do aplicativo: menu lateral, cabeçalho, área de conteúdo, responsivo |
+| F0-08 | Geração do cliente TypeScript a partir do OpenAPI (`pnpm gen:api`) + verificação no CI |
+| F0-09 | Docker: `docker-compose.yml` (PostgreSQL 17 + pgvector, Mailpit), Dockerfile em várias etapas |
+| F0-10 | GitHub Actions: lint, tipos e testes do backend em **PG 16 e 17**; lint, tipos, testes e build do frontend |
 
-## Fase 3 — IA assistiva (≈ 5 semanas)
+**Pronto quando:** `docker compose up` + `pnpm dev` mostram a tela inicial da SPA consumindo o `/health`, e o CI roda nas duas versões do PostgreSQL.
 
-- [ ] Módulo `ai`: cliente genérico (chat + embeddings), saída JSON validada com Pydantic
-- [ ] Testes do cliente contra um servidor falso e contra um modelo local real (ex.: Ollama no CI)
-- [ ] Administração de endpoints de IA e funcionalidades; registro de execuções (`ai_runs`)
-- [ ] Mascaramento de dados pessoais + bloqueio por categoria
-- [ ] Embeddings com pgvector; busca semântica e híbrida
-- [ ] Classificação automática (modo sugestão)
-- [ ] Resumo do chamado
-- [ ] Sugestão de resposta com RAG e fontes citadas
-- [ ] Chamados semelhantes / duplicados
-- [ ] Feedback (aceitar / editar / rejeitar) e painel de qualidade e custo
-- [ ] Conjunto de avaliação (evals) para cada prompt, rodando no CI
+---
 
-**Pronto quando:** taxa de aceitação de classificação ≥ 70% em modo sugestão por 4 semanas, e o sistema continua funcionando com a IA desligada.
+## Fase 1 — MVP (Sprints 2 a 5)
 
-## Fase 4 — IA agêntica e autoatendimento (≈ 4 semanas)
+**Objetivo:** a equipe de TI consegue receber e atender **todos** os seus chamados pelo sistema.
 
-- [ ] Servidor MCP (ferramentas sobre os services)
-- [ ] Contas de serviço para agentes de IA; políticas de escopo
-- [ ] Deflexão no portal (sugerir artigos antes de abrir o chamado)
-- [ ] Rascunho de artigo a partir de chamado resolvido
-- [ ] Classificação com aplicação automática (onde a qualidade medida justificar)
-- [ ] Integração com Teams / Slack (bot que abre e consulta chamados)
+### Sprint 2 — Identidade e organização
 
-## Depois
+| Código | Entrega | Referência |
+|--------|---------|------------|
+| F1-S2-01 | Login local, sessões no servidor, CSRF, logout | [09](09-login-e-autenticacao.md) |
+| F1-S2-02 | Comando `chamados admin create`; convite e "esqueci a senha" por e-mail | [09](09-login-e-autenticacao.md#94-convite-esqueci-a-senha-e-troca-de-senha) |
+| F1-S2-03 | Proteção contra força bruta (rate limit + bloqueio temporário) | 09 |
+| F1-S2-04 | Cadastro de **setores** (árvore + gestores) | [08](08-organizacao-e-permissoes.md) |
+| F1-S2-05 | Cadastro de **grupos de atendimento** (membros + supervisores) | 08 |
+| F1-S2-06 | Cadastro de **usuários** (papel, setor) + importação CSV | 08 |
+| F1-S2-07 | **Motor de permissões**: catálogo, papéis fixos, `can()` e `ticket_visibility_filter()` + testes tabelados | [08](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |
+| F1-S2-08 | Log de auditoria (`audit_log`) para login e administração | 08 |
+| F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, setores e grupos | — |
 
-- Automações configuráveis (regras se X então Y)
-- Atribuição automática por carga
-- Particionamento de `ticket_events` e `ai_runs`
-- Catálogo de serviços com aprovações
+### Sprint 3 — Núcleo dos chamados
+
+| Código | Entrega | Referência |
+|--------|---------|------------|
+| F1-S3-01 | Cadastro de **categorias** (árvore, grupo padrão, tipo padrão, confidencial) | [08](08-organizacao-e-permissoes.md#81-conceitos) |
+| F1-S3-02 | Status padrão e **motor de transições** (quem pode, campos exigidos) | [10.5](10-chamados.md#105-status-e-fluxo) |
+| F1-S3-03 | **Abertura** pelo portal: catálogo, formulário, matriz impacto × urgência | [10.3](10-chamados.md#103-prioridade-impacto--urgência), [10.4](10-chamados.md#104-abertura) |
+| F1-S3-04 | Abertura **em nome de outra pessoa** (telefone, presencial) | 10.4 |
+| F1-S3-05 | Roteamento por categoria → grupo | 10.4 |
+| F1-S3-06 | **Comentários** públicos e notas internas; edição em 10 min | [10.7](10-chamados.md#107-experiência-do-solicitante) |
+| F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | [10.6](10-chamados.md#106-como-o-agente-trabalha) |
+| F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | — |
+| F1-S3-09 | Telas: abrir chamado, "Meus chamados" (solicitante), detalhe do chamado (solicitante e agente) | — |
+
+### Sprint 4 — Anexos, notificações, filas e busca
+
+| Código | Entrega | Referência |
+|--------|---------|------------|
+| F1-S4-01 | **Upload em duas etapas**, validação de tipo e tamanho, armazenamento local | [11](11-anexos-e-arquivos.md) |
+| F1-S4-02 | Download com verificação de permissão; imagens coladas no editor | 11 |
+| F1-S4-03 | **Outbox + worker + fila de tarefas** no PostgreSQL | [03](03-arquitetura.md#eventos-de-domínio) |
+| F1-S4-04 | **Notificações por e-mail** (templates em pt-BR) | [10.10](10-chamados.md#1010-notificações) |
+| F1-S4-05 | **Visões do agente**: não atribuídos, meus chamados, aguardando minha ação, em espera, todos do grupo | 10.6 |
+| F1-S4-06 | Botão "Pegar o próximo" | 10.6 |
+| F1-S4-07 | **Busca textual** em português + filtros | — |
+| F1-S4-08 | Indicador de colisão ("Fulano está vendo") + `ETag` | 10.6 |
+
+### Sprint 5 — Ciclo completo e preparação do piloto
+
+| Código | Entrega | Referência |
+|--------|---------|------------|
+| F1-S5-01 | Resolver (solução + código), confirmar, **reabrir**, cancelar | 10.5 |
+| F1-S5-02 | Rotinas automáticas: fechar resolvidos, lembrete e resolução por falta de retorno | [10.11](10-chamados.md#1011-rotinas-automáticas-worker) |
+| F1-S5-03 | Visão do **gestor de setor** (chamados do setor, somente leitura) | 08 |
+| F1-S5-04 | Respostas prontas (pessoais e do grupo) | 10.6 |
+| F1-S5-05 | Ocultar comentário ou anexo com motivo | 10.7 |
+| F1-S5-06 | Testes ponta a ponta (Playwright) dos fluxos principais | — |
+| F1-S5-07 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | — |
+| F1-S5-08 | Guia de instalação e atualização, backup do banco + arquivos | — |
+| F1-S5-09 | Carga inicial da TI: setores, grupos, categorias, usuários | — |
+
+**Pronto quando (M1):** a TI usa o sistema em produção por 2 semanas sem precisar de outro canal, sem bugs críticos abertos.
+
+---
+
+## Fase 2 — Operação completa (Sprints 6 a 9)
+
+**Objetivo:** o sistema está pronto para RH, Facilities, Financeiro e outras áreas, com SSO e SLA confiável.
+
+### Sprint 6 — SLA e notificações no sistema
+
+| Código | Entrega |
+|--------|---------|
+| F2-S6-01 | Calendários de expediente e feriados (por grupo) |
+| F2-S6-02 | Políticas de SLA (prioridade, tipo, categoria), cálculo em horas úteis, pausa, recálculo |
+| F2-S6-03 | Alertas de 75% e vencimento; visão "Vencendo SLA" |
+| F2-S6-04 | Notificações no sistema (sino) + preferências de notificação |
+| F2-S6-05 | Atalhos de teclado e visões salvas |
+
+### Sprint 7 — SSO, MFA e aprovações
+
+| Código | Entrega |
+|--------|---------|
+| F2-S7-01 | SSO via OIDC (Entra ID, Google, Keycloak) com criação automática de usuários |
+| F2-S7-02 | Mapeamento de grupos e atributos do provedor de identidade → papel, setor e grupos |
+| F2-S7-03 | MFA por TOTP + códigos de recuperação; obrigatório para admin no login local |
+| F2-S7-04 | Gerenciamento de sessões pelo usuário e pelo admin |
+| F2-S7-05 | **Aprovações** (gestor, usuário específico, grupo), lembretes, redirecionamento |
+
+### Sprint 8 — E-mail e enriquecimento dos chamados
+
+| Código | Entrega |
+|--------|---------|
+| F2-S8-01 | E-mail de entrada (IMAP e/ou Microsoft Graph) → abertura e resposta de chamados |
+| F2-S8-02 | Campos extras por categoria (formulários dinâmicos) |
+| F2-S8-03 | Observadores, vínculos, **mesclagem** de duplicados |
+| F2-S8-04 | Avaliação de satisfação |
+| F2-S8-05 | Ações em massa |
+| F2-S8-06 | Antivírus (ClamAV) e armazenamento S3 |
+
+### Sprint 9 — Relatórios, conhecimento e API pública
+
+| Código | Entrega |
+|--------|---------|
+| F2-S9-01 | Painel e relatórios: volume, SLA, tempos, satisfação, por grupo, setor e agente; exportação CSV |
+| F2-S9-02 | Base de conhecimento (artigos internos e públicos, busca, sugestão na abertura) |
+| F2-S9-03 | Tokens de API com escopos, `Idempotency-Key`, rate limit |
+| F2-S9-04 | Webhooks de saída assinados |
+| F2-S9-05 | Papéis personalizados |
+| F2-S9-06 | Gestão de membros do grupo pelo supervisor |
+
+**Pronto quando (M2):** pelo menos 3 áreas além da TI operando, SSO ativo e cumprimento de SLA medido por 4 semanas.
+
+---
+
+## Fase 3 — IA assistiva (Sprints 10 a 12)
+
+Detalhes em [Integração com IA](06-integracao-ia.md).
+
+| Sprint | Entregas |
+|--------|----------|
+| **10** | Cliente genérico de IA (chat + embeddings); cadastro de endpoints e funcionalidades; `ai_runs`; mascaramento de dados pessoais; bloqueio por categoria; embeddings + busca semântica e híbrida |
+| **11** | Classificação automática (modo sugestão); chamados semelhantes / duplicados; painel de sugestões na tela do agente; feedback (aceitar, editar, rejeitar) |
+| **12** | Resumo do chamado (inclusive na transferência); sugestão de resposta com RAG e fontes; painel de qualidade e consumo; evals no CI |
+
+**Pronto quando (M3):** taxa de aceitação da classificação ≥ 70% por 4 semanas, e o sistema funciona normalmente com a IA desligada.
+
+## Fase 4 — IA agêntica e autoatendimento (Sprints 13 e 14)
+
+| Sprint | Entregas |
+|--------|----------|
+| **13** | Servidor MCP; contas de serviço para agentes de IA; deflexão no portal (artigos sugeridos pela IA antes de abrir) |
+| **14** | Rascunho de artigo a partir de chamado resolvido; classificação com aplicação automática onde a qualidade justificar; extração de texto de anexos (opcional); preparação da v1.0 |
+
+---
+
+## Backlog futuro (fora da v1.0)
+
+- Chamados filhos / subtarefas (ex.: admissão de colaborador gera chamados para TI, RH e Facilities)
+- Aprovação em vários níveis e delegação por férias
+- Automações configuráveis ("se X então Y")
+- Distribuição automática (rodízio, menor carga)
+- SCIM para provisionamento de usuários, LDAP direto, passkeys
+- Bot no Teams e no Slack
+- Atualização em tempo real por Server-Sent Events
+- PWA / notificações push no celular
+- Particionamento de `ticket_events`, `audit_log` e `ai_runs`
+
+## Riscos principais
+
+| Risco | Mitigação |
+|-------|-----------|
+| Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
+| Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
+| Adoção baixa pelos colaboradores | Portal simples, abertura por e-mail na Fase 2, piloto com feedback semanal |
+| Cálculo de SLA em horas úteis com bugs | Biblioteca de cálculo isolada, com testes de propriedade (Hypothesis) e casos de feriado e fuso |
+| Qualidade da IA variar entre modelos | Evals no CI; modo sugestão por padrão; métricas de aceitação |

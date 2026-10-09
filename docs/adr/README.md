@@ -11,3 +11,5 @@ Cada decisão de arquitetura relevante é registrada em um arquivo numerado, usa
 | [0005](0005-instalacao-por-empresa.md) | Uma instalação por empresa (single-tenant) | Aceita |
 | [0006](0006-interface-web.md) | Interface web com Jinja2 + HTMX + Tailwind CSS | Substituída por 0007 |
 | [0007](0007-interface-web-vue.md) | Interface web: SPA em Vue 3 + TypeScript + Tailwind CSS | Aceita |
+| [0008](0008-reka-ui.md) | Componentes de interface com Reka UI + Tailwind CSS | Aceita |
+| [0009](0009-github.md) | GitHub como plataforma do projeto | Aceita |

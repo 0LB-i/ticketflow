@@ -51,14 +51,30 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `PATCH` | `/tickets/{id}` | Alterar campos (título, prioridade, categoria, equipe, responsável, tags) |
 | `POST` | `/tickets/{id}/transitions` | Mudar status: `{"to": "resolved", "comment": "..."}` |
 | `GET` | `/tickets/{id}/comments` | Listar comentários |
-| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "visibility": "public" \| "internal"}` |
-| `POST` | `/tickets/{id}/attachments` | Enviar anexo (multipart) |
-| `GET` | `/attachments/{id}` | Baixar (redireciona para URL assinada) |
+| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "visibility": "public" \| "internal", "attachment_ids": [...]}` |
 | `GET` | `/tickets/{id}/events` | Histórico / linha do tempo |
 | `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
 | `POST` | `/tickets/{id}/satisfaction` | Avaliar atendimento |
 | `GET` | `/tickets/search` | Busca textual e/ou semântica: `?q=...&mode=text\|semantic\|hybrid` |
+| `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir |
+| `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "reason"}` |
+| `POST` | `/tickets/next` | "Pegar o próximo" da fila |
+| `POST` | `/tickets/{id}/merge` | Mesclar em outro chamado |
+| `GET` / `POST` | `/tickets/{id}/approvals` | Aprovações do chamado |
+| `POST` | `/approvals/{id}/decision` | `{"decision": "approve" \| "reject", "comment"}` |
+| `GET` | `/approvals?status=pending` | Aprovações pendentes do usuário |
+| `POST` | `/tickets/{id}/comments/{cid}/hide` | Ocultar comentário (com motivo) |
+
+O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", "transfer", "resolve"]`), calculado pelo backend, para a interface decidir quais botões mostrar.
+
+### Anexos
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/uploads` | Envia um arquivo (1ª etapa). Ver [11.4](11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas) |
+| `GET` | `/attachments/{id}` | Baixa (verifica permissão) |
+| `POST` | `/attachments/{id}/hide` | Oculta (com motivo) |
 
 ### IA
 
@@ -72,11 +88,11 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 
 ### Demais recursos
 
-`/users`, `/me`, `/teams`, `/categories`, `/statuses`, `/sla-policies`, `/kb/articles`, `/reports/*`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
+`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/departments`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/canned-responses`, `/saved-views`, `/notifications`, `/sla-policies`, `/calendars`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/idp-mappings`, `/admin/settings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
 
 ## Webhooks de saída
 
-**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.comment_added`, `ticket.sla_warning`, `ticket.sla_breached`, `ticket.resolved`, `ticket.closed`
+**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.sla_warning`, `ticket.sla_breached`, `ticket.resolved`, `ticket.closed`
 
 **Entrega:**
 

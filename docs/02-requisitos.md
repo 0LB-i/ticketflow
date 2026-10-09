@@ -22,20 +22,13 @@ Prioridade (MoSCoW): **M** = obrigatório no MVP, **S** = deveria ter, **C** = p
 | RF-01.12 | Observadores (pessoas em cópia) | S |
 | RF-01.13 | Pesquisa de satisfação ao fechar | S |
 | RF-01.14 | Abertura de chamado por e-mail (caixa monitorada) e resposta por e-mail | S |
+| RF-01.15 | Tipos de chamado: incidente, requisição, dúvida | M |
+| RF-01.16 | Abertura em nome de outra pessoa (telefone, presencial) | M |
+| RF-01.17 | Aprovação de requisições pelo gestor do setor, por um usuário ou por um grupo | S |
+| RF-01.18 | Respostas prontas (macros) pessoais, do grupo e globais | S |
+| RF-01.19 | Categorias confidenciais com visibilidade restrita | M |
 
-**Fluxo de status padrão:**
-
-```
-novo ──► em_atendimento ──► resolvido ──► fechado
-  │            │  ▲              │
-  │            ▼  │              └──► reaberto ──► em_atendimento
-  │     aguardando_solicitante
-  │     aguardando_terceiro
-  └──► cancelado
-```
-
-- `resolvido` passa para `fechado` automaticamente após N dias sem resposta do solicitante (configurável).
-- Nos status `aguardando_*`, o relógio de SLA de resolução **pausa**.
+Fluxo de status, transições e regras de trabalho: ver [Como funcionam os chamados](10-chamados.md).
 
 ### RF-02 Filas e atribuição
 
@@ -64,7 +57,13 @@ novo ──► em_atendimento ──► resolvido ──► fechado
 | RF-04.2 | SSO via OIDC (Microsoft Entra ID, Google Workspace, Keycloak) | S |
 | RF-04.3 | Sincronização / login via LDAP/Active Directory | C |
 | RF-04.4 | Papéis: solicitante, agente, supervisor, admin (RBAC) | M |
-| RF-04.5 | Solicitante só vê os próprios chamados e aqueles em que é observador | M |
+| RF-04.5 | Regras de visibilidade conforme [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) | M |
+| RF-04.6 | Setores em árvore com gestores; grupos de atendimento com membros e supervisores | M |
+| RF-04.7 | MFA (TOTP), obrigatório para administradores no login local | S |
+| RF-04.8 | Mapeamento de grupos do provedor de identidade para papel, setor e grupos | S |
+| RF-04.9 | Papéis personalizados | C |
+
+Detalhes em [Organização e permissões](08-organizacao-e-permissoes.md) e [Login e autenticação](09-login-e-autenticacao.md).
 
 ### RF-05 Notificações e integrações
 
