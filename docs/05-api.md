@@ -23,7 +23,7 @@ A API REST é o **contrato principal** do sistema: interface web, integrações 
 
 | Cliente | Mecanismo |
 |---------|-----------|
-| Interface web (SPA Vue) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF enviado em header (após login local ou OIDC). Nenhum token fica no `localStorage` |
+| Interface web (SPA Vue) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF enviado em header (após o login). Nenhum token fica no `localStorage` |
 | Integrações e agentes de IA | `Authorization: Bearer <token>`, um token de API com **escopos** |
 
 **Escopos:**

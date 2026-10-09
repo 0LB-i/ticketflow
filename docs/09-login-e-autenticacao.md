@@ -4,24 +4,26 @@
 
 | Forma | Para quem | Fase |
 |-------|-----------|------|
-| **E-mail + senha** (login local) | Todos, enquanto não houver SSO; depois, só administradores (acesso de emergência) e quem o admin permitir | 1 |
-| **SSO via OIDC** (Microsoft Entra ID, Google Workspace, Keycloak, Okta…) | Todos os colaboradores | 2 |
+| **E-mail + senha** (login local) | Todos | 1 |
+| **SSO via OIDC** (Microsoft Entra ID, Google Workspace, Keycloak, Okta…) | Todos os colaboradores | Futuro |
 | **MFA por TOTP** (aplicativo autenticador) | Obrigatório para administradores no login local; opcional para os demais | 2 |
 | **Token de API** | Integrações e agentes de IA (não é login de pessoa; ver [API](05-api.md#autenticação)) | 2 |
 | LDAP / Active Directory direto | Só se a empresa não tiver OIDC | Futuro |
 | Passkeys (WebAuthn) | Alternativa a senha + TOTP | Futuro |
 
-Quando o SSO estiver ativo, o administrador pode ligar **"SSO obrigatório"**: o login local passa a valer só para administradores e para usuários marcados como exceção.
+> **empresa:** não há diretório de contas centralizado (Microsoft 365, Google Workspace ou AD). O login é **só por e-mail e senha**; as seções 9.5 e 9.6 ficam registradas para o futuro.
+
+Quando o SSO existir, o administrador poderá ligar **"SSO obrigatório"**: o login local passa a valer só para administradores e para usuários marcados como exceção.
 
 ## 9.2 Primeiro acesso à instalação
 
-1. A empresa instala o sistema (imagem Docker + PostgreSQL).
+1. A empresa instala o sistema no servidor ([ADR 0010](adr/0010-producao-systemd.md)).
 2. O primeiro administrador é criado por linha de comando, **sem senha padrão**:
    ```bash
-   docker compose exec api chamados admin create --email ti@empresa.com --name "Administrador"
+   sudo -u sistema-chamados uv run chamados admin create --email ti@empresa.com --name "Administrador"
    ```
    O comando mostra um link de definição de senha válido por 24 h.
-3. O administrador configura setores, grupos, categorias e importa usuários (CSV) ou configura o SSO.
+3. O administrador configura setores, grupos, categorias e importa usuários (CSV), que recebem um convite por e-mail.
 
 ## 9.3 Login local
 
@@ -67,6 +69,8 @@ Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como 
 
 ## 9.5 SSO via OIDC
 
+> **Futuro.** Não se aplica à empresa hoje.
+
 ```mermaid
 sequenceDiagram
     actor U as Usuário
@@ -91,6 +95,8 @@ sequenceDiagram
 - **Desligamento de colaborador:** desativado no provedor, ele não consegue mais entrar. Como as sessões têm duração limitada (9.7), o acesso termina em poucas horas. A sincronização ativa (SCIM) fica para o futuro.
 
 ## 9.6 Mapeamento de grupos do provedor de identidade
+
+> **Futuro.** Depende do SSO.
 
 O administrador associa grupos do Entra ID / Google / Keycloak a elementos do sistema:
 
@@ -128,7 +134,7 @@ Ficam registrados em `audit_log`: login com sucesso, login com falha, bloqueio p
 | `POST` | `/auth/password/forgot` | Solicita redefinição |
 | `POST` | `/auth/password/reset` | Redefine com token |
 | `POST` | `/auth/invite/accept` | Define senha no primeiro acesso |
-| `GET` | `/auth/oidc/login` | Inicia o SSO |
+| `GET` | `/auth/oidc/login` | Inicia o SSO (futuro) |
 | `GET` | `/auth/oidc/callback` | Retorno do provedor |
 | `GET` | `/me` | Dados do usuário logado, grupos e permissões |
 | `POST` | `/me/password` | Troca de senha |

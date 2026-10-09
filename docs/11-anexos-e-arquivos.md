@@ -80,7 +80,7 @@ sequenceDiagram
 
 ## 11.5 Antivírus
 
-- **ClamAV** opcional, em um container próprio (`clamd`), acessado pelo worker.
+- **ClamAV** opcional, com o serviço `clamav-daemon` no mesmo servidor, acessado pelo worker.
 - Estados do arquivo: `pending` → `clean` | `infected` | `error`. Com o antivírus desligado, o estado é `not_scanned`.
 - Enquanto está `pending`, só quem enviou consegue baixar o arquivo. Os demais veem "Verificando…".
 - Um arquivo `infected` é movido para quarentena, fica indisponível para download e gera um alerta para o administrador e um evento no chamado ("Anexo bloqueado pelo antivírus").
@@ -91,8 +91,8 @@ Interface `Storage` (`put`, `get`, `delete`, `presigned_url`) com dois adaptador
 
 | Adaptador | Quando usar |
 |-----------|-------------|
-| **Local** (padrão) | Volume Docker em `/var/lib/chamados/files`. Mais simples para uma instalação por empresa |
-| **S3-compatível** | AWS S3, MinIO, Wasabi, Cloudflare R2 etc. Recomendado com várias réplicas da API |
+| **Local** (usado na empresa) | Diretório `/var/lib/sistema-chamados/files`, só acessível pelo usuário do serviço |
+| **S3-compatível** (futuro) | AWS S3, MinIO etc. Só faz sentido com vários servidores |
 
 - **Chave do arquivo:** `attachments/AAAA/MM/<uuid>`, sem o nome original.
 - **Integridade:** o SHA-256 é calculado durante o envio e conferido em leituras sensíveis. Não há deduplicação entre chamados, porque ela revelaria que dois usuários enviaram o mesmo arquivo.
@@ -104,7 +104,7 @@ Interface `Storage` (`put`, `get`, `delete`, `presigned_url`) com dois adaptador
 
 1. Verifica se o usuário **vê o chamado** e se **vê a visibilidade** do anexo (interna ou pública).
 2. Recusa se `scan_status` for `infected`, ou `pending` para quem não enviou.
-3. **Local:** devolve o arquivo em *streaming*. **S3:** redireciona para uma URL assinada válida por 60 s.
+3. Devolve o arquivo em *streaming*.
 4. Headers: `Content-Disposition: attachment` (padrão) com o nome original; `X-Content-Type-Options: nosniff`; `Content-Security-Policy: sandbox`.
 5. **Visualização no navegador** (`inline`) só para imagens (png, jpg, gif, webp) e PDF.
 6. Downloads de anexos internos ou de chamados confidenciais são registrados na auditoria.

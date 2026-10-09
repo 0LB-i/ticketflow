@@ -21,7 +21,7 @@
 | Busca vetorial | `pgvector` (HNSW) | Nativo, sem serviço extra |
 | Fila de tarefas | Tabela no PostgreSQL + `SKIP LOCKED` (avaliar a biblioteca *Procrastinate*) | Sem broker extra; transacional com os dados |
 | Cliente HTTP | httpx | Async, usado para webhooks e para a API de IA |
-| Autenticação | OIDC (Authlib) + sessão/JWT; senhas com Argon2id | SSO corporativo |
+| Autenticação | E-mail e senha (Argon2id) + sessão no servidor; TOTP para MFA | A empresa não tem diretório de contas; SSO fica para o futuro |
 | Interface web | Vue 3 + TypeScript + Vite + Tailwind CSS, Vue Router, Pinia, TanStack Query | SPA consumindo a API. Ver [ADR 0007](adr/0007-interface-web-vue.md) |
 | Cliente da API no frontend | Tipos gerados do OpenAPI (`openapi-typescript` + `openapi-fetch`) | O contrato do backend vira tipos TypeScript; mudança incompatível quebra o build |
 | IA | Cliente HTTP genérico no formato compatível com OpenAI | Sem acoplamento a provedor ou modelo. Ver [ADR 0004](adr/0004-ia-api-generica-e-assistiva.md) |
@@ -29,7 +29,7 @@
 | Qualidade (backend) | ruff, mypy (ou pyright), pytest, testcontainers | |
 | Qualidade (frontend) | ESLint, Prettier, vue-tsc, Vitest, Playwright (testes ponta a ponta) | |
 | Observabilidade | structlog, OpenTelemetry, prometheus-client | |
-| Empacotamento | Docker / Docker Compose; Helm opcional | |
+| Execução | systemd + uvicorn atrás do nginx; Docker Compose só em desenvolvimento | Ver [ADR 0010](adr/0010-producao-systemd.md) |
 
 ## Visão de componentes
 
@@ -78,7 +78,7 @@ backend/
     ├── db/                      # engine, sessão, base declarativa
     ├── core/                    # permissões (catálogo, can(), filtro de visibilidade), erros, paginação, eventos
     ├── modules/
-    │   ├── identity/            # usuários, sessões, login, SSO, MFA, tokens de API
+    │   ├── identity/            # usuários, sessões, login, MFA, tokens de API
     │   ├── organization/        # setores, grupos de atendimento, papéis
     │   ├── catalog/             # categorias, status, códigos de resolução
     │   ├── tickets/             # chamados, comentários, transições, histórico, aprovações
@@ -126,16 +126,24 @@ Assim nenhuma notificação é enviada para uma transação que deu rollback, e 
 
 - RBAC no nível de serviço (não só na rota) e filtros de visibilidade aplicados nas consultas
 - Opcionalmente, Row-Level Security do PostgreSQL como segunda camada (avaliar na Fase 2)
-- Anexos: limite de tamanho, verificação de tipo MIME, antivírus opcional (ClamAV), armazenamento em disco ou S3-compatível, download por URL assinada
+- Anexos: limite de tamanho, verificação de tipo MIME, antivírus opcional (ClamAV), armazenamento em disco local, download só pela API com verificação de permissão
 - Rate limiting por usuário e por token de API
 - Segredos (chave da API de IA, SMTP) criptografados em repouso ou fornecidos via variáveis de ambiente / gerenciador de segredos
 
 ## Implantação
 
-Cada empresa tem a **sua própria instalação**: aplicação e banco de dados próprios, sem compartilhar nada com outras empresas (ver [ADR 0005](adr/0005-instalacao-por-empresa.md)). O produto é distribuído como imagem Docker versionada, e cada atualização roda as migrações no banco daquela empresa.
+Cada empresa tem a **sua própria instalação**: aplicação e banco de dados próprios (ver [ADR 0005](adr/0005-instalacao-por-empresa.md)). Na empresa, tudo roda **em um único servidor Linux** ([ADR 0010](adr/0010-producao-systemd.md)):
 
-A imagem é gerada em várias etapas: o Node.js entra só na etapa que compila o frontend, e o resultado (`frontend/dist`) é servido como arquivos estáticos pelo próprio container da API, **na mesma origem**. Assim a instalação continua sendo só *app + PostgreSQL*, sem CORS e com o cookie de sessão funcionando sem configuração extra. Um proxy reverso (nginx, Caddy) na frente é opcional.
+```
+navegador ──HTTPS──► nginx ──► uvicorn (sistema-chamados.service) ──► PostgreSQL 17
+                                    │  API + SPA (frontend/dist)          ▲
+                                    │                                     │
+                     sistema-chamados-worker.service ─────────────────────┘
+                     (fila de tarefas, e-mails, rotinas)
+```
 
-- **Desenvolvimento:** `docker compose` (PostgreSQL 17 + pgvector, Mailpit para capturar e-mails), backend com `uvicorn --reload` e frontend com `pnpm dev` (Vite)
-- **Produção mínima:** 1 VM com Docker: `api` + `worker` + PostgreSQL gerenciado ou local com backup (pgBackRest ou `pg_dump` agendado)
-- **Produção escalável:** Kubernetes com `api` e `worker` em réplicas e PostgreSQL gerenciado
+- A SPA compilada é servida pelo próprio uvicorn, **na mesma origem** da API: sem CORS e com o cookie de sessão funcionando sem configuração extra.
+- Logs vão para o journald (`journalctl -u sistema-chamados`).
+- **Atualização:** `scripts/deploy.sh` (git pull, dependências, build do frontend, migrações). Quem reinicia os serviços é o usuário.
+- **Desenvolvimento:** `docker compose` (PostgreSQL 17 + pgvector, Mailpit para capturar e-mails), backend com `uvicorn --reload` e frontend com `pnpm dev` (Vite).
+- **Backup:** `pg_dump` diário + cópia de `/var/lib/sistema-chamados/files`.

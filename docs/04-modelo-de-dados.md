@@ -84,14 +84,13 @@ Extensões necessárias:
 - `pg_trgm`: busca por similaridade em títulos e autocompletar (contrib)
 - `citext`: e-mails sem distinção de maiúsculas e minúsculas (contrib)
 
-## Volumes estimados (para dimensionar índices)
+## Volumes estimados (empresa, até 50 usuários)
 
-| Tabela | Volume em 3 anos (empresa média) |
-|--------|----------------------------------|
-| `tickets` | ~500 mil |
-| `ticket_comments` | ~3 milhões |
-| `ticket_events` | ~10 milhões, candidata a particionamento por mês |
-| `audit_log` | ~5 milhões, candidata a particionamento por mês |
-| `attachments` | ~400 mil (os arquivos ocupam ~200 GB a 500 GB no armazenamento) |
-| `embeddings` | ~1 milhão |
-| `ai_runs` | ~2 milhões, candidata a particionamento e expurgo |
+| Tabela | Volume em 3 anos |
+|--------|------------------|
+| `tickets` | ~15 mil |
+| `ticket_comments` | ~100 mil |
+| `ticket_events` | ~300 mil |
+| `attachments` | ~20 mil (alguns GB em disco) |
+
+Volumes pequenos: não é preciso particionar tabelas nem criar estruturas de cache. Os índices do esboço bastam.

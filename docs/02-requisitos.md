@@ -49,13 +49,13 @@ Removido: não haverá SLA (metas de prazo, calendário de expediente, alertas).
 | ID | Requisito | Prior. |
 |----|-----------|--------|
 | RF-04.1 | Login local (e-mail + senha) | M |
-| RF-04.2 | SSO via OIDC (Microsoft Entra ID, Google Workspace, Keycloak) | S |
-| RF-04.3 | Sincronização / login via LDAP/Active Directory | C |
+| RF-04.2 | SSO via OIDC (Microsoft Entra ID, Google Workspace, Keycloak) | W (a empresa não tem diretório de contas) |
+| RF-04.3 | Sincronização / login via LDAP/Active Directory | W |
 | RF-04.4 | Papéis: solicitante, agente, supervisor, admin (RBAC) | M |
 | RF-04.5 | Regras de visibilidade conforme [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) | M |
 | RF-04.6 | Setores em árvore com gestores; grupos de atendimento com membros e supervisores | M |
 | RF-04.7 | MFA (TOTP), obrigatório para administradores no login local | S |
-| RF-04.8 | Mapeamento de grupos do provedor de identidade para papel, setor e grupos | S |
+| RF-04.8 | Mapeamento de grupos do provedor de identidade para papel, setor e grupos | W (depende de SSO) |
 | RF-04.9 | Papéis personalizados | C |
 
 Detalhes em [Organização e permissões](08-organizacao-e-permissoes.md) e [Login e autenticação](09-login-e-autenticacao.md).
@@ -107,15 +107,15 @@ Detalhado em [06-integracao-ia.md](06-integracao-ia.md).
 
 | ID | Categoria | Requisito |
 |----|-----------|-----------|
-| RNF-01 | Desempenho | p95 < 300 ms nas leituras da API com 1 milhão de chamados |
-| RNF-02 | Escala | Suportar 5 mil usuários e 500 agentes por instalação |
+| RNF-01 | Desempenho | p95 < 300 ms nas leituras da API com 50 mil chamados |
+| RNF-02 | Escala | Até 50 usuários na empresa; deve suportar até ~500 sem mudanças de arquitetura |
 | RNF-03 | Disponibilidade | 99,5% em horário comercial; a indisponibilidade da IA **não** pode impedir o uso do sistema |
 | RNF-04 | Segurança | OWASP ASVS nível 2; senhas com Argon2id; TLS obrigatório |
 | RNF-05 | Auditoria | Todas as ações (inclusive de clientes de API e IA) registradas com autor, data e origem |
 | RNF-06 | LGPD | Minimização de dados enviados a IA, mascaramento de dados pessoais, retenção configurável, exportação e anonimização de dados de um titular |
 | RNF-07 | Banco | PostgreSQL 16 e 17 suportados; CI testa as duas versões |
 | RNF-08 | Observabilidade | Logs estruturados (JSON), métricas Prometheus, tracing OpenTelemetry |
-| RNF-09 | Implantação | Imagem Docker; roda com apenas app + PostgreSQL (sem Redis/RabbitMQ obrigatórios) |
+| RNF-09 | Implantação | Serviços systemd (API + worker) + nginx + PostgreSQL em um único servidor, sem Redis/RabbitMQ ([ADR 0010](adr/0010-producao-systemd.md)) |
 | RNF-10 | Qualidade | Cobertura de testes ≥ 80% no domínio; lint e checagem de tipos no CI |
 | RNF-11 | Acessibilidade | Interface web WCAG 2.1 AA |
 | RNF-12 | Idioma | Interface em pt-BR, com estrutura de i18n preparada |
