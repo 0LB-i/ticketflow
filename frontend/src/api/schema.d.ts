@@ -21,10 +21,414 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/auth/login': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Login */
+    post: operations['login_api_v1_auth_login_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/logout': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Logout */
+    post: operations['logout_api_v1_auth_logout_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/password/forgot': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Forgot Password
+     * @description Sempre responde igual, exista o e-mail ou não (docs/09 §9.4).
+     */
+    post: operations['forgot_password_api_v1_auth_password_forgot_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/tokens/{token}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Token Info
+     * @description Para a tela de convite/redefinição mostrar de quem é o link antes do formulário.
+     */
+    get: operations['token_info_api_v1_auth_tokens__token__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/invite/accept': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Accept Invite */
+    post: operations['accept_invite_api_v1_auth_invite_accept_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/password/reset': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Reset Password */
+    post: operations['reset_password_api_v1_auth_password_reset_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/me': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Me */
+    get: operations['me_api_v1_me_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/me/password': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Change Password */
+    post: operations['change_password_api_v1_me_password_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/users': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Users */
+    get: operations['list_users_api_v1_users_get']
+    put?: never
+    /** Create User */
+    post: operations['create_user_api_v1_users_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/users/{user_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get User */
+    get: operations['get_user_api_v1_users__user_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update User */
+    patch: operations['update_user_api_v1_users__user_id__patch']
+    trace?: never
+  }
+  '/api/v1/users/{user_id}/link': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Send Access Link
+     * @description Reenvia o convite (quem ainda não tem senha) ou envia um link de redefinição.
+     */
+    post: operations['send_access_link_api_v1_users__user_id__link_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/teams': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Teams */
+    get: operations['list_teams_api_v1_teams_get']
+    put?: never
+    /** Create Team */
+    post: operations['create_team_api_v1_teams_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/teams/{team_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update Team */
+    patch: operations['update_team_api_v1_teams__team_id__patch']
+    trace?: never
+  }
+  '/api/v1/teams/{team_id}/members/{user_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Put Member
+     * @description Inclui o usuário no grupo ou muda o papel dele (membro / supervisor).
+     */
+    put: operations['put_member_api_v1_teams__team_id__members__user_id__put']
+    post?: never
+    /** Remove Member */
+    delete: operations['remove_member_api_v1_teams__team_id__members__user_id__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/departments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Departments */
+    get: operations['list_departments_api_v1_departments_get']
+    put?: never
+    /** Create Department */
+    post: operations['create_department_api_v1_departments_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/departments/{dept_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update Department */
+    patch: operations['update_department_api_v1_departments__dept_id__patch']
+    trace?: never
+  }
+  '/api/v1/admin/audit-log': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Audit */
+    get: operations['list_audit_api_v1_admin_audit_log_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    /** AuditEntry */
+    AuditEntry: {
+      /** Id */
+      id: number
+      /** Action */
+      action: string
+      /** Actor Id */
+      actor_id: string | null
+      /** Actor Name */
+      actor_name: string | null
+      /** Target Type */
+      target_type: string | null
+      /** Target Id */
+      target_id: string | null
+      /** Ip */
+      ip: string | null
+      /** Before */
+      before: {
+        [key: string]: unknown
+      } | null
+      /** After */
+      after: {
+        [key: string]: unknown
+      } | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+    }
+    /** AuditPage */
+    AuditPage: {
+      /** Items */
+      items: components['schemas']['AuditEntry'][]
+      /** Next Cursor */
+      next_cursor: number | null
+    }
+    /** ChangePasswordIn */
+    ChangePasswordIn: {
+      /** Current Password */
+      current_password: string
+      /** New Password */
+      new_password: string
+    }
+    /** DepartmentCreate */
+    DepartmentCreate: {
+      /** Name */
+      name: string
+      /** Code */
+      code?: string | null
+      /** Parent Id */
+      parent_id?: string | null
+    }
+    /** DepartmentList */
+    DepartmentList: {
+      /** Items */
+      items: components['schemas']['DepartmentOut'][]
+    }
+    /** DepartmentOut */
+    DepartmentOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+      /** Code */
+      code: string | null
+      /** Parent Id */
+      parent_id: string | null
+      /** Is Active */
+      is_active: boolean
+    }
+    /** DepartmentUpdate */
+    DepartmentUpdate: {
+      /** Name */
+      name?: string | null
+      /** Code */
+      code?: string | null
+      /** Parent Id */
+      parent_id?: string | null
+      /** Is Active */
+      is_active?: boolean | null
+    }
+    /** ForgotIn */
+    ForgotIn: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string
+    }
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components['schemas']['ValidationError'][]
+    }
     /** Health */
     Health: {
       /**
@@ -36,6 +440,280 @@ export interface components {
       version: string
       /** Database */
       database: string
+    }
+    /**
+     * LinkOut
+     * @description `url` só vem quando não há SMTP: o admin repassa o link por outro meio.
+     */
+    LinkOut: {
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: 'invite' | 'password_reset'
+      /** Sent By Email */
+      sent_by_email: boolean
+      /** Url */
+      url?: string | null
+    }
+    /** LoginIn */
+    LoginIn: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string
+      /** Password */
+      password: string
+    }
+    /** Me */
+    Me: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Email */
+      email: string
+      /** Full Name */
+      full_name: string
+      /** Role */
+      role: string
+      /** Teams */
+      teams: components['schemas']['MeTeam'][]
+      /** Permissions */
+      permissions: string[]
+    }
+    /** MeTeam */
+    MeTeam: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'member' | 'supervisor'
+    }
+    /** MemberIn */
+    MemberIn: {
+      /**
+       * Role
+       * @default member
+       * @enum {string}
+       */
+      role: 'member' | 'supervisor'
+    }
+    /** MemberOut */
+    MemberOut: {
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string
+      /** Full Name */
+      full_name: string
+      /** Email */
+      email: string
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'member' | 'supervisor'
+    }
+    /** TeamCreate */
+    TeamCreate: {
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /**
+       * Notify On New
+       * @default queue_only
+       * @enum {string}
+       */
+      notify_on_new: 'queue_only' | 'email_all_members'
+    }
+    /** TeamList */
+    TeamList: {
+      /** Items */
+      items: components['schemas']['TeamOut'][]
+    }
+    /** TeamOut */
+    TeamOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+      /** Description */
+      description: string | null
+      /**
+       * Notify On New
+       * @enum {string}
+       */
+      notify_on_new: 'queue_only' | 'email_all_members'
+      /** Is Active */
+      is_active: boolean
+      /** Members */
+      members: components['schemas']['MemberOut'][]
+    }
+    /** TeamUpdate */
+    TeamUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description */
+      description?: string | null
+      /** Notify On New */
+      notify_on_new?: ('queue_only' | 'email_all_members') | null
+      /** Is Active */
+      is_active?: boolean | null
+    }
+    /** TokenInfo */
+    TokenInfo: {
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: 'invite' | 'password_reset'
+      /** Email */
+      email: string
+      /** Full Name */
+      full_name: string
+    }
+    /** TokenPasswordIn */
+    TokenPasswordIn: {
+      /** Token */
+      token: string
+      /** Password */
+      password: string
+    }
+    /** UserCreate */
+    UserCreate: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string
+      /** Full Name */
+      full_name: string
+      /**
+       * Role
+       * @default agent
+       * @enum {string}
+       */
+      role: 'agent' | 'admin' | 'auditor'
+    }
+    /** UserCreated */
+    UserCreated: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Email */
+      email: string
+      /** Full Name */
+      full_name: string
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'agent' | 'admin' | 'auditor'
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'ativo' | 'convite_pendente' | 'inativo'
+      /** Teams */
+      teams: components['schemas']['UserTeam'][]
+      /** Last Login At */
+      last_login_at: string | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      link: components['schemas']['LinkOut']
+    }
+    /** UserList */
+    UserList: {
+      /** Items */
+      items: components['schemas']['UserOut'][]
+    }
+    /** UserOut */
+    UserOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Email */
+      email: string
+      /** Full Name */
+      full_name: string
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'agent' | 'admin' | 'auditor'
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'ativo' | 'convite_pendente' | 'inativo'
+      /** Teams */
+      teams: components['schemas']['UserTeam'][]
+      /** Last Login At */
+      last_login_at: string | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+    }
+    /** UserTeam */
+    UserTeam: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'member' | 'supervisor'
+    }
+    /** UserUpdate */
+    UserUpdate: {
+      /** Full Name */
+      full_name?: string | null
+      /** Role */
+      role?: ('agent' | 'admin' | 'auditor') | null
+      /** Is Active */
+      is_active?: boolean | null
+    }
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[]
+      /** Message */
+      msg: string
+      /** Error Type */
+      type: string
+      /** Input */
+      input?: unknown
+      /** Context */
+      ctx?: Record<string, never>
     }
   }
   responses: never
@@ -70,6 +748,660 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+    }
+  }
+  login_api_v1_auth_login_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LoginIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  logout_api_v1_auth_logout_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  forgot_password_api_v1_auth_password_forgot_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ForgotIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': unknown
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  token_info_api_v1_auth_tokens__token__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        token: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TokenInfo']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  accept_invite_api_v1_auth_invite_accept_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TokenPasswordIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  reset_password_api_v1_auth_password_reset_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TokenPasswordIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  me_api_v1_me_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Me']
+        }
+      }
+    }
+  }
+  change_password_api_v1_me_password_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangePasswordIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_users_api_v1_users_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UserList']
+        }
+      }
+    }
+  }
+  create_user_api_v1_users_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UserCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UserCreated']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_user_api_v1_users__user_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        user_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UserOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_user_api_v1_users__user_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        user_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UserUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UserOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  send_access_link_api_v1_users__user_id__link_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        user_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['LinkOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_teams_api_v1_teams_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TeamList']
+        }
+      }
+    }
+  }
+  create_team_api_v1_teams_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TeamCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TeamOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_team_api_v1_teams__team_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        team_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TeamUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TeamOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  put_member_api_v1_teams__team_id__members__user_id__put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        team_id: string
+        user_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MemberIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TeamOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  remove_member_api_v1_teams__team_id__members__user_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        team_id: string
+        user_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TeamOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_departments_api_v1_departments_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DepartmentList']
+        }
+      }
+    }
+  }
+  create_department_api_v1_departments_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DepartmentCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DepartmentOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_department_api_v1_departments__dept_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        dept_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DepartmentUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DepartmentOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_audit_api_v1_admin_audit_log_get: {
+    parameters: {
+      query?: {
+        /** @description prefixo, ex.: auth. ou user. */
+        action?: string | null
+        cursor?: number | null
+        limit?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AuditPage']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
       }
     }
   }

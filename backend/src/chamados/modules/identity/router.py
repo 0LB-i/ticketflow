@@ -1,0 +1,210 @@
+"""Login, sessão, convite, redefinição e troca de senha (docs/09 §9.9)."""
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from chamados.core.permissions import effective_permissions
+from chamados.db.session import DB
+from chamados.modules.audit.service import client_ip, record
+from chamados.modules.identity import ratelimit
+from chamados.modules.identity.deps import CurrentAuth, SettingsDep
+from chamados.modules.identity.models import User
+from chamados.modules.identity.passwords import hash_password, password_problem, verify_password
+from chamados.modules.identity.schemas import (
+    ChangePasswordIn,
+    ForgotIn,
+    LoginIn,
+    Me,
+    MeTeam,
+    TokenInfo,
+    TokenPasswordIn,
+)
+from chamados.modules.identity.service import (
+    find_token,
+    issue_token,
+    link,
+    send_link_email,
+    send_locked_email,
+)
+from chamados.modules.identity.sessions import clear_cookies, create_session, now, revoke_sessions
+from chamados.modules.organization.models import TeamMember
+
+router = APIRouter(tags=["autenticação"])
+
+INVALID = "E-mail ou senha inválidos."
+
+
+@router.post("/auth/login", status_code=204)
+async def login(
+    data: LoginIn, request: Request, response: Response, db: DB, settings: SettingsDep
+) -> None:
+    limiter: ratelimit.IpLimiter = request.app.state.ip_limiter
+    ip = client_ip(request) or "desconhecido"
+    if wait := limiter.blocked(ip):
+        raise HTTPException(
+            429, "Muitas tentativas. Tente de novo mais tarde.", {"Retry-After": str(wait)}
+        )
+
+    user = await db.scalar(select(User).where(User.email == data.email))
+    t = now()
+
+    def fail(reason: str) -> HTTPException:
+        limiter.fail(ip)
+        record(
+            db,
+            "auth.login_failed",
+            request=request,
+            actor_user_id=user.id if user else None,
+            after={"email": data.email, "motivo": reason},
+        )
+        return HTTPException(401, INVALID)
+
+    if user is None or not user.is_active or user.password_hash is None:
+        verify_password(None, data.password)  # mesmo tempo de resposta
+        exc = fail("conta inexistente ou inativa")
+        await db.commit()
+        raise exc
+    if (user.locked_until and user.locked_until > t) or ratelimit.account_must_wait(
+        user.failed_logins, user.last_failed_login_at, t
+    ):
+        exc = fail("conta em espera")
+        await db.commit()
+        raise exc
+
+    ok, rehash = verify_password(user.password_hash, data.password)
+    if not ok:
+        user.failed_logins += 1
+        user.last_failed_login_at = t
+        exc = fail("senha errada")
+        if user.failed_logins >= ratelimit.LOCK_AFTER:
+            user.locked_until = t + ratelimit.LOCK_FOR
+            user.failed_logins = 0
+            record(
+                db,
+                "auth.locked",
+                request=request,
+                actor_user_id=user.id,
+                target_type="user",
+                target_id=user.public_id,
+            )
+        await db.commit()
+        if user.locked_until and user.locked_until > t:
+            # Tarefas em segundo plano são descartadas quando a rota levanta exceção.
+            await run_in_threadpool(send_locked_email, request.app.state.mailer, user)
+        raise exc
+
+    user.failed_logins = 0
+    user.last_failed_login_at = None
+    user.locked_until = None
+    user.last_login_at = t
+    if rehash:
+        user.password_hash = hash_password(data.password)
+    await create_session(db, user, request, response, settings)
+    record(db, "auth.login", request=request, actor_user_id=user.id)
+    await db.commit()
+
+
+@router.post("/auth/logout", status_code=204)
+async def logout(
+    auth: CurrentAuth, request: Request, response: Response, db: DB, settings: SettingsDep
+) -> None:
+    auth.session.revoked_at = now()
+    record(db, "auth.logout", request=request, actor_user_id=auth.user.id)
+    await db.commit()
+    clear_cookies(response, settings)
+
+
+@router.post("/auth/password/forgot", status_code=202)
+async def forgot_password(
+    data: ForgotIn, request: Request, db: DB, settings: SettingsDep, tasks: BackgroundTasks
+) -> None:
+    """Sempre responde igual, exista o e-mail ou não (docs/09 §9.4)."""
+    user = await db.scalar(select(User).where(User.email == data.email))
+    if user is None or not user.is_active or user.password_hash is None:
+        return
+    raw = await issue_token(db, user, "password_reset")
+    record(db, "auth.password_reset_requested", request=request, actor_user_id=user.id)
+    await db.commit()
+    url = link(settings, "password_reset", raw)
+    tasks.add_task(send_link_email, request.app.state.mailer, user, "password_reset", url)
+
+
+@router.get("/auth/tokens/{token}", response_model=TokenInfo)
+async def token_info(token: str, db: DB) -> TokenInfo:
+    """Para a tela de convite/redefinição mostrar de quem é o link antes do formulário."""
+    found = await find_token(db, token)
+    if found is None:
+        raise HTTPException(404, "Link inválido ou expirado.")
+    return TokenInfo(
+        purpose=found.purpose,
+        email=found.user.email,
+        full_name=found.user.full_name,
+    )
+
+
+async def _set_password_with_token(
+    data: TokenPasswordIn, purpose: str, request: Request, db: DB
+) -> None:
+    token = await find_token(db, data.token)
+    if token is None or token.purpose != purpose:
+        raise HTTPException(404, "Link inválido ou expirado.")
+    user = token.user
+    if problem := password_problem(data.password, user.email):
+        raise HTTPException(422, problem)
+    user.password_hash = hash_password(data.password)
+    user.password_changed_at = now()
+    user.failed_logins = 0
+    user.locked_until = None
+    token.used_at = now()
+    await revoke_sessions(db, user.id)
+    action = "auth.invite_accepted" if purpose == "invite" else "auth.password_reset"
+    record(db, action, request=request, actor_user_id=user.id)
+    await db.commit()
+
+
+@router.post("/auth/invite/accept", status_code=204)
+async def accept_invite(data: TokenPasswordIn, request: Request, db: DB) -> None:
+    await _set_password_with_token(data, "invite", request, db)
+
+
+@router.post("/auth/password/reset", status_code=204)
+async def reset_password(data: TokenPasswordIn, request: Request, db: DB) -> None:
+    await _set_password_with_token(data, "password_reset", request, db)
+
+
+@router.get("/me", response_model=Me)
+async def me(auth: CurrentAuth, db: DB) -> Me:
+    memberships = (
+        await db.scalars(
+            select(TeamMember)
+            .where(TeamMember.user_id == auth.user.id)
+            .options(selectinload(TeamMember.team))
+            .order_by(TeamMember.team_id)
+        )
+    ).all()
+    return Me(
+        id=auth.user.public_id,
+        email=auth.user.email,
+        full_name=auth.user.full_name,
+        role=auth.user.role.code,
+        teams=[MeTeam(id=m.team.public_id, name=m.team.name, role=m.role) for m in memberships],
+        permissions=effective_permissions(auth.actor),
+    )
+
+
+@router.post("/me/password", status_code=204)
+async def change_password(
+    data: ChangePasswordIn, auth: CurrentAuth, request: Request, db: DB
+) -> None:
+    ok, _ = verify_password(auth.user.password_hash, data.current_password)
+    if not ok:
+        raise HTTPException(422, "A senha atual não confere.")
+    if problem := password_problem(data.new_password, auth.user.email):
+        raise HTTPException(422, problem)
+    auth.user.password_hash = hash_password(data.new_password)
+    auth.user.password_changed_at = now()
+    await revoke_sessions(db, auth.user.id, keep_id=auth.session.id)
+    record(db, "auth.password_changed", request=request, actor_user_id=auth.user.id)
+    await db.commit()

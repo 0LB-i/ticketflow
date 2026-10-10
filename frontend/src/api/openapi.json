@@ -26,10 +26,1164 @@
           }
         }
       }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["autenticação"],
+        "summary": "Login",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": ["autenticação"],
+        "summary": "Logout",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/forgot": {
+      "post": {
+        "tags": ["autenticação"],
+        "summary": "Forgot Password",
+        "description": "Sempre responde igual, exista o e-mail ou não (docs/09 §9.4).",
+        "operationId": "forgot_password_api_v1_auth_password_forgot_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/tokens/{token}": {
+      "get": {
+        "tags": ["autenticação"],
+        "summary": "Token Info",
+        "description": "Para a tela de convite/redefinição mostrar de quem é o link antes do formulário.",
+        "operationId": "token_info_api_v1_auth_tokens__token__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/invite/accept": {
+      "post": {
+        "tags": ["autenticação"],
+        "summary": "Accept Invite",
+        "operationId": "accept_invite_api_v1_auth_invite_accept_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenPasswordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/reset": {
+      "post": {
+        "tags": ["autenticação"],
+        "summary": "Reset Password",
+        "operationId": "reset_password_api_v1_auth_password_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenPasswordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": ["autenticação"],
+        "summary": "Me",
+        "operationId": "me_api_v1_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/password": {
+      "post": {
+        "tags": ["autenticação"],
+        "summary": "Change Password",
+        "operationId": "change_password_api_v1_me_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": ["usuários"],
+        "summary": "List Users",
+        "operationId": "list_users_api_v1_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["usuários"],
+        "summary": "Create User",
+        "operationId": "create_user_api_v1_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "get": {
+        "tags": ["usuários"],
+        "summary": "Get User",
+        "operationId": "get_user_api_v1_users__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["usuários"],
+        "summary": "Update User",
+        "operationId": "update_user_api_v1_users__user_id__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/link": {
+      "post": {
+        "tags": ["usuários"],
+        "summary": "Send Access Link",
+        "description": "Reenvia o convite (quem ainda não tem senha) ou envia um link de redefinição.",
+        "operationId": "send_access_link_api_v1_users__user_id__link_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "tags": ["organização"],
+        "summary": "List Teams",
+        "operationId": "list_teams_api_v1_teams_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["organização"],
+        "summary": "Create Team",
+        "operationId": "create_team_api_v1_teams_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{team_id}": {
+      "patch": {
+        "tags": ["organização"],
+        "summary": "Update Team",
+        "operationId": "update_team_api_v1_teams__team_id__patch",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{team_id}/members/{user_id}": {
+      "put": {
+        "tags": ["organização"],
+        "summary": "Put Member",
+        "description": "Inclui o usuário no grupo ou muda o papel dele (membro / supervisor).",
+        "operationId": "put_member_api_v1_teams__team_id__members__user_id__put",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["organização"],
+        "summary": "Remove Member",
+        "operationId": "remove_member_api_v1_teams__team_id__members__user_id__delete",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/departments": {
+      "get": {
+        "tags": ["organização"],
+        "summary": "List Departments",
+        "operationId": "list_departments_api_v1_departments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["organização"],
+        "summary": "Create Department",
+        "operationId": "create_department_api_v1_departments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/departments/{dept_id}": {
+      "patch": {
+        "tags": ["organização"],
+        "summary": "Update Department",
+        "operationId": "update_department_api_v1_departments__dept_id__patch",
+        "parameters": [
+          {
+            "name": "dept_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dept Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit-log": {
+      "get": {
+        "tags": ["auditoria"],
+        "summary": "List Audit",
+        "operationId": "list_audit_api_v1_admin_audit_log_get",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "prefixo, ex.: auth. ou user.",
+              "title": "Action"
+            },
+            "description": "prefixo, ex.: auth. ou user."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AuditEntry": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Type"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "actor_id",
+          "actor_name",
+          "target_type",
+          "target_id",
+          "ip",
+          "before",
+          "after",
+          "created_at"
+        ],
+        "title": "AuditEntry"
+      },
+      "AuditPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": ["items", "next_cursor"],
+        "title": "AuditPage"
+      },
+      "ChangePasswordIn": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": ["current_password", "new_password"],
+        "title": "ChangePasswordIn"
+      },
+      "DepartmentCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "type": "object",
+        "required": ["name"],
+        "title": "DepartmentCreate"
+      },
+      "DepartmentList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DepartmentOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "DepartmentList"
+      },
+      "DepartmentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": ["id", "name", "code", "parent_id", "is_active"],
+        "title": "DepartmentOut"
+      },
+      "DepartmentUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "DepartmentUpdate"
+      },
+      "ForgotIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": ["email"],
+        "title": "ForgotIn"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
       "Health": {
         "properties": {
           "status": {
@@ -49,6 +1203,593 @@
         "type": "object",
         "required": ["status", "version", "database"],
         "title": "Health"
+      },
+      "LinkOut": {
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": ["invite", "password_reset"],
+            "title": "Purpose"
+          },
+          "sent_by_email": {
+            "type": "boolean",
+            "title": "Sent By Email"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": ["purpose", "sent_by_email"],
+        "title": "LinkOut",
+        "description": "`url` só vem quando não há SMTP: o admin repassa o link por outro meio."
+      },
+      "LoginIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": ["email", "password"],
+        "title": "LoginIn"
+      },
+      "Me": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/MeTeam"
+            },
+            "type": "array",
+            "title": "Teams"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "required": ["id", "email", "full_name", "role", "teams", "permissions"],
+        "title": "Me"
+      },
+      "MeTeam": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["member", "supervisor"],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": ["id", "name", "role"],
+        "title": "MeTeam"
+      },
+      "MemberIn": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["member", "supervisor"],
+            "title": "Role",
+            "default": "member"
+          }
+        },
+        "type": "object",
+        "title": "MemberIn"
+      },
+      "MemberOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["member", "supervisor"],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": ["user_id", "full_name", "email", "role"],
+        "title": "MemberOut"
+      },
+      "TeamCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "notify_on_new": {
+            "type": "string",
+            "enum": ["queue_only", "email_all_members"],
+            "title": "Notify On New",
+            "default": "queue_only"
+          }
+        },
+        "type": "object",
+        "required": ["name"],
+        "title": "TeamCreate"
+      },
+      "TeamList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TeamOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "TeamList"
+      },
+      "TeamOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "notify_on_new": {
+            "type": "string",
+            "enum": ["queue_only", "email_all_members"],
+            "title": "Notify On New"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/MemberOut"
+            },
+            "type": "array",
+            "title": "Members"
+          }
+        },
+        "type": "object",
+        "required": ["id", "name", "description", "notify_on_new", "is_active", "members"],
+        "title": "TeamOut"
+      },
+      "TeamUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "notify_on_new": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["queue_only", "email_all_members"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify On New"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "TeamUpdate"
+      },
+      "TokenInfo": {
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": ["invite", "password_reset"],
+            "title": "Purpose"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          }
+        },
+        "type": "object",
+        "required": ["purpose", "email", "full_name"],
+        "title": "TokenInfo"
+      },
+      "TokenPasswordIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Token"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": ["token", "password"],
+        "title": "TokenPasswordIn"
+      },
+      "UserCreate": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Full Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["agent", "admin", "auditor"],
+            "title": "Role",
+            "default": "agent"
+          }
+        },
+        "type": "object",
+        "required": ["email", "full_name"],
+        "title": "UserCreate"
+      },
+      "UserCreated": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["agent", "admin", "auditor"],
+            "title": "Role"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ativo", "convite_pendente", "inativo"],
+            "title": "Status"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/UserTeam"
+            },
+            "type": "array",
+            "title": "Teams"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "link": {
+            "$ref": "#/components/schemas/LinkOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "role",
+          "status",
+          "teams",
+          "last_login_at",
+          "created_at",
+          "link"
+        ],
+        "title": "UserCreated"
+      },
+      "UserList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "UserList"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["agent", "admin", "auditor"],
+            "title": "Role"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ativo", "convite_pendente", "inativo"],
+            "title": "Status"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/UserTeam"
+            },
+            "type": "array",
+            "title": "Teams"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "role",
+          "status",
+          "teams",
+          "last_login_at",
+          "created_at"
+        ],
+        "title": "UserOut"
+      },
+      "UserTeam": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["member", "supervisor"],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": ["id", "name", "role"],
+        "title": "UserTeam"
+      },
+      "UserUpdate": {
+        "properties": {
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["agent", "admin", "auditor"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "UserUpdate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": ["loc", "msg", "type"],
+        "title": "ValidationError"
       }
     }
   }

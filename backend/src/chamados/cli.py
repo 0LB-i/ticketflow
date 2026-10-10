@@ -1,11 +1,13 @@
-"""Comando `chamados`: migrações e exportação do contrato OpenAPI.
+"""Comando `chamados`: migrações, primeiro administrador e contrato OpenAPI.
 
-Os comandos de administração (`admin create`) e o `worker` entram nas Sprints 2 e 4.
+O `worker` entra na Sprint 4.
 """
 
 import argparse
+import asyncio
 import json
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 from alembic import command
@@ -33,6 +35,43 @@ def _openapi(out: str | None) -> None:
         sys.stdout.write(spec)
 
 
+async def _create_admin(email: str, name: str) -> str:
+    """Cria um administrador sem senha e devolve o link para defini-la (docs/09 §9.2)."""
+    from sqlalchemy import select
+
+    from chamados.db.engine import create_engine
+    from chamados.db.session import make_sessionmaker
+    from chamados.modules.audit.service import record
+    from chamados.modules.identity.models import User
+    from chamados.modules.identity.service import issue_token, link
+    from chamados.modules.organization.models import Role
+
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        async with make_sessionmaker(engine)() as db:
+            if await db.scalar(select(User.id).where(User.email == email)):
+                raise SystemExit(f"Já existe um usuário com o e-mail {email}.")
+            role = await db.scalar(select(Role).where(Role.code == "admin"))
+            if role is None:
+                raise SystemExit("Papéis não encontrados: rode `chamados db upgrade` antes.")
+            user = User(email=email, full_name=name, role=role)
+            db.add(user)
+            await db.flush()
+            raw = await issue_token(db, user, "invite", timedelta(hours=24))
+            record(
+                db,
+                "user.created",
+                target_type="user",
+                target_id=user.public_id,
+                after={"email": email, "full_name": name, "role": "admin", "via": "cli"},
+            )
+            await db.commit()
+            return link(settings, "invite", raw)
+    finally:
+        await engine.dispose()
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="chamados", description="TicketFlow")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -46,6 +85,13 @@ def main(argv: list[str] | None = None) -> None:
     down.add_argument("revision")
     db.add_parser("current", help="mostra a revisão atual")
 
+    admin = sub.add_parser("admin", help="administração").add_subparsers(
+        dest="admin_cmd", required=True
+    )
+    create = admin.add_parser("create", help="cria um administrador e mostra o link de senha")
+    create.add_argument("--email", required=True)
+    create.add_argument("--name", required=True)
+
     api = sub.add_parser("openapi", help="exporta o contrato OpenAPI em JSON")
     api.add_argument("-o", "--output", help="arquivo de saída (padrão: stdout)")
 
@@ -58,5 +104,8 @@ def main(argv: list[str] | None = None) -> None:
             command.downgrade(cfg, args.revision)
         else:
             command.current(cfg)
+    elif args.cmd == "admin":
+        url = asyncio.run(_create_admin(args.email.strip(), args.name.strip()))
+        print(f"Administrador criado. Para definir a senha (link válido por 24 h):\n{url}")
     elif args.cmd == "openapi":
         _openapi(args.output)
