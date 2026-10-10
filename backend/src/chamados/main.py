@@ -16,11 +16,13 @@ from chamados.core.logging import configure_logging
 from chamados.db.engine import create_engine
 from chamados.db.session import make_sessionmaker
 from chamados.modules.audit.router import router as audit_router
+from chamados.modules.catalog.router import router as catalog_router
 from chamados.modules.identity.admin_router import router as users_router
 from chamados.modules.identity.ratelimit import IpLimiter
 from chamados.modules.identity.router import router as auth_router
 from chamados.modules.notifications.email import make_mailer
 from chamados.modules.organization.router import router as organization_router
+from chamados.modules.tickets.router import router as tickets_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -50,7 +52,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api = APIRouter(prefix="/api")
     api.include_router(health.router)
     v1 = APIRouter(prefix="/v1")
-    for router in (auth_router, users_router, organization_router, audit_router):
+    for router in (
+        auth_router,
+        users_router,
+        organization_router,
+        catalog_router,
+        tickets_router,
+        audit_router,
+    ):
         v1.include_router(router)
     api.include_router(v1)
     app.include_router(api)

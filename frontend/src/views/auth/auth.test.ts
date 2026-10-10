@@ -34,7 +34,10 @@ describe('LoginView', () => {
     await w.get('input[type=text]').setValue('ana@exemplo.com')
     await w.get('input[type=password]').setValue('uma senha longa de teste')
     await w.get('form').trigger('submit')
-    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/dev/componentes'))
+    // A rota carrega o componente sob demanda: com a máquina ocupada, passa de 1 s.
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/dev/componentes'), {
+      timeout: 5000,
+    })
     expect(feitas.find((r) => r.caminho === '/api/v1/auth/login')?.corpo).toEqual({
       login: 'ana@exemplo.com',
       password: 'uma senha longa de teste',

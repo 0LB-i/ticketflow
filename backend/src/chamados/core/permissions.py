@@ -4,8 +4,8 @@ As permissões são códigos fixos. Um papel é uma lista deles. Algumas só val
 supervisor do grupo em questão (👤 na matriz do docs/08): o papel Agente não as tem
 globalmente, e `can()` as concede pela supervisão.
 
-O filtro de visibilidade de chamados (`ticket_visibility_filter`) entra com os chamados,
-na Sprint 3.
+O filtro de visibilidade de chamados (`ticket_visibility_filter`) fica em
+modules/tickets/visibility.py, e as ações em um chamado, em modules/tickets/rules.py.
 """
 
 from collections.abc import Iterable

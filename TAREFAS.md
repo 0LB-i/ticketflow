@@ -38,15 +38,16 @@ Ao concluir um item, marque `feito` e anote o commit.
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
-| F1-S3-01 | Cadastro de **categorias** (árvore, grupo padrão, tipo padrão, confidencial) | a fazer | |
-| F1-S3-02 | Status padrão e **motor de transições** (quem pode, campos exigidos) | a fazer | |
-| F1-S3-03 | **Registro** de chamado: formulário, setor e pessoa atendidos, responsável na criação, matriz impacto × urgência | a fazer | |
-| F1-S3-04 | **Observadores** e @menções | a fazer | |
-| F1-S3-05 | Roteamento por categoria → grupo | a fazer | |
-| F1-S3-06 | **Comentários**; edição em 10 min | a fazer | |
-| F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | a fazer | |
-| F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | a fazer | |
+| F1-S3-01 | Cadastro de **categorias** (árvore, grupo padrão, tipo padrão, confidencial) | fazendo | |
+| F1-S3-02 | Status padrão e **motor de transições** (quem pode, campos exigidos) | fazendo | |
+| F1-S3-03 | **Registro** de chamado: formulário, setor e pessoa atendidos, responsável na criação, matriz impacto × urgência | fazendo | |
+| F1-S3-04 | **Observadores** e @menções | fazendo | |
+| F1-S3-05 | Roteamento por categoria → grupo | fazendo | |
+| F1-S3-06 | **Comentários**; edição em 10 min | fazendo | |
+| F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | fazendo | |
+| F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | fazendo | |
 | F1-S3-09 | Telas: novo chamado e detalhe do chamado | a fazer | |
+| F1-S3-10 | `ticket_visibility_filter()` + testes tabelados das regras de visibilidade (saiu da S2-07) | fazendo | |
 
 ### Sprint 4 — Anexos, notificações, filas e busca
 

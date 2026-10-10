@@ -310,6 +310,232 @@ export interface paths {
     patch: operations['update_department_api_v1_departments__dept_id__patch']
     trace?: never
   }
+  '/api/v1/categories': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Categories */
+    get: operations['list_categories_api_v1_categories_get']
+    put?: never
+    /** Create Category */
+    post: operations['create_category_api_v1_categories_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/categories/{category_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update Category */
+    patch: operations['update_category_api_v1_categories__category_id__patch']
+    trace?: never
+  }
+  '/api/v1/statuses': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Statuses */
+    get: operations['list_statuses_api_v1_statuses_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/resolution-codes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Resolution Codes */
+    get: operations['list_resolution_codes_api_v1_resolution_codes_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Tickets */
+    get: operations['list_tickets_api_v1_tickets_get']
+    put?: never
+    /** Create Ticket */
+    post: operations['create_ticket_api_v1_tickets_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Ticket */
+    get: operations['get_ticket_api_v1_tickets__ticket_ref__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update Ticket */
+    patch: operations['update_ticket_api_v1_tickets__ticket_ref__patch']
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}/assign': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Assign Ticket */
+    post: operations['assign_ticket_api_v1_tickets__ticket_ref__assign_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}/transfer': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Transfer Ticket */
+    post: operations['transfer_ticket_api_v1_tickets__ticket_ref__transfer_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}/transitions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Transition Ticket */
+    post: operations['transition_ticket_api_v1_tickets__ticket_ref__transitions_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}/watchers/{user_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Add Watcher */
+    put: operations['add_watcher_api_v1_tickets__ticket_ref__watchers__user_id__put']
+    post?: never
+    /** Remove Watcher */
+    delete: operations['remove_watcher_api_v1_tickets__ticket_ref__watchers__user_id__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}/comments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Comments */
+    get: operations['list_comments_api_v1_tickets__ticket_ref__comments_get']
+    put?: never
+    /** Add Comment */
+    post: operations['add_comment_api_v1_tickets__ticket_ref__comments_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}/comments/{comment_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Edit Comment */
+    patch: operations['edit_comment_api_v1_tickets__ticket_ref__comments__comment_id__patch']
+    trace?: never
+  }
+  '/api/v1/tickets/{ticket_ref}/events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Events */
+    get: operations['list_events_api_v1_tickets__ticket_ref__events_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/admin/audit-log': {
     parameters: {
       query?: never
@@ -331,6 +557,14 @@ export interface paths {
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    /** AssignIn */
+    AssignIn: {
+      /**
+       * Assignee
+       * @description "me" para assumir, um membro do grupo, ou nulo para devolver à fila
+       */
+      assignee: 'me' | string | null
+    }
     /** AuditEntry */
     AuditEntry: {
       /** Id */
@@ -368,12 +602,137 @@ export interface components {
       /** Next Cursor */
       next_cursor: number | null
     }
+    /** CategoryCreate */
+    CategoryCreate: {
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /** Parent Id */
+      parent_id?: string | null
+      /** Default Team Id */
+      default_team_id?: string | null
+      /**
+       * Default Type
+       * @default incident
+       * @enum {string}
+       */
+      default_type: 'incident' | 'request' | 'task'
+      /**
+       * Is Confidential
+       * @default false
+       */
+      is_confidential: boolean
+    }
+    /** CategoryList */
+    CategoryList: {
+      /** Items */
+      items: components['schemas']['CategoryOut'][]
+    }
+    /** CategoryOut */
+    CategoryOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+      /** Description */
+      description: string | null
+      /** Parent Id */
+      parent_id: string | null
+      /** Default Team Id */
+      default_team_id: string | null
+      /**
+       * Default Type
+       * @enum {string}
+       */
+      default_type: 'incident' | 'request' | 'task'
+      /** Is Confidential */
+      is_confidential: boolean
+      /** Is Active */
+      is_active: boolean
+    }
+    /** CategoryRef */
+    CategoryRef: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+      /**
+       * Path
+       * @description caminho na árvore, ex.: TI › Acessos › Novo acesso
+       */
+      path: string
+    }
+    /** CategoryUpdate */
+    CategoryUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description */
+      description?: string | null
+      /** Parent Id */
+      parent_id?: string | null
+      /** Default Team Id */
+      default_team_id?: string | null
+      /** Default Type */
+      default_type?: ('incident' | 'request' | 'task') | null
+      /** Is Confidential */
+      is_confidential?: boolean | null
+      /** Is Active */
+      is_active?: boolean | null
+    }
     /** ChangePasswordIn */
     ChangePasswordIn: {
       /** Current Password */
       current_password?: string | null
       /** New Password */
       new_password: string
+    }
+    /** CommentIn */
+    CommentIn: {
+      /** Body */
+      body: string
+      /**
+       * Mention Ids
+       * @default []
+       */
+      mention_ids: string[]
+    }
+    /** CommentList */
+    CommentList: {
+      /** Items */
+      items: components['schemas']['CommentOut'][]
+    }
+    /** CommentOut */
+    CommentOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      author: components['schemas']['UserRef']
+      /** Body */
+      body: string
+      /** Is Solution */
+      is_solution: boolean
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Edited At */
+      edited_at: string | null
+      /**
+       * Editable Until
+       * Format: date-time
+       * @description o autor pode editar até este momento
+       */
+      editable_until: string
     }
     /** DepartmentCreate */
     DepartmentCreate: {
@@ -415,6 +774,28 @@ export interface components {
       parent_id?: string | null
       /** Is Active */
       is_active?: boolean | null
+    }
+    /** EventList */
+    EventList: {
+      /** Items */
+      items: components['schemas']['EventOut'][]
+    }
+    /** EventOut */
+    EventOut: {
+      /** Id */
+      id: number
+      /** Type */
+      type: string
+      actor: components['schemas']['UserRef'] | null
+      /** Payload */
+      payload: {
+        [key: string]: unknown
+      }
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
     }
     /** ForgotIn */
     ForgotIn: {
@@ -529,6 +910,66 @@ export interface components {
        */
       role: 'member' | 'supervisor'
     }
+    /** Ref */
+    Ref: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+    }
+    /** ResolutionCodeList */
+    ResolutionCodeList: {
+      /** Items */
+      items: components['schemas']['ResolutionCodeOut'][]
+    }
+    /** ResolutionCodeOut */
+    ResolutionCodeOut: {
+      /** Id */
+      id: number
+      /** Name */
+      name: string
+      /** Is Active */
+      is_active: boolean
+    }
+    /** ResolutionRef */
+    ResolutionRef: {
+      /** Id */
+      id: number
+      /** Name */
+      name: string
+    }
+    /** StatusList */
+    StatusList: {
+      /** Items */
+      items: components['schemas']['StatusOut'][]
+    }
+    /** StatusOut */
+    StatusOut: {
+      /** Id */
+      id: number
+      /** Name */
+      name: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'approval' | 'open' | 'waiting' | 'closed' | 'canceled'
+    }
+    /** StatusRef */
+    StatusRef: {
+      /** Id */
+      id: number
+      /** Name */
+      name: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'approval' | 'open' | 'waiting' | 'closed' | 'canceled'
+    }
     /** TeamCreate */
     TeamCreate: {
       /** Name */
@@ -579,6 +1020,187 @@ export interface components {
       /** Is Active */
       is_active?: boolean | null
     }
+    /** TicketCreate */
+    TicketCreate: {
+      /** Title */
+      title: string
+      /**
+       * Description
+       * @default
+       */
+      description: string
+      /**
+       * Category Id
+       * Format: uuid
+       */
+      category_id: string
+      /**
+       * Team Id
+       * @description sem grupo, vai para o grupo padrão da categoria
+       */
+      team_id?: string | null
+      /**
+       * Type
+       * @description sem tipo, usa o da categoria
+       */
+      type?: ('incident' | 'request' | 'task') | null
+      /** Department Id */
+      department_id?: string | null
+      /** Beneficiary Name */
+      beneficiary_name?: string | null
+      /**
+       * Impact
+       * @default 1
+       */
+      impact: number
+      /**
+       * Urgency
+       * @default 1
+       */
+      urgency: number
+      /**
+       * Assignee
+       * @description "me", outro membro do grupo (supervisor) ou nulo (fila)
+       */
+      assignee?: 'me' | string | null
+      /**
+       * Watcher Ids
+       * @default []
+       */
+      watcher_ids: string[]
+      /**
+       * Mention Ids
+       * @description @mencionados na descrição: viram observadores
+       * @default []
+       */
+      mention_ids: string[]
+    }
+    /** TicketOut */
+    TicketOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Number */
+      number: number
+      /** Title */
+      title: string
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: 'incident' | 'request' | 'task'
+      status: components['schemas']['StatusRef']
+      /** Priority */
+      priority: number
+      team: components['schemas']['Ref']
+      category: components['schemas']['CategoryRef']
+      department: components['schemas']['Ref'] | null
+      /** Beneficiary Name */
+      beneficiary_name: string | null
+      assignee: components['schemas']['UserRef'] | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
+      /** Description */
+      description: string
+      /** Impact */
+      impact: number
+      /** Urgency */
+      urgency: number
+      /** Priority Overridden */
+      priority_overridden: boolean
+      created_by: components['schemas']['UserRef']
+      resolution_code: components['schemas']['ResolutionRef'] | null
+      /** Reopened Count */
+      reopened_count: number
+      /** Closed At */
+      closed_at: string | null
+      /** Watchers */
+      watchers: components['schemas']['WatcherOut'][]
+      /**
+       * Allowed Actions
+       * @description o que o usuário pode fazer no chamado (a interface mostra os botões)
+       */
+      allowed_actions: string[]
+    }
+    /** TicketPage */
+    TicketPage: {
+      /** Items */
+      items: components['schemas']['TicketSummary'][]
+      /** Next Cursor */
+      next_cursor: string | null
+    }
+    /** TicketSummary */
+    TicketSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Number */
+      number: number
+      /** Title */
+      title: string
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: 'incident' | 'request' | 'task'
+      status: components['schemas']['StatusRef']
+      /** Priority */
+      priority: number
+      team: components['schemas']['Ref']
+      category: components['schemas']['CategoryRef']
+      department: components['schemas']['Ref'] | null
+      /** Beneficiary Name */
+      beneficiary_name: string | null
+      assignee: components['schemas']['UserRef'] | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
+    }
+    /** TicketUpdate */
+    TicketUpdate: {
+      /** Title */
+      title?: string | null
+      /** Description */
+      description?: string | null
+      /** Category Id */
+      category_id?: string | null
+      /** Type */
+      type?: ('incident' | 'request' | 'task') | null
+      /** Department Id */
+      department_id?: string | null
+      /** Beneficiary Name */
+      beneficiary_name?: string | null
+      /** Impact */
+      impact?: number | null
+      /** Urgency */
+      urgency?: number | null
+      /**
+       * Priority
+       * @description diferente da matriz exige priority_reason
+       */
+      priority?: number | null
+      /** Priority Reason */
+      priority_reason?: string | null
+    }
     /** TokenInfo */
     TokenInfo: {
       /**
@@ -597,6 +1219,28 @@ export interface components {
       token: string
       /** Password */
       password: string
+    }
+    /** TransferIn */
+    TransferIn: {
+      /**
+       * Team Id
+       * Format: uuid
+       */
+      team_id: string
+      /** Reason */
+      reason: string
+    }
+    /** TransitionIn */
+    TransitionIn: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: 'wait' | 'resume' | 'close' | 'reopen' | 'cancel'
+      /** Comment */
+      comment?: string | null
+      /** Resolution Code Id */
+      resolution_code_id?: number | null
     }
     /** UserCreate */
     UserCreate: {
@@ -686,6 +1330,16 @@ export interface components {
        */
       created_at: string
     }
+    /** UserRef */
+    UserRef: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Full Name */
+      full_name: string
+    }
     /** UserTeam */
     UserTeam: {
       /**
@@ -724,6 +1378,21 @@ export interface components {
       input?: unknown
       /** Context */
       ctx?: Record<string, never>
+    }
+    /** WatcherOut */
+    WatcherOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Full Name */
+      full_name: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'watcher' | 'mentioned'
     }
   }
   responses: never
@@ -1368,6 +2037,569 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['DepartmentOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_categories_api_v1_categories_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CategoryList']
+        }
+      }
+    }
+  }
+  create_category_api_v1_categories_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CategoryCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CategoryOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_category_api_v1_categories__category_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        category_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CategoryUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CategoryOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_statuses_api_v1_statuses_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StatusList']
+        }
+      }
+    }
+  }
+  list_resolution_codes_api_v1_resolution_codes_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResolutionCodeList']
+        }
+      }
+    }
+  }
+  list_tickets_api_v1_tickets_get: {
+    parameters: {
+      query?: {
+        /** @description id do grupo atual */
+        team?: string | null
+        /** @description "me", "none" ou o id do usuário */
+        assignee?: string | null
+        /** @description kinds de status */
+        status?: ('approval' | 'open' | 'waiting' | 'closed' | 'canceled')[] | null
+        limit?: number
+        cursor?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketPage']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  create_ticket_api_v1_tickets_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TicketCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_ticket_api_v1_tickets__ticket_ref__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_ticket_api_v1_tickets__ticket_ref__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TicketUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  assign_ticket_api_v1_tickets__ticket_ref__assign_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AssignIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  transfer_ticket_api_v1_tickets__ticket_ref__transfer_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TransferIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  transition_ticket_api_v1_tickets__ticket_ref__transitions_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TransitionIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  add_watcher_api_v1_tickets__ticket_ref__watchers__user_id__put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+        user_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  remove_watcher_api_v1_tickets__ticket_ref__watchers__user_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+        user_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_comments_api_v1_tickets__ticket_ref__comments_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CommentList']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  add_comment_api_v1_tickets__ticket_ref__comments_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CommentIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CommentOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  edit_comment_api_v1_tickets__ticket_ref__comments__comment_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+        comment_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CommentIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CommentOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_events_api_v1_tickets__ticket_ref__events_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EventList']
         }
       }
       /** @description Validation Error */
