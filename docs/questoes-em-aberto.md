@@ -8,21 +8,23 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 |---|---------|--------|--------------|----------|
 | 1 | **Servidor de e-mail para envio (SMTP)** das notificações e convites | Conta SMTP do provedor de e-mail da Martiniti, serviço transacional (ex.: Amazon SES, Brevo) | Usar a conta SMTP do provedor atual; precisamos saber qual é | Sprint 2 |
 | 2 | **Servidor de produção** | Sistema operacional, recursos, domínio e certificado HTTPS | Linux (Debian/Ubuntu LTS), 2 vCPU, 4 GB RAM, 50 GB de disco bastam para 50 usuários | Sprint 5 |
-| 3 | **Entrada por e-mail** (abrir chamado mandando e-mail) | IMAP no provedor de e-mail da Martiniti; ou não ter | Decidir no piloto se vale a pena para 50 pessoas | Sprint 7 |
 | 4 | **Editor de texto dos comentários** | Markdown puro (textarea), Tiptap (rich text que salva Markdown) | Tiptap: colar imagens, negrito e listas sem o usuário saber Markdown | Sprint 3 |
 
 ## De negócio (dependem de quem vai usar)
 
 | # | Questão | Padrão proposto | Onde está |
 |---|---------|-----------------|-----------|
-| 5 | **Etapas (status) do chamado**: a equipe ainda vai discutir | Pendente, Aguardando cliente, Entregue, Concluído, Cancelado; o admin pode criar outros | [10.5](10-chamados.md#105-status-e-fluxo) |
-| 6 | **Quem pode concluir** um chamado entregue | Agente do grupo ou solicitante, sempre manualmente | 10.5 |
+| 5 | **Etapas (status) e tipos do chamado**: a equipe ainda vai discutir | Status: Pendente, Aguardando, Concluído, Cancelado. Tipos: incidente, requisição, tarefa. O admin pode criar outros status | [10.5](10-chamados.md#105-status-e-fluxo) |
+| 6 | **Quem pode concluir** um chamado | Responsável ou supervisor do grupo, sempre manualmente | 10.5 |
 | 7 | Arquivos **compactados** (zip, 7z) permitidos? | Bloqueados na v1.0 (sem antivírus); o admin pode liberar | [11.2](11-anexos-e-arquivos.md#112-tipos-de-arquivo) |
 | 8 | **Duração da sessão** | 8 h sem uso; 7 dias no máximo | [9.7](09-login-e-autenticacao.md#97-sessões) |
 | 9 | **Política de retenção** de chamados concluídos e anexos | Definir com jurídico / DPO; configurável por instalação | — |
 | 10 | **Licença e distribuição** do produto | Definir antes de distribuir para outras empresas | — |
 
-Os itens 5 a 8 já têm padrão, então **não bloqueiam** o desenvolvimento.
+| 11 | **Código hex oficial do laranja** da Martiniti | Escala `orange` do Tailwind até chegar o oficial | [17.2](17-identidade-visual.md#172-cores) |
+| 12 | **Data da virada** da TI | Terça ou quarta-feira no fim da Sprint 5, fora de fechamento de mês | [16.3](16-implantacao.md#163-cronograma) |
+
+Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvimento.
 
 ## Decididas
 
@@ -44,4 +46,7 @@ Os itens 5 a 8 já têm padrão, então **não bloqueiam** o desenvolvimento.
 | 2026-10-09 | **Sem SLA**: sem metas de prazo, alertas nem calendário de expediente | [10.9](10-chamados.md#109-prazos-sem-sla) |
 | 2026-10-09 | **Nada fecha sozinho**: concluir é sempre manual; não há resolução por falta de retorno | [10.5](10-chamados.md#105-status-e-fluxo) |
 | 2026-10-09 | **Revisão de escopo**: IA, tokens de API, webhooks, MCP, papéis personalizados, visões salvas, atalhos, antivírus e campos extras ficam para depois da v1.0; v1.0 em 16 semanas | [07](07-roadmap.md#backlog-futuro-fora-da-v10) |
+| 2026-10-10 | **Modelo**: ferramenta de trabalho das equipes; só membros têm conta; colegas acompanham como observadores; chamado registra setor e pessoa atendidos; supervisor aprova | [08](08-organizacao-e-permissoes.md), [10](10-chamados.md) |
+| 2026-10-10 | Nome **TicketFlow**; cores laranja, cinza e branco | [17](17-identidade-visual.md) |
+| 2026-10-10 | **Virada com data marcada** no piloto da TI; sem importação de histórico | [16](16-implantacao.md) |
 | 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (Martiniti) | [01](01-visao-geral.md#público) |

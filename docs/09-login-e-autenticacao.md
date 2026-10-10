@@ -5,7 +5,7 @@
 | Forma | Para quem | Fase |
 |-------|-----------|------|
 | **E-mail + senha** (login local) | Todos | 1 |
-| **SSO via OIDC** (Microsoft Entra ID, Google Workspace, Keycloak, Okta…) | Todos os colaboradores | Futuro |
+| **SSO via OIDC** (Microsoft Entra ID, Google Workspace, Keycloak, Okta…) | Todos os usuários | Futuro |
 | **MFA por TOTP** (aplicativo autenticador) | Obrigatório para administradores no login local; opcional para os demais | 2 |
 | **Token de API** | Integrações e agentes de IA (não é login de pessoa; ver [API](05-api.md#tokens-de-api-futuro)) | Futuro |
 | LDAP / Active Directory direto | Só se a empresa não tiver OIDC | Futuro |
@@ -23,7 +23,7 @@ Quando o SSO existir, o administrador poderá ligar **"SSO obrigatório"**: o lo
    sudo -u sistema-chamados uv run chamados admin create --email ti@empresa.com --name "Administrador"
    ```
    O comando mostra um link de definição de senha válido por 24 h.
-3. O administrador configura setores, grupos, categorias e importa usuários (CSV), que recebem um convite por e-mail.
+3. O administrador configura grupos, setores atendidos e categorias e cadastra os usuários, que recebem um convite por e-mail.
 
 ## 9.3 Login local
 
@@ -61,7 +61,7 @@ sequenceDiagram
 
 | Fluxo | Como funciona |
 |-------|---------------|
-| **Convite** | O admin cadastra o usuário (ou importa CSV) → o usuário recebe um e-mail com link para definir a senha (validade de 72 h) |
+| **Convite** | O admin cadastra o usuário → o usuário recebe um e-mail com link para definir a senha (validade de 72 h) |
 | **Esqueci a senha** | Link por e-mail com token de uso único (validade de 30 min). A resposta da tela é sempre a mesma, exista o e-mail ou não. Ao redefinir, **todas as outras sessões** são encerradas |
 | **Troca de senha logado** | Exige a senha atual; encerra as outras sessões |
 
@@ -90,7 +90,7 @@ sequenceDiagram
 
 - O **backend** é o cliente OIDC confidencial. A SPA nunca recebe nem guarda tokens do provedor.
 - **Identificação do usuário:** primeiro pelo `sub` (`users.external_id`). No primeiro login, pelo e-mail, se `email_verified` for verdadeiro e o domínio estiver na lista permitida.
-- **Criação automática (JIT):** se o usuário não existir e o domínio for permitido, ele é criado com o papel padrão (Solicitante) e os mapeamentos são aplicados. Domínios fora da lista são recusados.
+- **Criação automática (JIT):** se o usuário não existir e o domínio for permitido, ele é criado com o papel padrão (Agente, sem grupo até o admin incluí-lo) e os mapeamentos são aplicados. Domínios fora da lista são recusados.
 - **Configuração** (tela de administração): URL do emissor (*issuer*), client ID, referência ao segredo, domínios permitidos, nomes das *claims* (nome, e-mail, setor, grupos) e a opção "SSO obrigatório".
 - **Desligamento de colaborador:** desativado no provedor, ele não consegue mais entrar. Como as sessões têm duração limitada (9.7), o acesso termina em poucas horas. A sincronização ativa (SCIM) fica para o futuro.
 
@@ -109,7 +109,7 @@ O administrador associa grupos do Entra ID / Google / Keycloak a elementos do si
 
 - O **setor** pode vir de um atributo (ex.: `department` no Entra ID), associado a um setor cadastrado por nome ou código.
 - Os mapeamentos são aplicados **a cada login**. O que vem do provedor é marcado com `source = 'idp'`: se a pessoa sair do grupo no provedor, sai também do grupo no sistema. Vínculos feitos à mão (`source = 'manual'`) não são afetados.
-- Se uma pessoa estiver em mais de um grupo mapeado para papéis diferentes, vale o **papel mais alto**: Admin > Auditor > Agente > Solicitante.
+- Se uma pessoa estiver em mais de um grupo mapeado para papéis diferentes, vale o **papel mais alto**: Admin > Auditor > Agente.
 
 ## 9.7 Sessões
 

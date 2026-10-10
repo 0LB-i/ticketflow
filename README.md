@@ -1,6 +1,6 @@
-# Sistema de Chamados
+# TicketFlow
 
-Sistema interno de chamados (help desk / service desk) para empresas, escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
+Sistema interno de chamados para as equipes da Martiniti, em que os próprios membros registram, distribuem e executam as tarefas. Escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
 
 > **Status:** em planejamento. Este repositório contém, por enquanto, apenas a documentação de planejamento. O código entra a partir da Fase 0 do [roadmap](docs/07-roadmap.md).
 
@@ -15,14 +15,16 @@ Sistema interno de chamados (help desk / service desk) para empresas, escrito em
 | 5 | [API](docs/05-api.md) | Convenções REST, autenticação, endpoints; webhooks (futuro) |
 | 6 | [Integração com IA](docs/06-integracao-ia.md) | Plano para depois da v1.0: casos de uso, arquitetura, segurança e LGPD |
 | 7 | [Roadmap](docs/07-roadmap.md) | Fases, sprints, entregas e critérios de pronto |
-| 8 | [Organização e permissões](docs/08-organizacao-e-permissoes.md) | Setores, grupos, papéis, permissões e visibilidade |
+| 8 | [Organização e permissões](docs/08-organizacao-e-permissoes.md) | Grupos, setores atendidos, papéis, permissões e visibilidade |
 | 9 | [Login e autenticação](docs/09-login-e-autenticacao.md) | Login por e-mail e senha, MFA, sessões |
-| 10 | [Como funcionam os chamados](docs/10-chamados.md) | Abertura, status, fluxo, trabalho do agente, aprovações, notificações |
+| 10 | [Como funcionam os chamados](docs/10-chamados.md) | Registro, status, fluxo, trabalho da equipe, aprovações, notificações |
 | 11 | [Anexos e arquivos](docs/11-anexos-e-arquivos.md) | Onde se anexa, tipos, limites, armazenamento, permissões |
 | 12 | [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md) | GitHub, commits, CI, implantação, definição de pronto, testes |
 | 13 | [Telas e navegação](docs/13-telas-e-navegacao.md) | Mapa de telas, menus por perfil, rascunhos e padrões de interação |
 | 14 | [Relatórios e indicadores](docs/14-relatorios-e-indicadores.md) | Indicadores, painéis por perfil e exportações |
-| 15 | [Estrutura da Martiniti](docs/15-estrutura-martiniti.md) | Modelo para a carga inicial: setores, grupos, categorias, usuários |
+| 15 | [Estrutura da Martiniti](docs/15-estrutura-martiniti.md) | Modelo para a carga inicial: grupos, usuários, setores atendidos, categorias |
+| 16 | [Plano de implantação](docs/16-implantacao.md) | Virada da TI, treinamento, combinados, acompanhamento e expansão |
+| 17 | [Identidade visual](docs/17-identidade-visual.md) | Nome, cores, contraste, tipografia, logotipo e e-mails |
 | — | [Glossário](docs/glossario.md) | Termos do domínio e nomes no código |
 | — | [Questões em aberto](docs/questoes-em-aberto.md) | Decisões ainda pendentes |
 | — | [ADRs](docs/adr/) | Registro de decisões de arquitetura |

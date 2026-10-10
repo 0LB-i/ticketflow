@@ -39,7 +39,7 @@ flowchart LR
 | F0-03 | Backend: `pyproject.toml` (uv), FastAPI com `/health`, configuração com pydantic-settings, logs estruturados (structlog), tratamento de erros (RFC 9457) |
 | F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` |
 | F0-05 | Frontend: Vue 3 + TypeScript + Vite + Tailwind + Reka UI; Vue Router, Pinia, TanStack Query, vue-i18n |
-| F0-06 | Design system inicial: cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status |
+| F0-06 | Design system inicial conforme a [identidade visual](17-identidade-visual.md): cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status |
 | F0-07 | Layout do aplicativo: menu lateral, cabeçalho, área de conteúdo, responsivo |
 | F0-08 | Geração do cliente TypeScript a partir do OpenAPI (`pnpm gen:api`) + verificação no CI |
 | F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17, Mailpit); arquivos de exemplo do systemd e do nginx; `scripts/deploy.sh` |
@@ -60,12 +60,12 @@ flowchart LR
 | F1-S2-01 | Login local, sessões no servidor, CSRF, logout | [09](09-login-e-autenticacao.md) |
 | F1-S2-02 | Comando `chamados admin create`; convite e "esqueci a senha" por e-mail | [09](09-login-e-autenticacao.md#94-convite-esqueci-a-senha-e-troca-de-senha) |
 | F1-S2-03 | Proteção contra força bruta (rate limit + bloqueio temporário) | 09 |
-| F1-S2-04 | Cadastro de **setores** (árvore + gestores) | [08](08-organizacao-e-permissoes.md) |
-| F1-S2-05 | Cadastro de **grupos de atendimento** (membros + supervisores) | 08 |
-| F1-S2-06 | Cadastro de **usuários** (papel, setor) + importação CSV | 08 |
+| F1-S2-04 | Cadastro de **setores atendidos** (árvore) | [08](08-organizacao-e-permissoes.md) |
+| F1-S2-05 | Cadastro de **grupos** (membros + supervisores) | 08 |
+| F1-S2-06 | Cadastro de **usuários** (papel, grupos) com convite por e-mail | 08 |
 | F1-S2-07 | **Motor de permissões**: catálogo, papéis fixos, `can()` e `ticket_visibility_filter()` + testes tabelados | [08](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |
 | F1-S2-08 | Log de auditoria (`audit_log`) para login e administração | 08 |
-| F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, setores e grupos | — |
+| F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, grupos e setores | — |
 
 ### Sprint 3 — Núcleo dos chamados
 
@@ -73,13 +73,13 @@ flowchart LR
 |--------|---------|------------|
 | F1-S3-01 | Cadastro de **categorias** (árvore, grupo padrão, tipo padrão, confidencial) | [08](08-organizacao-e-permissoes.md#81-conceitos) |
 | F1-S3-02 | Status padrão e **motor de transições** (quem pode, campos exigidos) | [10.5](10-chamados.md#105-status-e-fluxo) |
-| F1-S3-03 | **Abertura** pelo portal: catálogo, formulário, matriz impacto × urgência | [10.3](10-chamados.md#103-prioridade-impacto--urgência), [10.4](10-chamados.md#104-abertura) |
-| F1-S3-04 | Abertura **em nome de outra pessoa** (telefone, presencial) | 10.4 |
+| F1-S3-03 | **Registro** de chamado: formulário, setor e pessoa atendidos, responsável na criação, matriz impacto × urgência | [10.3](10-chamados.md#103-prioridade-impacto--urgência), [10.4](10-chamados.md#104-registro) |
+| F1-S3-04 | **Observadores** e @menções | [10.7](10-chamados.md#107-observadores) |
 | F1-S3-05 | Roteamento por categoria → grupo | 10.4 |
-| F1-S3-06 | **Comentários** públicos e notas internas; edição em 10 min | [10.7](10-chamados.md#107-experiência-do-solicitante) |
-| F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | [10.6](10-chamados.md#106-como-o-agente-trabalha) |
+| F1-S3-06 | **Comentários**; edição em 10 min | [10.6](10-chamados.md#regras-de-edição) |
+| F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | [10.6](10-chamados.md#106-como-a-equipe-trabalha) |
 | F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | — |
-| F1-S3-09 | Telas: abrir chamado, "Meus chamados" (solicitante), detalhe do chamado (solicitante e agente) | [13](13-telas-e-navegacao.md) |
+| F1-S3-09 | Telas: novo chamado e detalhe do chamado | [13](13-telas-e-navegacao.md) |
 
 ### Sprint 4 — Anexos, notificações, filas e busca
 
@@ -89,7 +89,7 @@ flowchart LR
 | F1-S4-02 | Download com verificação de permissão; imagens coladas no editor | 11 |
 | F1-S4-03 | **Outbox + worker + fila de tarefas** no PostgreSQL | [03](03-arquitetura.md#eventos-de-domínio) |
 | F1-S4-04 | **Notificações por e-mail** (templates em pt-BR) | [10.10](10-chamados.md#1010-notificações) |
-| F1-S4-05 | **Visões do agente**: não atribuídos, meus chamados, aguardando minha ação, aguardando cliente, entregues, todos do grupo | 10.6 |
+| F1-S4-05 | **Filas**: não atribuídos, meus chamados, com novidades, aguardando, acompanhando, todos do grupo | 10.6 |
 | F1-S4-06 | Botão "Pegar o próximo" | 10.6 |
 | F1-S4-07 | **Busca textual** em português + filtros | — |
 | F1-S4-08 | Indicador de colisão ("Fulano está vendo") + `ETag` | 10.6 |
@@ -98,17 +98,18 @@ flowchart LR
 
 | Código | Entrega | Referência |
 |--------|---------|------------|
-| F1-S5-01 | Entregar (solução + código), concluir, **reabrir**, cancelar | 10.5 |
+| F1-S5-01 | Aguardar, concluir (texto + código), **reabrir**, cancelar | 10.5 |
 | F1-S5-02 | Status personalizados criados pelo administrador (com `kind`) | [10.5](10-chamados.md#105-status-e-fluxo) |
-| F1-S5-03 | Visão do **gestor de setor** (chamados do setor, somente leitura) | 08 |
-| F1-S5-04 | Respostas prontas (pessoais e do grupo) | 10.6 |
-| F1-S5-05 | Ocultar comentário ou anexo com motivo | 10.7 |
-| F1-S5-06 | Testes ponta a ponta (Playwright) dos fluxos principais | — |
-| F1-S5-07 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | — |
-| F1-S5-08 | Instalação no servidor da Martiniti (systemd, nginx, PostgreSQL 17), guia de atualização, backup do banco + arquivos | [ADR 0010](adr/0010-producao-systemd.md) |
-| F1-S5-09 | Carga inicial da Martiniti: setores, grupos, categorias, usuários | [15](15-estrutura-martiniti.md) |
+| F1-S5-03 | Ocultar comentário ou anexo com motivo | [10.6](10-chamados.md#regras-de-edição) |
+| F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | — |
+| F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | — |
+| F1-S5-06 | Instalação no servidor da Martiniti (systemd, nginx, PostgreSQL 17), guia de atualização, backup do banco + arquivos | [ADR 0010](adr/0010-producao-systemd.md) |
+| F1-S5-07 | Carga inicial da Martiniti: grupos, usuários, setores atendidos, categorias | [15](15-estrutura-martiniti.md) |
+| F1-S5-08 | Treinamento, guia rápido e virada da TI | [16](16-implantacao.md) |
 
-**Pronto quando (M1):** a TI usa o sistema em produção por 2 semanas sem precisar de outro canal, sem bugs críticos abertos.
+Com a mudança de modelo (2026-10-10), a Fase 1 perdeu o portal do solicitante, a abertura em nome de outra pessoa, a visão do gestor de setor, as respostas prontas e a importação por CSV. A duração foi mantida: a folga absorve imprevistos antes do piloto.
+
+**Pronto quando (M1):** a TI usa o sistema em produção por 2 semanas depois da virada, sem trabalho fora dele e sem bugs críticos abertos ([16.3](16-implantacao.md#163-cronograma)).
 
 ---
 
@@ -123,27 +124,26 @@ flowchart LR
 | F2-S6-01 | Notificações no sistema (sino) + preferências de notificação |
 | F2-S6-02 | MFA por TOTP + códigos de recuperação; obrigatório para administradores |
 | F2-S6-03 | Gerenciamento de sessões pelo usuário e pelo admin |
-| F2-S6-04 | **Aprovações** (gestor, usuário específico, grupo), lembretes, redirecionamento |
+| F2-S6-04 | **Aprovações** pelo supervisor do grupo, lembretes |
 
-### Sprint 7 — E-mail e enriquecimento dos chamados
+### Sprint 7 — Enriquecimento dos chamados e conhecimento
 
 | Código | Entrega |
 |--------|---------|
-| F2-S7-01 | E-mail de entrada (IMAP) → abertura e resposta de chamados |
-| F2-S7-02 | Observadores, vínculos, **mesclagem** de duplicados |
-| F2-S7-03 | Avaliação de satisfação |
-| F2-S7-04 | Ações em massa |
-| F2-S7-05 | Gestão de membros do grupo pelo supervisor |
+| F2-S7-01 | Vínculos e **mesclagem** de duplicados |
+| F2-S7-02 | Ações em massa |
+| F2-S7-03 | Gestão de membros do grupo pelo supervisor |
+| F2-S7-04 | Base de conhecimento da equipe (artigos, busca, artigo a partir de um chamado concluído) |
 
-### Sprint 8 — Relatórios, conhecimento e versão 1.0
+### Sprint 8 — Relatórios e versão 1.0
 
 | Código | Entrega |
 |--------|---------|
 | F2-S8-01 | Painéis e relatórios conforme [14](14-relatorios-e-indicadores.md); exportação CSV |
-| F2-S8-02 | Base de conhecimento (artigos internos e públicos, busca, sugestão na abertura) |
+| F2-S8-02 | Implantação nas outras equipes ([16.10](16-implantacao.md#1610-expansão-para-outras-equipes-fase-2-m2)) |
 | F2-S8-03 | Preparação da v1.0: testes ponta a ponta completos, revisão de segurança, guia do administrador |
 
-**Pronto quando (M2 / v1.0):** pelo menos 3 áreas além da TI operando e relatórios de atendimento em uso.
+**Pronto quando (M2 / v1.0):** pelo menos 3 equipes além da TI usando o sistema e relatórios em uso.
 
 ---
 
@@ -160,6 +160,15 @@ O desenho de banco destes itens está em [`esboco-schema-futuro.sql`](esboco-sch
 - Visões salvas e atalhos de teclado
 - Antivírus nos anexos (ClamAV)
 - Campos extras por categoria (formulários dinâmicos)
+
+**Retirados com a mudança de modelo (2026-10-10):** só fazem sentido se um dia os colaboradores tiverem conta.
+
+- Portal do solicitante: catálogo de abertura, "Meus chamados", comentários públicos × notas internas, sugestão de artigos na abertura
+- Abertura e resposta por e-mail (IMAP)
+- Pesquisa de satisfação
+- Visão e aprovação pelo gestor de setor
+- Respostas prontas (macros)
+- Importação de usuários por CSV
 
 **Outros:**
 
@@ -180,4 +189,4 @@ O desenho de banco destes itens está em [`esboco-schema-futuro.sql`](esboco-sch
 |-------|-----------|
 | Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
 | Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
-| Adoção baixa pelos colaboradores | Portal simples, abertura por e-mail na Fase 2, piloto com feedback semanal |
+| A equipe registrar só parte do trabalho | Virada com data marcada, combinados da equipe e acompanhamento diário nas duas primeiras semanas ([16](16-implantacao.md)) |

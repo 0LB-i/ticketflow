@@ -1,6 +1,8 @@
 # 6. Integração com IA
 
 > **Fora da v1.0.** Na revisão de escopo de 2026-10-09, toda a integração com IA foi para o [backlog](07-roadmap.md#backlog-futuro-fora-da-v10). Este documento guarda o plano para quando ela entrar. Na coluna "Bloco", 1 vem antes de 2.
+>
+> **Atenção:** este plano foi escrito antes da mudança de modelo de 2026-10-10 ([08](08-organizacao-e-permissoes.md)) e ainda supõe um solicitante com conta (deflexão no portal, sugestão de resposta ao solicitante). Revisar quando a IA entrar no roadmap.
 
 A integração acontece em **duas direções**:
 
