@@ -7,16 +7,16 @@ Ao concluir um item, marque `feito` e anote o commit.
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
-| F0-01 | Repositório local: `TAREFAS.md` com os itens deste roadmap, `CHANGELOG.md`, `.gitignore` ([12.1](docs/12-processo-de-desenvolvimento.md#121-repositório-e-tarefas)) | feito | |
-| F0-02 | Monorepo `backend/` + `frontend/`; README com "como rodar" | feito | |
-| F0-03 | Backend: `pyproject.toml` (uv), FastAPI com `/health`, configuração com pydantic-settings, logs estruturados (structlog), tratamento de erros (RFC 9457) | feito | |
-| F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` | feito | |
-| F0-05 | Frontend: Vue 3 + TypeScript + Vite + Tailwind + Reka UI; Vue Router, Pinia, TanStack Query, vue-i18n | feito | |
-| F0-06 | Design system inicial conforme a [identidade visual](docs/17-identidade-visual.md): cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status | feito | |
-| F0-07 | Layout do aplicativo: menu lateral, cabeçalho, área de conteúdo, responsivo | feito | |
-| F0-08 | Geração do cliente TypeScript a partir do OpenAPI (`pnpm gen:api`) + verificação do contrato no `scripts/check.sh` | feito | |
-| F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17, Mailpit); arquivos do systemd (serviços e timer de backup) e do nginx; `scripts/deploy.sh` e `scripts/backup.sh` ([18](docs/18-manual-do-servidor.md)) | feito | |
-| F0-10 | `scripts/check.sh` (rápido, padrão e completo, com testes em **PG 16 e 17**) e hook de pre-commit ([12.3](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci)) | feito | |
+| F0-01 | Repositório local: `TAREFAS.md` com os itens deste roadmap, `CHANGELOG.md`, `.gitignore` ([12.1](docs/12-processo-de-desenvolvimento.md#121-repositório-e-tarefas)) | feito | 75d07b7 |
+| F0-02 | Monorepo `backend/` + `frontend/`; README com "como rodar" | feito | 75d07b7 |
+| F0-03 | Backend: `pyproject.toml` (uv), FastAPI com `/health`, configuração com pydantic-settings, logs estruturados (structlog), tratamento de erros (RFC 9457) | feito | e163d3c |
+| F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` | feito | e163d3c |
+| F0-05 | Frontend: Vue 3 + TypeScript + Vite + Tailwind + Reka UI; Vue Router, Pinia, TanStack Query, vue-i18n | feito | 75d07b7 |
+| F0-06 | Design system inicial conforme a [identidade visual](docs/17-identidade-visual.md): cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status | feito | 75d07b7 |
+| F0-07 | Layout do aplicativo: menu lateral, cabeçalho, área de conteúdo, responsivo | feito | 75d07b7 |
+| F0-08 | Geração do cliente TypeScript a partir do OpenAPI (`pnpm gen:api`) + verificação do contrato no `scripts/check.sh` | feito | 75d07b7 |
+| F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17, Mailpit); arquivos do systemd (serviços e timer de backup) e do nginx; `scripts/deploy.sh` e `scripts/backup.sh` ([18](docs/18-manual-do-servidor.md)) | feito | 75d07b7 |
+| F0-10 | `scripts/check.sh` (rápido, padrão e completo, com testes em **PG 16 e 17**) e hook de pre-commit ([12.3](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci)) | feito | 75d07b7 |
 
 ## Fase 1 — MVP (Sprints 2 a 5)
 
