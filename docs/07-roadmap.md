@@ -13,17 +13,17 @@
 |------|---------|---------|-----------|-------|
 | **0. Fundação** | 1 | 2 sem. | Repositório, CI, esqueletos backend e frontend, banco | M0: "roda no meu computador e no CI" |
 | **1. MVP** | 2–5 | 8 sem. | Chamados de ponta a ponta com login local, setores, grupos, permissões, anexos e e-mail | **M1: piloto com a TI** |
-| **2. Operação completa** | 6–8 | 6 sem. | MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento, API pública | **M2: expansão para outras áreas** |
-| **3. IA assistiva** | 9–11 | 6 sem. | Classificação, resumo, sugestão de resposta, busca semântica | M3: IA em modo sugestão |
-| **4. IA agêntica e autoatendimento** | 12–13 | 4 sem. | Servidor MCP, deflexão no portal, artigos gerados de chamados | M4: versão 1.0 |
+| **2. Operação completa** | 6–8 | 6 sem. | Notificações no sistema, MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento | **M2: versão 1.0 e expansão para outras áreas** |
 
-**Total estimado:** 26 semanas (~6 meses) até a versão 1.0. O piloto começa com cerca de 2 meses e meio.
+**Total estimado:** 16 semanas (~4 meses) até a versão 1.0. O piloto começa com cerca de 2 meses e meio.
+
+A integração com IA e outros itens ficaram para depois da v1.0 (revisão de escopo de 2026-10-09; ver [Backlog futuro](#backlog-futuro-fora-da-v10)).
 
 ```mermaid
 flowchart LR
     F0[Fase 0<br/>Fundação] --> F1[Fase 1<br/>MVP] --> M1((Piloto TI))
-    M1 --> F2[Fase 2<br/>Operação] --> M2((Expansão))
-    M2 --> F3[Fase 3<br/>IA assistiva] --> F4[Fase 4<br/>IA agêntica] --> V1((v1.0))
+    M1 --> F2[Fase 2<br/>Operação] --> V1((v1.0 e expansão))
+    V1 -.-> IA[Depois: IA e<br/>integrações]
 ```
 
 ---
@@ -37,12 +37,12 @@ flowchart LR
 | F0-01 | Repositório no GitHub: templates de issue, labels, Dependabot, GitHub Projects |
 | F0-02 | Monorepo `backend/` + `frontend/`; README com "como rodar" |
 | F0-03 | Backend: `pyproject.toml` (uv), FastAPI com `/health`, configuração com pydantic-settings, logs estruturados (structlog), tratamento de erros (RFC 9457) |
-| F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`pgvector`, `unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` |
+| F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` |
 | F0-05 | Frontend: Vue 3 + TypeScript + Vite + Tailwind + Reka UI; Vue Router, Pinia, TanStack Query, vue-i18n |
 | F0-06 | Design system inicial: cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status |
 | F0-07 | Layout do aplicativo: menu lateral, cabeçalho, área de conteúdo, responsivo |
 | F0-08 | Geração do cliente TypeScript a partir do OpenAPI (`pnpm gen:api`) + verificação no CI |
-| F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17 + pgvector, Mailpit); arquivos de exemplo do systemd e do nginx; `scripts/deploy.sh` |
+| F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17, Mailpit); arquivos de exemplo do systemd e do nginx; `scripts/deploy.sh` |
 | F0-10 | GitHub Actions: lint, tipos e testes do backend em **PG 16 e 17**; lint, tipos, testes e build do frontend |
 
 **Pronto quando:** `docker compose up` + `pnpm dev` mostram a tela inicial da SPA consumindo o `/health`, e o CI roda nas duas versões do PostgreSQL.
@@ -114,66 +114,54 @@ flowchart LR
 
 ## Fase 2 — Operação completa (Sprints 6 a 8)
 
-**Objetivo:** o sistema está pronto para RH, Facilities, Financeiro e outras áreas, com MFA para administradores e aprovações.
+**Objetivo:** o sistema está pronto para RH, Financeiro e as demais áreas da Martiniti, com MFA para administradores e aprovações. Ao fim desta fase sai a **versão 1.0**.
 
 ### Sprint 6 — Notificações, MFA e aprovações
 
 | Código | Entrega |
 |--------|---------|
 | F2-S6-01 | Notificações no sistema (sino) + preferências de notificação |
-| F2-S6-02 | Atalhos de teclado e visões salvas |
-| F2-S6-03 | MFA por TOTP + códigos de recuperação; obrigatório para administradores |
-| F2-S6-04 | Gerenciamento de sessões pelo usuário e pelo admin |
-| F2-S6-05 | **Aprovações** (gestor, usuário específico, grupo), lembretes, redirecionamento |
+| F2-S6-02 | MFA por TOTP + códigos de recuperação; obrigatório para administradores |
+| F2-S6-03 | Gerenciamento de sessões pelo usuário e pelo admin |
+| F2-S6-04 | **Aprovações** (gestor, usuário específico, grupo), lembretes, redirecionamento |
 
 ### Sprint 7 — E-mail e enriquecimento dos chamados
 
 | Código | Entrega |
 |--------|---------|
-| F2-S7-01 | E-mail de entrada (IMAP e/ou Microsoft Graph) → abertura e resposta de chamados |
-| F2-S7-02 | Campos extras por categoria (formulários dinâmicos) |
-| F2-S7-03 | Observadores, vínculos, **mesclagem** de duplicados |
-| F2-S7-04 | Avaliação de satisfação |
-| F2-S7-05 | Ações em massa |
-| F2-S7-06 | Antivírus (ClamAV) |
+| F2-S7-01 | E-mail de entrada (IMAP) → abertura e resposta de chamados |
+| F2-S7-02 | Observadores, vínculos, **mesclagem** de duplicados |
+| F2-S7-03 | Avaliação de satisfação |
+| F2-S7-04 | Ações em massa |
+| F2-S7-05 | Gestão de membros do grupo pelo supervisor |
 
-### Sprint 8 — Relatórios, conhecimento e API pública
+### Sprint 8 — Relatórios, conhecimento e versão 1.0
 
 | Código | Entrega |
 |--------|---------|
 | F2-S8-01 | Painéis e relatórios conforme [14](14-relatorios-e-indicadores.md); exportação CSV |
 | F2-S8-02 | Base de conhecimento (artigos internos e públicos, busca, sugestão na abertura) |
-| F2-S8-03 | Tokens de API com escopos, `Idempotency-Key`, rate limit |
-| F2-S8-04 | Webhooks de saída assinados |
-| F2-S8-05 | Papéis personalizados |
-| F2-S8-06 | Gestão de membros do grupo pelo supervisor |
+| F2-S8-03 | Preparação da v1.0: testes ponta a ponta completos, revisão de segurança, guia do administrador |
 
-**Pronto quando (M2):** pelo menos 3 áreas além da TI operando e relatórios de atendimento em uso.
-
----
-
-## Fase 3 — IA assistiva (Sprints 9 a 11)
-
-Detalhes em [Integração com IA](06-integracao-ia.md).
-
-| Sprint | Entregas |
-|--------|----------|
-| **9** | Cliente genérico de IA (chat + embeddings); cadastro de endpoints e funcionalidades; `ai_runs`; mascaramento de dados pessoais; bloqueio por categoria; embeddings + busca semântica e híbrida |
-| **10** | Classificação automática (modo sugestão); chamados semelhantes / duplicados; painel de sugestões na tela do agente; feedback (aceitar, editar, rejeitar) |
-| **11** | Resumo do chamado (inclusive na transferência); sugestão de resposta com RAG e fontes; painel de qualidade e consumo; evals no CI |
-
-**Pronto quando (M3):** taxa de aceitação da classificação ≥ 70% por 4 semanas, e o sistema funciona normalmente com a IA desligada.
-
-## Fase 4 — IA agêntica e autoatendimento (Sprints 12 e 13)
-
-| Sprint | Entregas |
-|--------|----------|
-| **12** | Servidor MCP; contas de serviço para agentes de IA; deflexão no portal (artigos sugeridos pela IA antes de abrir) |
-| **13** | Rascunho de artigo a partir de chamado resolvido; classificação com aplicação automática onde a qualidade justificar; extração de texto de anexos (opcional); preparação da v1.0 |
+**Pronto quando (M2 / v1.0):** pelo menos 3 áreas além da TI operando e relatórios de atendimento em uso.
 
 ---
 
 ## Backlog futuro (fora da v1.0)
+
+O desenho de banco destes itens está em [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql).
+
+**Retirados na revisão de escopo (2026-10-09):**
+
+- **Integração com IA** (classificação, resumo, sugestão de resposta, busca semântica, duplicados, deflexão, artigos gerados). A arquitetura continua preparada; o plano completo está em [Integração com IA](06-integracao-ia.md). Estimativa anterior: ~10 semanas
+- Servidor MCP para agentes de IA externos
+- Tokens de API com escopos e webhooks de saída
+- Papéis personalizados
+- Visões salvas e atalhos de teclado
+- Antivírus nos anexos (ClamAV)
+- Campos extras por categoria (formulários dinâmicos)
+
+**Outros:**
 
 - Chamados filhos / subtarefas (ex.: admissão de colaborador gera chamados para TI, RH e Facilities)
 - Aprovação em vários níveis e delegação por férias
@@ -193,4 +181,3 @@ Detalhes em [Integração com IA](06-integracao-ia.md).
 | Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
 | Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
 | Adoção baixa pelos colaboradores | Portal simples, abertura por e-mail na Fase 2, piloto com feedback semanal |
-| Qualidade da IA variar entre modelos | Evals no CI; modo sugestão por padrão; métricas de aceitação |

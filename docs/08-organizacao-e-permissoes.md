@@ -33,7 +33,7 @@ erDiagram
 - Um usuário pode ser membro de **vários grupos**. Em cada grupo ele é `member` ou `supervisor`.
 - Um setor pode ter **vários gestores**. Um gestor enxerga o seu setor **e os subsetores**.
 - Um grupo tem: nome, e-mail de entrada (opcional), categorias atendidas e se está ativo.
-- Uma categoria tem: grupo padrão, tipo padrão (incidente, requisição, dúvida), formulário de campos extras, se exige aprovação, se é **confidencial** e se permite IA.
+- Uma categoria tem: grupo padrão, tipo padrão (incidente, requisição, dúvida), se exige aprovação e se é **confidencial**. Formulário de campos extras e permissão de uso de IA ficam para o futuro.
 - Setores, grupos e categorias **não são apagados**, só desativados, para preservar o histórico e os relatórios.
 - O chamado guarda o **setor do solicitante no momento da abertura** (`tickets.department_id`). Se a pessoa mudar de setor, os relatórios antigos continuam corretos.
 
@@ -55,9 +55,9 @@ erDiagram
 | **Observador** | Adicionado ao chamado | Vê o chamado (só a parte pública) e recebe notificações |
 | **Aprovador** | Designado em uma aprovação | Vê o chamado (parte pública) e aprova ou reprova |
 
-### Papéis personalizados (Fase 2)
+### Papéis personalizados (futuro)
 
-Na Fase 1 os quatro papéis são fixos. Na Fase 2 o administrador pode criar papéis combinando permissões do catálogo abaixo (ex.: "Agente N1 sem permissão de cancelar", "Agente somente leitura"). Os papéis do sistema não podem ser editados nem excluídos.
+Na v1.0 os papéis são fixos. Depois da v1.0, o administrador poderá criar papéis combinando permissões do catálogo abaixo (ex.: "Agente N1 sem permissão de cancelar", "Agente somente leitura"). Os papéis do sistema não podem ser editados nem excluídos.
 
 ## 8.3 Catálogo de permissões
 
@@ -74,7 +74,7 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `ticket.view_internal` | Ver notas internas e anexos internos (em chamados que já pode ver) |
 | `ticket.comment` | Comentar publicamente |
 | `ticket.note_internal` | Escrever nota interna |
-| `ticket.edit` | Alterar título, descrição, categoria, tipo, tags e campos extras |
+| `ticket.edit` | Alterar título, descrição, categoria, tipo e tags |
 | `ticket.set_priority` | Alterar impacto, urgência e prioridade |
 | `ticket.assign_self` | Assumir um chamado ("pegar para mim") |
 | `ticket.assign_others` | Atribuir a outro membro do grupo |
@@ -97,12 +97,12 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `report.view_all` | Relatórios de todos os grupos e setores |
 | `admin.users` | Usuários: criar, desativar, alterar papel e setor |
 | `admin.organization` | Setores, grupos e membros |
-| `admin.catalog` | Categorias, formulários, tipos e status (inclusive criar novos status) |
-| `admin.roles` | Papéis personalizados (Fase 2) |
-| `admin.integrations` | Tokens de API, webhooks, e-mail de entrada |
-| `admin.ai` | Endpoints e funcionalidades de IA |
+| `admin.catalog` | Categorias, tipos e status (inclusive criar novos status) |
+| `admin.integrations` | E-mail de entrada (no futuro, também tokens de API e webhooks) |
 | `admin.settings` | Configurações gerais e identidade visual |
 | `audit.view` | Log de auditoria (logins, mudanças de configuração e de permissão) |
+
+Futuro: `admin.roles` (papéis personalizados) e `admin.ai` (endpoints e funcionalidades de IA).
 
 ### Permissões de cada papel padrão
 
@@ -163,7 +163,7 @@ Um usuário **vê** um chamado se **pelo menos uma** condição for verdadeira:
 
 ### Implementação
 
-- Existe **uma única função** que gera o filtro de visibilidade: `ticket_visibility_filter(user) → cláusula SQL`. Ela é usada em **todos** os lugares que leem chamados: listas, detalhe, busca textual e semântica, relatórios, exportação, anexos, RAG da IA, webhooks e servidor MCP.
+- Existe **uma única função** que gera o filtro de visibilidade: `ticket_visibility_filter(user) → cláusula SQL`. Ela é usada em **todos** os lugares que leem chamados: listas, detalhe, busca, relatórios, exportação e anexos. Quando entrarem, a busca semântica, a IA, os webhooks e o servidor MCP também vão usá-la.
 - A decisão sobre uma ação é tomada por `can(user, action, ticket) → bool`, sempre nos *services*, nunca só no frontend. O frontend usa a lista de ações permitidas que a API devolve (`"allowed_actions": [...]` no detalhe do chamado) só para mostrar ou esconder botões.
 - Os testes de permissão são **tabelados**: para cada linha da matriz acima existe um caso de teste com usuários de cada perfil.
 
@@ -179,7 +179,7 @@ Um usuário **vê** um chamado se **pelo menos uma** condição for verdadeira:
 | Responsável | — | Só assumir para si | Qualquer membro do grupo |
 | Status | Concluir, reabrir, cancelar | Conforme o fluxo | Conforme o fluxo |
 | Observadores | Adicionar e remover | Sim | Sim |
-| Tags e campos extras | Campos extras na abertura | Sim | Sim |
+| Tags | — | Sim | Sim |
 
 Toda alteração gera um evento no histórico do chamado com autor, data, valor anterior e valor novo.
 
@@ -188,7 +188,7 @@ Toda alteração gera um evento no histórico do chamado com autor, data, valor 
 | Quem | Pode administrar |
 |------|------------------|
 | **Administrador** | Tudo |
-| **Supervisor de grupo** | Respostas prontas do grupo; (Fase 2) membros do grupo e visões salvas compartilhadas do grupo |
+| **Supervisor de grupo** | Respostas prontas do grupo; (Fase 2) membros do grupo |
 | **Gestor de setor** | Nada de configuração; só aprova e acompanha |
 
 ## 8.7 Origem dos dados de organização
@@ -201,4 +201,4 @@ Cada vínculo guarda a origem (`source = 'manual' | 'idp' | 'import'`). Vínculo
 
 ## 8.8 Auditoria de organização e permissões
 
-São registradas em `audit_log`: criação e desativação de usuários, mudança de papel, mudança de setor, entrada e saída de grupos, mudanças de gestores, criação e edição de papéis personalizados, e toda mudança de configuração. Cada registro guarda autor, data, IP, valor anterior e valor novo.
+São registradas em `audit_log`: criação e desativação de usuários, mudança de papel, mudança de setor, entrada e saída de grupos, mudanças de gestores e toda mudança de configuração. Cada registro guarda autor, data, IP, valor anterior e valor novo.

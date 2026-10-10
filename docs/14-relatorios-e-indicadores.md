@@ -41,7 +41,6 @@ O cálculo do tempo líquido usa os eventos `ticket.status_changed` para somar o
 | **Painel do grupo** | Supervisor do grupo (`report.view_team`) | Backlog por status e por idade · abertos × concluídos por semana · chamados por agente · tempos (mediana) · principais categorias · taxa de reabertura · entregues sem conclusão |
 | **Demanda do setor** | Gestor de setor | Chamados abertos pelo setor por categoria e por status · tempos medianos de atendimento do setor |
 | **Visão geral** | Admin, auditor (`report.view_all`) | Os indicadores do painel do grupo para todos os grupos, lado a lado · chamados por canal · usuários ativos no período |
-| **IA** (Fase 3) | Admin | Aceitação das sugestões e consumo, conforme [6](06-integracao-ia.md#métricas-de-qualidade) |
 
 ## 14.5 Relatórios em lista (exportáveis em CSV)
 
@@ -59,6 +58,6 @@ A exportação respeita os mesmos filtros e a visibilidade, e fica registrada na
 |------|---------|
 | 1 | Lista de chamados com filtros (já serve de relatório básico) |
 | 2 (Sprint 8) | Painéis desta página, view `ticket_metrics`, exportação CSV |
-| 3 | Painel de IA |
+| Futuro | Painel de IA ([6](06-integracao-ia.md#métricas-de-qualidade)) |
 
 A biblioteca de gráficos será escolhida na Sprint 8 (ex.: ECharts ou Chart.js), priorizando acessibilidade e modo escuro.

@@ -1,5 +1,7 @@
 # 6. Integração com IA
 
+> **Fora da v1.0.** Na revisão de escopo de 2026-10-09, toda a integração com IA foi para o [backlog](07-roadmap.md#backlog-futuro-fora-da-v10). Este documento guarda o plano para quando ela entrar. Na coluna "Bloco", 1 vem antes de 2.
+
 A integração acontece em **duas direções**:
 
 1. **O sistema usa IA** (saída): chama modelos de linguagem e de embeddings para classificar, resumir, sugerir respostas e encontrar chamados semelhantes.
@@ -18,15 +20,15 @@ A integração acontece em **duas direções**:
 
 ## Casos de uso — o sistema usa IA
 
-| # | Funcionalidade | Gatilho | Entrada | Saída (estruturada) | Fase |
+| # | Funcionalidade | Gatilho | Entrada | Saída (estruturada) | Bloco |
 |---|----------------|---------|---------|---------------------|------|
-| 1 | **Classificação / triagem** | `ticket.created` (assíncrono) | Título, descrição, árvore de categorias com descrições | `{category_id, priority, team_id, confidence, rationale}` | 3 |
-| 2 | **Resumo** | Sob demanda; automático em chamados com > N comentários ou em transferências | Chamado + comentários | `{summary, current_state, next_steps}` | 3 |
-| 3 | **Sugestão de resposta** | Botão na tela do agente | Chamado + artigos e chamados resolvidos semelhantes (RAG) | Rascunho de resposta + fontes citadas | 3 |
-| 4 | **Chamados semelhantes / duplicados** | `ticket.created` | Embedding do chamado | Lista de chamados com similaridade | 3 |
-| 5 | **Deflexão no portal** | Enquanto o solicitante digita | Texto parcial | Artigos sugeridos antes de abrir o chamado | 4 |
-| 6 | **Rascunho de artigo** | Chamado resolvido marcado como "útil para KB" | Chamado completo | Rascunho de artigo para revisão | 4 |
-| 7 | **Sentimento / urgência** | `ticket.created`, `comment_added` | Texto | `{sentiment, urgency_signals}` | 4 |
+| 1 | **Classificação / triagem** | `ticket.created` (assíncrono) | Título, descrição, árvore de categorias com descrições | `{category_id, priority, team_id, confidence, rationale}` | 1 |
+| 2 | **Resumo** | Sob demanda; automático em chamados com > N comentários ou em transferências | Chamado + comentários | `{summary, current_state, next_steps}` | 1 |
+| 3 | **Sugestão de resposta** | Botão na tela do agente | Chamado + artigos e chamados resolvidos semelhantes (RAG) | Rascunho de resposta + fontes citadas | 1 |
+| 4 | **Chamados semelhantes / duplicados** | `ticket.created` | Embedding do chamado | Lista de chamados com similaridade | 1 |
+| 5 | **Deflexão no portal** | Enquanto o solicitante digita | Texto parcial | Artigos sugeridos antes de abrir o chamado | 2 |
+| 6 | **Rascunho de artigo** | Chamado resolvido marcado como "útil para KB" | Chamado completo | Rascunho de artigo para revisão | 2 |
+| 7 | **Sentimento / urgência** | `ticket.created`, `comment_added` | Texto | `{sentiment, urgency_signals}` | 2 |
 
 Toda saída é validada com um schema **Pydantic**. Uma resposta fora do schema conta como erro e não é aplicada.
 
@@ -84,7 +86,7 @@ Qualquer agente de IA pode operar o sistema pela [API](05-api.md) com um token d
 
 **Exemplos:** um assistente no Teams ou Slack que abre chamados a partir de uma conversa, um agente que consulta o status para o colaborador, uma automação que fecha chamados de monitoramento resolvidos.
 
-### Servidor MCP (Fase 4)
+### Servidor MCP (bloco 2)
 
 Expõe o sistema como ferramentas para clientes MCP (Claude Desktop, Claude Code, IDEs, plataformas de agentes):
 
@@ -101,7 +103,7 @@ O servidor MCP é uma camada fina sobre os **services** (mesmas permissões e a 
 
 ### Webhooks
 
-Agentes externos podem reagir a eventos (`ticket.created`, `ticket.comment_added`…) sem polling. Ver [API → Webhooks](05-api.md#webhooks-de-saída).
+Agentes externos podem reagir a eventos (`ticket.created`, `ticket.comment_added`…) sem polling. Ver [API → Webhooks](05-api.md#webhooks-de-saída-futuro).
 
 ## Segurança específica de IA
 

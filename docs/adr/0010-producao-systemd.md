@@ -15,7 +15,7 @@ A primeira instalação é a da Martiniti: até 50 usuários, um único servidor
   - `sistema-chamados.service`: uvicorn servindo a API e os arquivos estáticos da SPA (`frontend/dist`), escutando só em `127.0.0.1`;
   - `sistema-chamados-worker.service`: fila de tarefas e rotinas periódicas.
 - **nginx** na frente: HTTPS, limite de tamanho de upload e cabeçalhos de segurança, repassando para o uvicorn.
-- **PostgreSQL 17** do repositório oficial do PostgreSQL (`apt.postgresql.org`) com o pacote do pgvector, no mesmo servidor.
+- **PostgreSQL 17** do repositório oficial do PostgreSQL (`apt.postgresql.org`) no mesmo servidor (o pacote do pgvector só quando a IA entrar).
 - **Logs** em stdout, capturados pelo journald (`journalctl -u sistema-chamados`). Nenhum arquivo de log próprio da aplicação.
 - **Atualização** com um script de deploy no repositório (`scripts/deploy.sh`): `git pull` na `main`, `uv sync --frozen`, build do frontend (`pnpm build`) e `chamados db upgrade`. **Quem reinicia os serviços é o usuário** (regra do CLAUDE.md); o script só prepara tudo e avisa.
 - **Arquivos de anexos** em diretório local (`/var/lib/sistema-chamados/files`).

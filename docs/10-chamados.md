@@ -10,7 +10,6 @@ Este documento descreve o ciclo de vida de um chamado, do ponto de vista de quem
 | Título e descrição | O que está acontecendo ou sendo pedido (Markdown) | Solicitante |
 | Tipo | Incidente, requisição ou dúvida (10.2) | Padrão da categoria; agente ajusta |
 | Categoria | Item do catálogo de serviços | Solicitante; agente ajusta |
-| Campos extras | Definidos pela categoria (ex.: patrimônio, sistema, centro de custo) | Solicitante |
 | Solicitante | Quem precisa do atendimento | Sistema (usuário logado) ou agente, ao abrir em nome de alguém |
 | Aberto por | Quem registrou, se diferente do solicitante | Sistema |
 | Setor | Setor do solicitante **no momento da abertura** | Sistema |
@@ -18,7 +17,7 @@ Este documento descreve o ciclo de vida de um chamado, do ponto de vista de quem
 | Responsável | Agente que está atendendo | Agente assume ou supervisor atribui |
 | Status | Etapa do ciclo de vida (10.5) | Fluxo |
 | Impacto, urgência e prioridade | 10.3 | Solicitante informa a urgência; agente define o impacto |
-| Canal | Portal, e-mail, telefone, presencial, API ou agente de IA | Sistema |
+| Canal | Portal, e-mail, telefone ou presencial (API e agente de IA no futuro) | Sistema |
 | Observadores | Pessoas que acompanham | Solicitante e agentes |
 | Tags | Marcadores livres | Agentes |
 | Vínculos | Duplicado de, relacionado a, bloqueado por | Agentes |
@@ -62,15 +61,15 @@ O solicitante não escolhe "prioridade" diretamente, porque todo mundo escolheri
 | **Portal** | Formulário guiado (abaixo) | 1 |
 | **Em nome de alguém** | O agente registra um atendimento por telefone ou presencial, escolhendo o solicitante. O canal fica como `phone` ou `walk_in` | 1 |
 | **E-mail** | Mensagem para o endereço de um grupo (ex.: `ti@empresa.com`) vira chamado na categoria padrão desse grupo. Remetente que não é usuário recebe uma resposta automática explicando como acessar o portal | 2 |
-| **API / integrações** | `POST /tickets` com token de API | 2 |
-| **Agente de IA / MCP** | Via API ou servidor MCP, identificado como `ai_agent` | 4 |
+| **API / integrações** | `POST /tickets` com token de API | Futuro |
+| **Agente de IA / MCP** | Via API ou servidor MCP, identificado como `ai_agent` | Futuro |
 
 ### Formulário guiado do portal
 
 ```
 1. "Do que você precisa?"  → busca + árvore do catálogo (categorias com ícone e descrição)
-2. Artigos sugeridos        → "Isso resolve?" (deflexão; reforçada por IA na Fase 4)
-3. Formulário               → título, descrição, campos extras da categoria, urgência, impacto, anexos
+2. Artigos sugeridos        → "Isso resolve?" (deflexão, a partir da Fase 2)
+3. Formulário               → título, descrição, urgência, impacto, anexos
 4. Confirmação              → número do chamado e link para acompanhar
 ```
 
@@ -150,7 +149,6 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 | **Aguardando cliente** | Chamados dos meus grupos esperando o solicitante | Agentes |
 | **Entregues** | Chamados entregues que ainda não foram concluídos | Agentes |
 | **Todos do grupo** | Tudo do grupo, com filtro por responsável | Supervisores |
-| **Visões salvas** | Filtros personalizados, pessoais ou do grupo | Todos (Fase 2) |
 
 **Ordenação padrão:** primeiro a prioridade, depois a data de abertura (mais antigo primeiro).
 
@@ -177,14 +175,14 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 │ ▒  Verificar switch do andar                  │ Responsável: Ana             │
 │ ● Ana · 09:25                                 │ Categoria: TI › Impressão    │
 │   Pode reiniciar a impressora?                │ Tipo: Incidente              │
-│                                               │ Tags · Campos extras         │
+│                                               │ Tags                         │
 │                                               │ Observadores · Vínculos      │
 │                                               │ Anexos (2)                   │
 ├───────────────────────────────────────────────┤──────────────────────────────│
-│ [Responder ao solicitante] [Nota interna]     │ Sugestões da IA (Fase 3)     │
-│ ┌───────────────────────────────────────────┐ │ · Resumo                     │
-│ │                                           │ │ · Resposta sugerida          │
-│ └───────────────────────────────────────────┘ │ · Chamados semelhantes       │
+│ [Responder ao solicitante] [Nota interna]     │                              │
+│ ┌───────────────────────────────────────────┐ │                              │
+│ │                                           │ │                              │
+│ └───────────────────────────────────────────┘ │                              │
 │ 📎 Anexar  ⚡ Resposta pronta                  │                              │
 │ [Enviar]  [Enviar e aguardar cliente ▾]       │                              │
 └───────────────────────────────────────────────┴──────────────────────────────┘
@@ -196,7 +194,6 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 - **Colisão:** o sistema mostra quem mais está com o chamado aberto. Se chegou um comentário novo depois que a tela foi carregada, aparece um aviso antes de enviar. Alterações de campos usam `ETag` para não sobrescrever a mudança de outra pessoa.
 - **Rascunho automático:** o texto em edição é salvo localmente no navegador e restaurado se a página for recarregada.
 - **Histórico do solicitante:** acesso rápido aos últimos chamados da mesma pessoa.
-- **Atalhos de teclado** (Fase 2): `j`/`k` navegar, `a` assumir, `r` responder, `n` nota interna.
 
 ### Respostas prontas (macros)
 
@@ -208,7 +205,7 @@ Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora d
 
 | Situação | Como funciona |
 |----------|---------------|
-| **Transferência** (escalonamento funcional, ex.: N1 → N2) | O agente escolhe o grupo de destino e escreve um **motivo obrigatório** (nota interna). O chamado continua **Pendente**, na fila do novo grupo e sem responsável. O grupo anterior mantém acesso de leitura. Na Fase 3 a IA pode gerar um resumo para quem recebe |
+| **Transferência** (escalonamento funcional, ex.: N1 → N2) | O agente escolhe o grupo de destino e escreve um **motivo obrigatório** (nota interna). O chamado continua **Pendente**, na fila do novo grupo e sem responsável. O grupo anterior mantém acesso de leitura |
 | **Pedir ajuda sem transferir** | Nota interna com `@menção` a um colega de outro grupo |
 
 ### Duplicados e vínculos

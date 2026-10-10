@@ -3,6 +3,8 @@
 - **Status:** Proposta
 - **Data:** 2026-10-09
 
+> **Nota (2026-10-09):** o `pgvector` só será necessário quando a IA entrar (depois da v1.0). A v1.0 usa apenas extensões que vêm com o PostgreSQL.
+
 ## Contexto
 
 O requisito é PostgreSQL 16 ou 17. Queremos operação simples em ambientes corporativos, onde cada componente extra (Redis, RabbitMQ, Elasticsearch, banco vetorial) é mais um item para aprovar, monitorar e manter.

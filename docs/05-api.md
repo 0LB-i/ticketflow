@@ -1,6 +1,6 @@
 # 5. API
 
-A API REST é o **contrato principal** do sistema: interface web, integrações e agentes de IA usam a mesma API. A especificação OpenAPI 3.1 é gerada pelo FastAPI e publicada em `/api/docs` e `/api/openapi.json`.
+A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a interface web; depois, integrações e agentes de IA vão usar a mesma API. A especificação OpenAPI 3.1 é gerada pelo FastAPI e publicada em `/api/docs` e `/api/openapi.json`.
 
 ## Convenções
 
@@ -13,7 +13,7 @@ A API REST é o **contrato principal** do sistema: interface web, integrações 
 | Filtros | Query string: `?status=open&team=ti&priority_gte=3&q=impressora` |
 | Ordenação | `?sort=-created_at,priority` |
 | Erros | RFC 9457 (Problem Details): `{"type", "title", "status", "detail", "errors": [...]}` |
-| Idempotência | Header `Idempotency-Key` aceito em `POST`, essencial para agentes de IA que repetem chamadas |
+| Idempotência | Header `Idempotency-Key` em `POST` (futuro, junto com os tokens de API: essencial para agentes de IA que repetem chamadas) |
 | Concorrência | `ETag` / `If-Match` em `PATCH` para evitar sobrescrever alteração de outro usuário |
 | Versionamento | Mudanças incompatíveis só em uma nova versão (`/api/v2`); campos novos são aditivos |
 | Rate limit | Headers `RateLimit-*`; `429` com `Retry-After` |
@@ -24,7 +24,11 @@ A API REST é o **contrato principal** do sistema: interface web, integrações 
 | Cliente | Mecanismo |
 |---------|-----------|
 | Interface web (SPA Vue) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF enviado em header (após o login). Nenhum token fica no `localStorage` |
-| Integrações e agentes de IA | `Authorization: Bearer <token>`, um token de API com **escopos** |
+| Integrações e agentes de IA (futuro) | `Authorization: Bearer <token>`, um token de API com **escopos** |
+
+### Tokens de API (futuro)
+
+Ficaram para depois da v1.0 (revisão de escopo de 2026-10-09). O desenho fica registrado aqui.
 
 **Escopos:**
 
@@ -56,7 +60,7 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
 | `POST` | `/tickets/{id}/satisfaction` | Avaliar atendimento |
-| `GET` | `/tickets/search` | Busca textual e/ou semântica: `?q=...&mode=text\|semantic\|hybrid` |
+| `GET` | `/tickets/search` | Busca textual: `?q=...` (no futuro, `&mode=semantic\|hybrid` com a IA) |
 | `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir |
 | `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "reason"}` |
 | `POST` | `/tickets/next` | "Pegar o próximo" da fila |
@@ -76,7 +80,7 @@ O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", 
 | `GET` | `/attachments/{id}` | Baixa (verifica permissão) |
 | `POST` | `/attachments/{id}/hide` | Oculta (com motivo) |
 
-### IA
+### IA (futuro)
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
@@ -88,9 +92,11 @@ O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", 
 
 ### Demais recursos
 
-`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/departments`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/canned-responses`, `/saved-views`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/idp-mappings`, `/admin/settings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
+`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/departments`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/canned-responses`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/settings`
 
-## Webhooks de saída
+Futuro: `/saved-views`, `/admin/idp-mappings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
+
+## Webhooks de saída (futuro)
 
 **Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.resolved`, `ticket.closed`
 
@@ -120,16 +126,16 @@ X-Chamados-Signature: sha256=<HMAC-SHA256(secret, timestamp + "." + body)>
 
 ```http
 POST /api/v1/tickets
-Authorization: Bearer chm_live_3f9a...
-Idempotency-Key: 6c1e7c1a-...
+Cookie: session=...
+X-CSRF-Token: ...
 Content-Type: application/json
 
 {
   "title": "Impressora do 3º andar não imprime",
   "description": "Desde hoje cedo aparece 'offline'.",
   "category_id": "b6f1...",
-  "priority": 2,
-  "custom_fields": { "patrimonio": "IMP-0042" }
+  "urgency": 2,
+  "impact": 1
 }
 ```
 

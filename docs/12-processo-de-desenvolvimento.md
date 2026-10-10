@@ -61,7 +61,7 @@ Uma issue só vai para *Concluído* quando:
 
 | Workflow | Quando roda | O que faz |
 |----------|-------------|-----------|
-| `backend.yml` | Push na `main` (mudanças em `backend/`) | `ruff check`, `ruff format --check`, `mypy`, `pytest` com cobertura. **Matriz PostgreSQL 16 e 17** usando as imagens `pgvector/pgvector:pg16` e `pg17` como *services* |
+| `backend.yml` | Push na `main` (mudanças em `backend/`) | `ruff check`, `ruff format --check`, `mypy`, `pytest` com cobertura. **Matriz PostgreSQL 16 e 17** usando as imagens `postgres:16` e `postgres:17` como *services* |
 | `frontend.yml` | Push na `main` (mudanças em `frontend/`) | `pnpm install --frozen-lockfile`, ESLint, `vue-tsc`, Vitest, `vite build` |
 | `contract.yml` | Push na `main` | Gera o OpenAPI do backend e o cliente TypeScript e falha se houver diferença não commitada |
 | `e2e.yml` | Push na `main` e diariamente | Sobe a stack com Docker Compose e roda o Playwright |
@@ -75,7 +75,7 @@ Também ficam ativos o **Dependabot** (pip/uv, npm/pnpm, GitHub Actions), o **se
 - **SemVer:** `MAJOR.MINOR.PATCH`. MAJOR exige um passo manual na atualização; MINOR traz funcionalidades; PATCH, correções.
 - Cada release traz **notas de atualização** para quem administra uma instalação: migrações, novas variáveis de ambiente, mudanças de comportamento.
 - A atualização no servidor é feita com `scripts/deploy.sh` (git pull, dependências, build do frontend, migrações). Quem reinicia os serviços é o usuário ([ADR 0010](adr/0010-producao-systemd.md)).
-- Versões `0.x` até o M2; `1.0.0` ao fim da Fase 4.
+- Versões `0.x` até o M2; `1.0.0` ao fim da Fase 2 (M2).
 
 ## 12.6 Ambientes
 
@@ -90,11 +90,10 @@ Também ficam ativos o **Dependabot** (pip/uv, npm/pnpm, GitHub Actions), o **se
 
 | Nível | Ferramenta | Cobre |
 |-------|------------|-------|
-| Unitário (backend) | pytest | Regras puras: matriz de prioridade, transições, mascaramento |
+| Unitário (backend) | pytest | Regras puras: matriz de prioridade, transições |
 | Integração (backend) | pytest + testcontainers / services do CI | Repositórios, services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
 | Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |
 | Ponta a ponta | Playwright | Fluxos completos: abrir → atender → resolver → confirmar; aprovação; transferência |
-| IA | Evals próprios | Qualidade de classificação, resumo e resposta por versão de prompt |
 
 **Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com setores, grupos, usuários de todos os perfis e chamados em todos os status.
