@@ -456,6 +456,17 @@
     "logotipoSalvo": "Logotipo atualizado",
     "logotipoRemovido": "Logotipo removido",
     "logotipoGrande": "A imagem passa de 256 KB.",
-    "logotipoTipo": "Envie uma imagem PNG, JPEG ou WebP."
+    "logotipoTipo": "Envie uma imagem PNG, JPEG ou WebP.",
+    "predefinidas": "Combinações prontas",
+    "predefinidasDica": "Escolha uma para preencher as três cores; confira na prévia e salve.",
+    "predefinida": {
+      "padrao": "Padrão TicketFlow (laranja)",
+      "azul": "Azul",
+      "verde": "Verde",
+      "petroleo": "Azul-petróleo",
+      "roxo": "Roxo",
+      "ambar": "Âmbar",
+      "grafite": "Grafite"
+    }
   }
 }

@@ -36,6 +36,20 @@ export const TOKENS = [
 
 export const CORES_PADRAO: Cores = { brand: '#F97316', neutral: '#737373', background: '#FFFFFF' }
 
+/**
+ * Combinações prontas da tela de Configurações; a primeira é o padrão. Sem vermelho nem rosa
+ * na marca: confundiriam com o botão destrutivo e a prioridade alta (docs/17 §17.2).
+ */
+export const PREDEFINIDAS: { id: string; cores: Cores }[] = [
+  { id: 'padrao', cores: CORES_PADRAO },
+  { id: 'azul', cores: { brand: '#2563EB', neutral: '#64748B', background: '#FFFFFF' } },
+  { id: 'verde', cores: { brand: '#16A34A', neutral: '#71717A', background: '#FFFFFF' } },
+  { id: 'petroleo', cores: { brand: '#0D9488', neutral: '#64748B', background: '#FFFFFF' } },
+  { id: 'roxo', cores: { brand: '#7C3AED', neutral: '#71717A', background: '#FFFFFF' } },
+  { id: 'ambar', cores: { brand: '#D97706', neutral: '#78716C', background: '#FFFBF5' } },
+  { id: 'grafite', cores: { brand: '#374151', neutral: '#6B7280', background: '#F9FAFB' } },
+]
+
 /** Paleta original, escolhida à mão (docs/17 §17.2 e assets/main.css). */
 export const PALETA_PADRAO: Paleta = {
   claro: {
