@@ -18,6 +18,7 @@ from chamados.modules.identity.schemas import (
     LoginIn,
     Me,
     MeTeam,
+    MeUpdate,
     TokenInfo,
     TokenPasswordIn,
 )
@@ -30,6 +31,7 @@ from chamados.modules.identity.service import (
 )
 from chamados.modules.identity.sessions import clear_cookies, create_session, now, revoke_sessions
 from chamados.modules.organization.models import TeamMember
+from chamados.modules.system.service import user_locale
 
 router = APIRouter(tags=["autenticação"])
 
@@ -95,7 +97,8 @@ async def login(
         await db.commit()
         if user.locked_until and user.locked_until > t:
             # Tarefas em segundo plano são descartadas quando a rota levanta exceção.
-            await run_in_threadpool(send_locked_email, request.app.state.mailer, user)
+            locale = await user_locale(db, user)
+            await run_in_threadpool(send_locked_email, request.app.state.mailer, user, locale)
         raise exc
 
     user.failed_logins = 0
@@ -131,7 +134,8 @@ async def forgot_password(
     record(db, "auth.password_reset_requested", request=request, actor_user_id=user.id)
     await db.commit()
     url = link(settings, "password_reset", raw)
-    tasks.add_task(send_link_email, request.app.state.mailer, user, "password_reset", url)
+    locale = await user_locale(db, user)
+    tasks.add_task(send_link_email, request.app.state.mailer, user, "password_reset", url, locale)
 
 
 @router.get("/auth/tokens/{token}", response_model=TokenInfo)
@@ -196,7 +200,16 @@ async def me(auth: CurrentAuth, db: DB) -> Me:
         role=auth.user.role.code,
         teams=[MeTeam(id=m.team.public_id, name=m.team.name, role=m.role) for m in memberships],
         permissions=effective_permissions(auth.actor),
+        locale=auth.user.locale,
     )
+
+
+@router.patch("/me", response_model=Me)
+async def update_me(data: MeUpdate, auth: CurrentAuth, db: DB) -> Me:
+    """Preferências da própria pessoa: por enquanto, o idioma."""
+    auth.user.locale = data.locale
+    await db.commit()
+    return await me(auth, db)
 
 
 @router.post("/me/password", status_code=204)

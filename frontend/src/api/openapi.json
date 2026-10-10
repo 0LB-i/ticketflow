@@ -231,6 +231,44 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": ["autenticação"],
+        "summary": "Update Me",
+        "description": "Preferências da própria pessoa: por enquanto, o idioma.",
+        "operationId": "update_me_api_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/me/password": {
@@ -1588,6 +1626,132 @@
         }
       }
     },
+    "/api/v1/branding": {
+      "get": {
+        "tags": ["configurações"],
+        "summary": "Branding",
+        "operationId": "branding_api_v1_branding_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/branding/logo": {
+      "get": {
+        "tags": ["configurações"],
+        "summary": "Branding Logo",
+        "operationId": "branding_logo_api_v1_branding_logo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settings": {
+      "patch": {
+        "tags": ["configurações"],
+        "summary": "Update Settings",
+        "operationId": "update_settings_api_v1_admin_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settings/logo": {
+      "put": {
+        "tags": ["configurações"],
+        "summary": "Set Logo",
+        "operationId": "set_logo_api_v1_admin_settings_logo_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["configurações"],
+        "summary": "Remove Logo",
+        "operationId": "remove_logo_api_v1_admin_settings_logo_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/audit-log": {
       "get": {
         "tags": ["auditoria"],
@@ -1827,6 +1991,40 @@
         "type": "object",
         "required": ["items", "next_cursor"],
         "title": "AuditPage"
+      },
+      "Branding": {
+        "properties": {
+          "default_locale": {
+            "type": "string",
+            "enum": ["pt-BR", "en"],
+            "title": "Default Locale"
+          },
+          "colors": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Colors"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "nulo: cores padrão do TicketFlow"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          }
+        },
+        "type": "object",
+        "required": ["default_locale", "colors", "logo_url"],
+        "title": "Branding"
       },
       "CategoryCreate": {
         "properties": {
@@ -2108,6 +2306,32 @@
         "type": "object",
         "required": ["new_password"],
         "title": "ChangePasswordIn"
+      },
+      "Colors": {
+        "properties": {
+          "brand": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "title": "Brand",
+            "description": "cor da marca (laranja): ações e destaques"
+          },
+          "neutral": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "title": "Neutral",
+            "description": "cor neutra (cinza): textos secundários e bordas"
+          },
+          "background": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "title": "Background",
+            "description": "fundo das telas no modo claro (branco)"
+          }
+        },
+        "type": "object",
+        "required": ["brand", "neutral", "background"],
+        "title": "Colors",
+        "description": "As 3 cores da identidade (docs/17 §17.2). A interface deriva delas a paleta inteira."
       },
       "CommentIn": {
         "properties": {
@@ -2489,6 +2713,19 @@
         "required": ["login", "password"],
         "title": "LoginIn"
       },
+      "LogoIn": {
+        "properties": {
+          "data_url": {
+            "type": "string",
+            "maxLength": 400000,
+            "title": "Data Url",
+            "description": "data:image/png;base64,... (PNG, JPEG ou WebP)"
+          }
+        },
+        "type": "object",
+        "required": ["data_url"],
+        "title": "LogoIn"
+      },
       "Me": {
         "properties": {
           "id": {
@@ -2543,6 +2780,19 @@
             },
             "type": "array",
             "title": "Permissions"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["pt-BR", "en"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale",
+            "description": "idioma escolhido; nulo segue o padrão do sistema"
           }
         },
         "type": "object",
@@ -2554,7 +2804,8 @@
           "must_change_password",
           "role",
           "teams",
-          "permissions"
+          "permissions",
+          "locale"
         ],
         "title": "Me"
       },
@@ -2578,6 +2829,26 @@
         "type": "object",
         "required": ["id", "name", "role"],
         "title": "MeTeam"
+      },
+      "MeUpdate": {
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["pt-BR", "en"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale",
+            "description": "nulo volta ao idioma padrão do sistema"
+          }
+        },
+        "type": "object",
+        "required": ["locale"],
+        "title": "MeUpdate"
       },
       "MemberIn": {
         "properties": {
@@ -2690,6 +2961,35 @@
         "type": "object",
         "required": ["id", "name"],
         "title": "ResolutionRef"
+      },
+      "SettingsUpdate": {
+        "properties": {
+          "default_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["pt-BR", "en"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Locale"
+          },
+          "colors": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Colors"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "nulo volta às cores padrão"
+          }
+        },
+        "type": "object",
+        "title": "SettingsUpdate"
       },
       "StatusList": {
         "properties": {

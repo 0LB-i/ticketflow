@@ -39,6 +39,8 @@ class User(Base):
     # Senha provisória (admin/admin na instalação): a API só libera o uso depois da troca.
     must_change_password: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    # Idioma escolhido pela pessoa; nulo segue o padrão do sistema (configurações).
+    locale: Mapped[str | None] = mapped_column(Text)
     failed_logins: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     last_failed_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

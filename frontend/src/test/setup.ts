@@ -67,6 +67,7 @@ export const ME_ADMIN = {
   role: 'admin',
   teams: [],
   permissions: ['admin.users', 'admin.organization', 'audit.view'],
+  locale: null,
 }
 
 export const ME_AGENTE = { ...ME_ADMIN, role: 'agent', permissions: ['ticket.create'] }

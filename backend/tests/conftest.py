@@ -32,7 +32,7 @@ TEST_DATABASE_URL = os.environ.get(
 SENHA = "uma senha longa de teste"
 TABELAS = (
     "ticket_events, ticket_comments, ticket_watchers, ticket_teams, tickets, categories, "
-    "audit_log, auth_tokens, user_sessions, team_members, teams, departments, users"
+    "settings, audit_log, auth_tokens, user_sessions, team_members, teams, departments, users"
 )
 
 

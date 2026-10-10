@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from sqlalchemy import Engine
 
 from chamados import cli
 from chamados.config import get_settings
@@ -29,7 +30,11 @@ def test_openapi_na_saida_padrao(capsys: pytest.CaptureFixture[str]) -> None:
     assert '"/api/health"' in capsys.readouterr().out
 
 
-def test_db_upgrade_downgrade_current(capsys: pytest.CaptureFixture[str]) -> None:
+def test_db_upgrade_downgrade_current(
+    capsys: pytest.CaptureFixture[str], sync_engine: Engine
+) -> None:
     cli.main(["db", "downgrade", "base"])
     cli.main(["db", "upgrade"])
+    # As extensões foram recriadas com novos OIDs: conexões antigas do pool guardam os velhos.
+    sync_engine.dispose()
     cli.main(["db", "current"])

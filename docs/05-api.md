@@ -13,6 +13,7 @@ A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a
 | Filtros | Query string: `?status=open&team=ti&priority_gte=3&q=impressora` |
 | Ordenação | `?sort=-created_at,priority` |
 | Erros | RFC 9457 (Problem Details): `{"type", "title", "status", "detail", "errors": [...]}` |
+| Idioma | Mensagens (`title`, `detail`) em português ou inglês, conforme o header `Accept-Language` que a interface envia com o idioma escolhido. As mensagens são escritas em português e traduzidas pelo catálogo em `core/i18n.py` |
 | Idempotência | Header `Idempotency-Key` em `POST` (futuro, junto com os tokens de API: essencial para agentes de IA que repetem chamadas) |
 | Concorrência | `ETag` / `If-Match` em `PATCH` para evitar sobrescrever alteração de outro usuário |
 | Versionamento | Mudanças incompatíveis só em uma nova versão (`/api/v2`); campos novos são aditivos |
@@ -90,6 +91,16 @@ Um chamado que o usuário não pode ver responde `403` ("Você não tem acesso a
 | `GET` | `/tickets/{id}/ai/suggestions` | Sugestões pendentes (classificação, duplicados) |
 | `POST` | `/ai/suggestions/{run_id}/feedback` | `{"feedback": "accepted" \| "edited" \| "rejected"}` |
 | `GET` | `/tickets/{id}/similar` | Chamados semelhantes (busca vetorial) |
+
+### Configurações
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/branding` | **Pública** (a tela de login usa): idioma padrão, as 3 cores (`null` = padrão) e o endereço do logotipo |
+| `GET` | `/branding/logo` | Imagem do logotipo (endereço versionado, guardado em cache pelo navegador) |
+| `PATCH` | `/admin/settings` | `{"default_locale": "pt-BR" \| "en", "colors": {"brand", "neutral", "background"} \| null}` (`admin.settings`) |
+| `PUT` / `DELETE` | `/admin/settings/logo` | Envia (`{"data_url": "data:image/png;base64,..."}`, PNG, JPEG ou WebP até 256 KB) ou remove o logotipo |
+| `PATCH` | `/me` | Preferências da pessoa: `{"locale": "en" \| "pt-BR" \| null}` (nulo segue o padrão do sistema) |
 
 ### Demais recursos
 
