@@ -1,25 +1,16 @@
-# 12. Processo de desenvolvimento (GitHub)
+# 12. Processo de desenvolvimento
 
-## 12.1 Organização do trabalho
+> **Situação atual (2026-10-10):** uma pessoa desenvolve, com o Claude Code, num **repositório Git local**. O GitHub ([ADR 0009](adr/0009-github.md)) fica para quando houver um remoto; até lá, o que ele faria (CI, issues, quadro) é feito por scripts e arquivos no próprio repositório. A seção 12.8 guarda o plano do GitHub.
 
-| Elemento do GitHub | Uso |
-|--------------------|-----|
-| **Milestones** | Uma por fase: `Fase 0 — Fundação`, `Fase 1 — MVP`… |
-| **GitHub Projects** | Quadro com colunas *Backlog → Pronto para desenvolver → Em andamento → Em revisão → Concluído*, campo **Iteração** (sprint de 2 semanas) e campo **Estimativa** |
-| **Issues** | Uma por história ou tarefa, com o código do roadmap no título (ex.: `[F1-S3-07] Transferir chamado entre grupos`) |
-| **Templates de issue** | *História de usuário*, *Bug*, *Tarefa técnica* |
-| **Discussions** | Propostas e dúvidas abertas antes de virarem ADR |
+## 12.1 Repositório e tarefas
 
-### Labels
+- **Repositório:** Git local, monorepo `backend/` + `frontend/` + `docs/`. Uma cópia fica no repositório de passagem do servidor de produção ([18.3](18-manual-do-servidor.md#5-código)), que também serve de cópia de segurança do código.
+- **Tarefas:** arquivo `TAREFAS.md` na raiz, criado na Fase 0. Uma linha por item do [roadmap](07-roadmap.md), com o código, o estado (`a fazer`, `fazendo`, `feito`) e o commit que concluiu. Bugs e pedidos do piloto entram numa seção própria, com data e quem relatou.
+- **Decisões:** continuam como ADR em `docs/adr/` e nas [questões em aberto](questoes-em-aberto.md).
 
-| Prefixo | Valores |
-|---------|---------|
-| `tipo:` | `feature`, `bug`, `tarefa`, `docs`, `seguranca` |
-| `area:` | `backend`, `frontend`, `infra`, `ia`, `ux` |
-| `modulo:` | `identidade`, `organizacao`, `chamados`, `anexos`, `notificacoes`, `kb`, `relatorios`, `integracoes` |
-| `prioridade:` | `alta`, `media`, `baixa` |
+### Modelo de tarefa
 
-### Modelo de história de usuário
+Cada item do roadmap é detalhado assim antes de começar, no próprio `TAREFAS.md` ou no documento de referência:
 
 ```markdown
 **Como** membro da TI – Suporte
@@ -41,11 +32,23 @@ docs/10-chamados.md#transferência
 
 - **Todos os commits vão direto para a `main`**, sem branches de feature ou de correção (regra do [CLAUDE.md](../CLAUDE.md)).
 - Commits pequenos e frequentes, no padrão Conventional Commits (`feat(chamados): transferir entre grupos`), citando o código do roadmap quando houver.
-- O CI roda a cada push. **CI vermelho na `main` é prioridade:** corrige-se antes de continuar.
+- A verificação rápida roda antes de cada commit (12.3). **Verificação completa falhando na `main` é prioridade:** corrige-se antes de continuar.
 
-## 12.3 Definição de pronto
+## 12.3 Verificação local (no lugar do CI)
 
-Uma issue só vai para *Concluído* quando:
+| Quando | Comando | O que roda |
+|--------|---------|------------|
+| Antes de cada commit (hook `pre-commit`, instalado por `scripts/install-hooks.sh`) | `scripts/check.sh --rapido` | `ruff check`, `ruff format --check`, ESLint e Prettier nos arquivos alterados |
+| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy`, `pytest` com cobertura no PostgreSQL 17 do Docker Compose, `vue-tsc`, Vitest, `vite build` e a verificação do contrato (OpenAPI e cliente TypeScript sem diferença não commitada) |
+| Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima + `pytest` também no **PostgreSQL 16**, Playwright e auditoria de dependências (`pip-audit`, `pnpm audit`) |
+
+- O `check.sh` sobe o banco de teste com o Docker Compose se ele não estiver rodando.
+- **Dependências:** sem Dependabot, a atualização é uma rotina mensal registrada no `TAREFAS.md`: `uv lock --upgrade`, `pnpm update`, verificação completa e commit.
+- **Segredos:** `.env` e chaves nunca entram no repositório (`.gitignore`); o `check.sh` falha se encontrar padrões de chave nos arquivos alterados.
+
+## 12.4 Definição de pronto
+
+Uma tarefa só fica `feito` quando:
 
 - [ ] Critérios de aceite atendidos
 - [ ] Testes automatizados: unitários e de integração (backend com banco real); componente ou ponta a ponta (frontend), quando aplicável
@@ -55,45 +58,47 @@ Uma issue só vai para *Concluído* quando:
 - [ ] Textos da interface no i18n (pt-BR), sem texto fixo no código
 - [ ] Acessibilidade verificada: navegação por teclado, foco visível, rótulos
 - [ ] Documentação em `docs/` atualizada quando a regra de negócio mudou
-- [ ] CI verde depois do push
-
-## 12.4 Integração contínua (GitHub Actions)
-
-| Workflow | Quando roda | O que faz |
-|----------|-------------|-----------|
-| `backend.yml` | Push na `main` (mudanças em `backend/`) | `ruff check`, `ruff format --check`, `mypy`, `pytest` com cobertura. **Matriz PostgreSQL 16 e 17** usando as imagens `postgres:16` e `postgres:17` como *services* |
-| `frontend.yml` | Push na `main` (mudanças em `frontend/`) | `pnpm install --frozen-lockfile`, ESLint, `vue-tsc`, Vitest, `vite build` |
-| `contract.yml` | Push na `main` | Gera o OpenAPI do backend e o cliente TypeScript e falha se houver diferença não commitada |
-| `e2e.yml` | Push na `main` e diariamente | Sobe a stack com Docker Compose e roda o Playwright |
-| `codeql.yml` | Semanal | Análise de segurança (Python e JavaScript/TypeScript) |
-| `release.yml` | Tag `v*` criada manualmente | Gera a *release* no GitHub com o CHANGELOG dos commits desde a tag anterior |
-
-Também ficam ativos o **Dependabot** (pip/uv, npm/pnpm, GitHub Actions), o **secret scanning** e o **push protection**.
+- [ ] **Revisão:** sem um segundo desenvolvedor, a mudança passa pelo `/code-review` do Claude Code; mudanças em login, permissões ou anexos passam também pelo `/security-review`
+- [ ] `scripts/check.sh` passando
 
 ## 12.5 Versões e entregas
 
 - **SemVer:** `MAJOR.MINOR.PATCH`. MAJOR exige um passo manual na atualização; MINOR traz funcionalidades; PATCH, correções.
-- Cada release traz **notas de atualização** para quem administra uma instalação: migrações, novas variáveis de ambiente, mudanças de comportamento.
-- A atualização no servidor é feita com `scripts/deploy.sh` (git pull, dependências, build do frontend, migrações). Quem reinicia os serviços é o usuário ([ADR 0010](adr/0010-producao-systemd.md)).
+- Cada versão é uma **tag** na `main` e traz **notas de atualização** em `CHANGELOG.md`, geradas a partir dos commits: migrações, novas variáveis de ambiente, mudanças de comportamento.
+- A atualização no servidor segue o [manual do servidor](18-manual-do-servidor.md#184-atualização). Quem reinicia os serviços é o usuário ([ADR 0010](adr/0010-producao-systemd.md)).
 - Versões `0.x` até o M2; `1.0.0` ao fim da Fase 2 (M2).
 
 ## 12.6 Ambientes
 
 | Ambiente | Para quê |
 |----------|----------|
-| **Local** | Desenvolvimento: Docker Compose (banco, Mailpit) + `uvicorn --reload` + `pnpm dev` |
-| **CI** | Containers efêmeros por execução |
-| **Homologação** | Instalação de teste, atualizada a cada merge na `main`; dados fictícios; usada nas validações com o piloto |
-| **Produção** | Servidor da empresa, com serviços systemd, atualizado pelo script de deploy |
+| **Local** | Desenvolvimento: Docker Compose (banco, Mailpit) + `uvicorn --reload` + `pnpm dev`. Também é onde roda a verificação (12.3) e onde se faz a demonstração com `chamados dev seed` |
+| **Produção** | Servidor da empresa, com serviços systemd, atualizado pelo script de deploy ([18](18-manual-do-servidor.md)) |
+
+Não há homologação separada: com um único desenvolvedor, mais um servidor seria mais trabalho de manutenção do que ganho. O treinamento da equipe é feito na própria produção, antes da virada, num grupo **Treinamento** que é desativado depois ([16.5](16-implantacao.md#165-treinamento-1-hora)). Se o sistema for instalado em outras empresas, a homologação volta a ser avaliada.
 
 ## 12.7 Estratégia de testes
 
 | Nível | Ferramenta | Cobre |
 |-------|------------|-------|
 | Unitário (backend) | pytest | Regras puras: matriz de prioridade, transições |
-| Integração (backend) | pytest + testcontainers / services do CI | Repositórios, services e endpoints com PostgreSQL real |
+| Integração (backend) | pytest + PostgreSQL do Docker Compose | Repositórios, services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
 | Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |
 | Ponta a ponta | Playwright | Fluxos completos: registrar → assumir → aguardar → concluir → reabrir; aprovação; transferência |
 
 **Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com grupos, setores atendidos, usuários de todos os perfis e chamados em todos os status.
+
+## 12.8 Quando houver remoto no GitHub (plano guardado)
+
+Ao criar o remoto, o que hoje é local passa para o GitHub, sem mudar o resto do processo:
+
+| Hoje (local) | No GitHub |
+|--------------|-----------|
+| `TAREFAS.md` | Issues com o código do roadmap no título (ex.: `[F1-S3-07] Transferir chamado entre grupos`), milestones por fase e GitHub Projects (*Backlog → Pronto para desenvolver → Em andamento → Concluído*) |
+| `scripts/check.sh` | GitHub Actions: `backend.yml` (matriz PostgreSQL 16 e 17), `frontend.yml`, `contract.yml`, `e2e.yml` (Playwright) e `codeql.yml` |
+| Rotina mensal de dependências | Dependabot (uv, pnpm, Actions), secret scanning e push protection |
+| Tag + `CHANGELOG.md` | `release.yml` gerando a release a partir da tag |
+| Repositório de passagem no servidor | O servidor busca do GitHub |
+
+Os workflows chamam o mesmo `scripts/check.sh`, para que a verificação local e a do CI sejam idênticas.

@@ -3,6 +3,8 @@
 - **Status:** Aceita
 - **Data:** 2026-10-09
 
+> **Nota (2026-10-10):** adiada. Por enquanto o repositório é **local** e a verificação roda por script ([12](../12-processo-de-desenvolvimento.md)). Esta decisão vale quando houver um remoto. As imagens no GHCR já tinham saído com o [ADR 0010](0010-producao-systemd.md).
+
 ## Contexto
 
 Precisávamos definir onde ficam o código, o CI, o acompanhamento do trabalho e as imagens de release.

@@ -19,12 +19,13 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 | 9 | [Login e autenticação](docs/09-login-e-autenticacao.md) | Login por e-mail e senha, MFA, sessões |
 | 10 | [Como funcionam os chamados](docs/10-chamados.md) | Registro, status, fluxo, trabalho da equipe, aprovações, notificações |
 | 11 | [Anexos e arquivos](docs/11-anexos-e-arquivos.md) | Onde se anexa, tipos, limites, armazenamento, permissões |
-| 12 | [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md) | GitHub, commits, CI, implantação, definição de pronto, testes |
+| 12 | [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md) | Repositório local, tarefas, commits, verificação local, definição de pronto, testes |
 | 13 | [Telas e navegação](docs/13-telas-e-navegacao.md) | Mapa de telas, menus por perfil, rascunhos e padrões de interação |
 | 14 | [Relatórios e indicadores](docs/14-relatorios-e-indicadores.md) | Indicadores, painéis por perfil e exportações |
 | 15 | [Estrutura da empresa](docs/15-estrutura-inicial.md) | Modelo para a carga inicial: grupos, usuários, setores atendidos, categorias |
 | 16 | [Plano de implantação](docs/16-implantacao.md) | Virada da TI, treinamento, combinados, acompanhamento e expansão |
 | 17 | [Identidade visual](docs/17-identidade-visual.md) | Nome, cores, contraste, tipografia, logotipo e e-mails |
+| 18 | [Manual do servidor](docs/18-manual-do-servidor.md) | Instalação no Ubuntu 24.04, atualização, backup, rotina e problemas comuns |
 | — | [Glossário](docs/glossario.md) | Termos do domínio e nomes no código |
 | — | [Questões em aberto](docs/questoes-em-aberto.md) | Decisões ainda pendentes |
 | — | [ADRs](docs/adr/) | Registro de decisões de arquitetura |
@@ -37,7 +38,7 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 - **Acesso a dados:** SQLAlchemy 2.x + psycopg 3, migrações com Alembic
 - **Tarefas assíncronas:** fila no próprio PostgreSQL (`SELECT ... FOR UPDATE SKIP LOCKED`)
 - **Interface web:** SPA em Vue 3 + TypeScript + Vite + Tailwind CSS + Reka UI, consumindo a API REST
-- **Plataforma:** GitHub (código, Actions, Projects)
+- **Repositório:** Git local, com verificação por script; GitHub quando houver remoto
 - **Produção:** serviços systemd (uvicorn) + nginx + PostgreSQL 17 no mesmo servidor
 - **IA (depois da v1.0):** uma única API genérica (formato compatível com OpenAI), configurada por URL, chave e nome do modelo, sem código específico de provedor
 

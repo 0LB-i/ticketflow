@@ -7,7 +7,8 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 | # | Questão | Opções | Recomendação | Bloqueia |
 |---|---------|--------|--------------|----------|
 | 1 | **Servidor de e-mail para envio (SMTP)** das notificações e convites | Conta SMTP do provedor de e-mail da empresa, serviço transacional (ex.: Amazon SES, Brevo) | Usar a conta SMTP do provedor atual; precisamos saber qual é | Sprint 2 |
-| 2 | **Servidor de produção** | Sistema operacional, recursos, domínio e certificado HTTPS | Linux (Debian/Ubuntu LTS), 2 vCPU, 4 GB RAM, 50 GB de disco bastam para 50 usuários | Sprint 5 |
+| 2 | **Servidor de produção**: domínio e certificado HTTPS (o sistema operacional já foi decidido) | Let's Encrypt, Let's Encrypt por DNS ou certificado da empresa ([18.2](18-manual-do-servidor.md#182-requisitos)) | 2 vCPU, 4 GB RAM, 50 GB de disco; nome `ticketflow.example.com` | Sprint 5 |
+| 13 | **Destino da cópia externa do backup** | Outro servidor, NAS da empresa, armazenamento em nuvem | O que a TI já usar para os outros backups ([18.5](18-manual-do-servidor.md#185-backup-e-restauração)) | Sprint 5 |
 | 4 | **Editor de texto dos comentários** | Markdown puro (textarea), Tiptap (rich text que salva Markdown) | Tiptap: colar imagens, negrito e listas sem o usuário saber Markdown | Sprint 3 |
 
 ## De negócio (dependem de quem vai usar)
@@ -48,5 +49,9 @@ Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvi
 | 2026-10-09 | **Revisão de escopo**: IA, tokens de API, webhooks, MCP, papéis personalizados, visões salvas, atalhos, antivírus e campos extras ficam para depois da v1.0; v1.0 em 16 semanas | [07](07-roadmap.md#backlog-futuro-fora-da-v10) |
 | 2026-10-10 | **Modelo**: ferramenta de trabalho das equipes; só membros têm conta; colegas acompanham como observadores; chamado registra setor e pessoa atendidos; supervisor aprova | [08](08-organizacao-e-permissoes.md), [10](10-chamados.md) |
 | 2026-10-10 | Nome **TicketFlow**; cores laranja, cinza e branco | [17](17-identidade-visual.md) |
+| 2026-10-10 | **Repositório Git local** por enquanto; GitHub quando houver remoto. Verificação por `scripts/check.sh`, tarefas em `TAREFAS.md` | [12](12-processo-de-desenvolvimento.md), [ADR 0009](adr/0009-github.md) |
+| 2026-10-10 | Servidor de produção em **Ubuntu 24.04 LTS**; código entregue por repositório Git de passagem no servidor; sem homologação | [18](18-manual-do-servidor.md) |
+| 2026-10-10 | **Uma pessoa** desenvolve, com o Claude Code; roadmap reestimado para 20 a 27 semanas | [07](07-roadmap.md) |
+| 2026-10-10 | Mapeamento de grupos do SSO sai do schema da v1.0 | [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql) |
 | 2026-10-10 | **Virada com data marcada** no piloto da TI; sem importação de histórico | [16](16-implantacao.md) |
 | 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (empresa) | [01](01-visao-geral.md#público) |
