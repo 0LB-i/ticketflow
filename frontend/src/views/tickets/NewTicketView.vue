@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { compararTexto } from '@/i18n'
 import { X } from 'lucide-vue-next'
-import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
+import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
@@ -51,6 +51,12 @@ const form = reactive({
 })
 const erro = ref<string | null>(null)
 const tentou = ref(false)
+
+// Os grupos podem ter mudado depois do login (ex.: o admin incluiu a pessoa num grupo).
+onMounted(() => auth.carregar())
+watch(meusGrupos, (grupos) => {
+  if (!form.team && grupos.length === 1) form.team = grupos[0]!.id
+})
 
 const caminhos = computed(() => caminhoDasCategorias(categorias.data.value ?? []))
 const idsMeusGrupos = computed(() => new Set(meusGrupos.value.map((g) => g.id)))
