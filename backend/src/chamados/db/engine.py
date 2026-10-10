@@ -1,0 +1,7 @@
+"""Conexão com o PostgreSQL (SQLAlchemy 2 async + psycopg 3)."""
+
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+
+def create_engine(database_url: str) -> AsyncEngine:
+    return create_async_engine(database_url, pool_pre_ping=True)
