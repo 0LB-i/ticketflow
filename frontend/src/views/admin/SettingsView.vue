@@ -10,7 +10,7 @@ import { useHead } from '@/composables/useHead'
 import { useToast } from '@/composables/useToast'
 import { type Idioma, IDIOMAS } from '@/i18n'
 import { useBrandingStore } from '@/stores/branding'
-import { CORES_PADRAO, type Cores, paleta, variaveis } from '@/tema/paleta'
+import { CORES_PADRAO, type Cores, paleta, PREDEFINIDAS, variaveis } from '@/tema/paleta'
 
 /** Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores e logotipo. */
 useHead('configuracoes.titulo')
@@ -50,8 +50,12 @@ const opcoesIdioma = computed(() =>
   IDIOMAS.map((i) => ({ value: i, label: t(`idioma.nomes.${i}`) })),
 )
 
-const iguaisAoPadrao = () =>
-  CAMPOS.every((c) => cores[c.chave].toUpperCase() === CORES_PADRAO[c.chave])
+const iguais = (a: Cores) => CAMPOS.every((c) => cores[c.chave].toUpperCase() === a[c.chave])
+const iguaisAoPadrao = () => iguais(CORES_PADRAO)
+
+function usarPredefinida(predefinida: Cores) {
+  Object.assign(cores, predefinida)
+}
 
 async function salvar() {
   erro.value = null
@@ -149,6 +153,32 @@ async function removerLogo() {
         <div>
           <h2 id="cores-titulo" class="font-semibold">{{ t('configuracoes.cores') }}</h2>
           <p class="mt-1 text-muted">{{ t('configuracoes.coresDescricao') }}</p>
+        </div>
+        <div class="flex flex-col gap-2" role="group" aria-labelledby="predefinidas-titulo">
+          <p id="predefinidas-titulo" class="font-medium">
+            {{ t('configuracoes.predefinidas') }}
+          </p>
+          <p class="text-muted">{{ t('configuracoes.predefinidasDica') }}</p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="p in PREDEFINIDAS"
+              :key="p.id"
+              type="button"
+              :aria-pressed="iguais(p.cores)"
+              class="inline-flex items-center gap-2 rounded-md border border-border-input bg-surface px-3 py-2 text-fg hover:bg-surface-raised aria-pressed:border-primary aria-pressed:bg-primary-subtle aria-pressed:font-semibold"
+              @click="usarPredefinida(p.cores)"
+            >
+              <span class="flex" aria-hidden="true">
+                <span
+                  v-for="(cor, i) in [p.cores.brand, p.cores.neutral, p.cores.background]"
+                  :key="i"
+                  class="-ml-1 size-5 rounded-full border border-border-input first:ml-0"
+                  :style="{ backgroundColor: cor }"
+                />
+              </span>
+              {{ t(`configuracoes.predefinida.${p.id}`) }}
+            </button>
+          </div>
         </div>
         <div class="grid gap-4 md:grid-cols-3">
           <div v-for="campo in CAMPOS" :key="campo.chave" class="flex flex-col gap-1">

@@ -54,6 +54,18 @@ describe('SettingsView', () => {
     expect(feitas[0]!.corpo).toEqual({ default_locale: 'pt-BR', colors: null })
   })
 
+  it('combinação pronta preenche as três cores; a padrão vem marcada', async () => {
+    const w = montar(SettingsView)
+    const botao = (nome: string) => w.findAll('button').find((b) => b.text().trim() === nome)!
+    expect(botao('Padrão TicketFlow (laranja)').attributes('aria-pressed')).toBe('true')
+
+    await botao('Azul').trigger('click')
+    expect((w.get('#cor-brand').element as HTMLInputElement).value).toBe('#2563EB')
+    expect((w.get('#cor-neutral').element as HTMLInputElement).value).toBe('#64748B')
+    expect(botao('Azul').attributes('aria-pressed')).toBe('true')
+    expect(botao('Padrão TicketFlow (laranja)').attributes('aria-pressed')).toBe('false')
+  })
+
   it('não salva cor malformada', async () => {
     const w = montar(SettingsView)
     await preencher(w.get('#cor-neutral').element as HTMLInputElement, '#12')

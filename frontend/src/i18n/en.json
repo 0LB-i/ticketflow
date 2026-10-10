@@ -456,6 +456,17 @@
     "logotipoSalvo": "Logo updated",
     "logotipoRemovido": "Logo removed",
     "logotipoGrande": "The image is larger than 256 KB.",
-    "logotipoTipo": "Upload a PNG, JPEG or WebP image."
+    "logotipoTipo": "Upload a PNG, JPEG or WebP image.",
+    "predefinidas": "Ready-made combinations",
+    "predefinidasDica": "Pick one to fill in the three colors; check the preview and save.",
+    "predefinida": {
+      "padrao": "TicketFlow default (orange)",
+      "azul": "Blue",
+      "verde": "Green",
+      "petroleo": "Teal",
+      "roxo": "Purple",
+      "ambar": "Amber",
+      "grafite": "Graphite"
+    }
   }
 }
