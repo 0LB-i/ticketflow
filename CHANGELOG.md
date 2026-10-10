@@ -16,6 +16,8 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Comando `chamados admin create` para criar outro administrador (recuperação de acesso).
 - Sprint 3 (API): categorias em árvore (grupo e tipo padrão, confidencial); status padrão (Pendente, Aguardando, Concluído, Cancelado) e códigos de resolução; registro de chamados com roteamento pela categoria e prioridade pela matriz impacto × urgência; comentários (edição por 10 minutos), @menções e observadores; assumir, atribuir, devolver e transferir; aguardar, retomar, concluir, reabrir e cancelar; histórico do chamado; filtro único de visibilidade, com auditoria do acesso de admin e auditor a chamados confidenciais.
 - Sprint 3 (telas): novo chamado, detalhe do chamado (linha do tempo, comentários com editor Tiptap e @menções, ações de status, atribuição, transferência, observadores, edição de campos e prioridade), lista simples de chamados e administração de categorias. Botão "Novo chamado" no cabeçalho.
+- Configurações (`/admin/configuracoes`): idioma padrão do sistema (português ou inglês) e idioma de cada usuário no menu do usuário; as três cores da identidade, com a paleta derivada e os tons ajustados para manter o contraste; logotipo da empresa. Interface, mensagens de erro da API e e-mails em inglês.
+- Migração `0005`: tabela `settings` e `users.locale`.
 - Migração `0004`: categorias, status, códigos de resolução, chamados, grupos que atuaram, observadores, comentários e histórico (só aceita inserção).
 
 ### Variáveis de ambiente

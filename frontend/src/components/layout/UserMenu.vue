@@ -1,19 +1,50 @@
 <script setup lang="ts">
-import { ChevronDown, LogOut } from 'lucide-vue-next'
+import { ChevronDown, Languages, LogOut } from 'lucide-vue-next'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuPortal,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuRoot,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from 'reka-ui'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
+import { useToast } from '@/composables/useToast'
+import { type Idioma, IDIOMAS } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useBrandingStore } from '@/stores/branding'
 
 const auth = useAuthStore()
+const branding = useBrandingStore()
 const router = useRouter()
+const toast = useToast()
+const { t } = useI18n()
+
+// "padrao" segue o idioma do sistema, definido nas configurações (docs/13).
+const PADRAO = 'padrao'
+const idioma = computed({
+  get: () => auth.me?.locale ?? PADRAO,
+  set: async (valor: string) => {
+    try {
+      await auth.mudarIdioma(valor === PADRAO ? null : (valor as Idioma))
+    } catch (e) {
+      toast.show({ title: (e as Error).message, variant: 'error' })
+    }
+  },
+})
+const opcoes = computed(() => [
+  {
+    valor: PADRAO,
+    rotulo: t('idioma.padraoDoSistema', { idioma: t(`idioma.nomes.${branding.idiomaPadrao}`) }),
+  },
+  ...IDIOMAS.map((i) => ({ valor: i, rotulo: t(`idioma.nomes.${i}`) })),
+])
 
 async function sair() {
   await auth.sair()
@@ -46,6 +77,22 @@ async function sair() {
           <span class="block font-medium">{{ auth.me.full_name }}</span>
           <span class="block text-xs text-muted">{{ auth.me.email ?? auth.me.username }}</span>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator class="my-1 h-px bg-border" />
+        <DropdownMenuLabel class="flex items-center gap-2 px-2 py-1 text-xs text-muted">
+          <Languages class="size-4" aria-hidden="true" />
+          {{ $t('idioma.titulo') }}
+        </DropdownMenuLabel>
+        <DropdownMenuRadioGroup v-model="idioma">
+          <DropdownMenuRadioItem
+            v-for="opcao in opcoes"
+            :key="opcao.valor"
+            :value="opcao.valor"
+            class="flex h-8 cursor-default items-center rounded px-2 pl-8 outline-none select-none data-highlighted:bg-surface-raised data-[state=checked]:font-semibold"
+          >
+            {{ opcao.rotulo }}
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator class="my-1 h-px bg-border" />
         <DropdownMenuItem
           class="flex h-8 cursor-default items-center gap-2 rounded px-2 outline-none select-none data-highlighted:bg-surface-raised"
           @select="sair"

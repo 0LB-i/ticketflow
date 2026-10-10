@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { compararTexto } from '@/i18n'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -68,7 +69,7 @@ const opcoesCategoria = computed(() =>
   (categorias.data.value ?? [])
     .filter((c) => c.is_active || c.id === props.chamado.category.id)
     .map((c) => ({ value: c.id, label: caminhos.value.get(c.id) ?? c.name }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+    .sort((a, b) => compararTexto(a.label, b.label)),
 )
 const opcoesSetor = computed(() => [
   { value: NENHUM, label: t('comum.nenhum') },

@@ -48,6 +48,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | feito | f0d0413, 6a563ad |
 | F1-S3-09 | Telas: novo chamado e detalhe do chamado | feito | 6a563ad |
 | F1-S3-10 | `ticket_visibility_filter()` + testes tabelados das regras de visibilidade (saiu da S2-07) | feito | f0d0413 |
+| F1-S3-11 | Configurações: idioma (pt-BR/en, padrão + usuário), 3 cores com ajuste de contraste, logotipo | fazendo | 4d5a338 |
 
 ### Sprint 4 — Anexos, notificações, filas e busca
 

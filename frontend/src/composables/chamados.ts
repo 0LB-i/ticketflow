@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { api, mensagemDeErro, ou, type Schemas } from '@/api/client'
+import { compararTexto, i18n } from '@/i18n'
 import type { Pessoa } from '@/components/editor/MentionList.vue'
 
 import { useGrupos } from './admin'
@@ -14,20 +15,20 @@ export type Categoria = Schemas['CategoryOut']
 export type Acao = Schemas['TransitionIn']['action']
 export type TipoChamado = Schemas['TicketCreate']['type'] & string
 
-const ERRO = 'Algo deu errado. Tente de novo.'
+const erro = () => i18n.global.t('comum.erroInesperado')
 const caminho = (numero: string | number) => ({ path: { ticket_ref: String(numero) } })
 
 export function useCategorias() {
   return useQuery({
     queryKey: ['categorias'],
-    queryFn: async () => ou(await api.GET('/api/v1/categories'), ERRO).items,
+    queryFn: async () => ou(await api.GET('/api/v1/categories'), erro()).items,
   })
 }
 
 export function useCodigosDeResolucao() {
   return useQuery({
     queryKey: ['codigos-resolucao'],
-    queryFn: async () => ou(await api.GET('/api/v1/resolution-codes'), ERRO).items,
+    queryFn: async () => ou(await api.GET('/api/v1/resolution-codes'), erro()).items,
   })
 }
 
@@ -51,7 +52,7 @@ export function usePessoas() {
         if (m.is_active) vistos.set(m.user_id, { id: m.user_id, label: m.full_name })
       }
     }
-    return [...vistos.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+    return [...vistos.values()].sort((a, b) => compararTexto(a.label, b.label))
   })
 }
 
@@ -60,7 +61,7 @@ export function useChamados() {
     queryKey: ['chamados'],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) =>
-      ou(await api.GET('/api/v1/tickets', { params: { query: { cursor: pageParam } } }), ERRO),
+      ou(await api.GET('/api/v1/tickets', { params: { query: { cursor: pageParam } } }), erro()),
     getNextPageParam: (pagina) => pagina.next_cursor,
   })
 }
@@ -74,7 +75,7 @@ export function useChamado(numero: MaybeRefOrGetter<string>) {
         params: caminho(toValue(numero)),
       })
       if (error !== undefined || !data)
-        throw Object.assign(new Error(ERRO), { status: response.status })
+        throw Object.assign(new Error(erro()), { status: response.status })
       return data
     },
     retry: false,
@@ -89,7 +90,7 @@ export function useComentarios(numero: MaybeRefOrGetter<string>) {
         await api.GET('/api/v1/tickets/{ticket_ref}/comments', {
           params: caminho(toValue(numero)),
         }),
-        ERRO,
+        erro(),
       ).items,
   })
 }
@@ -100,7 +101,7 @@ export function useEventos(numero: MaybeRefOrGetter<string>) {
     queryFn: async () =>
       ou(
         await api.GET('/api/v1/tickets/{ticket_ref}/events', { params: caminho(toValue(numero)) }),
-        ERRO,
+        erro(),
       ).items,
   })
 }
@@ -120,13 +121,13 @@ export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a:
 
 export const chamadosApi = {
   registrar: async (body: Schemas['TicketCreate']) =>
-    ou(await api.POST('/api/v1/tickets', { body }), ERRO),
+    ou(await api.POST('/api/v1/tickets', { body }), erro()),
   editar: async (numero: string, body: Schemas['TicketUpdate']) =>
-    ou(await api.PATCH('/api/v1/tickets/{ticket_ref}', { params: caminho(numero), body }), ERRO),
+    ou(await api.PATCH('/api/v1/tickets/{ticket_ref}', { params: caminho(numero), body }), erro()),
   comentar: async (numero: string, body: Schemas['CommentIn']) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/comments', { params: caminho(numero), body }),
-      ERRO,
+      erro(),
     ),
   editarComentario: async (numero: string, id: string, body: Schemas['CommentIn']) =>
     ou(
@@ -134,7 +135,7 @@ export const chamadosApi = {
         params: { path: { ticket_ref: numero, comment_id: id } },
         body,
       }),
-      ERRO,
+      erro(),
     ),
   atribuir: async (numero: string, assignee: string | null) =>
     ou(
@@ -142,23 +143,23 @@ export const chamadosApi = {
         params: caminho(numero),
         body: { assignee },
       }),
-      ERRO,
+      erro(),
     ),
   transferir: async (numero: string, body: Schemas['TransferIn']) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/transfer', { params: caminho(numero), body }),
-      ERRO,
+      erro(),
     ),
   mudarStatus: async (numero: string, body: Schemas['TransitionIn']) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/transitions', { params: caminho(numero), body }),
-      ERRO,
+      erro(),
     ),
   observar: async (numero: string, usuario: string, observar: boolean) => {
     const params = { path: { ticket_ref: numero, user_id: usuario } }
     const r = observar
       ? await api.PUT('/api/v1/tickets/{ticket_ref}/watchers/{user_id}', { params })
       : await api.DELETE('/api/v1/tickets/{ticket_ref}/watchers/{user_id}', { params })
-    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error, ERRO))
+    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error, erro()))
   },
 }

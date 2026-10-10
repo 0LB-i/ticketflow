@@ -12,7 +12,7 @@ Nome, cores, tipografia e logotipo do **TicketFlow**. Estas definições viram o
 
 As cores da empresa são **laranja, cinza e branco**. A interface é majoritariamente **branca e cinza**, e o **laranja marca a identidade e as ações principais**.
 
-> **A confirmar:** os valores abaixo usam as escalas `orange` e `neutral` do Tailwind como substitutas. Quando a empresa enviar o código oficial do laranja (hex), a escala `brand` é recalculada a partir dele e os contrastes da seção 17.3 são conferidos de novo.
+> **Personalização (2026-10-10):** o administrador troca as três cores em **Administração › Configurações** ([13](13-telas-e-navegacao.md#133-lista-de-telas)): cor da **marca** (laranja), cor **neutra** (cinza) e cor de **fundo** do modo claro (branco). Com as cores padrão (`#F97316`, `#737373`, `#FFFFFF`) vale a paleta abaixo, escolhida à mão. Com outras cores, a interface deriva a paleta inteira delas (`frontend/src/tema/paleta.ts`), no espaço de cor OKLCH: mantém o matiz e escurece ou clareia o tom até cumprir os contrastes da seção 17.3, nos dois modos. Assim o laranja oficial da empresa, quando chegar, é só digitado na tela. O modo escuro usa a cor neutra como base dos fundos; a cor de fundo escolhida vale só no modo claro. As cores de status, prioridade e do botão destrutivo não mudam.
 
 ### Paleta base
 
@@ -75,6 +75,7 @@ Os contrastes são conferidos de novo no CI do frontend sempre que um token de c
 
 - Três opções no menu do usuário: **Claro**, **Escuro** e **Automático** (padrão, segue o sistema operacional). A escolha fica salva no perfil.
 - Os tokens da seção 17.2 são variáveis CSS no `@theme` do Tailwind, redefinidas para o modo escuro. Os componentes usam **só os tokens** (`bg-surface`, `text-muted`), nunca cores diretas como `bg-orange-700`.
+- Os testes do frontend conferem os contrastes da paleta padrão e de combinações difíceis de cores personalizadas (`tema/paleta.test.ts`).
 
 ## 17.5 Tipografia
 
@@ -88,6 +89,8 @@ Os contrastes são conferidos de novo no CI do frontend sempre que um token de c
 Números em tabelas usam algarismos de largura fixa (`font-variant-numeric: tabular-nums`) para alinhar as colunas.
 
 ## 17.6 Logotipo
+
+O administrador pode enviar o logotipo da empresa em **Configurações** (PNG, JPEG ou WebP, até 256 KB; SVG não é aceito porque pode conter scripts). Ele aparece no topo do menu e na tela de login, no lugar do provisório descrito abaixo.
 
 - **Até existir um logotipo próprio**, o TicketFlow usa um logotipo de texto: um quadrado arredondado em `brand-500` com um "T" branco em negrito, seguido de "TicketFlow" em Inter peso 700. O quadrado sozinho serve de ícone da aba (favicon) e de ícone do aplicativo no celular.
 - O **logotipo da empresa** entra pelas Configurações e aparece na tela de login, abaixo do nome TicketFlow, e no rodapé dos e-mails.

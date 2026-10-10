@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { compararTexto } from '@/i18n'
 import { X } from 'lucide-vue-next'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -66,7 +67,7 @@ const opcoesCategoria = computed(() =>
             : idsMeusGrupos.value.has(c.default_team_id))),
     )
     .map((c) => ({ value: c.id, label: caminhos.value.get(c.id) ?? c.name }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+    .sort((a, b) => compararTexto(a.label, b.label)),
 )
 
 // Roteamento: escolher a categoria preenche o grupo padrão dela, se for um dos meus.

@@ -21,7 +21,7 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 | 9 | **Política de retenção** de chamados concluídos e anexos | Definir com jurídico / DPO; configurável por instalação | — |
 | 10 | **Licença e distribuição** do produto | Definir antes de distribuir para outras empresas | — |
 
-| 11 | **Código hex oficial do laranja** da empresa | Escala `orange` do Tailwind até chegar o oficial | [17.2](17-identidade-visual.md#172-cores) |
+| 11 | **Código hex oficial do laranja** da empresa | Escala `orange` do Tailwind até chegar o oficial; quando chegar, o admin digita em Configurações | [17.2](17-identidade-visual.md#172-cores) |
 | 12 | **Data da virada** da TI | Terça ou quarta-feira no fim da Sprint 5, fora de fechamento de mês | [16.3](16-implantacao.md#163-cronograma) |
 
 Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvimento.
@@ -54,5 +54,6 @@ Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvi
 | 2026-10-10 | Mapeamento de grupos do SSO sai do schema da v1.0 | [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql) |
 | 2026-10-10 | Senha com **mínimo de 8 caracteres**; **administrador padrão `admin`/`admin`** com troca obrigatória no primeiro acesso; login por e-mail ou usuário | [9.2](09-login-e-autenticacao.md#92-primeiro-acesso-à-instalação), [9.3](09-login-e-autenticacao.md#93-login-local) |
 | 2026-10-10 | **Virada com data marcada** no piloto da TI; sem importação de histórico | [16](16-implantacao.md) |
+| 2026-10-10 | **Configurações** para o admin: idioma padrão (português e inglês, e cada usuário escolhe o seu), as 3 cores com ajuste automático de contraste, e logotipo | [13](13-telas-e-navegacao.md#133-lista-de-telas), [17](17-identidade-visual.md#172-cores) |
 | 2026-10-10 | **Editor Tiptap** na descrição e nos comentários, gravando Markdown | [05](05-api.md#chamados) |
 | 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (empresa) | [01](01-visao-geral.md#público) |

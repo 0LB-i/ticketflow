@@ -1,5 +1,7 @@
 import createClient, { type Middleware } from 'openapi-fetch'
 
+import { idiomaAtual } from '@/i18n'
+
 import type { components, paths } from './schema'
 
 export type Schemas = components['schemas']
@@ -15,6 +17,8 @@ export const SESSAO_EXPIRADA = 'tf:sessao-expirada'
 
 const sessao: Middleware = {
   onRequest({ request }) {
+    // As mensagens de erro da API vêm no idioma escolhido na interface (core/i18n.py).
+    request.headers.set('Accept-Language', idiomaAtual())
     // CSRF por token sincronizado: o cookie tf_csrf volta no header (docs/09 §9.7).
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       const csrf = cookie('tf_csrf')
