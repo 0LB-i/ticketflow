@@ -25,7 +25,7 @@ O dia D é marcado no início da Sprint 5. Sugestão: uma **terça ou quarta-fei
 | Quando | O quê | Responsável | Pronto quando |
 |--------|-------|-------------|---------------|
 | D−15 | Servidor de produção pronto conforme o [manual](18-manual-do-servidor.md): HTTPS, e-mail de envio funcionando, backup **restaurado com sucesso** pelo menos uma vez | Desenvolvedor | Todos os passos de 18.3 e a restauração de 18.5 conferidos |
-| D−10 | Carga inicial ([15](15-estrutura-inicial.md)): grupos, setores atendidos, categorias, usuários convidados | Administrador | Todos os membros conseguem entrar |
+| D−10 | Troca da senha do `admin` padrão (se ainda não foi feita no D−15) e carga inicial ([15](15-estrutura-inicial.md)): grupos, setores atendidos, categorias, usuários convidados | Administrador | Todos os membros conseguem entrar |
 | D−7 | **Treinamento** de 1 hora (16.5) + guia rápido (16.6) | Desenvolvedor | Cada membro registrou, assumiu e concluiu um chamado de teste |
 | D−3 a D−1 | **Levantamento das tarefas em aberto**: cada membro lista o que está com ele hoje (e-mails, anotações, mensagens, planilhas) | Equipe da TI | Lista pronta para cadastrar |
 | **D** | **Virada.** Até o meio-dia, cada um cadastra as próprias tarefas em aberto. A partir daí vale a regra: *se não está no TicketFlow, não existe* | Equipe da TI | Nenhuma tarefa em aberto fora do sistema |

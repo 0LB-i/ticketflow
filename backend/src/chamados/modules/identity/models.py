@@ -29,11 +29,15 @@ class User(Base):
     public_id: Mapped[uuid.UUID] = mapped_column(
         UUID, unique=True, server_default=text("gen_random_uuid()")
     )
-    email: Mapped[str] = mapped_column(CITEXT, unique=True)
+    # Login por e-mail ou por nome de usuário. O administrador padrão só tem usuário ("admin").
+    email: Mapped[str | None] = mapped_column(CITEXT, unique=True)
+    username: Mapped[str | None] = mapped_column(CITEXT, unique=True)
     full_name: Mapped[str] = mapped_column(Text)
     role_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("roles.id"))
     password_hash: Mapped[str | None] = mapped_column(Text)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Senha provisória (admin/admin na instalação): a API só libera o uso depois da troca.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     failed_logins: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     last_failed_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

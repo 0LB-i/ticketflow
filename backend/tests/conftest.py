@@ -104,13 +104,15 @@ def client(settings: Settings, mailer: FakeMailer, db: Session) -> Iterator[Test
 
 def criar_usuario(
     db: Session,
-    email: str = "ana@exemplo.com",
+    email: str | None = "ana@exemplo.com",
     role: str = "agent",
     *,
     nome: str = "Ana Souza",
     senha: str | None = SENHA,
     ativo: bool = True,
     grupos: dict[str, str] | None = None,
+    username: str | None = None,
+    trocar_senha: bool = False,
 ) -> User:
     """Cria um usuário (e os grupos citados, se não existirem): grupos={"TI": "supervisor"}."""
     papel = db.scalar(select(Role).where(Role.code == role))
@@ -120,6 +122,8 @@ def criar_usuario(
         role=papel,
         password_hash=hash_password(senha) if senha else None,
         is_active=ativo,
+        username=username,
+        must_change_password=trocar_senha,
     )
     db.add(user)
     db.flush()
@@ -134,6 +138,6 @@ def criar_usuario(
 
 def entrar(client: TestClient, email: str = "ana@exemplo.com", senha: str = SENHA) -> None:
     """Faz login e prepara o header CSRF para as próximas requisições."""
-    r = client.post("/api/v1/auth/login", json={"email": email, "password": senha})
+    r = client.post("/api/v1/auth/login", json={"login": email, "password": senha})
     assert r.status_code == 204, r.text
     client.headers["X-CSRF-Token"] = client.cookies["tf_csrf"]

@@ -53,5 +53,6 @@ Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvi
 | 2026-10-10 | Servidor de produção em **Ubuntu 24.04 LTS**; código entregue por repositório Git de passagem no servidor; sem homologação | [18](18-manual-do-servidor.md) |
 | 2026-10-10 | **Uma pessoa** desenvolve, com o Claude Code; roadmap reestimado para 20 a 27 semanas | [07](07-roadmap.md) |
 | 2026-10-10 | Mapeamento de grupos do SSO sai do schema da v1.0 | [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql) |
+| 2026-10-10 | Senha com **mínimo de 8 caracteres**; **administrador padrão `admin`/`admin`** com troca obrigatória no primeiro acesso; login por e-mail ou usuário | [9.2](09-login-e-autenticacao.md#92-primeiro-acesso-à-instalação), [9.3](09-login-e-autenticacao.md#93-login-local) |
 | 2026-10-10 | **Virada com data marcada** no piloto da TI; sem importação de histórico | [16](16-implantacao.md) |
 | 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (empresa) | [01](01-visao-geral.md#público) |

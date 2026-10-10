@@ -7,6 +7,7 @@ const props = defineProps<{
   error?: string
   required?: boolean
   type?: string
+  autocomplete?: string
 }>()
 const model = defineModel<string>({ default: '' })
 
@@ -28,6 +29,7 @@ const describedBy = computed(
       v-model="model"
       :type="type ?? 'text'"
       :required="required"
+      :autocomplete="autocomplete"
       :aria-invalid="error ? true : undefined"
       :aria-describedby="describedBy"
       :class="[

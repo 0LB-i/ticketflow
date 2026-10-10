@@ -371,7 +371,7 @@ export interface components {
     /** ChangePasswordIn */
     ChangePasswordIn: {
       /** Current Password */
-      current_password: string
+      current_password?: string | null
       /** New Password */
       new_password: string
     }
@@ -459,10 +459,10 @@ export interface components {
     /** LoginIn */
     LoginIn: {
       /**
-       * Email
-       * Format: email
+       * Login
+       * @description e-mail ou nome de usuário
        */
-      email: string
+      login: string
       /** Password */
       password: string
     }
@@ -474,9 +474,13 @@ export interface components {
        */
       id: string
       /** Email */
-      email: string
+      email: string | null
+      /** Username */
+      username: string | null
       /** Full Name */
       full_name: string
+      /** Must Change Password */
+      must_change_password: boolean
       /** Role */
       role: string
       /** Teams */
@@ -583,7 +587,7 @@ export interface components {
        */
       purpose: 'invite' | 'password_reset'
       /** Email */
-      email: string
+      email: string | null
       /** Full Name */
       full_name: string
     }
@@ -618,7 +622,9 @@ export interface components {
        */
       id: string
       /** Email */
-      email: string
+      email: string | null
+      /** Username */
+      username: string | null
       /** Full Name */
       full_name: string
       /**
@@ -655,7 +661,9 @@ export interface components {
        */
       id: string
       /** Email */
-      email: string
+      email: string | null
+      /** Username */
+      username: string | null
       /** Full Name */
       full_name: string
       /**
@@ -697,6 +705,8 @@ export interface components {
     UserUpdate: {
       /** Full Name */
       full_name?: string | null
+      /** Email */
+      email?: string | null
       /** Role */
       role?: ('agent' | 'admin' | 'auditor') | null
       /** Is Active */

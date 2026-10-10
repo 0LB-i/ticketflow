@@ -15,6 +15,12 @@ from chamados.modules.identity.models import User, UserSession
 from chamados.modules.identity.sessions import CSRF_HEADER, SESSION_COOKIE, csrf_ok, load_session
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
+# Com a senha provisória, só isto funciona até a troca (docs/09 §9.2).
+ALLOWED_BEFORE_PASSWORD_CHANGE = {
+    ("GET", "/api/v1/me"),
+    ("POST", "/api/v1/me/password"),
+    ("POST", "/api/v1/auth/logout"),
+}
 
 
 def get_settings_dep(request: Request) -> Settings:
@@ -45,6 +51,11 @@ async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
     )
     if user is None:
         raise HTTPException(401, "Sessão expirada ou inexistente. Entre novamente.")
+    if (
+        user.must_change_password
+        and (request.method, request.url.path) not in ALLOWED_BEFORE_PASSWORD_CHANGE
+    ):
+        raise HTTPException(403, "Troque a senha provisória antes de continuar.")
     actor = Actor(
         user_id=user.id,
         role=user.role.code,

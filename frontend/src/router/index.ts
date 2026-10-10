@@ -14,6 +14,8 @@ declare module 'vue-router' {
     publica?: boolean
     /** Permissão exigida para abrir a tela. */
     permissao?: string
+    /** Usa o layout em cartão, sem menu (telas sem login e a troca obrigatória de senha). */
+    cartao?: boolean
     titulo?: string
   }
 }
@@ -24,27 +26,33 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/auth/LoginView.vue'),
-    meta: { publica: true },
+    meta: { publica: true, cartao: true },
   },
   {
     path: '/esqueci-senha',
     name: 'esqueci-senha',
     component: () => import('@/views/auth/ForgotPasswordView.vue'),
-    meta: { publica: true },
+    meta: { publica: true, cartao: true },
   },
   {
     path: '/convite/:token',
     name: 'convite',
     component: () => import('@/views/auth/SetPasswordView.vue'),
     props: (r) => ({ token: r.params.token, tipo: 'convite' }),
-    meta: { publica: true },
+    meta: { publica: true, cartao: true },
   },
   {
     path: '/redefinir-senha/:token',
     name: 'redefinir-senha',
     component: () => import('@/views/auth/SetPasswordView.vue'),
     props: (r) => ({ token: r.params.token, tipo: 'redefinir' }),
-    meta: { publica: true },
+    meta: { publica: true, cartao: true },
+  },
+  {
+    path: '/trocar-senha',
+    name: 'trocar-senha',
+    component: () => import('@/views/auth/ChangePasswordView.vue'),
+    meta: { cartao: true },
   },
   {
     path: '/admin/usuarios',
@@ -102,6 +110,11 @@ async function protegerRota(to: RouteLocationNormalized) {
   if (!auth.logado) {
     return { name: 'login', query: to.fullPath === '/' ? {} : { volta: to.fullPath } }
   }
+  // Senha provisória (admin/admin na instalação): nada abre antes da troca (docs/09 §9.2).
+  if (auth.precisaTrocarSenha) {
+    return to.name === 'trocar-senha' ? true : { name: 'trocar-senha' }
+  }
+  if (to.name === 'trocar-senha') return { name: 'inicio' }
   if (to.meta.permissao && !auth.pode(to.meta.permissao)) {
     return { name: 'sem-acesso' }
   }

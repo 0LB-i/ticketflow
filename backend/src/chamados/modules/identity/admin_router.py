@@ -32,7 +32,8 @@ class UserTeam(BaseModel):
 
 class UserOut(BaseModel):
     id: uuid.UUID
-    email: str
+    email: str | None
+    username: str | None
     full_name: str
     role: RoleCode
     status: Literal["ativo", "convite_pendente", "inativo"]
@@ -53,6 +54,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=200)
+    email: EmailStr | None = None
     role: RoleCode | None = None
     is_active: bool | None = None
 
@@ -80,6 +82,7 @@ def _out(user: User) -> UserOut:
     return UserOut(
         id=user.public_id,
         email=user.email,
+        username=user.username,
         full_name=user.full_name,
         role=user.role.code,
         status=status,
@@ -95,6 +98,7 @@ def _out(user: User) -> UserOut:
 def _snapshot(user: User) -> dict[str, object]:
     return {
         "email": user.email,
+        "username": user.username,
         "full_name": user.full_name,
         "role": user.role.code,
         "is_active": user.is_active,
@@ -124,9 +128,11 @@ async def _send_link(
     purpose: Literal["invite", "password_reset"] = (
         "password_reset" if user.password_hash else "invite"
     )
+    mailer = request.app.state.mailer
+    if user.email is None and mailer.configured:
+        raise HTTPException(409, "Cadastre um e-mail para este usuário antes de enviar o link.")
     raw = await issue_token(db, user, purpose)
     url = link(settings, purpose, raw)
-    mailer = request.app.state.mailer
     tasks.add_task(send_link_email, mailer, user, purpose, url)
     return LinkOut(
         purpose=purpose, sent_by_email=mailer.configured, url=None if mailer.configured else url
@@ -206,6 +212,11 @@ async def update_user(
             raise HTTPException(409, "O sistema precisa de pelo menos um administrador ativo.")
     if data.full_name is not None:
         user.full_name = data.full_name.strip()
+    if data.email is not None and data.email != user.email:
+        taken = await db.scalar(select(User.id).where(User.email == data.email, User.id != user.id))
+        if taken:
+            raise HTTPException(409, "Já existe um usuário com este e-mail.")
+        user.email = data.email
     if data.role is not None:
         user.role = await _role(db, data.role)
     if data.is_active is not None and data.is_active != user.is_active:

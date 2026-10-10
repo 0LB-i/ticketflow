@@ -12,7 +12,8 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 - Sprint 2: login por e-mail e senha com sessões no servidor e CSRF, proteção contra força bruta, convite e redefinição de senha, troca de senha; administração de usuários, grupos e setores atendidos; catálogo de permissões e papéis; log de auditoria.
 - Migração `0002`: papéis, usuários, sessões, tokens de acesso, grupos, setores atendidos e auditoria.
-- Comando `chamados admin create` para o primeiro administrador.
+- Administrador padrão `admin` / `admin`, com troca obrigatória da senha no primeiro acesso; login por e-mail ou nome de usuário; senha com no mínimo 8 caracteres (migração `0003`).
+- Comando `chamados admin create` para criar outro administrador (recuperação de acesso).
 
 ### Variáveis de ambiente
 

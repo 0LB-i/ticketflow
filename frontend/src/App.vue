@@ -13,7 +13,7 @@ useThemeStore()
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const layout = computed(() => (route.meta.publica ? PublicLayout : AppLayout))
+const layout = computed(() => (route.meta.cartao ? PublicLayout : AppLayout))
 
 // Sessão expirada no meio do uso: volta ao login e, depois, à página onde estava (docs/13 §13.3).
 function sessaoExpirada() {

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from chamados.core.permissions import effective_permissions
@@ -47,7 +47,10 @@ async def login(
             429, "Muitas tentativas. Tente de novo mais tarde.", {"Retry-After": str(wait)}
         )
 
-    user = await db.scalar(select(User).where(User.email == data.email))
+    login_id = data.login.strip()
+    user = await db.scalar(
+        select(User).where(or_(User.email == login_id, User.username == login_id))
+    )
     t = now()
 
     def fail(reason: str) -> HTTPException:
@@ -57,7 +60,7 @@ async def login(
             "auth.login_failed",
             request=request,
             actor_user_id=user.id if user else None,
-            after={"email": data.email, "motivo": reason},
+            after={"login": login_id, "motivo": reason},
         )
         return HTTPException(401, INVALID)
 
@@ -151,7 +154,7 @@ async def _set_password_with_token(
     if token is None or token.purpose != purpose:
         raise HTTPException(404, "Link inválido ou expirado.")
     user = token.user
-    if problem := password_problem(data.password, user.email):
+    if problem := password_problem(data.password, user.email, user.username):
         raise HTTPException(422, problem)
     user.password_hash = hash_password(data.password)
     user.password_changed_at = now()
@@ -187,7 +190,9 @@ async def me(auth: CurrentAuth, db: DB) -> Me:
     return Me(
         id=auth.user.public_id,
         email=auth.user.email,
+        username=auth.user.username,
         full_name=auth.user.full_name,
+        must_change_password=auth.user.must_change_password,
         role=auth.user.role.code,
         teams=[MeTeam(id=m.team.public_id, name=m.team.name, role=m.role) for m in memberships],
         permissions=effective_permissions(auth.actor),
@@ -198,13 +203,19 @@ async def me(auth: CurrentAuth, db: DB) -> Me:
 async def change_password(
     data: ChangePasswordIn, auth: CurrentAuth, request: Request, db: DB
 ) -> None:
-    ok, _ = verify_password(auth.user.password_hash, data.current_password)
-    if not ok:
-        raise HTTPException(422, "A senha atual não confere.")
-    if problem := password_problem(data.new_password, auth.user.email):
+    user = auth.user
+    # Na troca obrigatória a pessoa acabou de entrar com a senha provisória: não pede de novo.
+    if not user.must_change_password:
+        ok, _ = verify_password(user.password_hash, data.current_password or "")
+        if not ok:
+            raise HTTPException(422, "A senha atual não confere.")
+    if problem := password_problem(data.new_password, user.email, user.username):
         raise HTTPException(422, problem)
-    auth.user.password_hash = hash_password(data.new_password)
-    auth.user.password_changed_at = now()
+    if verify_password(user.password_hash, data.new_password)[0]:
+        raise HTTPException(422, "A senha nova precisa ser diferente da atual.")
+    user.password_hash = hash_password(data.new_password)
+    user.password_changed_at = now()
+    user.must_change_password = False
     await revoke_sessions(db, auth.user.id, keep_id=auth.session.id)
     record(db, "auth.password_changed", request=request, actor_user_id=auth.user.id)
     await db.commit()

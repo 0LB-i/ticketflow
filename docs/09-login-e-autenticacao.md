@@ -17,13 +17,17 @@ Quando o SSO existir, o administrador poderá ligar **"SSO obrigatório"**: o lo
 
 ## 9.2 Primeiro acesso à instalação
 
-1. A empresa instala o sistema no servidor ([ADR 0010](adr/0010-producao-systemd.md)).
-2. O primeiro administrador é criado por linha de comando, **sem senha padrão**:
-   ```bash
-   sudo -u sistema-chamados uv run chamados admin create --email ti@empresa.com --name "Administrador"
-   ```
-   O comando mostra um link de definição de senha válido por 24 h. O comando completo, com as variáveis de ambiente, está no [manual do servidor](18-manual-do-servidor.md#10-primeiro-administrador-e-verificação).
-3. O administrador configura grupos, setores atendidos e categorias e cadastra os usuários, que recebem um convite por e-mail.
+1. A empresa instala o sistema no servidor ([ADR 0010](adr/0010-producao-systemd.md)). A instalação já traz um **administrador padrão**: usuário `admin`, senha `admin` (decisão de 2026-10-10).
+2. Logo depois de instalar, alguém da TI entra com `admin` / `admin`. O sistema leva direto para a tela **"Troque a senha provisória"**, e até a troca a API recusa qualquer outra ação, exceto sair.
+3. Na tela de usuários, o administrador cadastra um e-mail para o usuário `admin` (para poder receber links de redefinição) e, se quiser, cria administradores nominais.
+4. O administrador configura grupos, setores atendidos e categorias e cadastra os usuários, que recebem um convite por e-mail.
+
+Detalhes do administrador padrão:
+
+- É criado pela migração `0003`, só se ainda não existir um usuário `admin`. Não tem e-mail, então entra pelo nome de usuário: o campo do login aceita **e-mail ou usuário**.
+- Tem o papel Administrador, como qualquer outro. A regra "sempre um administrador ativo" vale para ele também.
+- **Enquanto a senha não for trocada, a instalação está exposta:** `admin`/`admin` é a primeira combinação que qualquer pessoa tenta. A troca deve ser feita antes de liberar o acesso ao servidor pela rede ([18.3](18-manual-do-servidor.md#10-primeiro-acesso-e-verificação)).
+- Alternativa por linha de comando, que também serve para recuperar o acesso se todos os administradores perderem a senha: `chamados admin create --email ... --name ...` cria outro administrador e mostra um link para definir a senha (válido por 24 h).
 
 ## 9.3 Login local
 
@@ -34,7 +38,7 @@ sequenceDiagram
     participant A as API
     participant DB as PostgreSQL
     U->>S: e-mail e senha
-    S->>A: POST /api/v1/auth/login
+    S->>A: POST /api/v1/auth/login (e-mail ou usuário)
     A->>DB: busca usuário, verifica hash Argon2id
     alt credenciais inválidas
         A-->>S: 401 "E-mail ou senha inválidos" (mensagem genérica)
@@ -51,7 +55,7 @@ sequenceDiagram
 
 ### Regras
 
-- **Senhas:** mínimo de 12 caracteres, sem regras de composição obrigatórias e sem troca periódica forçada (recomendação NIST SP 800-63B). Senhas que estão em uma lista local de senhas vazadas ou muito comuns são recusadas.
+- **Senhas:** mínimo de **8 caracteres** (decisão de 2026-10-10), sem regras de composição obrigatórias e sem troca periódica forçada. A senha nova não pode ser igual à atual, ao e-mail nem ao nome de usuário. Senhas que estão em uma lista local de senhas vazadas ou muito comuns são recusadas.
 - **Hash:** Argon2id (`argon2-cffi`). Se os parâmetros mudarem, o hash é refeito no próximo login bem-sucedido.
 - **Força bruta:** limite por IP e por conta. A partir de 5 falhas seguidas, cada nova tentativa espera mais; com 10 falhas, a conta fica bloqueada por 15 min e o dono recebe um e-mail.
 - **Mensagens genéricas:** a tela nunca revela se o e-mail existe.
@@ -63,7 +67,7 @@ sequenceDiagram
 |-------|---------------|
 | **Convite** | O admin cadastra o usuário → o usuário recebe um e-mail com link para definir a senha (validade de 72 h) |
 | **Esqueci a senha** | Link por e-mail com token de uso único (validade de 30 min). A resposta da tela é sempre a mesma, exista o e-mail ou não. Ao redefinir, **todas as outras sessões** são encerradas |
-| **Troca de senha logado** | Exige a senha atual; encerra as outras sessões |
+| **Troca de senha logado** | Exige a senha atual (exceto na troca obrigatória da senha provisória); encerra as outras sessões |
 
 Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como hash SHA-256. Um link novo invalida o anterior do mesmo tipo.
 
