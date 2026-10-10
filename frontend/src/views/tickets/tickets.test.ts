@@ -113,6 +113,19 @@ describe('NewTicketView', () => {
     })
   })
 
+  it('relê os grupos ao abrir: quem foi incluído num grupo depois do login já registra', async () => {
+    simularApi({
+      'GET /api/v1/me': [200, ME],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/categories': [200, CATEGORIAS],
+      'GET /api/v1/departments': [200, { items: [] }],
+    })
+    const w = montar(NewTicketView)
+    useAuthStore().me = { ...ME, teams: [] } // dados do login, antes de entrar no grupo
+    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    expect(w.text()).not.toContain('ainda não é membro')
+  })
+
   it('não envia sem título e categoria', async () => {
     // O router faz a navegação inicial ao ser instalado, e o guard carrega o /me.
     const feitas = simularApi({

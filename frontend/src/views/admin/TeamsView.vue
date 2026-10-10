@@ -13,12 +13,19 @@ import TextField from '@/components/ui/TextField.vue'
 import { type Grupo, gruposApi, useAlteracao, useGrupos, useUsuarios } from '@/composables/admin'
 import { useHead } from '@/composables/useHead'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
 
 useHead('grupos.titulo')
 const { t } = useI18n()
 const toast = useToast()
 const grupos = useGrupos()
 const usuarios = useUsuarios()
+const auth = useAuthStore()
+
+/** Mudança nos próprios grupos: atualiza o usuário logado (grupos e permissões de supervisor). */
+async function seForEu(usuario: string) {
+  if (usuario === auth.me?.id) await auth.carregar()
+}
 
 const mostrarInativos = ref(false)
 const lista = computed(() =>
@@ -68,9 +75,31 @@ function abrir(g: Grupo | null) {
 }
 
 const criar = useAlteracao(gruposApi.criar, ['grupos'])
-const editar = useAlteracao(gruposApi.editar, ['grupos'])
-const definirMembro = useAlteracao(gruposApi.definirMembro, ['grupos', 'usuarios'])
-const removerMembro = useAlteracao(gruposApi.removerMembro, ['grupos', 'usuarios'])
+const editar = useAlteracao(
+  async (a: Parameters<typeof gruposApi.editar>[0]) => {
+    const grupo = await gruposApi.editar(a)
+    // Nome ou situação de um grupo de que sou membro também muda os meus dados.
+    if (grupo.members.some((m) => m.user_id === auth.me?.id)) await auth.carregar()
+    return grupo
+  },
+  ['grupos'],
+)
+const definirMembro = useAlteracao(
+  async (a: Parameters<typeof gruposApi.definirMembro>[0]) => {
+    const grupo = await gruposApi.definirMembro(a)
+    await seForEu(a.usuario)
+    return grupo
+  },
+  ['grupos', 'usuarios'],
+)
+const removerMembro = useAlteracao(
+  async (a: Parameters<typeof gruposApi.removerMembro>[0]) => {
+    const grupo = await gruposApi.removerMembro(a)
+    await seForEu(a.usuario)
+    return grupo
+  },
+  ['grupos', 'usuarios'],
+)
 
 async function tentar(acao: () => Promise<unknown>) {
   erro.value = null
