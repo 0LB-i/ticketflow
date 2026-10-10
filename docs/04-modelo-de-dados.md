@@ -1,6 +1,6 @@
 # 4. Modelo de dados
 
-Esboço completo e comentado: [`esboco-schema.sql`](esboco-schema.sql). Ele é o ponto de partida da primeira migração Alembic e ainda vai mudar.
+Esboço completo e comentado: [`esboco-schema.sql`](esboco-schema.sql). **A partir da Sprint 2, a fonte da verdade são as migrações** em `backend/migrations/versions/`: cada tabela nasce lá, com só as colunas que a sprint usa (por exemplo, `users` ainda não tem as colunas de SSO e de preferências). O esboço continua valendo como desenho das tabelas que ainda não existem.
 
 As tabelas dos itens que ficaram para depois da v1.0 (tokens de API, webhooks, visões salvas, campos extras, antivírus, IA e mapeamento de grupos do SSO) estão em [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql).
 

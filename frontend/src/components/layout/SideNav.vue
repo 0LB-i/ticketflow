@@ -1,28 +1,57 @@
 <script setup lang="ts">
-import { House, LayoutGrid } from 'lucide-vue-next'
+import { Building2, House, LayoutGrid, Users, UsersRound } from 'lucide-vue-next'
+import { computed } from 'vue'
+
+import { useAuthStore } from '@/stores/auth'
 
 defineEmits<{ navigate: [] }>()
 
-const itens = [
-  { to: '/', rotulo: 'menu.inicio', icone: House },
-  ...(import.meta.env.DEV
-    ? [{ to: '/dev/componentes', rotulo: 'menu.componentes', icone: LayoutGrid }]
-    : []),
-]
+const auth = useAuthStore()
+
+const principal = [{ to: '/', rotulo: 'menu.inicio', icone: House }]
+const administracao = computed(() =>
+  [
+    { to: '/admin/usuarios', rotulo: 'menu.usuarios', icone: Users, perm: 'admin.users' },
+    { to: '/admin/grupos', rotulo: 'menu.grupos', icone: UsersRound, perm: 'admin.organization' },
+    {
+      to: '/admin/setores',
+      rotulo: 'menu.setores',
+      icone: Building2,
+      perm: 'admin.organization',
+    },
+  ].filter((item) => auth.pode(item.perm)),
+)
+const dev = import.meta.env.DEV
+  ? [{ to: '/dev/componentes', rotulo: 'menu.componentes', icone: LayoutGrid }]
+  : []
 </script>
 
 <template>
-  <nav :aria-label="$t('menu.titulo')" class="flex flex-col gap-1 p-3">
-    <RouterLink
-      v-for="item in itens"
-      :key="item.to"
-      :to="item.to"
-      class="flex h-10 items-center gap-3 rounded-md px-3 font-medium text-fg hover:bg-surface-raised"
-      exact-active-class="bg-primary-subtle text-primary"
-      @click="$emit('navigate')"
+  <nav :aria-label="$t('menu.titulo')" class="flex flex-col gap-4 p-3">
+    <template
+      v-for="(secao, i) in [
+        { titulo: null, itens: principal },
+        { titulo: 'menu.administracao', itens: administracao },
+        { titulo: null, itens: dev },
+      ]"
+      :key="i"
     >
-      <component :is="item.icone" class="size-5" aria-hidden="true" />
-      {{ $t(item.rotulo) }}
-    </RouterLink>
+      <div v-if="secao.itens.length" class="flex flex-col gap-1">
+        <p v-if="secao.titulo" class="px-3 pb-1 text-xs font-semibold text-muted uppercase">
+          {{ $t(secao.titulo) }}
+        </p>
+        <RouterLink
+          v-for="item in secao.itens"
+          :key="item.to"
+          :to="item.to"
+          class="flex h-10 items-center gap-3 rounded-md px-3 font-medium text-fg hover:bg-surface-raised"
+          exact-active-class="bg-primary-subtle text-primary"
+          @click="$emit('navigate')"
+        >
+          <component :is="item.icone" class="size-5" aria-hidden="true" />
+          {{ $t(item.rotulo) }}
+        </RouterLink>
+      </div>
+    </template>
   </nav>
 </template>

@@ -6,7 +6,7 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 
 | # | Questão | Opções | Recomendação | Bloqueia |
 |---|---------|--------|--------------|----------|
-| 1 | **Servidor de e-mail para envio (SMTP)** das notificações e convites | Conta SMTP do provedor de e-mail da Martiniti, serviço transacional (ex.: Amazon SES, Brevo) | Usar a conta SMTP do provedor atual; precisamos saber qual é | Sprint 2 |
+| 1 | **Servidor de e-mail para envio (SMTP)** das notificações e convites | Conta SMTP do provedor de e-mail da Martiniti, serviço transacional (ex.: Amazon SES, Brevo) | Usar a conta SMTP do provedor atual; precisamos saber qual é. Até lá, o admin copia os links de convite e redefinição na tela de usuários ([9.4](09-login-e-autenticacao.md#94-convite-esqueci-a-senha-e-troca-de-senha)) | Sprint 4 (notificações de chamados) |
 | 2 | **Servidor de produção**: domínio e certificado HTTPS (o sistema operacional já foi decidido) | Let's Encrypt, Let's Encrypt por DNS ou certificado da empresa ([18.2](18-manual-do-servidor.md#182-requisitos)) | 2 vCPU, 4 GB RAM, 50 GB de disco; nome `ticketflow.martiniti.com.br` | Sprint 5 |
 | 13 | **Destino da cópia externa do backup** | Outro servidor, NAS da empresa, armazenamento em nuvem | O que a TI já usar para os outros backups ([18.5](18-manual-do-servidor.md#185-backup-e-restauração)) | Sprint 5 |
 | 4 | **Editor de texto dos comentários** | Markdown puro (textarea), Tiptap (rich text que salva Markdown) | Tiptap: colar imagens, negrito e listas sem o usuário saber Markdown | Sprint 3 |

@@ -62,7 +62,7 @@ flowchart LR
 | F1-S2-04 | Cadastro de **setores atendidos** (árvore) | [08](08-organizacao-e-permissoes.md) |
 | F1-S2-05 | Cadastro de **grupos** (membros + supervisores) | 08 |
 | F1-S2-06 | Cadastro de **usuários** (papel, grupos) com convite por e-mail | 08 |
-| F1-S2-07 | **Motor de permissões**: catálogo, papéis fixos, `can()` e `ticket_visibility_filter()` + testes tabelados | [08](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |
+| F1-S2-07 | **Motor de permissões**: catálogo, papéis fixos e `can()` + testes tabelados | [08](08-organizacao-e-permissoes.md#83-catálogo-de-permissões) |
 | F1-S2-08 | Log de auditoria (`audit_log`) para login e administração | 08 |
 | F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, grupos e setores | — |
 
@@ -79,6 +79,7 @@ flowchart LR
 | F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | [10.6](10-chamados.md#106-como-a-equipe-trabalha) |
 | F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | — |
 | F1-S3-09 | Telas: novo chamado e detalhe do chamado | [13](13-telas-e-navegacao.md) |
+| F1-S3-10 | `ticket_visibility_filter()` + testes tabelados das regras de visibilidade (saiu da S2-07: depende da tabela de chamados) | [08](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |
 
 ### Sprint 4 — Anexos, notificações, filas e busca
 

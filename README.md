@@ -60,6 +60,7 @@ cd backend
 cp .env.example .env
 uv sync
 uv run chamados db upgrade
+uv run chamados admin create --email voce@exemplo.com --name "Seu Nome"   # uma vez: mostra o link para criar a senha
 uv run uvicorn chamados.main:create_app --factory --reload
 
 # frontend, em outro terminal: http://localhost:5173 (o Vite repassa /api para o backend)

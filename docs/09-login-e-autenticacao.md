@@ -65,7 +65,9 @@ sequenceDiagram
 | **Esqueci a senha** | Link por e-mail com token de uso único (validade de 30 min). A resposta da tela é sempre a mesma, exista o e-mail ou não. Ao redefinir, **todas as outras sessões** são encerradas |
 | **Troca de senha logado** | Exige a senha atual; encerra as outras sessões |
 
-Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como hash SHA-256.
+Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como hash SHA-256. Um link novo invalida o anterior do mesmo tipo.
+
+**Sem SMTP configurado** ([questão 1](questoes-em-aberto.md)): os e-mails vão para o log do servidor, e a tela de usuários mostra ao administrador o link de convite ou de redefinição, para ele copiar e repassar à pessoa por outro meio. Com SMTP, o link vai só por e-mail e não aparece na tela. O "esqueci a senha" pela tela de login só funciona com SMTP; sem ele, o administrador gera o link pela tela de usuários.
 
 ## 9.5 SSO via OIDC
 

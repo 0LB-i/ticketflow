@@ -24,15 +24,15 @@ Ao concluir um item, marque `feito` e anote o commit.
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
-| F1-S2-01 | Login local, sessões no servidor, CSRF, logout | a fazer | |
-| F1-S2-02 | Comando `chamados admin create`; convite e "esqueci a senha" por e-mail | a fazer | |
-| F1-S2-03 | Proteção contra força bruta (rate limit + bloqueio temporário) | a fazer | |
-| F1-S2-04 | Cadastro de **setores atendidos** (árvore) | a fazer | |
-| F1-S2-05 | Cadastro de **grupos** (membros + supervisores) | a fazer | |
-| F1-S2-06 | Cadastro de **usuários** (papel, grupos) com convite por e-mail | a fazer | |
-| F1-S2-07 | **Motor de permissões**: catálogo, papéis fixos, `can()` e `ticket_visibility_filter()` + testes tabelados | a fazer | |
-| F1-S2-08 | Log de auditoria (`audit_log`) para login e administração | a fazer | |
-| F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, grupos e setores | a fazer | |
+| F1-S2-01 | Login local, sessões no servidor, CSRF, logout | feito | 933cc3d |
+| F1-S2-02 | Comando `chamados admin create`; convite e "esqueci a senha" por e-mail | feito | 933cc3d |
+| F1-S2-03 | Proteção contra força bruta (rate limit + bloqueio temporário) | feito | 933cc3d |
+| F1-S2-04 | Cadastro de **setores atendidos** (árvore) | feito | 933cc3d |
+| F1-S2-05 | Cadastro de **grupos** (membros + supervisores) | feito | 933cc3d |
+| F1-S2-06 | Cadastro de **usuários** (papel, grupos) com convite por e-mail | feito | 933cc3d |
+| F1-S2-07 | **Motor de permissões**: catálogo, papéis fixos, `can()` e `ticket_visibility_filter()` + testes tabelados | feito | 933cc3d |
+| F1-S2-08 | Log de auditoria (`audit_log`) para login e administração | feito | 933cc3d |
+| F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, grupos e setores | feito | |
 
 ### Sprint 3 — Núcleo dos chamados
 

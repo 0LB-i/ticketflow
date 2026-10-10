@@ -1,9 +1,74 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  type RouteLocationNormalized,
+  type RouteRecordRaw,
+} from 'vue-router'
 
+import { useAuthStore } from '@/stores/auth'
 import HomeView from '@/views/HomeView.vue'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    /** Acessível sem login (docs/13 §13.3). */
+    publica?: boolean
+    /** Permissão exigida para abrir a tela. */
+    permissao?: string
+    titulo?: string
+  }
+}
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'inicio', component: HomeView },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/auth/LoginView.vue'),
+    meta: { publica: true },
+  },
+  {
+    path: '/esqueci-senha',
+    name: 'esqueci-senha',
+    component: () => import('@/views/auth/ForgotPasswordView.vue'),
+    meta: { publica: true },
+  },
+  {
+    path: '/convite/:token',
+    name: 'convite',
+    component: () => import('@/views/auth/SetPasswordView.vue'),
+    props: (r) => ({ token: r.params.token, tipo: 'convite' }),
+    meta: { publica: true },
+  },
+  {
+    path: '/redefinir-senha/:token',
+    name: 'redefinir-senha',
+    component: () => import('@/views/auth/SetPasswordView.vue'),
+    props: (r) => ({ token: r.params.token, tipo: 'redefinir' }),
+    meta: { publica: true },
+  },
+  {
+    path: '/admin/usuarios',
+    name: 'admin-usuarios',
+    component: () => import('@/views/admin/UsersView.vue'),
+    meta: { permissao: 'admin.users' },
+  },
+  {
+    path: '/admin/grupos',
+    name: 'admin-grupos',
+    component: () => import('@/views/admin/TeamsView.vue'),
+    meta: { permissao: 'admin.organization' },
+  },
+  {
+    path: '/admin/setores',
+    name: 'admin-setores',
+    component: () => import('@/views/admin/DepartmentsView.vue'),
+    meta: { permissao: 'admin.organization' },
+  },
+  {
+    path: '/sem-acesso',
+    name: 'sem-acesso',
+    component: () => import('@/views/ForbiddenView.vue'),
+  },
   {
     path: '/:caminho(.*)*',
     name: 'nao-encontrado',
@@ -19,4 +84,28 @@ if (import.meta.env.DEV) {
   })
 }
 
-export const router = createRouter({ history: createWebHistory(), routes })
+/** Cria o router com as rotas e a proteção. Os testes criam um por teste. */
+export function criarRouter() {
+  const router = createRouter({ history: createWebHistory(), routes })
+  router.beforeEach(protegerRota)
+  return router
+}
+
+async function protegerRota(to: RouteLocationNormalized) {
+  const auth = useAuthStore()
+  if (!auth.carregado) await auth.carregar()
+
+  if (to.meta.publica) {
+    // Logado não precisa da tela de login; convite e redefinição continuam acessíveis.
+    return to.name === 'login' && auth.logado ? { name: 'inicio' } : true
+  }
+  if (!auth.logado) {
+    return { name: 'login', query: to.fullPath === '/' ? {} : { volta: to.fullPath } }
+  }
+  if (to.meta.permissao && !auth.pode(to.meta.permissao)) {
+    return { name: 'sem-acesso' }
+  }
+  return true
+}
+
+export const router = criarRouter()
