@@ -12,7 +12,7 @@ from typing import Any, Literal
 from fastapi import HTTPException
 from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import contains_eager, defer, selectinload
 
 from chamados.core.permissions import P, can
 from chamados.modules.catalog.models import Category, ResolutionCode, TicketStatus
@@ -140,6 +140,8 @@ async def list_tickets(
     stmt = (
         select(Ticket)
         .join(Ticket.status)
+        # A lista não mostra a descrição, que pode ter até 50 mil caracteres por chamado.
+        .options(contains_eager(Ticket.status), defer(Ticket.description))
         .where(ticket_visibility_filter(auth.actor))
         .order_by(Ticket.priority.desc(), Ticket.created_at, Ticket.id)
         .limit(limit + 1)

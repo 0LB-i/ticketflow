@@ -76,3 +76,26 @@ def test_membro_sem_email(client: TestClient, db: Session) -> None:
     entrar(client, "admin")
     membros = client.get("/api/v1/teams").json()["items"][0]["members"]
     assert membros[0]["email"] is None
+
+
+def test_nulo_nos_campos_obrigatorios_e_ignorado(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    team = client.post("/api/v1/teams", json={"name": "TI", "description": "Suporte"}).json()
+    url = f"/api/v1/teams/{team['id']}"
+    r = client.patch(url, json={"name": None, "is_active": None, "notify_on_new": None})
+    assert r.status_code == 200
+    assert (r.json()["name"], r.json()["is_active"]) == ("TI", True)
+    assert client.patch(url, json={"description": None}).json()["description"] is None
+
+    dept = client.post("/api/v1/departments", json={"name": "Financeiro"}).json()
+    r = client.patch(f"/api/v1/departments/{dept['id']}", json={"name": None, "is_active": None})
+    assert r.status_code == 200
+    assert (r.json()["name"], r.json()["is_active"]) == ("Financeiro", True)
+
+
+def test_renomear_setor_para_nome_existente(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    client.post("/api/v1/departments", json={"name": "Compras"})
+    vendas = client.post("/api/v1/departments", json={"name": "Vendas"}).json()
+    r = client.patch(f"/api/v1/departments/{vendas['id']}", json={"name": "Compras"})
+    assert r.status_code == 409

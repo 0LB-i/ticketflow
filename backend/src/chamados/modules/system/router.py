@@ -11,6 +11,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, StringConstraints
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.i18n import Locale
@@ -18,6 +19,7 @@ from chamados.core.permissions import P
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, require
+from chamados.modules.system.models import SystemSetting
 from chamados.modules.system.service import get_value, set_value
 
 router = APIRouter(tags=["configurações"])
@@ -65,12 +67,15 @@ class LogoIn(BaseModel):
 
 
 async def _branding(db: AsyncSession) -> Branding:
-    logo = await get_value(db, "logo")
+    # Só o hash: a interface consulta o /branding toda vez que abre, e a imagem não é necessária.
+    logo_sha = await db.scalar(
+        select(SystemSetting.value["sha256"].astext).where(SystemSetting.key == "logo")
+    )
     return Branding(
         default_locale=await get_value(db, "locale") or "pt-BR",
         colors=await get_value(db, "colors"),
         # A versão no endereço deixa o navegador guardar a imagem sem consultar de novo.
-        logo_url=f"/api/v1/branding/logo?v={logo['sha256'][:12]}" if logo else None,
+        logo_url=f"/api/v1/branding/logo?v={logo_sha[:12]}" if logo_sha else None,
     )
 
 

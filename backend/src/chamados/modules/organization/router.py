@@ -146,7 +146,12 @@ async def update_team(
 ) -> TeamOut:
     team = await _team(db, team_id)
     before = _team_snapshot(team)
-    changes = data.model_dump(exclude_unset=True)
+    # Nulo só apaga a descrição; nos outros campos vale como não enviado.
+    changes = {
+        k: v
+        for k, v in data.model_dump(exclude_unset=True).items()
+        if v is not None or k == "description"
+    }
     if "name" in changes:
         changes["name"] = changes["name"].strip()
         if await _name_taken(db, changes["name"], team.id):
@@ -283,14 +288,16 @@ async def _check_unique(
     )
     if except_id is not None:
         same_name = same_name.where(Department.id != except_id)
-    if await db.scalar(same_name):
-        raise HTTPException(409, "Já existe um setor com este nome no mesmo nível.")
-    if code:
-        same_code = select(Department.id).where(Department.code == code)
-        if except_id is not None:
-            same_code = same_code.where(Department.id != except_id)
-        if await db.scalar(same_code):
-            raise HTTPException(409, "Já existe um setor com este código.")
+    # Sem autoflush: a alteração pendente violaria a constraint antes da resposta 409.
+    with db.no_autoflush:
+        if await db.scalar(same_name):
+            raise HTTPException(409, "Já existe um setor com este nome no mesmo nível.")
+        if code:
+            same_code = select(Department.id).where(Department.code == code)
+            if except_id is not None:
+                same_code = same_code.where(Department.id != except_id)
+            if await db.scalar(same_code):
+                raise HTTPException(409, "Já existe um setor com este código.")
 
 
 @router.get("/departments", response_model=DepartmentList)
@@ -342,11 +349,11 @@ async def update_department(
                 raise HTTPException(422, "Um setor não pode ficar abaixo dele mesmo.")
             ancestor = await db.get(Department, ancestor.parent_id) if ancestor.parent_id else None
         dept.parent_id = new_parent.id if new_parent else None
-    if "name" in changes:
+    if changes.get("name") is not None:
         dept.name = changes["name"].strip()
     if "code" in changes:
         dept.code = (changes["code"] or "").strip() or None
-    if "is_active" in changes:
+    if changes.get("is_active") is not None:
         dept.is_active = changes["is_active"]
     await _check_unique(db, dept.name, dept.parent_id, dept.code, dept.id)
     if _dept_snapshot(dept) != before:
