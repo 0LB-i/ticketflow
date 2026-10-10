@@ -22,19 +22,19 @@
 ### Modelo de história de usuário
 
 ```markdown
-**Como** agente do Service Desk
+**Como** membro da TI – Suporte
 **quero** transferir um chamado para outro grupo informando o motivo
 **para** que a equipe certa atenda sem perder o histórico
 
 ### Critérios de aceite
 - [ ] Só membros do grupo atual (ou admin) podem transferir
-- [ ] Motivo obrigatório, registrado como nota interna
+- [ ] Motivo obrigatório, registrado como comentário
 - [ ] Chamado continua "Pendente" no grupo de destino, sem responsável
 - [ ] Grupo anterior mantém acesso somente leitura
 - [ ] Evento `ticket.transferred` no histórico e no outbox
 
 ### Referências
-docs/10-chamados.md#transferência-e-escalonamento
+docs/10-chamados.md#transferência
 ```
 
 ## 12.2 Commits
@@ -94,6 +94,6 @@ Também ficam ativos o **Dependabot** (pip/uv, npm/pnpm, GitHub Actions), o **se
 | Integração (backend) | pytest + testcontainers / services do CI | Repositórios, services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
 | Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |
-| Ponta a ponta | Playwright | Fluxos completos: abrir → atender → resolver → confirmar; aprovação; transferência |
+| Ponta a ponta | Playwright | Fluxos completos: registrar → assumir → aguardar → concluir → reabrir; aprovação; transferência |
 
-**Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com setores, grupos, usuários de todos os perfis e chamados em todos os status.
+**Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com grupos, setores atendidos, usuários de todos os perfis e chamados em todos os status.

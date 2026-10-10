@@ -1,12 +1,14 @@
 # 13. Telas e navegação
 
-Mapa de todas as telas da interface (SPA em Vue, [ADR 0007](adr/0007-interface-web-vue.md)), quem acessa cada uma e os rascunhos das telas principais. O detalhe do chamado do ponto de vista do agente está em [10.6](10-chamados.md#106-como-o-agente-trabalha).
+Mapa de todas as telas da interface (SPA em Vue, [ADR 0007](adr/0007-interface-web-vue.md)), quem acessa cada uma e os rascunhos das telas principais. O detalhe do chamado e o formulário de registro estão em [10.4](10-chamados.md#104-registro) e [10.6](10-chamados.md#106-como-a-equipe-trabalha). Cores, tipografia e logotipo estão em [Identidade visual](17-identidade-visual.md).
+
+Todos os usuários são membros das equipes ([modelo](08-organizacao-e-permissoes.md)); não existe área para colaboradores de fora.
 
 ## 13.1 Estrutura geral
 
 ```
 ┌──────────────┬──────────────────────────────────────────────────────────────┐
-│ ☰ Chamados   │ 🔍 Buscar chamado (número ou texto)    [+ Abrir chamado] 🔔 👤 │
+│ ▣ TicketFlow │ 🔍 Buscar chamado (número ou texto)     [+ Novo chamado] 🔔 👤 │
 ├──────────────┼──────────────────────────────────────────────────────────────┤
 │ Menu lateral │                                                              │
 │ (conforme o  │                     Área de conteúdo                         │
@@ -18,10 +20,10 @@ Mapa de todas as telas da interface (SPA em Vue, [ADR 0007](adr/0007-interface-w
 | Elemento | Comportamento |
 |----------|---------------|
 | **Busca global** | Digitar `1234` ou `#1234` abre o chamado direto; texto busca nos chamados que o usuário pode ver |
-| **Abrir chamado** | Sempre visível, para todos os perfis |
+| **Novo chamado** | Sempre visível para agentes e admin |
 | **Sino** 🔔 | Notificações no sistema (Fase 2) |
-| **Menu do usuário** 👤 | Meu perfil, Sair |
-| **Menu lateral** | Muda conforme o perfil (13.3). Em telas menores que 768 px vira uma gaveta aberta pelo ☰ |
+| **Menu do usuário** 👤 | Meu perfil, Tema (claro, escuro, automático), Sair |
+| **Menu lateral** | Muda conforme o perfil (13.4). Em telas menores que 768 px vira uma gaveta aberta pelo ☰ |
 
 ## 13.2 Mapa de telas
 
@@ -30,22 +32,17 @@ flowchart LR
     subgraph Publico[Sem login]
         L[Login] --- E[Esqueci a senha] --- R[Redefinir senha] --- C[Aceitar convite]
     end
-    subgraph Todos[Todos os usuários]
-        I[Início] --> MC[Meus chamados] --> D[Detalhe do chamado]
-        I --> N[Abrir chamado]
+    subgraph Equipe[Membros das equipes]
+        I[Início] --> F[Chamados: filas] --> D[Detalhe do chamado]
+        I --> N[Novo chamado]
         P[Meu perfil]
     end
-    subgraph Agente
-        F[Atendimento: filas] --> D
-        RP[Respostas prontas]
-    end
-    subgraph Gestao[Supervisor / gestor / admin]
+    subgraph Gestao[Supervisor / admin / auditor]
         RE[Relatórios]
-        S[Chamados do meu setor] --> D
         AP[Aprovações] --> D
     end
     subgraph Admin
-        AU[Usuários] --- AS[Setores] --- AG[Grupos] --- AC[Categorias]
+        AU[Usuários] --- AG[Grupos] --- AS[Setores atendidos] --- AC[Categorias]
         AT[Status e códigos] --- ACF[Configurações] --- AA[Auditoria]
     end
 ```
@@ -57,109 +54,62 @@ flowchart LR
 | `/login` | Login | Todos | 1 |
 | `/esqueci-senha` · `/redefinir-senha/:token` · `/convite/:token` | Recuperação de senha e primeiro acesso | Todos | 1 |
 | `/` | **Início** | Todos (conteúdo muda por perfil, 13.4) | 1 |
-| `/chamados` | **Meus chamados** (abertos por mim ou em que sou observador) | Todos | 1 |
-| `/chamados/novo` | **Abrir chamado** (catálogo → formulário) | Todos | 1 |
-| `/chamados/:numero` | **Detalhe do chamado**. Mesma rota para todos; o que aparece depende das permissões (`allowed_actions`) | Quem pode ver o chamado | 1 |
-| `/atendimento` | **Filas do agente** (abas: Não atribuídos, Meus, Aguardando minha ação, Aguardando cliente, Entregues, Todos do grupo) | Agentes | 1 |
-| `/setor` | **Chamados do meu setor** (somente leitura) | Gestores de setor | 1 |
-| `/aprovacoes` | Aprovações pendentes e decididas | Aprovadores | 2 |
-| `/respostas-prontas` | Minhas respostas prontas e as do grupo | Agentes | 1 |
-| `/conhecimento` | Base de conhecimento | Todos (artigos internos só para agentes) | 2 |
-| `/relatorios` | Painéis e relatórios ([14](14-relatorios-e-indicadores.md)) | Supervisores, gestores, admin, auditor | 2 |
-| `/perfil` | Dados pessoais, senha, sessões ativas, notificações, MFA | Todos | 1 (MFA e notificações: 2) |
-| `/admin/usuarios` | Usuários: criar, convidar, importar CSV, desativar, papel, setor | Admin | 1 |
-| `/admin/setores` | Árvore de setores e gestores | Admin | 1 |
-| `/admin/grupos` | Grupos de atendimento, membros e supervisores | Admin | 1 |
+| `/chamados` | **Filas** (abas: Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos do grupo) | Agentes, admin, auditor (só leitura) | 1 |
+| `/chamados/novo` | **Novo chamado** ([10.4](10-chamados.md#formulário)) | Agentes, admin | 1 |
+| `/chamados/:numero` | **Detalhe do chamado**. O que aparece depende das permissões (`allowed_actions`) | Quem pode ver o chamado | 1 |
+| `/aprovacoes` | Aprovações pendentes e decididas | Supervisores, admin | 2 |
+| `/conhecimento` | Base de conhecimento da equipe | Todos | 2 |
+| `/relatorios` | Painéis e relatórios ([14](14-relatorios-e-indicadores.md)) | Todos (cada um vê o seu painel; supervisores, admin e auditor veem os demais) | 2 |
+| `/perfil` | Dados pessoais, senha, sessões ativas, notificações, tema, MFA | Todos | 1 (MFA e notificações: 2) |
+| `/admin/usuarios` | Usuários: criar e convidar, desativar, papel | Admin | 1 |
+| `/admin/grupos` | Grupos, membros e supervisores | Admin | 1 |
+| `/admin/setores` | Árvore de setores atendidos | Admin | 1 |
 | `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade | Admin | 1 (aprovação: 2) |
 | `/admin/status` | Status (criar com `kind`, renomear, ordenar) e códigos de resolução | Admin | 1 |
-| `/admin/configuracoes` | Geral (nome, logotipo), e-mail de envio (SMTP), anexos (tipos, limites), matriz de prioridade | Admin | 1 |
-| `/admin/email-entrada` | Caixas de e-mail monitoradas por grupo (IMAP) | Admin | 2 |
+| `/admin/configuracoes` | Geral (nome do sistema, logotipo), e-mail de envio (SMTP), anexos (tipos, limites), matriz de prioridade | Admin | 1 |
 | `/admin/auditoria` | Log de auditoria com filtros | Admin, auditor | 1 |
 
 Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **sessão expirada** (volta ao login e depois à página onde estava).
 
 ## 13.4 Menu lateral por perfil
 
-| Item | Solicitante | Agente | Gestor de setor | Admin | Auditor |
-|------|:-:|:-:|:-:|:-:|:-:|
-| Início | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Meus chamados | ✅ | ✅ | ✅ | ✅ | — |
-| Atendimento | — | ✅ | — | ✅ | — |
-| Chamados do meu setor | — | — | ✅ | — | — |
-| Aprovações (Fase 2) | se for aprovador | se for aprovador | ✅ | ✅ | — |
-| Respostas prontas | — | ✅ | — | ✅ | — |
-| Base de conhecimento (Fase 2) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Relatórios (Fase 2) | — | supervisor | ✅ | ✅ | ✅ |
-| Administração | — | — | — | ✅ | só Auditoria |
+| Item | Agente | Supervisor | Admin | Auditor |
+|------|:-:|:-:|:-:|:-:|
+| Início | ✅ | ✅ | ✅ | ✅ |
+| Chamados | ✅ | ✅ | ✅ | ✅ |
+| Aprovações (Fase 2) | — | ✅ | ✅ | — |
+| Base de conhecimento (Fase 2) | ✅ | ✅ | ✅ | ✅ |
+| Relatórios (Fase 2) | ✅ (o próprio painel) | ✅ | ✅ | ✅ |
+| Administração | — | — | ✅ | só Auditoria |
 
 ### Início por perfil
 
 | Perfil | O que aparece |
 |--------|---------------|
-| Solicitante | Botão grande "Abrir chamado", meus chamados em andamento, chamados que precisam de resposta minha (Aguardando cliente, Entregue) |
-| Agente | Contadores das filas (não atribuídos, meus, aguardando minha ação), botão "Pegar o próximo", meus chamados entregues ainda não concluídos |
-| Gestor de setor | Chamados em andamento do setor, aprovações pendentes (Fase 2) |
+| Agente | Contadores (não atribuídos, meus, com novidades, aguardando), botão "Pegar o próximo", meus chamados de prioridade alta e crítica |
+| Supervisor | O mesmo do agente + aprovações pendentes (Fase 2) e chamados do grupo parados há mais de 7 dias |
 | Admin | Resumo geral (abertos por grupo) e atalhos da administração |
+| Auditor | Resumo geral, só leitura |
 
 ## 13.5 Rascunhos das telas principais
 
-### Abrir chamado
+### Filas
 
 ```
-Passo 1 de 2 · O que você precisa?
-┌──────────────────────────────────────────────────────────┐
-│ 🔍 Descreva em poucas palavras…                          │
-└──────────────────────────────────────────────────────────┘
-┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-│ 💻 TI         │ │ 🧾 Financeiro │ │ 🏢 Facilities │
-│ Acessos,      │ │ Reembolso,    │ │ Manutenção,   │
-│ equipamentos  │ │ pagamentos    │ │ limpeza       │
-└───────────────┘ └───────────────┘ └───────────────┘
-  → ao escolher, mostra as subcategorias até chegar a uma categoria final
-
-Passo 2 de 2 · TI › Acessos › Redefinir senha
-  Título*          [______________________________________]
-  Descrição*       [ editor de texto (colar prints)       ]
-  Isso impede seu trabalho?   ( ) Posso esperar  ( ) Atrapalha  ( ) Estou parado
-  Quem é afetado?             ( ) Só eu  ( ) Meu setor  ( ) A empresa toda
-  📎 Arraste arquivos aqui ou clique para anexar
-                                           [Voltar] [Abrir chamado]
-```
-
-Depois de enviar: tela de confirmação com o número (`#1234`) e o link para o chamado.
-
-### Meus chamados (solicitante)
-
-```
-Meus chamados                       [Em andamento ▾] [🔍 Buscar]
-┌──────┬──────────────────────────────┬────────────────────┬────────────┐
-│ #    │ Título                       │ Situação           │ Atualizado │
-├──────┼──────────────────────────────┼────────────────────┼────────────┤
-│ 1234 │ Impressora do 3º andar       │ ● Precisamos de    │ há 10 min  │
-│      │                              │   uma resposta sua │            │
-│ 1229 │ Acesso à pasta Financeiro    │ ● Entregue: confira│ ontem      │
-│ 1201 │ Notebook novo                │ ● Em andamento     │ 3 dias     │
-└──────┴──────────────────────────────┴────────────────────┴────────────┘
-```
-
-A coluna "Situação" usa o texto amigável do status (`requester_label`). Chamados que pedem ação do solicitante aparecem primeiro.
-
-### Filas do agente
-
-```
-Atendimento
-[Não atribuídos 7] [Meus 12] [Aguardando minha ação 3] [Aguardando cliente 5] [Entregues 4] [Todos do grupo]
-Grupo: [TI – Service Desk ▾]  Prioridade: [Todas ▾]  Categoria: [Todas ▾]      [Pegar o próximo]
+Chamados
+[Não atribuídos 7] [Meus 12] [Com novidades 3] [Aguardando 5] [Acompanhando 2] [Todos do grupo]
+Grupo: [TI – Suporte ▾]  Prioridade: [Todas ▾]  Categoria: [Todas ▾]  Setor: [Todos ▾]   [Pegar o próximo]
 ┌───┬──────┬────────────────────────────┬──────────────┬──────────┬───────────┬──────────┐
-│ ☐ │ #    │ Título                     │ Solicitante  │ Priorid. │ Responsáv.│ Aberto há│
+│ ☐ │ #    │ Título                     │ Para         │ Priorid. │ Responsáv.│ Parado há│
 ├───┼──────┼────────────────────────────┼──────────────┼──────────┼───────────┼──────────┤
-│ ☐ │ 1240 │ ERP fora do ar 💬          │ Ana (Financ.)│ ■ Crítica│ —         │ 15 min   │
-│ ☐ │ 1238 │ Sem acesso à VPN           │ Rui (Comerc.)│ ■ Alta   │ —         │ 1 h      │
+│ ☐ │ 1240 │ ERP fora do ar 💬          │ Financeiro   │ ■ Crítica│ —         │ 15 min   │
+│ ☐ │ 1238 │ VPN do Rui não conecta     │ Comercial    │ ■ Alta   │ —         │ 1 h      │
+│ ☐ │ 1231 │ Renovar certificado do site│ —            │ ■ Média  │ Ana       │ 2 dias   │
 └───┴──────┴────────────────────────────┴──────────────┴──────────┴───────────┴──────────┘
 Selecionados: [Atribuir ▾] [Transferir ▾] [Prioridade ▾]          (ações em massa: supervisor)
 ```
 
-💬 = resposta nova do solicitante. Filtros e aba ativa ficam na URL (`/atendimento?aba=nao-atribuidos&grupo=3`), para que o link possa ser compartilhado.
+💬 = novidade (comentário de outra pessoa desde a última visita). Filtros e aba ativa ficam na URL (`/chamados?aba=nao-atribuidos&grupo=3`), para que o link possa ser compartilhado.
 
 ### Telas de administração (padrão)
 
@@ -170,7 +120,7 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 | Situação | Padrão |
 |----------|--------|
 | Listas | Paginação "Carregar mais" (cursor da API); filtros e ordenação na URL |
-| Ações destrutivas ou com motivo (cancelar, ocultar, transferir) | Modal de confirmação com o campo de motivo |
+| Ações destrutivas ou com motivo (cancelar, ocultar, transferir, reprovar) | Modal de confirmação com o campo de motivo |
 | Sucesso / erro | Aviso temporário (toast) no canto da tela; erros de formulário ao lado do campo |
 | Carregando | Esqueleto (*skeleton*) do conteúdo, nunca tela em branco |
 | Lista vazia | Mensagem explicando o que fazer (ex.: "Nenhum chamado aqui. Que tal pegar o próximo da fila?") |
@@ -180,6 +130,6 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 
 ## 13.7 Componentes do design system
 
-Construídos sobre o Reka UI + Tailwind ([ADR 0008](adr/0008-reka-ui.md)), em `frontend/src/components/ui/`:
+Construídos sobre o Reka UI + Tailwind ([ADR 0008](adr/0008-reka-ui.md)), em `frontend/src/components/ui/`, com as cores e a tipografia de [Identidade visual](17-identidade-visual.md):
 
-Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status, prioridade) · Avatar · Tabela (com TanStack Table) · Paginação "carregar mais" · Árvore (setores, categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto
+Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias, setores) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status, prioridade) · Avatar · Tabela (com TanStack Table) · Paginação "carregar mais" · Árvore (setores, categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto

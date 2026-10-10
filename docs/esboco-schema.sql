@@ -1,9 +1,11 @@
 -- =============================================================================
--- Esboço do schema do Sistema de Chamados
+-- Esboço do schema do TicketFlow (Sistema de Chamados)
 -- Alvo: PostgreSQL 16 e 17 (não usar recursos exclusivos do 17)
 -- Modelo: uma instalação por empresa (sem tenant_id) — ADR 0005
 -- v1.0 sem IA, tokens de API, webhooks, visões salvas, antivírus e campos extras:
 --   desenho guardado em esboco-schema-futuro.sql.
+-- Modelo (2026-10-10): só membros das equipes têm conta; os atendidos ficam em
+--   tickets.department_id / beneficiary_name. Sem solicitante, notas internas nem satisfação.
 -- Sem SLA (decisão 2026-10-09): não há calendários, políticas nem prazos.
 -- Status: RASCUNHO para discussão. A versão oficial será gerada via Alembic.
 -- Documentos de referência: docs/08 (permissões), 09 (login), 10 (chamados), 11 (anexos)
@@ -32,7 +34,7 @@ CREATE TABLE settings (
 );
 
 -- -----------------------------------------------------------------------------
--- Organização: setores e papéis  (docs/08)
+-- Organização: setores atendidos e papéis  (docs/08)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE departments (
@@ -40,17 +42,17 @@ CREATE TABLE departments (
     public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     parent_id       bigint      REFERENCES departments(id),
     name            text        NOT NULL,
-    code            text        UNIQUE,                 -- código / centro de custo; usado no mapeamento do SSO
+    code            text        UNIQUE,                 -- código / centro de custo
     is_active       boolean     NOT NULL DEFAULT true,
     created_at      timestamptz NOT NULL DEFAULT now(),
     UNIQUE (parent_id, name)
 );
 
--- Papéis globais. Os papéis do sistema (requester, agent, admin, auditor) vêm de seed
--- e não podem ser alterados; papéis personalizados chegam na Fase 2.
+-- Papéis globais. Os papéis do sistema (agent, admin, auditor) vêm de seed
+-- e não podem ser alterados; papéis personalizados ficam para o futuro.
 CREATE TABLE roles (
     id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code            text        NOT NULL UNIQUE,        -- requester, agent, admin, auditor, ...
+    code            text        NOT NULL UNIQUE,        -- agent, admin, auditor, ...
     name            text        NOT NULL,
     permissions     text[]      NOT NULL,               -- códigos do catálogo (core/permissions.py)
     is_system       boolean     NOT NULL DEFAULT false,
@@ -67,7 +69,6 @@ CREATE TABLE users (
     email           citext      NOT NULL UNIQUE,
     full_name       text        NOT NULL,
     role_id         smallint    NOT NULL REFERENCES roles(id),
-    department_id   bigint      NOT NULL REFERENCES departments(id),
     job_title       text,
     phone           text,
     password_hash   text,                               -- NULL quando só usa SSO
@@ -86,18 +87,10 @@ CREATE TABLE users (
     updated_at      timestamptz NOT NULL DEFAULT now(),
     anonymized_at   timestamptz                         -- LGPD
 );
-CREATE INDEX users_department_idx ON users (department_id) WHERE is_active;
 CREATE INDEX users_name_trgm_idx  ON users USING gin (full_name gin_trgm_ops);  -- autocompletar
 
 ALTER TABLE settings
     ADD CONSTRAINT settings_updated_by_fk FOREIGN KEY (updated_by) REFERENCES users(id);
-
-CREATE TABLE department_managers (
-    department_id   bigint      NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
-    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    source          text        NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'idp', 'import')),
-    PRIMARY KEY (department_id, user_id)
-);
 
 -- Sessões no servidor; o cookie carrega só um identificador aleatório
 CREATE TABLE user_sessions (
@@ -152,7 +145,7 @@ CREATE INDEX audit_log_created_idx ON audit_log (created_at);
 CREATE INDEX audit_log_target_idx  ON audit_log (target_type, target_id);
 
 -- -----------------------------------------------------------------------------
--- Grupos de atendimento  (docs/08)
+-- Grupos  (docs/08)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE teams (
@@ -160,7 +153,6 @@ CREATE TABLE teams (
     public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     name            text        NOT NULL UNIQUE,
     description     text,
-    email_alias     citext      UNIQUE,                 -- ex.: ti@empresa.com abre chamado nesta fila
     notify_on_new   text        NOT NULL DEFAULT 'queue_only'
                     CHECK (notify_on_new IN ('queue_only', 'email_all_members')),
     is_active       boolean     NOT NULL DEFAULT true,
@@ -171,21 +163,20 @@ CREATE TABLE team_members (
     team_id         bigint      NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role            text        NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'supervisor')),
-    source          text        NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'idp', 'import')),
+    source          text        NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'idp')),
     added_at        timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (team_id, user_id)
 );
 CREATE INDEX team_members_user_idx ON team_members (user_id);
 
--- Mapeamento de grupos do provedor de identidade (SSO) → papel, grupo ou setor  (docs/09 §9.6)
+-- Mapeamento de grupos do provedor de identidade (SSO) → papel ou grupo  (docs/09 §9.6)
 CREATE TABLE idp_group_mappings (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     idp_group       text        NOT NULL,               -- id ou nome do grupo no provedor
     role_id         smallint    REFERENCES roles(id),
     team_id         bigint      REFERENCES teams(id),
     team_role       text        CHECK (team_role IN ('member', 'supervisor')),
-    department_id   bigint      REFERENCES departments(id),
-    CHECK (num_nonnulls(role_id, team_id, department_id) = 1),
+    CHECK (num_nonnulls(role_id, team_id) = 1),
     CHECK ((team_id IS NULL) = (team_role IS NULL))
 );
 
@@ -198,37 +189,30 @@ CREATE TABLE categories (
     public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     parent_id       bigint      REFERENCES categories(id),
     name            text        NOT NULL,
-    description     text,                               -- exibida no catálogo
+    description     text,                               -- ajuda a escolher a categoria
     icon            text,
     default_team_id bigint      REFERENCES teams(id),
     default_type    text        NOT NULL DEFAULT 'incident'
-                    CHECK (default_type IN ('incident', 'request', 'question')),
-    requires_approval boolean   NOT NULL DEFAULT false,
-    approver_kind   text        CHECK (approver_kind IN ('department_manager', 'user', 'team')),
-    approver_user_id bigint     REFERENCES users(id),
-    approver_team_id bigint     REFERENCES teams(id),
+                    CHECK (default_type IN ('incident', 'request', 'task')),
+    requires_approval boolean   NOT NULL DEFAULT false, -- aprovada pelos supervisores do grupo (docs/10 §10.8)
     is_confidential boolean     NOT NULL DEFAULT false, -- restringe a visibilidade (docs/08 §8.4)
     sort_order      smallint    NOT NULL DEFAULT 0,
     is_active       boolean     NOT NULL DEFAULT true,
-    UNIQUE (parent_id, name),
-    CHECK (NOT requires_approval OR approver_kind IS NOT NULL),
-    CHECK (approver_kind IS DISTINCT FROM 'user' OR approver_user_id IS NOT NULL),
-    CHECK (approver_kind IS DISTINCT FROM 'team' OR approver_team_id IS NOT NULL)
+    UNIQUE (parent_id, name)
 );
 
 CREATE TABLE ticket_statuses (
     id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name            text        NOT NULL UNIQUE,        -- rótulo exibido (renomeável)
-    requester_label text,                               -- texto amigável para o solicitante
     kind            text        NOT NULL
-                    CHECK (kind IN ('approval', 'open', 'waiting', 'resolved', 'closed', 'canceled')),
+                    CHECK (kind IN ('approval', 'open', 'waiting', 'closed', 'canceled')),
     sort_order      smallint    NOT NULL DEFAULT 0,
     is_default_for_kind boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE resolution_codes (
     id              smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name            text        NOT NULL UNIQUE,        -- Resolvido, Contorno, Não reproduzível, ...
+    name            text        NOT NULL UNIQUE,        -- Feito, Contorno, Não reproduzível, ...
     is_active       boolean     NOT NULL DEFAULT true
 );
 
@@ -244,10 +228,10 @@ CREATE TABLE tickets (
     number          bigint      NOT NULL DEFAULT nextval('ticket_number_seq') UNIQUE,
     title           text        NOT NULL CHECK (length(title) BETWEEN 3 AND 300),
     description     text        NOT NULL DEFAULT '',
-    type            text        NOT NULL CHECK (type IN ('incident', 'request', 'question')),
-    requester_id    bigint      NOT NULL REFERENCES users(id),
-    opened_by_id    bigint      NOT NULL REFERENCES users(id),        -- = requester_id quando o próprio abriu
-    department_id   bigint      NOT NULL REFERENCES departments(id),  -- setor do solicitante NA ABERTURA
+    type            text        NOT NULL CHECK (type IN ('incident', 'request', 'task')),
+    created_by_id   bigint      NOT NULL REFERENCES users(id),        -- membro que registrou
+    department_id   bigint      REFERENCES departments(id),           -- setor atendido (opcional)
+    beneficiary_name text,                                            -- pessoa atendida, sem conta (opcional)
     team_id         bigint      REFERENCES teams(id),
     assignee_id     bigint      REFERENCES users(id),
     category_id     bigint      REFERENCES categories(id),
@@ -256,17 +240,12 @@ CREATE TABLE tickets (
     urgency         smallint    NOT NULL DEFAULT 1 CHECK (urgency BETWEEN 1 AND 3),  -- 1=pode esperar 3=parado
     priority        smallint    NOT NULL CHECK (priority BETWEEN 1 AND 4),           -- 1=baixa … 4=crítica
     priority_overridden boolean NOT NULL DEFAULT false,
-    channel         text        NOT NULL DEFAULT 'portal'
-                    CHECK (channel IN ('portal', 'email', 'phone', 'walk_in')),
     tags            text[]      NOT NULL DEFAULT '{}',
     resolution_code_id smallint REFERENCES resolution_codes(id),
     reopened_count  smallint    NOT NULL DEFAULT 0,
-    satisfaction    smallint    CHECK (satisfaction BETWEEN 1 AND 5),
-    satisfaction_comment text,
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz NOT NULL DEFAULT now(),
-    first_response_at timestamptz,
-    resolved_at     timestamptz,
+    first_assigned_at timestamptz,                       -- para o indicador "tempo na fila"
     closed_at       timestamptz,
     deleted_at      timestamptz,
     search_vector   tsvector GENERATED ALWAYS AS (
@@ -281,10 +260,9 @@ CREATE INDEX tickets_tags_idx        ON tickets USING gin (tags);
 CREATE INDEX tickets_queue_idx       ON tickets (team_id, status_id, priority DESC, created_at)
                                      WHERE deleted_at IS NULL;
 CREATE INDEX tickets_assignee_idx    ON tickets (assignee_id, status_id) WHERE deleted_at IS NULL;
-CREATE INDEX tickets_requester_idx   ON tickets (requester_id, created_at DESC);
 CREATE INDEX tickets_department_idx  ON tickets (department_id, created_at DESC);
 
--- Grupos que já atenderam o chamado (regra 6 de visibilidade); mantida a cada transferência
+-- Grupos que já atuaram no chamado (regra 2 de visibilidade); mantida a cada transferência
 CREATE TABLE ticket_teams (
     ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     team_id         bigint      NOT NULL REFERENCES teams(id),
@@ -298,13 +276,11 @@ CREATE TABLE ticket_comments (
     public_id       uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     author_id       bigint      REFERENCES users(id),
-    visibility      text        NOT NULL DEFAULT 'public'
-                    CHECK (visibility IN ('public', 'internal')),
     body            text        NOT NULL,
     body_format     text        NOT NULL DEFAULT 'markdown',
-    is_solution     boolean     NOT NULL DEFAULT false, -- texto da solução ao resolver
+    is_solution     boolean     NOT NULL DEFAULT false, -- texto do que foi feito, ao concluir
     source          text        NOT NULL DEFAULT 'web'
-                    CHECK (source IN ('web', 'email', 'system')),
+                    CHECK (source IN ('web', 'system')),
     created_at      timestamptz NOT NULL DEFAULT now(),
     edited_at       timestamptz,                        -- versões anteriores ficam em ticket_events
     hidden_at       timestamptz,
@@ -321,7 +297,7 @@ CREATE TABLE ticket_watchers (
     ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     kind            text        NOT NULL DEFAULT 'watcher'
-                    CHECK (kind IN ('watcher', 'mentioned')),   -- 'mentioned' vê notas internas
+                    CHECK (kind IN ('watcher', 'mentioned')),   -- 'mentioned' = adicionado por @menção
     added_by        bigint      REFERENCES users(id),
     added_at        timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (ticket_id, user_id)
@@ -342,12 +318,9 @@ CREATE TABLE ticket_links (
 CREATE TABLE ticket_approvals (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    approver_kind   text        NOT NULL CHECK (approver_kind IN ('department_manager', 'user', 'team')),
-    approver_user_id bigint     REFERENCES users(id),
-    approver_team_id bigint     REFERENCES teams(id),
-    approver_department_id bigint REFERENCES departments(id),  -- quando o aprovador é o gestor do setor
+    team_id         bigint      NOT NULL REFERENCES teams(id),  -- decide qualquer supervisor deste grupo (ou admin)
     status          text        NOT NULL DEFAULT 'pending'
-                    CHECK (status IN ('pending', 'approved', 'rejected', 'redirected', 'canceled')),
+                    CHECK (status IN ('pending', 'approved', 'rejected', 'canceled')),
     decided_by      bigint      REFERENCES users(id),
     decided_at      timestamptz,
     comment         text,
@@ -368,21 +341,6 @@ CREATE TABLE ticket_events (
     created_at      timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ticket_events_ticket_idx ON ticket_events (ticket_id, created_at);
-
--- Respostas prontas (macros)  (docs/10 §10.6)
-CREATE TABLE canned_responses (
-    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    scope           text        NOT NULL CHECK (scope IN ('personal', 'team', 'global')),
-    owner_user_id   bigint      REFERENCES users(id) ON DELETE CASCADE,
-    team_id         bigint      REFERENCES teams(id) ON DELETE CASCADE,
-    title           text        NOT NULL,
-    body            text        NOT NULL,           -- com variáveis {{solicitante.nome}} etc.
-    actions         jsonb       NOT NULL DEFAULT '[]',  -- ex.: [{"set_status": "pending"}, {"add_tag": "vpn"}]
-    created_by      bigint      NOT NULL REFERENCES users(id),
-    updated_at      timestamptz NOT NULL DEFAULT now(),
-    CHECK (scope <> 'personal' OR owner_user_id IS NOT NULL),
-    CHECK (scope <> 'team' OR team_id IS NOT NULL)
-);
 
 -- Notificações dentro do sistema (sino)  (Fase 2)
 CREATE TABLE notifications (
@@ -406,8 +364,6 @@ CREATE TABLE kb_articles (
     title           text        NOT NULL,
     body            text        NOT NULL,
     category_id     bigint      REFERENCES categories(id),
-    audience        text        NOT NULL DEFAULT 'internal'
-                    CHECK (audience IN ('internal', 'everyone')),  -- 'internal' = só agentes
     status          text        NOT NULL DEFAULT 'draft'
                     CHECK (status IN ('draft', 'published', 'archived')),
     source_ticket_id bigint     REFERENCES tickets(id),             -- gerado a partir de um chamado
@@ -432,7 +388,6 @@ CREATE TABLE attachments (
     ticket_id       bigint      REFERENCES tickets(id) ON DELETE CASCADE,
     comment_id      bigint      REFERENCES ticket_comments(id) ON DELETE CASCADE,
     kb_article_id   bigint      REFERENCES kb_articles(id) ON DELETE CASCADE,
-    visibility      text        CHECK (visibility IN ('public', 'internal')),  -- definida ao vincular
     filename        text        NOT NULL,           -- nome original saneado
     content_type    text        NOT NULL,           -- detectado pelo conteúdo, não pelo navegador
     size_bytes      bigint      NOT NULL CHECK (size_bytes > 0),
@@ -447,8 +402,7 @@ CREATE TABLE attachments (
     hidden_reason   text,
     CHECK (num_nonnulls(ticket_id, kb_article_id) <= 1),
     CHECK (comment_id IS NULL OR ticket_id IS NOT NULL),
-    CHECK ((linked_at IS NULL) = (ticket_id IS NULL AND kb_article_id IS NULL)),
-    CHECK (linked_at IS NULL OR visibility IS NOT NULL)
+    CHECK ((linked_at IS NULL) = (ticket_id IS NULL AND kb_article_id IS NULL))
 );
 CREATE INDEX attachments_ticket_idx   ON attachments (ticket_id) WHERE ticket_id IS NOT NULL;
 CREATE INDEX attachments_comment_idx  ON attachments (comment_id) WHERE comment_id IS NOT NULL;

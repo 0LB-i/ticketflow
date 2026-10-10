@@ -4,26 +4,25 @@ Termos do domínio em português e o nome usado no código (ver [ADR 0001](adr/0
 
 | Termo | Código | Definição |
 |-------|--------|-----------|
-| Chamado | `ticket` | Registro de um pedido ou problema |
-| Solicitante | `requester` | Pessoa que precisa do atendimento |
-| Agente | `agent` | Pessoa que atende chamados |
-| Responsável | `assignee` | Agente que está com o chamado |
-| Setor | `department` | Unidade da empresa onde a pessoa trabalha |
-| Gestor de setor | `department_manager` | Gestor que acompanha os chamados do setor e aprova requisições |
-| Grupo de atendimento (fila) | `team` | Equipe que atende chamados |
-| Supervisor | `team_members.role = 'supervisor'` | Coordenador de um grupo de atendimento |
-| Papel | `role` | Conjunto de permissões globais |
-| Categoria | `category` | Item do catálogo de serviços |
-| Status (etapa) | `ticket_status` + `kind` | Padrão: Pendente (`open`), Aguardando cliente (`waiting`), Entregue (`resolved`), Concluído (`closed`), Cancelado (`canceled`) |
-| Cliente (em "Aguardando cliente") | `requester` | O colaborador que abriu o chamado. Não existem clientes externos |
-| Tipo | `type` | Incidente (`incident`), requisição (`request`) ou dúvida (`question`) |
+| TicketFlow | `settings.app_name` | Nome do sistema exibido aos usuários. Os identificadores técnicos (pacote `chamados`, serviço `sistema-chamados`) não mudam |
+| Chamado | `ticket` | Tarefa registrada e executada por uma equipe |
+| Agente | `agent` | Membro de uma equipe; único tipo de usuário que trabalha nos chamados |
+| Registrado por | `created_by` | Membro que criou o chamado |
+| Responsável | `assignee` | Membro que está executando o chamado |
+| Grupo (fila) | `team` | Equipe que registra e executa chamados |
+| Supervisor | `team_members.role = 'supervisor'` | Coordenador de um grupo; aprova chamados |
+| Setor atendido | `department` | Área da empresa para a qual a tarefa é feita. Só para relatórios: setores não têm login |
+| Pessoa atendida | `beneficiary_name` | Nome, em texto livre, de quem pediu ou será atendido. Não tem conta no sistema |
+| Papel | `role` | Conjunto de permissões globais: agente, admin ou auditor |
+| Categoria | `category` | O que é a tarefa |
+| Status (etapa) | `ticket_status` + `kind` | Padrão: Pendente (`open`), Aguardando (`waiting`), Concluído (`closed`), Cancelado (`canceled`) |
+| Tipo | `type` | Incidente (`incident`), requisição (`request`) ou tarefa (`task`) |
 | Impacto / urgência / prioridade | `impact` / `urgency` / `priority` | Ver [10.3](10-chamados.md#103-prioridade-impacto--urgência) |
-| Observador | `watcher` | Pessoa que acompanha um chamado |
-| Comentário público | `comment` (`visibility = 'public'`) | Visível ao solicitante |
-| Nota interna | `comment` (`visibility = 'internal'`) | Visível só para agentes |
+| Observador | `watcher` | Colega que acompanha um chamado |
+| Comentário | `comment` | Mensagem na linha do tempo, visível a todos que veem o chamado |
 | Anexo | `attachment` | Arquivo vinculado a chamado, comentário ou artigo |
-| Transferência | `transfer` | Mudança de grupo de atendimento |
-| Aprovação | `approval` | Autorização exigida antes do atendimento de uma requisição |
-| Resposta pronta | `canned_response` | Texto padrão reutilizável (macro) |
+| Transferência | `transfer` | Mudança de grupo |
+| Aprovação | `approval` | "Ok" do supervisor do grupo antes de começar a tarefa |
 | Código de resolução | `resolution_code` | Classificação de como o chamado foi encerrado |
-| Base de conhecimento | `kb` | Artigos com soluções e orientações |
+| Base de conhecimento | `kb` | Artigos da equipe com soluções e procedimentos |
+| Virada | — | Dia a partir do qual a equipe só trabalha pelo TicketFlow ([16](16-implantacao.md)) |

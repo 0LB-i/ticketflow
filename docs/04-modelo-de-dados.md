@@ -10,9 +10,6 @@ Organização, identidade e acesso ([08](08-organizacao-e-permissoes.md), [09](0
 
 ```mermaid
 erDiagram
-    departments ||--o{ departments : subsetor
-    departments ||--o{ users : lotacao
-    departments ||--o{ department_managers : gestores
     roles ||--o{ users : papel
     users ||--o{ team_members : participa
     teams ||--o{ team_members : membros
@@ -21,7 +18,6 @@ erDiagram
     users ||--o{ auth_tokens : "convite / reset"
     idp_group_mappings }o--o| roles : mapeia
     idp_group_mappings }o--o| teams : mapeia
-    idp_group_mappings }o--o| departments : mapeia
 ```
 
 Chamados ([10](10-chamados.md), [11](11-anexos-e-arquivos.md)):
@@ -30,9 +26,10 @@ Chamados ([10](10-chamados.md), [11](11-anexos-e-arquivos.md)):
 erDiagram
     categories ||--o{ categories : subcategoria
     teams ||--o{ categories : "grupo padrao"
-    users ||--o{ tickets : solicitante
+    users ||--o{ tickets : registrou
     users ||--o{ tickets : responsavel
-    departments ||--o{ tickets : "setor na abertura"
+    departments ||--o{ departments : subsetor
+    departments ||--o{ tickets : "setor atendido"
     teams ||--o{ tickets : "fila atual"
     categories ||--o{ tickets : classifica
     ticket_statuses ||--o{ tickets : status
@@ -54,13 +51,13 @@ erDiagram
 |------|---------|--------|
 | Chave primária | `bigint GENERATED ALWAYS AS IDENTITY` internamente + `public_id uuid` exposto na API | Joins e índices compactos; não expõe IDs sequenciais adivinháveis. `gen_random_uuid()` é nativo desde o PG 13 (o `uuidv7()` nativo só existe a partir do PG 18) |
 | Número do chamado | Coluna `number` alimentada pela sequence `ticket_number_seq`, exibida como `#000123` | Legível para humanos |
-| Status | Tabela `ticket_statuses` com um `kind` fixo (`approval`, `open`, `waiting`, `resolved`, `closed`, `canceled`); status novos criados pelo admin escolhem um `kind` | Nomes de status configuráveis, enquanto as regras dependem do `kind` |
+| Status | Tabela `ticket_statuses` com um `kind` fixo (`approval`, `open`, `waiting`, `closed`, `canceled`); status novos criados pelo admin escolhem um `kind` | Nomes de status configuráveis, enquanto as regras dependem do `kind` |
 | Prioridade | `impact` e `urgency` (1–3) + `priority` (1–4) calculada pela matriz; `priority_overridden` quando o agente força outro valor | Ver [10.3](10-chamados.md#103-prioridade-impacto--urgência) |
-| Setor do chamado | `tickets.department_id` guarda o setor do solicitante **na abertura** | Relatórios corretos mesmo se a pessoa mudar de setor |
-| Visibilidade | `ticket_teams` (grupos que já atenderam) e `ticket_watchers.kind = 'mentioned'` alimentam o filtro de visibilidade | Regras 6 e 10 de [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) sem varrer o histórico |
+| Para quem é o chamado | `tickets.department_id` (setor atendido) e `tickets.beneficiary_name` (texto livre), ambos opcionais | Os atendidos não têm conta ([08](08-organizacao-e-permissoes.md)); os campos servem aos relatórios |
+| Visibilidade | `ticket_teams` (grupos que já atuaram) e `ticket_watchers` (inclui mencionados) alimentam o filtro de visibilidade | Regras 2 e 4 de [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) sem varrer o histórico |
 | Papéis | Tabela `roles` com `permissions text[]`; papéis do sistema vindos de *seed* | Papéis personalizados (futuro) sem mudar o schema |
 | Auditoria | `ticket_events` (o que acontece no chamado) separado de `audit_log` (login, administração, permissões) | Consultas e retenção diferentes |
-| Anexos | Tabela única `attachments` com dono opcional; sem dono = upload temporário | Upload em duas etapas ([11.4](11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas)) |
+| Anexos | Tabela única `attachments` com dono opcional; sem visibilidade própria (vale a do chamado); sem dono = upload temporário | Upload em duas etapas ([11.4](11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas)) |
 | Sessões | `user_sessions` no banco, só com hashes | Revogação imediata, lista de sessões ativas |
 | Datas | Sempre `timestamptz` | Evita problemas de fuso horário |
 | Histórico | `ticket_events` só aceita inserção (append-only), com `payload jsonb` (antes/depois) | Auditoria completa, base para a linha do tempo |

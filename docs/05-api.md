@@ -36,7 +36,6 @@ Ficaram para depois da v1.0 (revisão de escopo de 2026-10-09). O desenho fica r
 |--------|---------|
 | `tickets:read` | Listar e ler chamados (respeitando a visibilidade do usuário que o token representa) |
 | `tickets:write` | Criar e alterar chamados, comentar |
-| `tickets:internal` | Ler e escrever notas internas |
 | `kb:read` / `kb:write` | Base de conhecimento |
 | `users:read` | Consultar usuários (dados mínimos) |
 | `admin` | Configuração (nunca concedido a agentes de IA) |
@@ -50,16 +49,15 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | `GET` | `/tickets` | Listar e filtrar |
-| `POST` | `/tickets` | Abrir chamado |
+| `POST` | `/tickets` | Registrar chamado |
 | `GET` | `/tickets/{id}` | Detalhe |
-| `PATCH` | `/tickets/{id}` | Alterar campos (título, prioridade, categoria, equipe, responsável, tags) |
-| `POST` | `/tickets/{id}/transitions` | Mudar status: `{"to": "resolved", "comment": "..."}` |
+| `PATCH` | `/tickets/{id}` | Alterar campos (título, prioridade, categoria, setor e pessoa atendidos, tags) |
+| `POST` | `/tickets/{id}/transitions` | Mudar status: `{"to": "closed", "comment": "...", "resolution_code_id": ...}` |
 | `GET` | `/tickets/{id}/comments` | Listar comentários |
-| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "visibility": "public" \| "internal", "attachment_ids": [...]}` |
+| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "attachment_ids": [...]}`; `@nome` no texto adiciona o mencionado como observador |
 | `GET` | `/tickets/{id}/events` | Histórico / linha do tempo |
 | `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
-| `POST` | `/tickets/{id}/satisfaction` | Avaliar atendimento |
 | `GET` | `/tickets/search` | Busca textual: `?q=...` (no futuro, `&mode=semantic\|hybrid` com a IA) |
 | `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir |
 | `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "reason"}` |
@@ -67,10 +65,10 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `POST` | `/tickets/{id}/merge` | Mesclar em outro chamado |
 | `GET` / `POST` | `/tickets/{id}/approvals` | Aprovações do chamado |
 | `POST` | `/approvals/{id}/decision` | `{"decision": "approve" \| "reject", "comment"}` |
-| `GET` | `/approvals?status=pending` | Aprovações pendentes do usuário |
+| `GET` | `/approvals?status=pending` | Aprovações pendentes dos grupos que o usuário supervisiona |
 | `POST` | `/tickets/{id}/comments/{cid}/hide` | Ocultar comentário (com motivo) |
 
-O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", "transfer", "resolve"]`), calculado pelo backend, para a interface decidir quais botões mostrar.
+O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", "transfer", "close"]`), calculado pelo backend, para a interface decidir quais botões mostrar.
 
 ### Anexos
 
@@ -92,13 +90,13 @@ O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", 
 
 ### Demais recursos
 
-`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/departments`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/canned-responses`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/settings`
+`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/teams`, `/departments` (setores atendidos), `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/settings`
 
 Futuro: `/saved-views`, `/admin/idp-mappings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
 
 ## Webhooks de saída (futuro)
 
-**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.resolved`, `ticket.closed`
+**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.closed`, `ticket.reopened`
 
 **Entrega:**
 
@@ -132,8 +130,12 @@ Content-Type: application/json
 
 {
   "title": "Impressora do 3º andar não imprime",
-  "description": "Desde hoje cedo aparece 'offline'.",
+  "description": "Financeiro avisou por telefone: aparece 'offline'.",
+  "team_id": "5a0c...",
   "category_id": "b6f1...",
+  "department_id": "9e3d...",
+  "beneficiary_name": "João Silva",
+  "assignee": "me",
   "urgency": 2,
   "impact": 1
 }

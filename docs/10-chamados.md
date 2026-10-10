@@ -1,46 +1,44 @@
 # 10. Como funcionam os chamados
 
-Este documento descreve o ciclo de vida de um chamado, do ponto de vista de quem pede e de quem atende. As permissões citadas estão em [Organização e permissões](08-organizacao-e-permissoes.md).
+Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado é uma **tarefa da equipe**: quem registra e quem executa são membros dos grupos ([modelo](08-organizacao-e-permissoes.md)). As permissões citadas estão em [Organização e permissões](08-organizacao-e-permissoes.md).
 
 ## 10.1 Anatomia de um chamado
 
 | Campo | Descrição | Quem define |
 |-------|-----------|-------------|
 | Número | `#1234`, sequencial, nunca reutilizado | Sistema |
-| Título e descrição | O que está acontecendo ou sendo pedido (Markdown) | Solicitante |
-| Tipo | Incidente, requisição ou dúvida (10.2) | Padrão da categoria; agente ajusta |
-| Categoria | Item do catálogo de serviços | Solicitante; agente ajusta |
-| Solicitante | Quem precisa do atendimento | Sistema (usuário logado) ou agente, ao abrir em nome de alguém |
-| Aberto por | Quem registrou, se diferente do solicitante | Sistema |
-| Setor | Setor do solicitante **no momento da abertura** | Sistema |
-| Grupo | Fila responsável | Categoria (roteamento); agente transfere |
-| Responsável | Agente que está atendendo | Agente assume ou supervisor atribui |
+| Título e descrição | O que precisa ser feito (Markdown) | Quem registra |
+| Tipo | Incidente, requisição ou tarefa (10.2) | Padrão da categoria; ajustável |
+| Categoria | O que é a tarefa | Quem registra |
+| Grupo | Fila responsável | Categoria (padrão) ou quem registra; muda por transferência |
+| Responsável | Membro que está executando | Quem registra (pode ser ele mesmo), quem assume ou o supervisor |
+| Registrado por | Membro que criou o chamado | Sistema |
+| Setor atendido | Área para a qual a tarefa é feita (opcional) | Quem registra |
+| Pessoa atendida | Nome de quem pediu ou será atendido, em texto livre, sem conta no sistema (opcional) | Quem registra |
 | Status | Etapa do ciclo de vida (10.5) | Fluxo |
-| Impacto, urgência e prioridade | 10.3 | Solicitante informa a urgência; agente define o impacto |
-| Canal | Portal, e-mail, telefone ou presencial (API e agente de IA no futuro) | Sistema |
-| Observadores | Pessoas que acompanham | Solicitante e agentes |
-| Tags | Marcadores livres | Agentes |
-| Vínculos | Duplicado de, relacionado a, bloqueado por | Agentes |
-| Anexos | Ver [Anexos e arquivos](11-anexos-e-arquivos.md) | Todos que comentam |
-| Resolução | Código + texto da solução | Agente |
-| Avaliação | Nota de 1 a 5 + comentário | Solicitante |
+| Impacto, urgência e prioridade | 10.3 | Quem registra; ajustável |
+| Observadores | Colegas que acompanham | Qualquer membro do grupo |
+| Tags | Marcadores livres | Membros do grupo |
+| Vínculos | Duplicado de, relacionado a, bloqueado por | Membros do grupo |
+| Anexos | Ver [Anexos e arquivos](11-anexos-e-arquivos.md) | Quem comenta |
+| Resolução | Código + texto do que foi feito | Quem conclui |
 
 ## 10.2 Tipos de chamado
 
-| Tipo | Quando usar | Exemplo | Efeito |
-|------|-------------|---------|--------|
-| **Incidente** | Algo que funcionava parou ou está com defeito | "Não consigo acessar o ERP" | Foco em restaurar o serviço |
-| **Requisição** | Pedido de algo novo ou de uma mudança padrão | "Acesso à pasta do Financeiro", "Notebook para novo colaborador" | Pode exigir **aprovação** (10.8) |
-| **Dúvida** | Orientação, sem nada quebrado | "Como configuro a assinatura de e-mail?" | Boa candidata a artigo da base de conhecimento |
+| Tipo | Quando usar | Exemplo |
+|------|-------------|---------|
+| **Incidente** | Algo que funcionava parou ou está com defeito | "ERP fora do ar no Financeiro" |
+| **Requisição** | Alguém de fora da equipe pediu algo | "Criar acesso à pasta do Comercial para a Carla" |
+| **Tarefa** | Trabalho planejado ou de rotina da própria equipe | "Trocar o switch do 2º andar", "Renovar o certificado do site" |
 
-O tipo vem da categoria e o agente pode corrigi-lo. Ele é usado nos relatórios.
+O tipo vem da categoria e pode ser corrigido. Ele é usado nos relatórios. Os nomes são uma proposta e a equipe pode ajustá-los ([questões em aberto](questoes-em-aberto.md)).
 
 ## 10.3 Prioridade: impacto × urgência
 
-O solicitante não escolhe "prioridade" diretamente, porque todo mundo escolheria "alta". Ele responde duas perguntas simples:
+Quem registra responde duas perguntas, e o sistema calcula a prioridade:
 
-- **Urgência:** "Isso impede seu trabalho?" → *Posso esperar* / *Atrapalha, mas consigo trabalhar* / *Estou parado*
-- **Impacto:** "Quem é afetado?" → *Só eu* / *Meu setor ou equipe* / *A empresa toda ou clientes*
+- **Urgência:** "Para quando?" → *Pode esperar* / *Nesta semana* / *Agora*
+- **Impacto:** "Quem é afetado?" → *Uma pessoa* / *Um setor ou equipe* / *A empresa toda ou clientes*
 
 | Impacto \ Urgência | Baixa | Média | Alta |
 |--------------------|-------|-------|------|
@@ -48,38 +46,44 @@ O solicitante não escolhe "prioridade" diretamente, porque todo mundo escolheri
 | **Setor / equipe** | Baixa | Média | Alta |
 | **Empresa / clientes** | Média | Alta | **Crítica** |
 
-- O agente pode corrigir o impacto e a urgência; a prioridade é recalculada.
-- O agente pode **forçar** outra prioridade, mas precisa informar o motivo, que fica no histórico.
+- Mudar o impacto ou a urgência recalcula a prioridade.
+- É possível **forçar** outra prioridade, mas é preciso informar o motivo, que fica no histórico.
 - A matriz é configurável pelo administrador.
 
-## 10.4 Abertura
+## 10.4 Registro
 
-### Canais
+### Como um chamado nasce
 
-| Canal | Como funciona | Fase |
-|-------|---------------|------|
-| **Portal** | Formulário guiado (abaixo) | 1 |
-| **Em nome de alguém** | O agente registra um atendimento por telefone ou presencial, escolhendo o solicitante. O canal fica como `phone` ou `walk_in` | 1 |
-| **E-mail** | Mensagem para o endereço de um grupo (ex.: `ti@empresa.com`) vira chamado na categoria padrão desse grupo. Remetente que não é usuário recebe uma resposta automática explicando como acessar o portal | 2 |
+| Origem | Como funciona | Fase |
+|--------|---------------|------|
+| **Formulário** | Um membro registra pelo botão "Novo chamado", sempre visível | 1 |
 | **API / integrações** | `POST /tickets` com token de API | Futuro |
-| **Agente de IA / MCP** | Via API ou servidor MCP, identificado como `ai_agent` | Futuro |
+| **Agente de IA / MCP** | Via API ou servidor MCP | Futuro |
 
-### Formulário guiado do portal
+Pedidos que chegam por fora (telefone, conversa, mensagem) são registrados por quem os recebeu, preenchendo o **setor** e a **pessoa atendida**.
+
+### Formulário
 
 ```
-1. "Do que você precisa?"  → busca + árvore do catálogo (categorias com ícone e descrição)
-2. Artigos sugeridos        → "Isso resolve?" (deflexão, a partir da Fase 2)
-3. Formulário               → título, descrição, urgência, impacto, anexos
-4. Confirmação              → número do chamado e link para acompanhar
+Grupo*         [TI – Suporte ▾]            (só os grupos de que sou membro)
+Categoria*     [TI › Acessos › Novo acesso ▾]   (filtrada pelo grupo; busca por texto)
+Título*        [______________________________________]
+Descrição      [ editor de texto (colar prints)       ]
+Para quem      Setor [Comercial ▾]   Pessoa [Carla Dias      ]   (opcionais)
+Urgência       ( ) Pode esperar  ( ) Nesta semana  ( ) Agora
+Impacto        ( ) Uma pessoa  ( ) Um setor  ( ) A empresa toda
+Responsável    (•) Eu  ( ) Deixar na fila  ( ) Outro membro (supervisor)
+Observadores   [+ adicionar colega]
+📎 Arraste arquivos aqui ou clique para anexar
+                                                   [Cancelar] [Registrar]
 ```
 
-Ao enviar o formulário:
+Ao registrar:
 
-1. O sistema calcula a prioridade, define o grupo pela categoria e grava o setor do solicitante.
-2. Se a categoria **exige aprovação**, o chamado nasce no status de aprovação (10.8).
-3. Senão, nasce em **Pendente**, na fila do grupo e sem responsável.
-4. O solicitante recebe a confirmação por e-mail.
-5. O grupo é notificado conforme a configuração do grupo: e-mail para todos os membros ou só a fila.
+1. O sistema calcula a prioridade e grava quem registrou.
+2. Se a categoria **exige aprovação**, o chamado nasce em "Aguardando aprovação" e os supervisores do grupo são avisados (10.8).
+3. Senão, nasce em **Pendente**, com o responsável escolhido ou na fila do grupo.
+4. O grupo é avisado conforme a configuração dele: só a fila, ou e-mail para todos os membros.
 
 ## 10.5 Status e fluxo
 
@@ -89,15 +93,14 @@ Ao enviar o formulário:
 
 | Status | `kind` | Significado |
 |--------|--------|-------------|
-| **Pendente** | `open` | Chamado em aberto: na fila do grupo (sem responsável) ou em atendimento |
-| **Aguardando cliente** | `waiting` | O agente pediu uma informação ou ação ao solicitante. "Cliente" é quem abriu o chamado, sempre um colaborador interno |
-| **Entregue** | `resolved` | O agente entregou a solução; falta concluir |
-| **Concluído** | `closed` | Final |
+| **Pendente** | `open` | Em aberto: na fila do grupo (sem responsável) ou em execução |
+| **Aguardando** | `waiting` | Parado por algo de fora: outra pessoa, peça, fornecedor, janela de manutenção |
+| **Concluído** | `closed` | Final. A tarefa foi feita |
 | **Cancelado** | `canceled` | Final. Não era necessário, era duplicado ou foi reprovado |
 
-**Status criados pelo administrador:** cada um tem um nome e um `kind`: `open`, `waiting`, `resolved`, `closed`, `canceled` ou `approval` (usado nas aprovações, 10.8). As regras do sistema dependem do `kind`, não do nome. Exemplos: "Em análise" (`open`), "Aguardando aprovação" (`approval`). Entre status do mesmo `kind`, o agente muda livremente.
+**Status criados pelo administrador:** cada um tem um nome e um `kind`: `open`, `waiting`, `closed`, `canceled` ou `approval` (usado nas aprovações, 10.8). As regras do sistema dependem do `kind`, não do nome. Exemplos: "Em andamento" (`open`), "Aguardando aprovação" (`approval`). Entre status do mesmo `kind`, muda-se livremente.
 
-**Nada muda de status sozinho com o passar do tempo:** não há fechamento automático. Concluir é sempre uma ação de uma pessoa.
+**Nada muda de status sozinho com o passar do tempo.** Concluir é sempre uma ação de uma pessoa.
 
 ### Diagrama
 
@@ -107,13 +110,12 @@ stateDiagram-v2
     [*] --> AguardandoAprovacao: categoria exige aprovação
     AguardandoAprovacao --> Pendente: aprovado
     AguardandoAprovacao --> Cancelado: reprovado
-    Pendente --> AguardandoCliente: agente pergunta
-    AguardandoCliente --> Pendente: solicitante responde
-    Pendente --> Entregue: solução informada
-    Entregue --> Concluido: concluído manualmente
-    Entregue --> Pendente: reaberto
+    Pendente --> Aguardando: depende de algo de fora
+    Aguardando --> Pendente: retomado
+    Pendente --> Concluido: tarefa feita
+    Concluido --> Pendente: reaberto
     Pendente --> Cancelado
-    AguardandoCliente --> Cancelado
+    Aguardando --> Cancelado
     Concluido --> [*]
     Cancelado --> [*]
 ```
@@ -122,161 +124,138 @@ stateDiagram-v2
 
 | De | Para | Quem | Exigências / efeitos |
 |----|------|------|----------------------|
-| Aprovação (`approval`) | Pendente | Aprovador | Comentário opcional |
-| Aprovação (`approval`) | Cancelado | Aprovador | **Motivo obrigatório**, enviado ao solicitante |
-| Pendente | Aguardando cliente | Responsável | **Comentário público obrigatório** (a pergunta) |
-| Aguardando cliente | Pendente | Solicitante ou agente | Volta quando o solicitante responde, ou manualmente pelo agente |
-| Pendente | Entregue | Responsável | **Solução (texto público) + código de resolução obrigatórios** |
-| Entregue | Concluído | Agente do grupo ou solicitante (**a definir**) | Sempre manual |
-| Entregue | Pendente | Solicitante ou agente | **Motivo obrigatório**. Contador de reaberturas +1. Volta para o mesmo responsável |
-| Pendente, Aguardando cliente, aprovação | Cancelado | Solicitante | Só os próprios chamados. Motivo opcional |
-| Qualquer não final | Cancelado | Agente | **Motivo obrigatório** (ex.: duplicado → usar mesclagem) |
-| Concluído | — | — | Final. O botão "Abrir novo chamado relacionado" cria um chamado vinculado |
+| Aprovação (`approval`) | Pendente | Supervisor do grupo | Comentário opcional |
+| Aprovação (`approval`) | Cancelado | Supervisor do grupo | **Motivo obrigatório** |
+| Pendente | Aguardando | Responsável ou supervisor | **Comentário obrigatório**: o que se está esperando |
+| Aguardando | Pendente | Membro do grupo | Manual |
+| Pendente | Concluído | Responsável ou supervisor | **Texto do que foi feito + código de resolução** obrigatórios |
+| Concluído | Pendente | Membro do grupo | **Motivo obrigatório**. Contador de reaberturas +1. Volta para o mesmo responsável |
+| Qualquer não final | Cancelado | Quem registrou, responsável ou supervisor | **Motivo obrigatório** (duplicado → usar mesclagem) |
+| Cancelado | — | — | Final. O botão "Novo chamado relacionado" cria um chamado vinculado |
 
 ### Códigos de resolução
 
-Resolvido · Resolvido com solução de contorno · Não reproduzível · Fora do escopo do grupo. A lista é configurável e serve para os relatórios.
+Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo do grupo. A lista é configurável e serve para os relatórios.
 
-## 10.6 Como o agente trabalha
+## 10.6 Como a equipe trabalha
 
 ### Visões (filas) padrão
 
 | Visão | Conteúdo | Para quem |
 |-------|----------|-----------|
-| **Não atribuídos** | Chamados dos meus grupos sem responsável | Agentes |
-| **Meus chamados** | Chamados em que sou o responsável, ainda abertos | Agentes |
-| **Aguardando minha ação** | Meus chamados com resposta nova do solicitante, recém-aprovados ou reabertos | Agentes |
-| **Aguardando cliente** | Chamados dos meus grupos esperando o solicitante | Agentes |
-| **Entregues** | Chamados entregues que ainda não foram concluídos | Agentes |
-| **Todos do grupo** | Tudo do grupo, com filtro por responsável | Supervisores |
+| **Não atribuídos** | Chamados dos meus grupos sem responsável | Todos |
+| **Meus chamados** | Chamados em que sou o responsável, ainda abertos | Todos |
+| **Com novidades** | Meus chamados com comentário novo de outra pessoa, recém-aprovados ou reabertos | Todos |
+| **Aguardando** | Chamados dos meus grupos parados em `waiting` | Todos |
+| **Acompanhando** | Chamados em que sou observador | Todos |
+| **Todos do grupo** | Tudo do grupo, com filtro por responsável e status | Todos |
+| **Aprovações** | Chamados aguardando a minha aprovação | Supervisores (Fase 2) |
 
-**Ordenação padrão:** primeiro a prioridade, depois a data de abertura (mais antigo primeiro).
+**Ordenação padrão:** primeiro a prioridade, depois a data de registro (mais antigo primeiro).
 
-**Indicadores na lista:** prioridade (cor), ícone de "resposta nova", responsável, há quanto tempo está parado.
+**Indicadores na lista:** prioridade (cor e texto), ícone de "novidade", responsável, setor atendido, há quanto tempo está parado.
 
 ### Distribuição do trabalho
 
-- **Puxar (padrão):** o agente clica em **"Pegar o próximo"**, e o sistema atribui o primeiro chamado da fila "Não atribuídos" na ordenação padrão. Isso evita escolher só os chamados fáceis. O agente também pode assumir um chamado específico.
+- **Para si:** quem registra já pode ficar como responsável, o caso mais comum quando a pessoa vai executar a tarefa.
+- **Puxar:** o membro clica em **"Pegar o próximo"**, e o sistema atribui o primeiro chamado da fila "Não atribuídos" na ordenação padrão. Também é possível assumir um chamado específico.
 - **Empurrar:** o supervisor atribui chamados a membros do grupo, individualmente ou em massa.
 - **Automática** (futuro): por rodízio ou menor carga.
 
-### Tela do chamado (agente)
+### Tela do chamado
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ #1234  Impressora do 3º andar não imprime     [Pendente ▾] [Alta]            │
-│ Aberto há 2h10  ·  Maria também está vendo                                   │
+│ Registrado há 2h10 por Bruno  ·  Ana também está vendo                       │
 ├───────────────────────────────────────────────┬──────────────────────────────┤
-│ LINHA DO TEMPO                                │ SOLICITANTE                  │
-│ ● João (solicitante) · 09:02                  │ João Silva · Financeiro      │
-│   Desde hoje cedo aparece "offline"…          │ ramal 4321 · 3 chamados/90d  │
-│ ◦ Sistema · atribuído a Ana · 09:15           │──────────────────────────────│
-│ ▒ Ana · NOTA INTERNA · 09:20                  │ Grupo: TI – Service Desk     │
-│ ▒  Verificar switch do andar                  │ Responsável: Ana             │
-│ ● Ana · 09:25                                 │ Categoria: TI › Impressão    │
-│   Pode reiniciar a impressora?                │ Tipo: Incidente              │
-│                                               │ Tags                         │
-│                                               │ Observadores · Vínculos      │
+│ LINHA DO TEMPO                                │ Grupo: TI – Suporte          │
+│ ● Bruno · 09:02                               │ Responsável: Ana             │
+│   Financeiro avisou por telefone: "offline"   │ Categoria: TI › Impressão    │
+│ ◦ Sistema · atribuído a Ana · 09:15           │ Tipo: Incidente              │
+│ ● Ana · 09:20                                 │ Para: Financeiro · João Silva│
+│   Verificar o switch do andar                 │──────────────────────────────│
+│ ● Ana · 09:25 · @Carlos                       │ Observadores: Bruno, Carlos  │
+│   Carlos, consegue olhar a porta 12?          │ Tags · Vínculos              │
 │                                               │ Anexos (2)                   │
-├───────────────────────────────────────────────┤──────────────────────────────│
-│ [Responder ao solicitante] [Nota interna]     │                              │
+├───────────────────────────────────────────────┤                              │
 │ ┌───────────────────────────────────────────┐ │                              │
-│ │                                           │ │                              │
+│ │ Escreva um comentário…                    │ │                              │
 │ └───────────────────────────────────────────┘ │                              │
-│ 📎 Anexar  ⚡ Resposta pronta                  │                              │
-│ [Enviar]  [Enviar e aguardar cliente ▾]       │                              │
+│ 📎 Anexar                                     │                              │
+│ [Comentar]  [Comentar e concluir ▾]           │                              │
 └───────────────────────────────────────────────┴──────────────────────────────┘
 ```
 
-- **Público × interno:** notas internas têm fundo e rótulo diferentes e uma confirmação visual antes de enviar. Trocar de aba não apaga o rascunho.
-- **Enviar e mudar status:** a resposta e a mudança de status saem numa única ação (ex.: "Enviar e entregar", "Enviar e aguardar cliente").
-- **Menções:** `@nome` em nota interna notifica o colega, que ganha acesso de leitura ao chamado se ainda não tiver.
+- **Comentar e mudar status:** o comentário e a mudança de status saem numa única ação (ex.: "Comentar e concluir", "Comentar e aguardar").
+- **Menções:** `@nome` notifica o colega, que vira observador do chamado.
 - **Colisão:** o sistema mostra quem mais está com o chamado aberto. Se chegou um comentário novo depois que a tela foi carregada, aparece um aviso antes de enviar. Alterações de campos usam `ETag` para não sobrescrever a mudança de outra pessoa.
 - **Rascunho automático:** o texto em edição é salvo localmente no navegador e restaurado se a página for recarregada.
-- **Histórico do solicitante:** acesso rápido aos últimos chamados da mesma pessoa.
+- **Histórico do setor:** acesso rápido aos últimos chamados do mesmo setor atendido.
 
-### Respostas prontas (macros)
-
-- Texto com variáveis (`{{solicitante.nome}}`, `{{chamado.numero}}`, `{{agente.nome}}`).
-- Podem incluir **ações**: mudar status, adicionar tag, mudar categoria.
-- Escopo: **pessoal**, **do grupo** (gerenciada pelo supervisor) ou **global** (admin).
-
-### Transferência e escalonamento
+### Transferência
 
 | Situação | Como funciona |
 |----------|---------------|
-| **Transferência** (escalonamento funcional, ex.: N1 → N2) | O agente escolhe o grupo de destino e escreve um **motivo obrigatório** (nota interna). O chamado continua **Pendente**, na fila do novo grupo e sem responsável. O grupo anterior mantém acesso de leitura |
-| **Pedir ajuda sem transferir** | Nota interna com `@menção` a um colega de outro grupo |
+| **Transferência** (ex.: Suporte → Infraestrutura) | Escolhe-se o grupo de destino e escreve-se um **motivo obrigatório**, que vira comentário. O chamado continua **Pendente**, na fila do novo grupo e sem responsável. O grupo anterior mantém acesso de leitura |
+| **Pedir ajuda sem transferir** | Comentário com `@menção` a um colega de outro grupo, que vira observador |
 
 ### Duplicados e vínculos
 
-- **Mesclar:** o chamado secundário é **cancelado** com o código "Duplicado" e vinculado ao principal (`duplicate_of`). O solicitante do secundário vira **observador** do principal e é avisado. Os conteúdos não são movidos: o vínculo permite consultar os dois.
+- **Mesclar:** o chamado secundário é **cancelado** com o código "Duplicado" e vinculado ao principal (`duplicate_of`). Os observadores do secundário passam para o principal. Os conteúdos não são movidos: o vínculo permite consultar os dois.
 - **Relacionado a / bloqueado por:** só informativos, exibidos nos dois chamados.
 
 ### Ações em massa (supervisor ou permissão `ticket.bulk`)
 
-Atribuir, transferir, mudar prioridade, adicionar tag, entregar com a mesma solução (ex.: incidente geral resolvido) e adicionar comentário público.
-
-## 10.7 Experiência do solicitante
-
-- **Meus chamados:** lista com status em linguagem simples ("Estamos trabalhando nisso", "Precisamos de uma resposta sua").
-- **Detalhe:** só a parte pública: comentários, anexos públicos, status e quem está atendendo.
-- **Ações:** responder, anexar, adicionar observadores, concluir ("Resolveu"), reabrir ("Não resolveu", com motivo), cancelar e avaliar.
-- **Por e-mail** (Fase 2): responder ao e-mail de notificação adiciona um comentário ao chamado.
-- **Gestor de setor:** abas "Chamados do meu setor" (somente leitura) e "Aprovações pendentes".
+Atribuir, transferir, mudar prioridade, adicionar tag, concluir com o mesmo texto (ex.: incidente geral resolvido) e adicionar comentário.
 
 ### Regras de edição
 
-- O solicitante edita título e descrição **até o atendimento começar**. Depois disso, só comenta.
 - Comentários podem ser editados pelo autor por **10 minutos**. As versões anteriores ficam no histórico.
 - **Ninguém apaga comentários.** Com `ticket.hide_content`, um comentário ou anexo pode ser **ocultado**, com motivo, e o original continua na auditoria (ex.: alguém colou uma senha).
 
+## 10.7 Observadores
+
+- Qualquer membro do grupo adiciona colegas como observadores; qualquer usuário pode se adicionar a um chamado que já vê.
+- Observadores de **outros grupos** veem o chamado e comentam, mas não alteram campos nem status.
+- O observador recebe as atualizações (10.10) e encontra os chamados na visão **Acompanhando**.
+
 ## 10.8 Aprovações (Fase 2)
 
-- Ativadas **por categoria** (`requires_approval`).
-- **Quem aprova**, configurado na categoria:
-  - **gestor do setor do solicitante** (padrão); se houver vários, qualquer um decide;
-  - um **usuário específico** (ex.: diretor financeiro);
-  - **qualquer membro de um grupo** (ex.: Segurança da Informação).
-- Se o solicitante for o próprio gestor, a aprovação sobe para o gestor do setor acima. Se não houver, o chamado vai para o administrador.
-- O aprovador recebe um e-mail com link e decide na tela: **Aprovar** (comentário opcional) ou **Reprovar** (motivo obrigatório).
+- Ativadas **por categoria** (`requires_approval`), para tarefas que precisam do "ok" antes de começar (ex.: compra de equipamento).
+- **Quem aprova:** os **supervisores do grupo** do chamado. Se houver vários, qualquer um decide.
+- Se quem registrou for supervisor do grupo, o chamado já nasce aprovado, e isso fica no histórico.
+- Se o grupo não tiver supervisor, a aprovação vai para os administradores.
+- O supervisor recebe um aviso com link e decide na tela: **Aprovar** (comentário opcional) ou **Reprovar** (motivo obrigatório).
 - Para usar aprovações, o administrador cria um status com `kind = approval` (ex.: "Aguardando aprovação"). Ele não faz parte dos status padrão.
-- Lembretes após 1 e 3 dias. O administrador pode redirecionar a aprovação a outra pessoa (ex.: aprovador de férias).
-- Fase 2: um nível de aprovação. Aprovação em vários níveis e delegação por férias ficam para o futuro.
+- Lembretes após 1 e 3 dias.
+- Um nível de aprovação. Vários níveis ficam para o futuro.
 
 ## 10.9 Prazos: sem SLA
 
-Não há SLA: o atendimento é todo interno, e não existem metas de prazo, alertas de vencimento nem calendário de expediente (decisão de 2026-10-09). O sistema só **mede** os tempos (até a 1ª resposta, até a entrega, até a conclusão) para os relatórios.
+Não há SLA: não existem metas de prazo, alertas de vencimento nem calendário de expediente (decisão de 2026-10-09). O sistema só **mede** os tempos (até alguém assumir, até concluir) para os relatórios.
 
 ## 10.10 Notificações
 
-| Evento | Solicitante | Observadores | Responsável | Grupo | Supervisor | Outros |
-|--------|:-:|:-:|:-:|:-:|:-:|---|
-| Chamado aberto | ✉️ confirmação | | | ✉️/🔔 conforme o grupo | | |
-| Aguardando aprovação | | | | | | Aprovador ✉️🔔 |
-| Aprovado / reprovado | ✉️🔔 | | | 🔔 (aprovado) | | |
-| Atribuído | | | ✉️🔔 | | | |
-| Comentário público do agente | ✉️🔔 | ✉️ | | | | |
-| Resposta do solicitante | | | ✉️🔔 | 🔔 se sem responsável | | |
-| Nota interna com @menção | | | | | | Mencionado 🔔 |
-| Transferido | | | | 🔔 novo grupo | | |
-| Entregue | ✉️ com "Concluir" / "Não resolveu" | ✉️ | | | | |
-| Reaberto | | | ✉️🔔 | | | |
-| Concluído | ✉️ pesquisa de satisfação | | | | | |
-| Avaliação ≤ 2 | | | 🔔 | | 🔔 | |
+| Evento | Responsável | Observadores | Grupo | Supervisores | Outros |
+|--------|:-:|:-:|:-:|:-:|---|
+| Chamado registrado sem responsável | | | ✉️/🔔 conforme o grupo | | |
+| Atribuído a alguém | ✉️🔔 | | | | |
+| Aguardando aprovação | | | | ✉️🔔 | |
+| Aprovado / reprovado | 🔔 | 🔔 | | | Quem registrou 🔔 |
+| Comentário novo | 🔔 | 🔔 | | | |
+| @menção | | | | | Mencionado ✉️🔔 |
+| Transferido | | | 🔔 novo grupo | | |
+| Concluído | | ✉️🔔 | | | Quem registrou 🔔 |
+| Reaberto | ✉️🔔 | 🔔 | | | |
 
-✉️ e-mail · 🔔 notificação dentro do sistema (Fase 2). Cada usuário escolhe nas preferências como quer receber, exceto as notificações essenciais (aprovação pendente, pedido de resposta, entregue), que não podem ser desligadas.
+✉️ e-mail · 🔔 notificação dentro do sistema (Fase 2). Na Fase 1, enquanto o sino não existe, os eventos marcados só com 🔔 também vão por e-mail. Quem causou o evento nunca é notificado dele. Cada usuário escolhe nas preferências como quer receber, exceto atribuição, menção e aprovação pendente, que não podem ser desligadas.
 
 ## 10.11 Rotinas automáticas (worker)
 
 | Rotina | Frequência |
 |--------|------------|
-| Lembrar aprovadores | Diária |
+| Lembrar supervisores de aprovações pendentes | Diária |
 | Limpar uploads não vinculados há mais de 24 h | Diária |
-| Ler a caixa de e-mail de entrada | A cada minuto (Fase 2) |
 
 Nenhuma rotina muda o status de um chamado.
-
-## 10.12 Avaliação de satisfação (Fase 2)
-
-Após a **conclusão**, o solicitante recebe um único convite: nota de 1 a 5 e comentário opcional, respondidos com um clique no e-mail ou no portal. Uma nota ≤ 2 avisa o responsável e o supervisor. Ninguém é obrigado a responder.

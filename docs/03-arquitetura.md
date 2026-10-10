@@ -50,7 +50,7 @@
                 │ auditoria            │   │                      │
                 └──────────────────────┘   └──────────┬───────────┘
                                                       ▼
-                                              Servidor SMTP/IMAP
+                                                Servidor SMTP
 ```
 
 Depois da v1.0 entram, sem mudar essa estrutura: sistemas externos e agentes de IA chamando a API com token (e via MCP), o worker chamando a API de IA genérica e enviando webhooks de saída, e o `pgvector` no PostgreSQL. Ver [Integração com IA](06-integracao-ia.md).
@@ -58,8 +58,8 @@ Depois da v1.0 entram, sem mudar essa estrutura: sistemas externos e agentes de 
 **Processos:**
 
 - `api`: servidor ASGI (uvicorn), sem estado, escala horizontalmente
-- `worker`: consome a fila de tarefas (envio de e-mail, leitura da caixa de entrada; no futuro, webhooks e chamadas de IA)
-- `scheduler`: tarefas periódicas (leitura da caixa de e-mail, lembretes de aprovação, limpeza de uploads). Pode rodar dentro do worker com lock (`pg_try_advisory_lock`) para garantir uma única instância ativa
+- `worker`: consome a fila de tarefas (envio de e-mail; no futuro, webhooks e chamadas de IA)
+- `scheduler`: tarefas periódicas (lembretes de aprovação, limpeza de uploads). Pode rodar dentro do worker com lock (`pg_try_advisory_lock`) para garantir uma única instância ativa
 
 ## Estrutura de código proposta
 
@@ -77,7 +77,7 @@ backend/
     ├── core/                    # permissões (catálogo, can(), filtro de visibilidade), erros, paginação, eventos
     ├── modules/
     │   ├── identity/            # usuários, sessões, login, MFA
-    │   ├── organization/        # setores, grupos de atendimento, papéis
+    │   ├── organization/        # grupos, setores atendidos, papéis
     │   ├── catalog/             # categorias, status, códigos de resolução
     │   ├── tickets/             # chamados, comentários, transições, histórico, aprovações
     │   ├── attachments/         # upload, armazenamento
@@ -94,9 +94,9 @@ frontend/
 └── src/
     ├── main.ts
     ├── api/                 # cliente tipado gerado do OpenAPI
-    ├── router/              # rotas e guardas por papel (solicitante, agente, admin)
+    ├── router/              # rotas e guardas por papel (agente, admin, auditor)
     ├── stores/              # Pinia: sessão, preferências
-    ├── views/               # páginas: requester/, agent/, admin/
+    ├── views/               # páginas: tickets/, reports/, admin/
     ├── components/          # componentes reutilizáveis (base acessível + Tailwind)
     ├── composables/         # lógica reutilizável (useTickets, usePermissions…)
     ├── i18n/                # vue-i18n, pt-BR

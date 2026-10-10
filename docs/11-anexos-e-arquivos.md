@@ -2,21 +2,18 @@
 
 ## 11.1 Onde os arquivos podem ser vinculados
 
-| Onde | Vinculado a | Visibilidade | Fase |
-|------|-------------|--------------|------|
-| Abertura do chamado | Chamado | Pública | 1 |
-| Comentário público | Comentário (e chamado) | Pública | 1 |
-| Nota interna | Comentário (e chamado) | **Interna**: só quem vê notas internas | 1 |
-| Imagem colada no editor (print de tela) | Comentário | A mesma do comentário | 1 |
-| Solução (ao resolver) | Comentário da solução | Pública | 1 |
-| Anexos de e-mail recebido | Chamado ou comentário criado a partir do e-mail | Pública | 2 |
-| Artigo da base de conhecimento | Artigo | A mesma do artigo | 2 |
+| Onde | Vinculado a | Quem vê | Fase |
+|------|-------------|---------|------|
+| Registro do chamado | Chamado | Quem vê o chamado | 1 |
+| Comentário | Comentário (e chamado) | Quem vê o chamado | 1 |
+| Imagem colada no editor (print de tela) | Comentário | Quem vê o chamado | 1 |
+| Conclusão | Comentário de conclusão | Quem vê o chamado | 1 |
+| Artigo da base de conhecimento | Artigo | Todos os usuários | 2 |
 | Foto do usuário (avatar) | Usuário | Todos os usuários logados | 2 |
 | Logotipo da empresa | Configurações | Pública (inclusive na tela de login) | 2 |
 | Exportações (CSV de relatórios) | Usuário que pediu | Só quem pediu; expira em 24 h | 2 |
-| Importação de usuários (CSV) | Processo de importação | Admin; apagado após o processamento | 1 |
 
-**Regra geral:** um anexo herda a visibilidade do lugar onde foi vinculado. Um arquivo enviado numa nota interna **nunca** aparece para o solicitante, nem na lista de anexos do chamado.
+**Regra geral:** quem vê o chamado vê todos os anexos dele. Não há anexos internos, porque não existe solicitante de fora da equipe ([8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados)).
 
 Na lista de anexos, a lateral da tela do chamado reúne os arquivos de todos os comentários, indicando a origem e se é interno.
 
@@ -67,7 +64,7 @@ sequenceDiagram
     U->>S: envia o comentário
     S->>A: POST /tickets/{id}/comments {"body": "...", "attachment_ids": ["..."]}
     A->>A: confere se o upload é do mesmo usuário e ainda não foi vinculado
-    A->>A: vincula ao comentário e define a visibilidade
+    A->>A: vincula ao comentário
 ```
 
 - Um upload **só pode ser vinculado por quem o enviou** e **uma única vez**.
@@ -100,11 +97,11 @@ Interface `Storage` (`put`, `get`, `delete`, `presigned_url`) com dois adaptador
 
 `GET /api/v1/attachments/{id}`:
 
-1. Verifica se o usuário **vê o chamado** e se **vê a visibilidade** do anexo (interna ou pública).
+1. Verifica se o usuário **vê o chamado** (ou, para artigos, se pode ler a base de conhecimento).
 2. Devolve o arquivo em *streaming*.
 3. Headers: `Content-Disposition: attachment` (padrão) com o nome original; `X-Content-Type-Options: nosniff`; `Content-Security-Policy: sandbox`.
 4. **Visualização no navegador** (`inline`) só para imagens (png, jpg, gif, webp) e PDF.
-5. Downloads de anexos internos ou de chamados confidenciais são registrados na auditoria.
+5. Downloads de anexos de chamados confidenciais são registrados na auditoria.
 
 **Miniaturas** (Fase 2): o worker gera miniaturas das imagens com Pillow e as guarda como arquivos derivados, para a linha do tempo carregar rápido.
 
@@ -112,12 +109,12 @@ Interface `Storage` (`put`, `get`, `delete`, `presigned_url`) com dois adaptador
 
 | Ação | Quem |
 |------|------|
-| Enviar | Quem pode comentar no chamado (ou escrever nota interna, se o anexo for interno) |
-| Baixar | Quem vê o chamado **e** a visibilidade do anexo |
+| Enviar | Quem pode comentar no chamado |
+| Baixar | Quem vê o chamado |
 | Ocultar | Quem tem `ticket.hide_content`, com motivo. O arquivo continua guardado para auditoria |
 | Apagar fisicamente | Ninguém pela interface. Só pelos processos de retenção e de anonimização (LGPD) |
 
-O solicitante **não** pode apagar um anexo depois de enviá-lo. Se enviou algo por engano, pede ao agente que o oculte.
+Quem enviou **não** pode apagar um anexo. Se enviou algo por engano, pede ao supervisor que o oculte.
 
 ## 11.9 Retenção, LGPD e IA
 
@@ -132,7 +129,6 @@ A tabela `attachments` substitui a antiga `ticket_attachments`. Ver o [esboço d
 | Coluna | Descrição |
 |--------|-----------|
 | `ticket_id`, `comment_id`, `kb_article_id` | Dono do arquivo. Todos nulos = upload temporário ainda não vinculado |
-| `visibility` | `public` ou `internal`, definida ao vincular |
 | `filename`, `content_type`, `size_bytes`, `sha256` | Metadados |
 | `storage_backend`, `storage_key` | Onde o arquivo está guardado |
 | `uploaded_by`, `created_at`, `linked_at` | Rastreabilidade |

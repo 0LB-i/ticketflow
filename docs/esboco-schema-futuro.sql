@@ -36,7 +36,7 @@ CREATE TABLE api_tokens (
 ALTER TABLE audit_log       ADD COLUMN actor_api_client_id bigint REFERENCES api_clients(id);
 ALTER TABLE ticket_events   ADD COLUMN actor_api_client_id bigint REFERENCES api_clients(id);
 ALTER TABLE ticket_comments ADD COLUMN api_client_id       bigint REFERENCES api_clients(id);
--- Ajustar também os CHECKs: tickets.channel (+ 'api', 'ai_agent'), ticket_comments.source (+ 'api'),
+-- Criar tickets.channel ('web', 'api', 'ai_agent') para saber a origem; ajustar ticket_comments.source (+ 'api'),
 -- ticket_events.actor_kind (+ 'api_client', 'ai') e o CHECK de autor de ticket_comments.
 
 -- -----------------------------------------------------------------------------
@@ -167,3 +167,22 @@ CREATE TABLE embeddings (
 CREATE INDEX embeddings_hnsw_idx ON embeddings USING hnsw (embedding vector_cosine_ops);
 
 ALTER TABLE categories ADD COLUMN ai_allowed boolean NOT NULL DEFAULT true;
+
+-- -----------------------------------------------------------------------------
+-- Respostas prontas (macros)
+-- Retirado com a mudança de modelo de 2026-10-10: sem solicitante para responder.
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE canned_responses (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    scope           text        NOT NULL CHECK (scope IN ('personal', 'team', 'global')),
+    owner_user_id   bigint      REFERENCES users(id) ON DELETE CASCADE,
+    team_id         bigint      REFERENCES teams(id) ON DELETE CASCADE,
+    title           text        NOT NULL,
+    body            text        NOT NULL,           -- com variáveis {{chamado.numero}} etc.
+    actions         jsonb       NOT NULL DEFAULT '[]',  -- ex.: [{"set_status": "pending"}, {"add_tag": "vpn"}]
+    created_by      bigint      NOT NULL REFERENCES users(id),
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    CHECK (scope <> 'personal' OR owner_user_id IS NOT NULL),
+    CHECK (scope <> 'team' OR team_id IS NOT NULL)
+);
