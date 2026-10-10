@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Pessoa } from '@/components/editor/MentionList.vue'
@@ -52,6 +52,9 @@ const texto = ref('')
 const erro = ref<string | null>(null)
 const editor = useTemplateRef('editor')
 const agora = ref(Date.now())
+// O botão "Editar" some quando acaba o prazo de edição, sem precisar recarregar a página.
+const relogio = setInterval(() => (agora.value = Date.now()), 30_000)
+onBeforeUnmount(() => clearInterval(relogio))
 
 function podeEditar(c: Comentario) {
   return c.author.id === auth.me?.id && new Date(c.editable_until).getTime() > agora.value

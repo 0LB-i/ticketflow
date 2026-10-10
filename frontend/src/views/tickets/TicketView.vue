@@ -47,7 +47,7 @@ watchEffect(() => {
     <template v-else-if="chamado.data.value">
       <header class="flex flex-col gap-2">
         <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-xl font-semibold">
+          <h1 class="min-w-0 text-xl font-semibold break-words">
             <span class="text-muted tabular-nums">#{{ chamado.data.value.number }}</span>
             {{ chamado.data.value.title }}
           </h1>

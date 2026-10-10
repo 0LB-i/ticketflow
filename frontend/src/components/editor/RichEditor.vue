@@ -51,7 +51,7 @@ const Mencao = Mention.extend({
         if (!rect || !el) return
         Object.assign(el.style, {
           position: 'fixed',
-          left: `${rect.left}px`,
+          left: `${Math.max(8, Math.min(rect.left, window.innerWidth - el.offsetWidth - 8))}px`,
           top: `${rect.bottom + 4}px`,
           zIndex: '50',
         })

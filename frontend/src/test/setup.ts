@@ -6,7 +6,10 @@ import type { Component } from 'vue'
 
 import { i18n } from '@/i18n'
 
-/** Monta um componente com os mesmos plugins da aplicação (router só se for passado). */
+/**
+ * Monta um componente com os mesmos plugins da aplicação (router só se for passado).
+ * O `queryClient` do teste fica junto do wrapper, para conferir o cache.
+ */
 export function montar<C extends Component>(
   componente: C,
   options: ComponentMountingOptions<C> = {},
@@ -15,7 +18,7 @@ export function montar<C extends Component>(
   const pinia = createPinia()
   setActivePinia(pinia)
   const extras = options.global?.plugins ?? []
-  return mount(componente, {
+  const wrapper = mount(componente, {
     ...options,
     attachTo: document.body,
     global: {
@@ -24,6 +27,7 @@ export function montar<C extends Component>(
       stubs: extras.length ? {} : { RouterLink: true },
     },
   } as ComponentMountingOptions<C>)
+  return Object.assign(wrapper, { queryClient })
 }
 
 type Resposta = [status: number, corpo?: unknown]

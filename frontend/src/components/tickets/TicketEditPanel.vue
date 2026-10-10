@@ -87,6 +87,16 @@ const opcoesPrioridade = computed(() => [
 const niveis = (chave: string) =>
   ['1', '2', '3'].map((n) => ({ value: n, label: t(`${chave}.${n}`) }))
 
+// Mudar o impacto ou a urgência recalcula a prioridade (docs/10 §10.3): o campo volta para
+// "pela matriz", como a API vai gravar. Para forçar de novo, escolhe-se a prioridade e o motivo.
+watch(
+  () => [form.urgency, form.impact],
+  ([urgencia, impacto]) => {
+    if (Number(urgencia) !== props.chamado.urgency || Number(impacto) !== props.chamado.impact)
+      form.priority = MATRIZ
+  },
+)
+
 /** Forçar uma prioridade (ou trocar a forçada) exige o motivo (docs/10 §10.3). */
 const forcando = computed(
   () =>
