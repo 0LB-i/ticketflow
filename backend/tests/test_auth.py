@@ -18,7 +18,7 @@ def test_login_cria_sessao_e_me_traz_papel_grupos_e_permissoes(
     client: TestClient, db: Session
 ) -> None:
     criar_usuario(db, grupos={"TI – Suporte": "supervisor"})
-    r = client.post(LOGIN, json={"email": "ANA@exemplo.com", "password": SENHA})
+    r = client.post(LOGIN, json={"login": "ANA@exemplo.com", "password": SENHA})
     assert r.status_code == 204
     cookie_sessao = next(c for c in r.headers.get_list("set-cookie") if c.startswith("tf_sessao="))
     assert "HttpOnly" in cookie_sessao and "SameSite=lax" in cookie_sessao
@@ -35,14 +35,14 @@ def test_login_cria_sessao_e_me_traz_papel_grupos_e_permissoes(
 def test_cookie_secure_em_producao(client: TestClient, db: Session) -> None:
     client.app.state.settings.cookie_secure = True  # type: ignore[attr-defined]
     criar_usuario(db)
-    r = client.post(LOGIN, json={"email": "ana@exemplo.com", "password": SENHA})
+    r = client.post(LOGIN, json={"login": "ana@exemplo.com", "password": SENHA})
     assert all("Secure" in c for c in r.headers.get_list("set-cookie"))
 
 
 def test_mensagem_generica_nao_revela_se_o_email_existe(client: TestClient, db: Session) -> None:
     criar_usuario(db)
-    senha_errada = client.post(LOGIN, json={"email": "ana@exemplo.com", "password": "x" * 12})
-    sem_conta = client.post(LOGIN, json={"email": "ninguem@exemplo.com", "password": "x" * 12})
+    senha_errada = client.post(LOGIN, json={"login": "ana@exemplo.com", "password": "x" * 12})
+    sem_conta = client.post(LOGIN, json={"login": "ninguem@exemplo.com", "password": "x" * 12})
     assert senha_errada.status_code == sem_conta.status_code == 401
     assert senha_errada.json() == sem_conta.json()
     assert senha_errada.json()["detail"] == "E-mail ou senha inválidos."
@@ -52,7 +52,7 @@ def test_usuario_inativo_ou_sem_senha_nao_entra(client: TestClient, db: Session)
     criar_usuario(db, "inativo@exemplo.com", ativo=False)
     criar_usuario(db, "convidado@exemplo.com", senha=None)
     for email in ("inativo@exemplo.com", "convidado@exemplo.com"):
-        assert client.post(LOGIN, json={"email": email, "password": SENHA}).status_code == 401
+        assert client.post(LOGIN, json={"login": email, "password": SENHA}).status_code == 401
 
 
 def test_sem_sessao_da_401(client: TestClient) -> None:
@@ -95,12 +95,12 @@ def test_bloqueio_apos_10_falhas_avisa_o_dono(
         update(User).values(failed_logins=9, last_failed_login_at=now() - timedelta(hours=1))
     )
     db.commit()
-    assert client.post(LOGIN, json={"email": user.email, "password": "x" * 12}).status_code == 401
+    assert client.post(LOGIN, json={"login": user.email, "password": "x" * 12}).status_code == 401
     db.refresh(user)
     assert user.locked_until is not None
     assert "bloqueada" in mailer.sent[-1][1]
     # Bloqueada, nem a senha certa entra
-    assert client.post(LOGIN, json={"email": user.email, "password": SENHA}).status_code == 401
+    assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 401
 
 
 def test_espera_progressiva_apos_5_falhas(client: TestClient, db: Session) -> None:
@@ -108,18 +108,18 @@ def test_espera_progressiva_apos_5_falhas(client: TestClient, db: Session) -> No
     db.execute(update(User).values(failed_logins=5, last_failed_login_at=now()))
     db.commit()
     # Dentro da espera, a tentativa é recusada sem conferir a senha
-    assert client.post(LOGIN, json={"email": user.email, "password": SENHA}).status_code == 401
+    assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 401
     db.execute(update(User).values(last_failed_login_at=now() - timedelta(minutes=2)))
     db.commit()
-    assert client.post(LOGIN, json={"email": user.email, "password": SENHA}).status_code == 204
+    assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 204
     db.refresh(user)
     assert user.failed_logins == 0
 
 
 def test_limite_por_ip(client: TestClient, db: Session) -> None:
     for _ in range(20):
-        client.post(LOGIN, json={"email": "ninguem@exemplo.com", "password": "x" * 12})
-    r = client.post(LOGIN, json={"email": "ninguem@exemplo.com", "password": "x" * 12})
+        client.post(LOGIN, json={"login": "ninguem@exemplo.com", "password": "x" * 12})
+    r = client.post(LOGIN, json={"login": "ninguem@exemplo.com", "password": "x" * 12})
     assert r.status_code == 429
     assert int(r.headers["Retry-After"]) > 0
 

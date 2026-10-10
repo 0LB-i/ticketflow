@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ME_AGENTE, simularApi } from '@/test/setup'
+import { ME_ADMIN, ME_AGENTE, simularApi } from '@/test/setup'
 
 import { criarRouter } from './index'
 
@@ -37,5 +37,32 @@ describe('proteção das rotas (docs/13 §13.3)', () => {
     simularApi({ 'GET /api/v1/me': [200, ME_AGENTE] })
     await router.push('/convite/abc')
     expect(router.currentRoute.value.name).toBe('convite')
+  })
+})
+
+describe('senha provisória (docs/09 §9.2)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    router = criarRouter()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('com senha provisória, qualquer tela leva à troca de senha', async () => {
+    simularApi({
+      'GET /api/v1/me': [
+        200,
+        { ...ME_ADMIN, username: 'admin', email: null, must_change_password: true },
+      ],
+    })
+    await router.push('/admin/usuarios')
+    expect(router.currentRoute.value.name).toBe('trocar-senha')
+    await router.push('/')
+    expect(router.currentRoute.value.name).toBe('trocar-senha')
+  })
+
+  it('depois da troca, a tela de troca obrigatória não abre mais', async () => {
+    simularApi({ 'GET /api/v1/me': [200, ME_ADMIN] })
+    await router.push('/trocar-senha')
+    expect(router.currentRoute.value.name).toBe('inicio')
   })
 })

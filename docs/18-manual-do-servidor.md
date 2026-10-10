@@ -176,14 +176,19 @@ Pontos principais de `deploy/nginx.conf`:
 - `proxy_pass http://127.0.0.1:8000` com `X-Forwarded-For` e `X-Forwarded-Proto`;
 - cabeçalhos: `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` e uma `Content-Security-Policy` restrita à própria origem.
 
-### 10. Primeiro administrador e verificação
+### 10. Primeiro acesso e verificação
 
 ```bash
-sudo -u sistema-chamados bash -c 'cd /opt/sistema-chamados/backend && set -a && . /etc/sistema-chamados/env && .venv/bin/chamados admin create --email ti@martiniti.com.br --name "Administrador"'
 curl -fsS https://ticketflow.martiniti.com.br/api/health
 ```
 
-O comando mostra um link para definir a senha ([9.2](09-login-e-autenticacao.md#92-primeiro-acesso-à-instalação)). Depois disso, a carga inicial segue o [documento 15](15-estrutura-martiniti.md).
+**Logo em seguida**, entre no sistema com o usuário `admin` e a senha `admin` e troque a senha na tela que aparece ([9.2](09-login-e-autenticacao.md#92-primeiro-acesso-à-instalação)). Até essa troca, qualquer pessoa que alcance o servidor pode entrar como administrador. Depois, cadastre um e-mail para o usuário `admin` na tela de usuários. A carga inicial segue o [documento 15](15-estrutura-martiniti.md).
+
+Se todos os administradores perderem a senha, crie outro pela linha de comando:
+
+```bash
+sudo -u sistema-chamados bash -c 'cd /opt/sistema-chamados/backend && set -a && . /etc/sistema-chamados/env && .venv/bin/chamados admin create --email ti@martiniti.com.br --name "Administrador"'
+```
 
 ## 18.4 Atualização
 

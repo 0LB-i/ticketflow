@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    login: str = Field(min_length=1, max_length=254, description="e-mail ou nome de usuário")
     password: str = Field(max_length=1024)
 
 
@@ -19,13 +19,14 @@ class TokenPasswordIn(BaseModel):
 
 
 class ChangePasswordIn(BaseModel):
-    current_password: str = Field(max_length=1024)
+    # Dispensada na troca obrigatória logo depois do primeiro acesso (senha provisória).
+    current_password: str | None = Field(default=None, max_length=1024)
     new_password: str = Field(max_length=1024)
 
 
 class TokenInfo(BaseModel):
     purpose: Literal["invite", "password_reset"]
-    email: str
+    email: str | None
     full_name: str
 
 
@@ -37,8 +38,10 @@ class MeTeam(BaseModel):
 
 class Me(BaseModel):
     id: uuid.UUID
-    email: str
+    email: str | None
+    username: str | None
     full_name: str
+    must_change_password: bool
     role: str
     teams: list[MeTeam]
     permissions: list[str]

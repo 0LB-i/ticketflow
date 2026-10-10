@@ -12,10 +12,13 @@ def _token(url: str) -> str:
 
 
 def test_regras_de_senha() -> None:
-    assert password_problem("curta", "a@b.com") is not None
+    assert password_problem("curta12", "a@b.com") is not None  # menos de 8
     assert password_problem("password1234", "a@b.com") is not None  # lista de comuns
-    assert password_problem("aaaaaaaaaaaa", "a@b.com") is not None  # poucos caracteres distintos
+    assert password_problem("12345678", "a@b.com") is not None
+    assert password_problem("aaaaaaaa", "a@b.com") is not None  # poucos caracteres distintos
     assert password_problem("joao.silva.ti", "joao.silva.ti@b.com") is not None
+    assert password_problem("Admin", None, "admin") is not None  # igual ao usuário
+    assert password_problem("Gato2026", "a@b.com") is None  # 8 caracteres bastam
     assert password_problem("cavalo bateria grampo", "a@b.com") is None
 
 

@@ -31,12 +31,12 @@ describe('LoginView', () => {
     })
     await router.push('/login?volta=/dev/componentes')
     const w = montar(LoginView, { global: { plugins: [router] } })
-    await w.get('input[type=email]').setValue('ana@exemplo.com')
+    await w.get('input[type=text]').setValue('ana@exemplo.com')
     await w.get('input[type=password]').setValue('uma senha longa de teste')
     await w.get('form').trigger('submit')
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/dev/componentes'))
     expect(feitas.find((r) => r.caminho === '/api/v1/auth/login')?.corpo).toEqual({
-      email: 'ana@exemplo.com',
+      login: 'ana@exemplo.com',
       password: 'uma senha longa de teste',
     })
   })
@@ -48,7 +48,7 @@ describe('LoginView', () => {
     })
     await router.push('/login')
     const w = montar(LoginView, { global: { plugins: [router] } })
-    await w.get('input[type=email]').setValue('ana@exemplo.com')
+    await w.get('input[type=text]').setValue('ana@exemplo.com')
     await w.get('input[type=password]').setValue('errada errada')
     await w.get('form').trigger('submit')
     await vi.waitFor(() => expect(w.get('[role=alert]').text()).toBe('E-mail ou senha inválidos.'))

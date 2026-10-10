@@ -9,7 +9,7 @@ Conceitos usados aqui: [Organização e permissões](08-organizacao-e-permissoes
 | # | Pergunta | Resposta |
 |---|----------|----------|
 | 1 | Quem é a equipe de TI que vai usar o sistema no piloto? | |
-| 2 | Quem será o **administrador** do sistema? | |
+| 2 | Quem será o **administrador** do sistema? (ele faz o primeiro acesso com `admin` / `admin` e troca a senha, [9.2](09-login-e-autenticacao.md#92-primeiro-acesso-à-instalação)) | |
 | 3 | Quem é o **supervisor** da TI (aprova e distribui)? | |
 | 4 | A TI se divide em mais de um grupo (ex.: Suporte e Infraestrutura) ou é um grupo só? | |
 | 5 | Algum tipo de tarefa precisa de **aprovação** do supervisor? (ex.: compra de equipamento) | |

@@ -997,8 +997,15 @@
       "ChangePasswordIn": {
         "properties": {
           "current_password": {
-            "type": "string",
-            "maxLength": 1024,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Current Password"
           },
           "new_password": {
@@ -1008,7 +1015,7 @@
           }
         },
         "type": "object",
-        "required": ["current_password", "new_password"],
+        "required": ["new_password"],
         "title": "ChangePasswordIn"
       },
       "DepartmentCreate": {
@@ -1234,10 +1241,12 @@
       },
       "LoginIn": {
         "properties": {
-          "email": {
+          "login": {
             "type": "string",
-            "format": "email",
-            "title": "Email"
+            "maxLength": 254,
+            "minLength": 1,
+            "title": "Login",
+            "description": "e-mail ou nome de usuário"
           },
           "password": {
             "type": "string",
@@ -1246,7 +1255,7 @@
           }
         },
         "type": "object",
-        "required": ["email", "password"],
+        "required": ["login", "password"],
         "title": "LoginIn"
       },
       "Me": {
@@ -1257,12 +1266,34 @@
             "title": "Id"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "full_name": {
             "type": "string",
             "title": "Full Name"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
           },
           "role": {
             "type": "string",
@@ -1284,7 +1315,16 @@
           }
         },
         "type": "object",
-        "required": ["id", "email", "full_name", "role", "teams", "permissions"],
+        "required": [
+          "id",
+          "email",
+          "username",
+          "full_name",
+          "must_change_password",
+          "role",
+          "teams",
+          "permissions"
+        ],
         "title": "Me"
       },
       "MeTeam": {
@@ -1495,7 +1535,14 @@
             "title": "Purpose"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
           },
           "full_name": {
@@ -1556,8 +1603,26 @@
             "title": "Id"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "full_name": {
             "type": "string",
@@ -1605,6 +1670,7 @@
         "required": [
           "id",
           "email",
+          "username",
           "full_name",
           "role",
           "status",
@@ -1637,8 +1703,26 @@
             "title": "Id"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "full_name": {
             "type": "string",
@@ -1683,6 +1767,7 @@
         "required": [
           "id",
           "email",
+          "username",
           "full_name",
           "role",
           "status",
@@ -1727,6 +1812,18 @@
               }
             ],
             "title": "Full Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "role": {
             "anyOf": [

@@ -57,6 +57,8 @@ async def find_token(db: AsyncSession, raw: str) -> AuthToken | None:
 
 
 def send_link_email(mailer: Mailer, user: User, purpose: Purpose, url: str) -> None:
+    if user.email is None:
+        return
     first_name = user.full_name.split()[0]
     if purpose == "invite":
         subject = "Seu acesso ao TicketFlow"
@@ -78,6 +80,8 @@ def send_link_email(mailer: Mailer, user: User, purpose: Purpose, url: str) -> N
 
 
 def send_locked_email(mailer: Mailer, user: User) -> None:
+    if user.email is None:
+        return
     mailer.send(
         user.email,
         "Sua conta do TicketFlow foi bloqueada por 15 minutos",

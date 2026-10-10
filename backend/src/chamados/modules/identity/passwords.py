@@ -6,7 +6,7 @@ from importlib.resources import files
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 
-MIN_LENGTH = 12
+MIN_LENGTH = 8
 MAX_LENGTH = 256
 
 _hasher = PasswordHasher()
@@ -37,14 +37,15 @@ def _common() -> frozenset[str]:
     )
 
 
-def password_problem(password: str, email: str) -> str | None:
-    """Motivo para recusar a senha nova, ou None se ela serve."""
+def password_problem(password: str, *identifiers: str | None) -> str | None:
+    """Motivo para recusar a senha nova, ou None se ela serve. `identifiers`: e-mail, usuário."""
     if len(password) < MIN_LENGTH:
         return f"A senha precisa ter pelo menos {MIN_LENGTH} caracteres."
     if len(password) > MAX_LENGTH:
         return f"A senha pode ter no máximo {MAX_LENGTH} caracteres."
     lowered = password.lower()
-    if lowered in _common() or lowered == email.lower() or lowered == email.split("@")[0].lower():
+    own = {part.lower() for i in identifiers if i for part in (i, i.split("@")[0])}
+    if lowered in _common() or lowered in own:
         return "Essa senha é muito comum ou fácil de adivinhar. Escolha outra."
     if len(set(password)) < 4:
         return "Essa senha é muito comum ou fácil de adivinhar. Escolha outra."

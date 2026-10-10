@@ -34,7 +34,9 @@ const lista = computed(() =>
   (usuarios.data.value ?? []).filter(
     (u) =>
       (mostrarInativos.value || u.status !== 'inativo') &&
-      `${u.full_name} ${u.email}`.toLowerCase().includes(busca.value.trim().toLowerCase()),
+      `${u.full_name} ${u.email ?? ''} ${u.username ?? ''}`
+        .toLowerCase()
+        .includes(busca.value.trim().toLowerCase()),
   ),
 )
 
@@ -61,7 +63,7 @@ function abrirNovo() {
 
 function abrirEdicao(u: Usuario) {
   editando.value = u
-  Object.assign(form, { full_name: u.full_name, email: u.email, role: u.role })
+  Object.assign(form, { full_name: u.full_name, email: u.email ?? '', role: u.role })
   erro.value = null
   painel.value = true
 }
@@ -89,16 +91,18 @@ async function salvar() {
   erro.value = null
   try {
     if (editando.value) {
+      const email = form.email.trim()
       await editar.mutateAsync({
         id: editando.value.id,
         full_name: form.full_name,
         role: form.role,
+        ...(email && email !== editando.value.email ? { email } : {}),
       })
       toast.show({ title: t('comum.salvo') })
     } else {
       const criado = await criar.mutateAsync({ ...form })
       toast.show({ title: t('usuarios.criado') })
-      mostrarLink(criado.full_name, criado.email, criado.link)
+      mostrarLink(criado.full_name, criado.email ?? '', criado.link)
     }
     painel.value = false
   } catch (e) {
@@ -122,7 +126,7 @@ async function enviarAcesso() {
   erro.value = null
   try {
     const dados = await enviarLink.mutateAsync(editando.value.id)
-    mostrarLink(editando.value.full_name, editando.value.email, dados)
+    mostrarLink(editando.value.full_name, editando.value.email ?? '', dados)
   } catch (e) {
     erro.value = (e as Error).message
   }
@@ -168,6 +172,12 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
           {{ row.full_name }}
         </button>
       </template>
+      <template #cell-email="{ row }">
+        <span v-if="row.email">{{ row.email }}</span>
+        <span v-else class="text-muted">
+          {{ $t('usuarios.usuarioLogin', { usuario: row.username }) }}
+        </span>
+      </template>
       <template #cell-role="{ row }">{{ $t(`usuarios.papeis.${row.role}`) }}</template>
       <template #cell-teams="{ row }">
         <span v-if="row.teams.length">{{ row.teams.map((g) => g.name).join(', ') }}</span>
@@ -186,17 +196,21 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
     <SidePanel
       v-model:open="painel"
       :title="editando ? $t('usuarios.editar') : $t('usuarios.novo')"
-      :description="editando ? editando.email : undefined"
+      :description="
+        editando
+          ? (editando.email ?? $t('usuarios.usuarioLogin', { usuario: editando.username }))
+          : undefined
+      "
     >
       <form id="form-usuario" class="flex flex-col gap-4" novalidate @submit.prevent="salvar">
         <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
         <TextField v-model="form.full_name" :label="$t('usuarios.nome')" required />
         <TextField
-          v-if="!editando"
           v-model="form.email"
           :label="$t('usuarios.email')"
+          :hint="editando && !editando.email ? $t('usuarios.semEmail') : undefined"
           type="email"
-          required
+          :required="!editando"
         />
         <SelectField v-model="form.role" :label="$t('usuarios.papel')" :options="papeis" />
         <p class="text-muted">{{ $t('usuarios.gruposAviso') }}</p>

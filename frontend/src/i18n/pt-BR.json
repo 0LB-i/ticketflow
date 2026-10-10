@@ -116,7 +116,8 @@
     "entrar": "Entrar",
     "entrando": "Entrando…",
     "esqueci": "Esqueci minha senha",
-    "expirou": "Sua sessão expirou. Entre novamente."
+    "expirou": "Sua sessão expirou. Entre novamente.",
+    "usuario": "E-mail ou usuário"
   },
   "esqueci": {
     "titulo": "Esqueci minha senha",
@@ -131,7 +132,7 @@
     "para": "Para {nome} ({email})",
     "senha": "Senha nova",
     "confirmar": "Repita a senha",
-    "dica": "Use pelo menos 12 caracteres. Uma frase com várias palavras é fácil de lembrar e difícil de adivinhar.",
+    "dica": "Use pelo menos 8 caracteres. Uma frase com algumas palavras é fácil de lembrar e difícil de adivinhar.",
     "naoConfere": "As duas senhas não são iguais.",
     "salvar": "Salvar senha",
     "pronto": "Senha criada. Entre com seu e-mail e a senha nova.",
@@ -168,7 +169,9 @@
       "ativo": "Ativo",
       "convite_pendente": "Convite pendente",
       "inativo": "Inativo"
-    }
+    },
+    "usuarioLogin": "usuário: {usuario}",
+    "semEmail": "Sem e-mail cadastrado. Cadastre um para receber links por e-mail."
   },
   "grupos": {
     "titulo": "Grupos",
@@ -206,5 +209,12 @@
     "editar": "Editar setor",
     "criado": "Setor criado",
     "vazio": "Nenhum setor cadastrado ainda."
+  },
+  "trocarSenha": {
+    "titulo": "Troque a senha provisória",
+    "texto": "Você entrou com a senha padrão. Antes de continuar, escolha uma senha só sua.",
+    "salvar": "Salvar e continuar",
+    "pronto": "Senha trocada",
+    "sair": "Sair"
   }
 }

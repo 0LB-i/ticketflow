@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const carregado = ref(false)
 
   const logado = computed(() => me.value !== null)
+  const precisaTrocarSenha = computed(() => me.value?.must_change_password ?? false)
 
   async function carregar(): Promise<void> {
     const { data } = await api.GET('/api/v1/me')
@@ -16,9 +17,10 @@ export const useAuthStore = defineStore('auth', () => {
     carregado.value = true
   }
 
-  async function entrar(email: string, password: string): Promise<string | null> {
+  /** `login`: e-mail ou nome de usuário (o administrador padrão entra com "admin"). */
+  async function entrar(login: string, password: string): Promise<string | null> {
     const { error, response } = await api.POST('/api/v1/auth/login', {
-      body: { email, password },
+      body: { login, password },
     })
     if (error !== undefined) {
       return response.status === 429
@@ -42,5 +44,5 @@ export const useAuthStore = defineStore('auth', () => {
     return me.value?.permissions.includes(permissao) ?? false
   }
 
-  return { me, carregado, logado, carregar, entrar, sair, esquecer, pode }
+  return { me, carregado, logado, precisaTrocarSenha, carregar, entrar, sair, esquecer, pode }
 })

@@ -44,7 +44,7 @@ async function sair() {
       >
         <DropdownMenuLabel class="px-2 py-1">
           <span class="block font-medium">{{ auth.me.full_name }}</span>
-          <span class="block text-xs text-muted">{{ auth.me.email }}</span>
+          <span class="block text-xs text-muted">{{ auth.me.email ?? auth.me.username }}</span>
         </DropdownMenuLabel>
         <DropdownMenuItem
           class="flex h-8 cursor-default items-center gap-2 rounded px-2 outline-none select-none data-highlighted:bg-surface-raised"

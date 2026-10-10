@@ -88,7 +88,7 @@ async function salvar() {
         type="password"
         required
       />
-      <Button type="submit" :disabled="enviando || senha.length < 12 || senha !== confirmar">
+      <Button type="submit" :disabled="enviando || senha.length < 8 || senha !== confirmar">
         {{ $t('definirSenha.salvar') }}
       </Button>
     </form>

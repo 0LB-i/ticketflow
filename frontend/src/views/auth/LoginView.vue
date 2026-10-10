@@ -12,14 +12,14 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
-const email = ref('')
+const login = ref('')
 const senha = ref('')
 const erro = ref<string | null>(null)
 const enviando = ref(false)
 
 async function entrar() {
   enviando.value = true
-  erro.value = await auth.entrar(email.value, senha.value)
+  erro.value = await auth.entrar(login.value, senha.value)
   enviando.value = false
   if (erro.value) return
   const volta = typeof route.query.volta === 'string' && route.query.volta.startsWith('/')
@@ -38,9 +38,15 @@ async function entrar() {
       {{ $t('login.expirou') }}
     </p>
     <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
-    <TextField v-model="email" :label="$t('login.email')" type="email" required />
-    <TextField v-model="senha" :label="$t('login.senha')" type="password" required />
-    <Button type="submit" :disabled="enviando || !email || !senha">
+    <TextField v-model="login" :label="$t('login.usuario')" autocomplete="username" required />
+    <TextField
+      v-model="senha"
+      :label="$t('login.senha')"
+      type="password"
+      autocomplete="current-password"
+      required
+    />
+    <Button type="submit" :disabled="enviando || !login || !senha">
       {{ enviando ? $t('login.entrando') : $t('login.entrar') }}
     </Button>
     <RouterLink to="/esqueci-senha" class="text-center text-primary underline">

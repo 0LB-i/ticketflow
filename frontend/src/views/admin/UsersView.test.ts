@@ -13,6 +13,7 @@ afterEach(() => {
 const USUARIO = {
   id: '00000000-0000-0000-0000-000000000002',
   email: 'bruno@exemplo.com',
+  username: null,
   full_name: 'Bruno Lima',
   role: 'agent',
   status: 'convite_pendente',
