@@ -18,6 +18,23 @@ class Settings(BaseSettings):
     # SPA compilada servida na mesma origem da API (ADR 0010). Em dev, o Vite faz o proxy.
     frontend_dist: Path = REPO_ROOT / "frontend" / "dist"
 
+    # Endereço público, usado nos links dos e-mails (convite, redefinição de senha).
+    app_base_url: str = "http://localhost:5173"
+
+    # Sessões (docs/09 §9.7). Em produção o cookie é sempre Secure.
+    cookie_secure: bool = True
+    session_idle_hours: int = 8
+    session_max_days: int = 7
+
+    # E-mail (questão 1). Sem SMTP_HOST, os e-mails vão para o log e a tela de usuários
+    # mostra os links de convite e redefinição para o administrador repassar.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    smtp_from: str = "TicketFlow <ticketflow@localhost>"
+
 
 @lru_cache
 def get_settings() -> Settings:

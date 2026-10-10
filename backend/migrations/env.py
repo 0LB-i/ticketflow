@@ -3,13 +3,15 @@
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+from chamados.db import models  # noqa: F401  (registra os modelos no metadata)
+from chamados.db.base import Base
+
 config = context.config
 url = config.get_main_option("sqlalchemy.url")
 if not url:
     raise RuntimeError("sqlalchemy.url não configurada (use o comando `chamados db`)")
 
-# Os modelos entram a partir da Sprint 2; até lá não há metadata para autogenerate.
-target_metadata = None
+target_metadata = Base.metadata
 
 if context.is_offline_mode():
     context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
