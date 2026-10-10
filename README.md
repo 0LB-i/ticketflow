@@ -2,7 +2,7 @@
 
 Sistema interno de chamados para as equipes da empresa, em que os próprios membros registram, distribuem e executam as tarefas. Escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
 
-> **Status:** em planejamento. Este repositório contém, por enquanto, apenas a documentação de planejamento. O código entra a partir da Fase 0 do [roadmap](docs/07-roadmap.md).
+> **Status:** Fase 0 (fundação) do [roadmap](docs/07-roadmap.md). O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
 
 ## Documentação
 
@@ -44,11 +44,41 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 
 Detalhes e justificativas em [docs/03-arquitetura.md](docs/03-arquitetura.md) e nos [ADRs](docs/adr/).
 
-## Ambiente de desenvolvimento (banco)
+## Como rodar (desenvolvimento)
+
+Requisitos: [uv](https://docs.astral.sh/uv/), Node.js 22 com `corepack enable` (pnpm) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
+
+O PostgreSQL pode ser nativo (como nesta máquina de desenvolvimento, com o 16 também na porta 5433 para a verificação completa) ou do Docker:
 
 ```bash
-docker compose up -d db     # PostgreSQL 17 em localhost:5432
+docker compose up -d db                 # alternativa ao PostgreSQL nativo
 ```
+
+```bash
+# backend: API em http://127.0.0.1:8000 (documentação em /api/docs)
+cd backend
+cp .env.example .env
+uv sync
+uv run chamados db upgrade
+uv run uvicorn chamados.main:create_app --factory --reload
+
+# frontend, em outro terminal: http://localhost:5173 (o Vite repassa /api para o backend)
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Depois de mudar a API no backend: `pnpm gen:api` (no `frontend/`) regenera o cliente TypeScript.
+
+### Verificação
+
+```bash
+scripts/install-hooks.sh                # uma vez: verificação rápida antes de cada commit
+scripts/check.sh                        # antes de concluir uma tarefa ou enviar ao servidor
+scripts/check.sh --completo             # antes de uma versão: também PostgreSQL 16 e auditoria
+```
+
+Detalhes em [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci). Produção: [Manual do servidor](docs/18-manual-do-servidor.md).
 
 ## Convenções
 

@@ -1,0 +1,82 @@
+{
+  "app": {
+    "nome": "TicketFlow",
+    "abrirMenu": "Abrir menu",
+    "fecharMenu": "Fechar menu",
+    "pularParaConteudo": "Pular para o conteúdo"
+  },
+  "menu": {
+    "titulo": "Menu principal",
+    "inicio": "Início",
+    "componentes": "Componentes"
+  },
+  "tema": {
+    "titulo": "Tema",
+    "claro": "Claro",
+    "escuro": "Escuro",
+    "automatico": "Automático"
+  },
+  "inicio": {
+    "titulo": "Início",
+    "boasVindas": "Bem-vindo ao TicketFlow",
+    "emConstrucao": "O sistema está em construção. Os chamados chegam nas próximas etapas.",
+    "estadoDoSistema": "Estado do sistema",
+    "verificando": "Verificando…",
+    "funcionando": "Funcionando",
+    "indisponivel": "Indisponível",
+    "erroAoConsultar": "Não foi possível consultar o servidor. Tente de novo em instantes.",
+    "versao": "Versão",
+    "banco": "Banco de dados",
+    "tentarDeNovo": "Tentar de novo"
+  },
+  "naoEncontrado": {
+    "titulo": "Página não encontrada",
+    "texto": "O endereço digitado não existe ou mudou.",
+    "voltar": "Voltar ao início"
+  },
+  "comum": {
+    "fechar": "Fechar",
+    "cancelar": "Cancelar",
+    "confirmar": "Confirmar",
+    "selecione": "Selecione…",
+    "obrigatorio": "obrigatório",
+    "nenhumRegistro": "Nenhum registro encontrado."
+  },
+  "status": {
+    "open": "Pendente",
+    "waiting": "Aguardando",
+    "approval": "Aguardando aprovação",
+    "closed": "Concluído",
+    "canceled": "Cancelado"
+  },
+  "prioridade": {
+    "1": "Baixa",
+    "2": "Média",
+    "3": "Alta",
+    "4": "Crítica"
+  },
+  "componentes": {
+    "titulo": "Componentes do design system",
+    "descricao": "Página de referência, visível só em desenvolvimento.",
+    "botoes": "Botões",
+    "campos": "Campos",
+    "badges": "Badges",
+    "tabela": "Tabela",
+    "modal": "Modal",
+    "toast": "Aviso (toast)",
+    "exemploTitulo": "Título do chamado",
+    "exemploTituloDica": "Descreva em poucas palavras.",
+    "exemploErro": "Informe um título com pelo menos 3 letras.",
+    "exemploGrupo": "Grupo",
+    "abrirModal": "Abrir modal",
+    "modalTitulo": "Cancelar chamado?",
+    "modalTexto": "O chamado sai das filas. Esta ação fica registrada no histórico.",
+    "mostrarAviso": "Mostrar aviso",
+    "avisoTitulo": "Chamado registrado",
+    "avisoTexto": "#1234 está na fila do grupo.",
+    "colunaNumero": "Número",
+    "colunaTitulo": "Título",
+    "colunaStatus": "Status",
+    "colunaPrioridade": "Prioridade"
+  }
+}

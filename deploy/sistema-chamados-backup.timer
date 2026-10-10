@@ -1,0 +1,10 @@
+[Unit]
+Description=TicketFlow (backup diário às 02:00)
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

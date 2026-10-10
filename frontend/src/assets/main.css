@@ -1,0 +1,125 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* Modo escuro pela classe .dark no <html> (tema escolhido pelo usuário, docs/17 §17.4). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens da identidade visual (docs/17 §17.2). Os componentes usam só estes nomes
+ * (bg-surface, text-muted, bg-primary…), nunca cores diretas como bg-orange-700.
+ * Os valores são a escala orange/neutral do Tailwind até chegar o laranja oficial (questão 11).
+ */
+:root {
+  --tf-brand: #f97316;
+  --tf-primary: #c2410c;
+  --tf-primary-hover: #9a3412;
+  --tf-on-primary: #ffffff;
+  --tf-primary-subtle: #fff7ed;
+  --tf-focus: #ea580c;
+  --tf-bg: #fafafa;
+  --tf-surface: #ffffff;
+  --tf-surface-raised: #f5f5f5;
+  --tf-fg: #171717;
+  --tf-muted: #525252;
+  --tf-border: #e5e5e5;
+  --tf-border-input: #737373;
+  --tf-danger: #b91c1c;
+  --tf-on-danger: #ffffff;
+
+  /* Status e prioridade: texto / fundo (docs/17, tabela de badges) */
+  --tf-blue-fg: #1d4ed8;
+  --tf-blue-bg: #eff6ff;
+  --tf-violet-fg: #6d28d9;
+  --tf-violet-bg: #f5f3ff;
+  --tf-teal-fg: #0f766e;
+  --tf-teal-bg: #f0fdfa;
+  --tf-green-fg: #15803d;
+  --tf-green-bg: #f0fdf4;
+  --tf-gray-fg: #404040;
+  --tf-gray-bg: #f5f5f5;
+  --tf-red-fg: #b91c1c;
+  --tf-red-bg: #fef2f2;
+  --tf-critical-fg: #ffffff;
+  --tf-critical-bg: #b91c1c;
+}
+
+.dark {
+  --tf-primary: #fb923c;
+  --tf-primary-hover: #fdba74;
+  --tf-on-primary: #0a0a0a;
+  --tf-primary-subtle: #262626;
+  --tf-focus: #fb923c;
+  --tf-bg: #0a0a0a;
+  --tf-surface: #171717;
+  --tf-surface-raised: #262626;
+  --tf-fg: #f5f5f5;
+  --tf-muted: #a3a3a3;
+  --tf-border: #262626;
+  --tf-border-input: #737373;
+  --tf-danger: #dc2626;
+
+  --tf-blue-fg: #93c5fd;
+  --tf-violet-fg: #c4b5fd;
+  --tf-teal-fg: #5eead4;
+  --tf-green-fg: #86efac;
+  --tf-gray-fg: #d4d4d4;
+  --tf-red-fg: #fca5a5;
+  --tf-blue-bg: #262626;
+  --tf-violet-bg: #262626;
+  --tf-teal-bg: #262626;
+  --tf-green-bg: #262626;
+  --tf-gray-bg: #262626;
+  --tf-red-bg: #262626;
+  --tf-critical-bg: #dc2626;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+
+  --color-brand: var(--tf-brand);
+  --color-primary: var(--tf-primary);
+  --color-primary-hover: var(--tf-primary-hover);
+  --color-on-primary: var(--tf-on-primary);
+  --color-primary-subtle: var(--tf-primary-subtle);
+  --color-focus: var(--tf-focus);
+  --color-bg: var(--tf-bg);
+  --color-surface: var(--tf-surface);
+  --color-surface-raised: var(--tf-surface-raised);
+  --color-fg: var(--tf-fg);
+  --color-muted: var(--tf-muted);
+  --color-border: var(--tf-border);
+  --color-border-input: var(--tf-border-input);
+  --color-danger: var(--tf-danger);
+  --color-on-danger: var(--tf-on-danger);
+
+  --color-blue-fg: var(--tf-blue-fg);
+  --color-blue-bg: var(--tf-blue-bg);
+  --color-violet-fg: var(--tf-violet-fg);
+  --color-violet-bg: var(--tf-violet-bg);
+  --color-teal-fg: var(--tf-teal-fg);
+  --color-teal-bg: var(--tf-teal-bg);
+  --color-green-fg: var(--tf-green-fg);
+  --color-green-bg: var(--tf-green-bg);
+  --color-gray-fg: var(--tf-gray-fg);
+  --color-gray-bg: var(--tf-gray-bg);
+  --color-red-fg: var(--tf-red-fg);
+  --color-red-bg: var(--tf-red-bg);
+  --color-critical-fg: var(--tf-critical-fg);
+  --color-critical-bg: var(--tf-critical-bg);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-bg font-sans text-sm text-fg antialiased;
+  }
+  /* Contorno de foco do teclado: 2 px + 2 px de afastamento (docs/17 §17.2) */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+}
