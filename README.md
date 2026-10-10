@@ -2,15 +2,16 @@
 
 Sistema interno de chamados para as equipes da empresa, em que os próprios membros registram, distribuem e executam as tarefas. Escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
 
-> **Status:** Fase 0 (fundação) do [roadmap](docs/07-roadmap.md). O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
+> **Status:** Fase 1 (MVP) do [roadmap](docs/07-roadmap.md): fundação, identidade e organização, núcleo dos chamados e configurações (idioma, cores, logotipo) prontos; a próxima é a Sprint 4 (anexos, notificações, filas e busca). O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
 
 ## Documentação
 
 | # | Documento | Conteúdo |
 |---|-----------|----------|
+| — | [**ARCHITECTURE.md**](ARCHITECTURE.md) | **Guia da estrutura do código**: pastas, módulos, camadas, permissões, contrato da API, testes, regras e receitas |
 | 1 | [Visão geral](docs/01-visao-geral.md) | Problema, objetivos, público, escopo |
 | 2 | [Requisitos](docs/02-requisitos.md) | Requisitos funcionais e não funcionais |
-| 3 | [Arquitetura](docs/03-arquitetura.md) | Stack, camadas, componentes, implantação |
+| 3 | [Arquitetura](docs/03-arquitetura.md) | Princípios, stack, arquitetura-alvo, implantação |
 | 4 | [Modelo de dados](docs/04-modelo-de-dados.md) | Entidades e esboço do schema PostgreSQL |
 | 5 | [API](docs/05-api.md) | Convenções REST, autenticação, endpoints; webhooks (futuro) |
 | 6 | [Integração com IA](docs/06-integracao-ia.md) | Plano para depois da v1.0: casos de uso, arquitetura, segurança e LGPD |
@@ -30,19 +31,20 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 | — | [Questões em aberto](docs/questoes-em-aberto.md) | Decisões ainda pendentes |
 | — | [ADRs](docs/adr/) | Registro de decisões de arquitetura |
 
-## Stack proposta
+## Stack
 
 - **Linguagem:** Python 3.12+
 - **API:** FastAPI + Pydantic v2
 - **Banco:** PostgreSQL 17 (compatível com 16); uma instalação por empresa
 - **Acesso a dados:** SQLAlchemy 2.x + psycopg 3, migrações com Alembic
 - **Tarefas assíncronas:** fila no próprio PostgreSQL (`SELECT ... FOR UPDATE SKIP LOCKED`)
-- **Interface web:** SPA em Vue 3 + TypeScript + Vite + Tailwind CSS + Reka UI, consumindo a API REST
+- **Interface web:** SPA em Vue 3 + TypeScript + Vite + Tailwind CSS + Reka UI, consumindo a API REST; editor Tiptap (Markdown)
+- **Idiomas:** português e inglês (padrão do sistema + escolha de cada usuário)
 - **Repositório:** Git local, com verificação por script; GitHub quando houver remoto
 - **Produção:** serviços systemd (uvicorn) + nginx + PostgreSQL 17 no mesmo servidor
 - **IA (depois da v1.0):** uma única API genérica (formato compatível com OpenAI), configurada por URL, chave e nome do modelo, sem código específico de provedor
 
-Detalhes e justificativas em [docs/03-arquitetura.md](docs/03-arquitetura.md) e nos [ADRs](docs/adr/).
+A estrutura do código está no [ARCHITECTURE.md](ARCHITECTURE.md); as justificativas, em [docs/03-arquitetura.md](docs/03-arquitetura.md) e nos [ADRs](docs/adr/).
 
 ## Como rodar (desenvolvimento)
 

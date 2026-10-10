@@ -142,7 +142,8 @@ Ficam registrados em `audit_log`: login com sucesso, login com falha, bloqueio p
 | `POST` | `/auth/invite/accept` | Define senha no primeiro acesso |
 | `GET` | `/auth/oidc/login` | Inicia o SSO (futuro) |
 | `GET` | `/auth/oidc/callback` | Retorno do provedor |
-| `GET` | `/me` | Dados do usuário logado, grupos e permissões |
+| `GET` / `PATCH` | `/me` | Dados do usuário logado, grupos, permissões e idioma; `PATCH` muda o idioma (`{"locale": "en" \| "pt-BR" \| null}`) |
+| `GET` | `/auth/tokens/{token}` | De quem é o link de convite ou redefinição, antes do formulário |
 | `POST` | `/me/password` | Troca de senha |
 | `GET` / `DELETE` | `/me/sessions[/{id}]` | Lista e encerra sessões |
 | `POST` / `DELETE` | `/me/mfa` | Ativa e desativa TOTP |

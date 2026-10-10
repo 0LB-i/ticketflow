@@ -123,4 +123,4 @@ Detalhes em [Organização e permissões](08-organizacao-e-permissoes.md) e [Log
 | RNF-09 | Implantação | Serviços systemd (API + worker) + nginx + PostgreSQL em um único servidor, sem Redis/RabbitMQ ([ADR 0010](adr/0010-producao-systemd.md)) |
 | RNF-10 | Qualidade | Cobertura de testes ≥ 80% no domínio; lint e checagem de tipos no CI |
 | RNF-11 | Acessibilidade | Interface web WCAG 2.1 AA |
-| RNF-12 | Idioma | Interface em pt-BR, com estrutura de i18n preparada |
+| RNF-12 | Idioma | Interface, mensagens da API e e-mails em português e inglês; idioma padrão definido pelo administrador e escolha de cada usuário |

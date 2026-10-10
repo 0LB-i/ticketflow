@@ -55,9 +55,9 @@ Uma tarefa só fica `feito` quando:
 - [ ] **Testes de permissão** para qualquer endpoint novo ou alterado
 - [ ] Migração Alembic reversível (`downgrade`) e compatível com a versão anterior da aplicação
 - [ ] OpenAPI atualizada e cliente TypeScript regenerado
-- [ ] Textos da interface no i18n (pt-BR), sem texto fixo no código
+- [ ] Textos da interface no i18n, em português **e** inglês, sem texto fixo no código; mensagens de erro novas da API no catálogo de `core/i18n.py`
 - [ ] Acessibilidade verificada: navegação por teclado, foco visível, rótulos
-- [ ] Documentação em `docs/` atualizada quando a regra de negócio mudou
+- [ ] Documentação em `docs/` atualizada quando a regra de negócio mudou; [ARCHITECTURE.md](../ARCHITECTURE.md) atualizado quando a estrutura mudou (módulo, camada ou regra nova)
 - [ ] **Revisão:** sem um segundo desenvolvedor, a mudança passa pelo `/code-review` do Claude Code; mudanças em login, permissões ou anexos passam também pelo `/security-review`
 - [ ] `scripts/check.sh` passando
 
@@ -72,7 +72,7 @@ Uma tarefa só fica `feito` quando:
 
 | Ambiente | Para quê |
 |----------|----------|
-| **Local** | Desenvolvimento: Docker Compose (banco, Mailpit) + `uvicorn --reload` + `pnpm dev`. Também é onde roda a verificação (12.3) e onde se faz a demonstração com `chamados dev seed` |
+| **Local** | Desenvolvimento: PostgreSQL 17 e 16 nativos (ou Docker Compose com banco e Mailpit) + `uvicorn --reload` + `pnpm dev`, ou o serviço systemd local (`scripts/instalar-servico-dev.sh`). Também é onde roda a verificação (12.3) e, quando existir, a demonstração com `chamados dev seed` |
 | **Produção** | Servidor da empresa, com serviços systemd, atualizado pelo script de deploy ([18](18-manual-do-servidor.md)) |
 
 Não há homologação separada: com um único desenvolvedor, mais um servidor seria mais trabalho de manutenção do que ganho. O treinamento da equipe é feito na própria produção, antes da virada, num grupo **Treinamento** que é desativado depois ([16.5](16-implantacao.md#165-treinamento-1-hora)). Se o sistema for instalado em outras empresas, a homologação volta a ser avaliada.
@@ -82,7 +82,7 @@ Não há homologação separada: com um único desenvolvedor, mais um servidor s
 | Nível | Ferramenta | Cobre |
 |-------|------------|-------|
 | Unitário (backend) | pytest | Regras puras: matriz de prioridade, transições |
-| Integração (backend) | pytest + PostgreSQL do Docker Compose | Repositórios, services e endpoints com PostgreSQL real |
+| Integração (backend) | pytest + PostgreSQL real (banco `chamados_test`, nativo ou do Docker Compose) | Services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
 | Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |
 | Ponta a ponta | Playwright | Fluxos completos: registrar → assumir → aguardar → concluir → reabrir; aprovação; transferência |
