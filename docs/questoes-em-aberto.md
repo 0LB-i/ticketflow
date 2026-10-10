@@ -17,9 +17,9 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 |---|---------|-----------------|-----------|
 | 5 | **Etapas (status) do chamado**: a equipe ainda vai discutir | Pendente, Aguardando cliente, Entregue, Concluído, Cancelado; o admin pode criar outros | [10.5](10-chamados.md#105-status-e-fluxo) |
 | 6 | **Quem pode concluir** um chamado entregue | Agente do grupo ou solicitante, sempre manualmente | 10.5 |
-| 7 | Arquivos **compactados** (zip, 7z) permitidos? | Só com antivírus ativo | [11.2](11-anexos-e-arquivos.md#112-tipos-de-arquivo) |
+| 7 | Arquivos **compactados** (zip, 7z) permitidos? | Bloqueados na v1.0 (sem antivírus); o admin pode liberar | [11.2](11-anexos-e-arquivos.md#112-tipos-de-arquivo) |
 | 8 | **Duração da sessão** | 8 h sem uso; 7 dias no máximo | [9.7](09-login-e-autenticacao.md#97-sessões) |
-| 9 | **Política de retenção** de chamados concluídos, anexos e `ai_runs` | Definir com jurídico / DPO; configurável por instalação | — |
+| 9 | **Política de retenção** de chamados concluídos e anexos | Definir com jurídico / DPO; configurável por instalação | — |
 | 10 | **Licença e distribuição** do produto | Definir antes de distribuir para outras empresas | — |
 
 Os itens 5 a 8 já têm padrão, então **não bloqueiam** o desenvolvimento.
@@ -43,4 +43,5 @@ Os itens 5 a 8 já têm padrão, então **não bloqueiam** o desenvolvimento.
 | 2026-10-09 | Agentes veem e trabalham só os chamados dos **próprios grupos** | [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |
 | 2026-10-09 | **Sem SLA**: sem metas de prazo, alertas nem calendário de expediente | [10.9](10-chamados.md#109-prazos-sem-sla) |
 | 2026-10-09 | **Nada fecha sozinho**: concluir é sempre manual; não há resolução por falta de retorno | [10.5](10-chamados.md#105-status-e-fluxo) |
+| 2026-10-09 | **Revisão de escopo**: IA, tokens de API, webhooks, MCP, papéis personalizados, visões salvas, atalhos, antivírus e campos extras ficam para depois da v1.0; v1.0 em 16 semanas | [07](07-roadmap.md#backlog-futuro-fora-da-v10) |
 | 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (empresa) | [01](01-visao-geral.md#público) |

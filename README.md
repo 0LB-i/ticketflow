@@ -1,6 +1,6 @@
 # Sistema de Chamados
 
-Sistema interno de chamados (help desk / service desk) para empresas, escrito em **Python** com **PostgreSQL 16/17**, projetado desde o início para se integrar a **IAs via API**.
+Sistema interno de chamados (help desk / service desk) para empresas, escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
 
 > **Status:** em planejamento. Este repositório contém, por enquanto, apenas a documentação de planejamento. O código entra a partir da Fase 0 do [roadmap](docs/07-roadmap.md).
 
@@ -12,8 +12,8 @@ Sistema interno de chamados (help desk / service desk) para empresas, escrito em
 | 2 | [Requisitos](docs/02-requisitos.md) | Requisitos funcionais e não funcionais |
 | 3 | [Arquitetura](docs/03-arquitetura.md) | Stack, camadas, componentes, implantação |
 | 4 | [Modelo de dados](docs/04-modelo-de-dados.md) | Entidades e esboço do schema PostgreSQL |
-| 5 | [API](docs/05-api.md) | Convenções REST, autenticação, endpoints, webhooks |
-| 6 | [Integração com IA](docs/06-integracao-ia.md) | Casos de uso, arquitetura, segurança e LGPD |
+| 5 | [API](docs/05-api.md) | Convenções REST, autenticação, endpoints; webhooks (futuro) |
+| 6 | [Integração com IA](docs/06-integracao-ia.md) | Plano para depois da v1.0: casos de uso, arquitetura, segurança e LGPD |
 | 7 | [Roadmap](docs/07-roadmap.md) | Fases, sprints, entregas e critérios de pronto |
 | 8 | [Organização e permissões](docs/08-organizacao-e-permissoes.md) | Setores, grupos, papéis, permissões e visibilidade |
 | 9 | [Login e autenticação](docs/09-login-e-autenticacao.md) | Login por e-mail e senha, MFA, sessões |
@@ -31,20 +31,20 @@ Sistema interno de chamados (help desk / service desk) para empresas, escrito em
 
 - **Linguagem:** Python 3.12+
 - **API:** FastAPI + Pydantic v2
-- **Banco:** PostgreSQL 17 (compatível com 16) + extensão `pgvector`; uma instalação por empresa
+- **Banco:** PostgreSQL 17 (compatível com 16); uma instalação por empresa
 - **Acesso a dados:** SQLAlchemy 2.x + psycopg 3, migrações com Alembic
 - **Tarefas assíncronas:** fila no próprio PostgreSQL (`SELECT ... FOR UPDATE SKIP LOCKED`)
 - **Interface web:** SPA em Vue 3 + TypeScript + Vite + Tailwind CSS + Reka UI, consumindo a API REST
 - **Plataforma:** GitHub (código, Actions, Projects)
 - **Produção:** serviços systemd (uvicorn) + nginx + PostgreSQL 17 no mesmo servidor
-- **IA:** uma única API genérica (formato compatível com OpenAI), configurada por URL, chave e nome do modelo, sem código específico de provedor
+- **IA (depois da v1.0):** uma única API genérica (formato compatível com OpenAI), configurada por URL, chave e nome do modelo, sem código específico de provedor
 
 Detalhes e justificativas em [docs/03-arquitetura.md](docs/03-arquitetura.md) e nos [ADRs](docs/adr/).
 
 ## Ambiente de desenvolvimento (banco)
 
 ```bash
-docker compose up -d db     # PostgreSQL 17 com pgvector em localhost:5432
+docker compose up -d db     # PostgreSQL 17 em localhost:5432
 ```
 
 ## Convenções

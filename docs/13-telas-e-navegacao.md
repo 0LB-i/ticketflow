@@ -70,11 +70,10 @@ flowchart LR
 | `/admin/usuarios` | Usuários: criar, convidar, importar CSV, desativar, papel, setor | Admin | 1 |
 | `/admin/setores` | Árvore de setores e gestores | Admin | 1 |
 | `/admin/grupos` | Grupos de atendimento, membros e supervisores | Admin | 1 |
-| `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade, campos extras | Admin | 1 (campos extras e aprovação: 2) |
+| `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade | Admin | 1 (aprovação: 2) |
 | `/admin/status` | Status (criar com `kind`, renomear, ordenar) e códigos de resolução | Admin | 1 |
 | `/admin/configuracoes` | Geral (nome, logotipo), e-mail de envio (SMTP), anexos (tipos, limites), matriz de prioridade | Admin | 1 |
-| `/admin/integracoes` | Tokens de API e webhooks | Admin | 2 |
-| `/admin/ia` | Endpoints e funcionalidades de IA, painel de uso | Admin | 3 |
+| `/admin/email-entrada` | Caixas de e-mail monitoradas por grupo (IMAP) | Admin | 2 |
 | `/admin/auditoria` | Log de auditoria com filtros | Admin, auditor | 1 |
 
 Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **sessão expirada** (volta ao login e depois à página onde estava).
@@ -123,7 +122,6 @@ Passo 2 de 2 · TI › Acessos › Redefinir senha
   Descrição*       [ editor de texto (colar prints)       ]
   Isso impede seu trabalho?   ( ) Posso esperar  ( ) Atrapalha  ( ) Estou parado
   Quem é afetado?             ( ) Só eu  ( ) Meu setor  ( ) A empresa toda
-  [campos extras da categoria]
   📎 Arraste arquivos aqui ou clique para anexar
                                            [Voltar] [Abrir chamado]
 ```

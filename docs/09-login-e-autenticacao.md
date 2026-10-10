@@ -7,7 +7,7 @@
 | **E-mail + senha** (login local) | Todos | 1 |
 | **SSO via OIDC** (Microsoft Entra ID, Google Workspace, Keycloak, Okta…) | Todos os colaboradores | Futuro |
 | **MFA por TOTP** (aplicativo autenticador) | Obrigatório para administradores no login local; opcional para os demais | 2 |
-| **Token de API** | Integrações e agentes de IA (não é login de pessoa; ver [API](05-api.md#autenticação)) | 2 |
+| **Token de API** | Integrações e agentes de IA (não é login de pessoa; ver [API](05-api.md#tokens-de-api-futuro)) | Futuro |
 | LDAP / Active Directory direto | Só se a empresa não tiver OIDC | Futuro |
 | Passkeys (WebAuthn) | Alternativa a senha + TOTP | Futuro |
 
@@ -122,7 +122,7 @@ O administrador associa grupos do Entra ID / Google / Keycloak a elementos do si
 
 ## 9.8 Eventos de auditoria
 
-Ficam registrados em `audit_log`: login com sucesso, login com falha, bloqueio por tentativas, logout, encerramento de sessão, ativação e desativação de MFA, uso de código de recuperação, convite enviado, redefinição de senha, usuário criado via SSO, mudanças de configuração do SSO, criação e revogação de tokens de API.
+Ficam registrados em `audit_log`: login com sucesso, login com falha, bloqueio por tentativas, logout, encerramento de sessão, ativação e desativação de MFA, uso de código de recuperação, convite enviado, redefinição de senha, usuário criado via SSO, mudanças de configuração do SSO e, no futuro, criação e revogação de tokens de API.
 
 ## 9.9 Endpoints
 

@@ -30,7 +30,7 @@ A validação usa a **extensão e o conteúdo real** do arquivo, identificado pe
 | Documentos | pdf, docx, xlsx, pptx, odt, ods, odp, txt, csv, rtf, md | Permitido |
 | E-mails | eml, msg | Permitido |
 | Logs e dados | log, json, xml, yaml | Permitido |
-| Compactados | zip, 7z | **Configurável** (padrão: permitido só com antivírus ativo) |
+| Compactados | zip, 7z | **Bloqueado** (configurável) |
 | Office com macro | docm, xlsm, pptm | **Bloqueado** (configurável) |
 | Executáveis e scripts | exe, msi, bat, cmd, com, scr, ps1, vbs, js, jar, sh, dll, apk, app | **Sempre bloqueado** |
 | Conteúdo web ativo | html, htm, svg, xhtml | **Sempre bloqueado** (risco de XSS) |
@@ -59,28 +59,26 @@ sequenceDiagram
     participant S as SPA
     participant A as API
     participant ST as Armazenamento
-    participant W as Worker
     U->>S: arrasta o arquivo
     S->>A: POST /api/v1/uploads (multipart, streaming)
     A->>A: valida tamanho, extensão e conteúdo real
     A->>ST: grava em área temporária
-    A-->>S: 201 {"id": "...", "scan_status": "pending"}
-    A->>W: enfileira verificação antivírus
+    A-->>S: 201 {"id": "..."}
     U->>S: envia o comentário
     S->>A: POST /tickets/{id}/comments {"body": "...", "attachment_ids": ["..."]}
     A->>A: confere se o upload é do mesmo usuário e ainda não foi vinculado
     A->>A: vincula ao comentário e define a visibilidade
-    W->>ST: lê o arquivo e verifica no ClamAV
-    W->>A: scan_status = clean / infected
 ```
 
 - Um upload **só pode ser vinculado por quem o enviou** e **uma única vez**.
 - Uploads não vinculados são apagados após 24 h.
 - O nome original é saneado (sem caminhos nem caracteres de controle, até 255 caracteres) e guardado **só no banco**. No armazenamento, o arquivo tem um nome aleatório.
 
-## 11.5 Antivírus
+## 11.5 Antivírus (futuro)
 
-- **ClamAV** opcional, com o serviço `clamav-daemon` no mesmo servidor, acessado pelo worker.
+Ficou para depois da v1.0 (revisão de escopo de 2026-10-09). Até lá, a proteção vem do bloqueio de tipos perigosos (11.2), da checagem do conteúdo real e dos headers de download (11.7). O desenho previsto:
+
+- **ClamAV**, com o serviço `clamav-daemon` no mesmo servidor, acessado pelo worker.
 - Estados do arquivo: `pending` → `clean` | `infected` | `error`. Com o antivírus desligado, o estado é `not_scanned`.
 - Enquanto está `pending`, só quem enviou consegue baixar o arquivo. Os demais veem "Verificando…".
 - Um arquivo `infected` é movido para quarentena, fica indisponível para download e gera um alerta para o administrador e um evento no chamado ("Anexo bloqueado pelo antivírus").
@@ -103,11 +101,10 @@ Interface `Storage` (`put`, `get`, `delete`, `presigned_url`) com dois adaptador
 `GET /api/v1/attachments/{id}`:
 
 1. Verifica se o usuário **vê o chamado** e se **vê a visibilidade** do anexo (interna ou pública).
-2. Recusa se `scan_status` for `infected`, ou `pending` para quem não enviou.
-3. Devolve o arquivo em *streaming*.
-4. Headers: `Content-Disposition: attachment` (padrão) com o nome original; `X-Content-Type-Options: nosniff`; `Content-Security-Policy: sandbox`.
-5. **Visualização no navegador** (`inline`) só para imagens (png, jpg, gif, webp) e PDF.
-6. Downloads de anexos internos ou de chamados confidenciais são registrados na auditoria.
+2. Devolve o arquivo em *streaming*.
+3. Headers: `Content-Disposition: attachment` (padrão) com o nome original; `X-Content-Type-Options: nosniff`; `Content-Security-Policy: sandbox`.
+4. **Visualização no navegador** (`inline`) só para imagens (png, jpg, gif, webp) e PDF.
+5. Downloads de anexos internos ou de chamados confidenciais são registrados na auditoria.
 
 **Miniaturas** (Fase 2): o worker gera miniaturas das imagens com Pillow e as guarda como arquivos derivados, para a linha do tempo carregar rápido.
 
@@ -126,7 +123,7 @@ O solicitante **não** pode apagar um anexo depois de enviá-lo. Se enviou algo 
 
 - Os anexos seguem a **política de retenção** do chamado. A anonimização de um titular apaga fisicamente os arquivos dos chamados dele.
 - Os anexos **não são enviados à IA** por padrão.
-- Na Fase 4 (opcional): extração de texto de PDF e DOCX para a busca e para a IA, respeitando `ai_allowed` da categoria e o mascaramento de dados pessoais.
+- Quando a IA entrar (futuro, opcional): extração de texto de PDF e DOCX para a busca e para a IA, respeitando a permissão de IA da categoria e o mascaramento de dados pessoais.
 
 ## 11.10 Modelo de dados
 
@@ -138,6 +135,5 @@ A tabela `attachments` substitui a antiga `ticket_attachments`. Ver o [esboço d
 | `visibility` | `public` ou `internal`, definida ao vincular |
 | `filename`, `content_type`, `size_bytes`, `sha256` | Metadados |
 | `storage_backend`, `storage_key` | Onde o arquivo está guardado |
-| `scan_status`, `scanned_at` | Resultado do antivírus |
 | `uploaded_by`, `created_at`, `linked_at` | Rastreabilidade |
 | `hidden_at`, `hidden_by`, `hidden_reason` | Ocultação |

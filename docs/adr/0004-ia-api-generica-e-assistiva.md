@@ -3,6 +3,8 @@
 - **Status:** Aceita
 - **Data:** 2026-10-09
 
+> **Nota (2026-10-09):** na revisão de escopo, a integração com IA saiu da v1.0 e foi para o backlog. A decisão continua valendo para quando a IA entrar.
+
 ## Contexto
 
 O sistema deve se integrar a IAs via API. O mercado de modelos muda rápido, cada empresa tem contratos e políticas de dados diferentes, e chamados internos podem conter dados pessoais e sensíveis (RH, saúde, jurídico). Não queremos manter código específico para cada provedor ou modelo.

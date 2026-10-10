@@ -2,7 +2,7 @@
 # Uso: docker compose up -d
 services:
   db:
-    image: pgvector/pgvector:pg17   # PostgreSQL 17 + pgvector (para testar no 16: pgvector/pgvector:pg16)
+    image: postgres:17   # para testar no 16: postgres:16
     environment:
       POSTGRES_DB: chamados
       POSTGRES_USER: chamados
