@@ -23,11 +23,11 @@ const linhas = computed(() => chamados.data.value?.pages.flatMap((p) => p.items)
 const colunas = computed(() => [
   { key: 'number', label: t('chamados.numero') },
   { key: 'title', label: t('chamados.tituloColuna') },
-  { key: 'para', label: t('chamado.para') },
+  { key: 'para', label: t('chamado.para'), class: 'hidden lg:table-cell' },
   { key: 'priority', label: t('chamado.prioridade') },
   { key: 'status', label: t('chamados.status') },
-  { key: 'assignee', label: t('chamado.responsavel') },
-  { key: 'team', label: t('chamado.grupo') },
+  { key: 'assignee', label: t('chamado.responsavel'), class: 'hidden sm:table-cell' },
+  { key: 'team', label: t('chamado.grupo'), class: 'hidden md:table-cell' },
 ])
 </script>
 

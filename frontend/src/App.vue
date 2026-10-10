@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watchEffect } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
+import { computed, onBeforeUnmount, onMounted, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { SESSAO_EXPIRADA } from '@/api/client'
@@ -20,6 +21,15 @@ const branding = useBrandingStore()
 watchEffect(() => {
   if (auth.carregado) definirIdioma(auth.me?.locale ?? branding.idiomaPadrao)
 })
+// Ao sair (ou com a sessão expirada), os dados guardados eram de quem estava logado: quem
+// entrar depois neste navegador não pode vê-los, nem por um instante.
+const queryClient = useQueryClient()
+watch(
+  () => auth.me?.id,
+  (atual, anterior) => {
+    if (anterior && atual !== anterior) queryClient.clear()
+  },
+)
 const route = useRoute()
 const router = useRouter()
 const layout = computed(() => (route.meta.cartao ? PublicLayout : AppLayout))

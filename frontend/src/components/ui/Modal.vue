@@ -19,7 +19,7 @@ const open = defineModel<boolean>('open', { default: false })
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-40 bg-black/50" />
       <DialogContent
-        class="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 text-fg shadow-xl"
+        class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 text-fg shadow-xl"
       >
         <DialogTitle class="text-lg font-semibold">{{ title }}</DialogTitle>
         <DialogDescription v-if="description" class="mt-2 text-muted">

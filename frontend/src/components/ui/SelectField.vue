@@ -47,7 +47,7 @@ const id = useId()
         <SelectContent
           position="popper"
           :side-offset="4"
-          class="z-50 min-w-(--reka-select-trigger-width) rounded-md border border-border bg-surface p-1 text-fg shadow-lg"
+          class="z-50 max-h-(--reka-select-content-available-height) min-w-(--reka-select-trigger-width) rounded-md border border-border bg-surface p-1 text-fg shadow-lg"
         >
           <SelectViewport>
             <SelectItem
