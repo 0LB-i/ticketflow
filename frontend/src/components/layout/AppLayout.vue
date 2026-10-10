@@ -13,6 +13,7 @@ import { ref } from 'vue'
 import AppLogo from './AppLogo.vue'
 import SideNav from './SideNav.vue'
 import ThemeMenu from './ThemeMenu.vue'
+import UserMenu from './UserMenu.vue'
 
 /** Estrutura geral (docs/13 §13.1): menu lateral, cabeçalho e área de conteúdo. */
 const gavetaAberta = ref(false)
@@ -65,7 +66,10 @@ const gavetaAberta = ref(false)
           </DialogPortal>
         </DialogRoot>
         <span class="md:hidden"><AppLogo /></span>
-        <div class="ml-auto md:ml-0"><ThemeMenu /></div>
+        <div class="ml-auto flex items-center gap-1 md:ml-0">
+          <ThemeMenu />
+          <UserMenu />
+        </div>
       </header>
 
       <main id="conteudo" tabindex="-1" class="flex-1 p-4 md:p-6">

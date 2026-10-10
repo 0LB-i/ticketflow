@@ -8,7 +8,11 @@
   "menu": {
     "titulo": "Menu principal",
     "inicio": "Início",
-    "componentes": "Componentes"
+    "componentes": "Componentes",
+    "administracao": "Administração",
+    "usuarios": "Usuários",
+    "grupos": "Grupos",
+    "setores": "Setores atendidos"
   },
   "tema": {
     "titulo": "Tema",
@@ -40,7 +44,24 @@
     "confirmar": "Confirmar",
     "selecione": "Selecione…",
     "obrigatorio": "obrigatório",
-    "nenhumRegistro": "Nenhum registro encontrado."
+    "nenhumRegistro": "Nenhum registro encontrado.",
+    "salvar": "Salvar",
+    "novo": "Novo",
+    "buscar": "Buscar",
+    "mostrarInativos": "Mostrar inativos",
+    "copiar": "Copiar",
+    "copiado": "Copiado",
+    "erroInesperado": "Algo deu errado. Tente de novo.",
+    "carregando": "Carregando…",
+    "salvo": "Alterações salvas",
+    "ativo": "Ativo",
+    "inativo": "Inativo",
+    "nenhum": "Nenhum",
+    "remover": "Remover",
+    "adicionar": "Adicionar",
+    "desativar": "Desativar",
+    "reativar": "Reativar",
+    "nunca": "Nunca"
   },
   "status": {
     "open": "Pendente",
@@ -78,5 +99,112 @@
     "colunaTitulo": "Título",
     "colunaStatus": "Status",
     "colunaPrioridade": "Prioridade"
+  },
+  "usuario": {
+    "menu": "Menu do usuário",
+    "sair": "Sair"
+  },
+  "semAcesso": {
+    "titulo": "Sem acesso",
+    "texto": "Você não tem permissão para abrir esta página.",
+    "voltar": "Voltar ao início"
+  },
+  "login": {
+    "titulo": "Entrar",
+    "email": "E-mail",
+    "senha": "Senha",
+    "entrar": "Entrar",
+    "entrando": "Entrando…",
+    "esqueci": "Esqueci minha senha",
+    "expirou": "Sua sessão expirou. Entre novamente."
+  },
+  "esqueci": {
+    "titulo": "Esqueci minha senha",
+    "texto": "Informe seu e-mail. Se ele estiver cadastrado, você recebe um link para criar uma senha nova.",
+    "enviar": "Enviar link",
+    "enviado": "Se o e-mail estiver cadastrado, o link chega em instantes. Ele vale por 30 minutos.",
+    "voltar": "Voltar para o login"
+  },
+  "definirSenha": {
+    "tituloConvite": "Criar sua senha",
+    "tituloRedefinir": "Criar uma senha nova",
+    "para": "Para {nome} ({email})",
+    "senha": "Senha nova",
+    "confirmar": "Repita a senha",
+    "dica": "Use pelo menos 12 caracteres. Uma frase com várias palavras é fácil de lembrar e difícil de adivinhar.",
+    "naoConfere": "As duas senhas não são iguais.",
+    "salvar": "Salvar senha",
+    "pronto": "Senha criada. Entre com seu e-mail e a senha nova.",
+    "invalido": "Este link é inválido ou expirou.",
+    "pedirOutro": "Pedir um link novo"
+  },
+  "usuarios": {
+    "titulo": "Usuários",
+    "novo": "Novo usuário",
+    "nome": "Nome",
+    "email": "E-mail",
+    "papel": "Papel",
+    "grupos": "Grupos",
+    "situacao": "Situação",
+    "ultimoAcesso": "Último acesso",
+    "semGrupo": "Sem grupo",
+    "editar": "Editar usuário",
+    "criado": "Usuário criado",
+    "conviteEnviado": "Convite enviado por e-mail para {email}.",
+    "linkTitulo": "Envie este link para {nome}",
+    "linkTextoConvite": "O e-mail ainda não está configurado no sistema. Copie o link e envie para a pessoa por outro meio. Ele vale por 72 horas.",
+    "linkTextoRedefinir": "O e-mail ainda não está configurado no sistema. Copie o link e envie para a pessoa por outro meio. Ele vale por 30 minutos.",
+    "enviarConvite": "Reenviar convite",
+    "enviarRedefinicao": "Enviar link para nova senha",
+    "linkEnviado": "Link enviado por e-mail.",
+    "desativarAviso": "Quem é desativado não consegue mais entrar, e as sessões abertas são encerradas na hora.",
+    "gruposAviso": "Os grupos de cada pessoa são definidos na tela de Grupos.",
+    "papeis": {
+      "agent": "Agente",
+      "admin": "Administrador",
+      "auditor": "Auditor"
+    },
+    "status": {
+      "ativo": "Ativo",
+      "convite_pendente": "Convite pendente",
+      "inativo": "Inativo"
+    }
+  },
+  "grupos": {
+    "titulo": "Grupos",
+    "novo": "Novo grupo",
+    "nome": "Nome",
+    "descricao": "Descrição",
+    "membros": "Membros",
+    "supervisores": "Supervisores",
+    "situacao": "Situação",
+    "editar": "Editar grupo",
+    "criado": "Grupo criado",
+    "aviso": "Aviso de chamado novo",
+    "avisos": {
+      "queue_only": "Só na fila",
+      "email_all_members": "E-mail para todos os membros"
+    },
+    "adicionarMembro": "Adicionar membro",
+    "pessoa": "Pessoa",
+    "funcao": "Função",
+    "funcoes": {
+      "member": "Membro",
+      "supervisor": "Supervisor"
+    },
+    "semMembros": "Nenhum membro ainda.",
+    "salveAntes": "Salve o grupo para adicionar membros."
+  },
+  "setores": {
+    "titulo": "Setores atendidos",
+    "descricao": "Áreas da empresa para as quais as equipes trabalham. Servem para classificar os chamados e para os relatórios.",
+    "novo": "Novo setor",
+    "nome": "Nome",
+    "codigo": "Código (opcional)",
+    "acima": "Setor acima",
+    "nenhumAcima": "Nenhum (setor principal)",
+    "editar": "Editar setor",
+    "criado": "Setor criado",
+    "vazio": "Nenhum setor cadastrado ainda."
   }
 }

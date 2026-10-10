@@ -116,6 +116,7 @@ SECRET_KEY=                       # gerar com: openssl rand -hex 32  (nunca reut
 FILES_DIR=/var/lib/sistema-chamados/files
 SMTP_HOST=                        # a definir (questão 1)
 SMTP_PORT=587
+SMTP_STARTTLS=true
 SMTP_USER=
 SMTP_PASSWORD=
 SMTP_FROM="TicketFlow – empresa <ticketflow@example.com>"
