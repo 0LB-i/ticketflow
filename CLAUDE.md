@@ -11,6 +11,10 @@ Se já houver commits em branches separadas, fazer cherry-pick para `main` antes
 
 **Não reiniciar o `sistema-chamados.service` e não subir instâncias extras do uvicorn em portas alternativas para validar mudanças.** Quem reinicia o serviço e confere o resultado no navegador é o usuário. Uma instância de teste numa porta alternativa pode colidir com recursos compartilhados do serviço real (ex: arquivo de log com rotação do loguru) e derrubar o ambiente.
 
+## 0.2 Estrutura do código
+
+**Antes de criar módulo, tela, tabela ou permissão, leia o [ARCHITECTURE.md](ARCHITECTURE.md)** (mapa do código, regras da arquitetura e receitas). Se a mudança alterar a estrutura, atualize-o no mesmo commit.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**

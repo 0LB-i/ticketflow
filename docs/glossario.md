@@ -4,7 +4,7 @@ Termos do domínio em português e o nome usado no código (ver [ADR 0001](adr/0
 
 | Termo | Código | Definição |
 |-------|--------|-----------|
-| TicketFlow | `settings.app_name` | Nome do sistema exibido aos usuários. Os identificadores técnicos (pacote `chamados`, serviço `sistema-chamados`) não mudam |
+| TicketFlow | `app.nome` (i18n) | Nome do sistema exibido aos usuários (configurável no futuro, em `settings`). Os identificadores técnicos (pacote `chamados`, serviço `sistema-chamados`) não mudam |
 | Chamado | `ticket` | Tarefa registrada e executada por uma equipe |
 | Agente | `agent` | Membro de uma equipe; único tipo de usuário que trabalha nos chamados |
 | Registrado por | `created_by` | Membro que criou o chamado |
@@ -19,10 +19,16 @@ Termos do domínio em português e o nome usado no código (ver [ADR 0001](adr/0
 | Tipo | `type` | Incidente (`incident`), requisição (`request`) ou tarefa (`task`) |
 | Impacto / urgência / prioridade | `impact` / `urgency` / `priority` | Ver [10.3](10-chamados.md#103-prioridade-impacto--urgência) |
 | Observador | `watcher` | Colega que acompanha um chamado |
+| Mencionado | `ticket_watchers.kind = 'mentioned'` | Colega citado com @ num comentário ou na descrição; vira observador |
+| Grupos que atuaram | `ticket_teams` | Grupos por onde o chamado passou; os anteriores continuam vendo (se não for confidencial) |
+| Histórico | `ticket_events` | Registro de tudo o que mudou no chamado, só de inserção |
+| Ações permitidas | `allowed_actions` | O que a pessoa pode fazer num chamado, calculado pelo backend; a interface mostra os botões a partir dela |
 | Comentário | `comment` | Mensagem na linha do tempo, visível a todos que veem o chamado |
 | Anexo | `attachment` | Arquivo vinculado a chamado, comentário ou artigo |
 | Transferência | `transfer` | Mudança de grupo |
 | Aprovação | `approval` | "Ok" do supervisor do grupo antes de começar a tarefa |
 | Código de resolução | `resolution_code` | Classificação de como o chamado foi encerrado |
 | Base de conhecimento | `kb` | Artigos da equipe com soluções e procedimentos |
+| Configurações | `settings` | Idioma padrão, cores e logotipo da instalação |
+| Identidade visual | `branding` | Cores e logotipo como a interface os recebe (`GET /branding`) |
 | Virada | — | Dia a partir do qual a equipe só trabalha pelo TicketFlow ([16](16-implantacao.md)) |

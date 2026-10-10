@@ -22,7 +22,7 @@ Todos os usuários são membros das equipes ([modelo](08-organizacao-e-permissoe
 | **Busca global** | Digitar `1234` ou `#1234` abre o chamado direto; texto busca nos chamados que o usuário pode ver |
 | **Novo chamado** | Sempre visível para agentes e admin |
 | **Sino** 🔔 | Notificações no sistema (Fase 2) |
-| **Menu do usuário** 👤 | Meu perfil, Tema (claro, escuro, automático), Sair |
+| **Menu do usuário** 👤 | Meu perfil, Idioma (padrão do sistema, português, inglês), Sair. O tema (claro, escuro, automático) fica no botão ao lado |
 | **Menu lateral** | Muda conforme o perfil (13.4). Em telas menores que 768 px vira uma gaveta aberta pelo ☰ |
 
 ## 13.2 Mapa de telas
@@ -54,7 +54,7 @@ flowchart LR
 | `/login` | Login | Todos | 1 |
 | `/esqueci-senha` · `/redefinir-senha/:token` · `/convite/:token` | Recuperação de senha e primeiro acesso | Todos | 1 |
 | `/` | **Início** | Todos (conteúdo muda por perfil, 13.4) | 1 |
-| `/chamados` | **Filas** (abas: Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos do grupo) | Agentes, admin, auditor (só leitura) | 1 |
+| `/chamados` | **Filas** (abas: Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos do grupo). Até a Sprint 4, uma lista simples de todos os chamados visíveis | Agentes, admin, auditor (só leitura) | 1 |
 | `/chamados/novo` | **Novo chamado** ([10.4](10-chamados.md#formulário)) | Agentes, admin | 1 |
 | `/chamados/:numero` | **Detalhe do chamado**. O que aparece depende das permissões (`allowed_actions`) | Quem pode ver o chamado | 1 |
 | `/aprovacoes` | Aprovações pendentes e decididas | Supervisores, admin | 2 |
