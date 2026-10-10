@@ -38,16 +38,16 @@ Ao concluir um item, marque `feito` e anote o commit.
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
-| F1-S3-01 | Cadastro de **categorias** (árvore, grupo padrão, tipo padrão, confidencial) | fazendo | |
-| F1-S3-02 | Status padrão e **motor de transições** (quem pode, campos exigidos) | fazendo | |
-| F1-S3-03 | **Registro** de chamado: formulário, setor e pessoa atendidos, responsável na criação, matriz impacto × urgência | fazendo | |
-| F1-S3-04 | **Observadores** e @menções | fazendo | |
-| F1-S3-05 | Roteamento por categoria → grupo | fazendo | |
-| F1-S3-06 | **Comentários**; edição em 10 min | fazendo | |
-| F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | fazendo | |
-| F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | fazendo | |
-| F1-S3-09 | Telas: novo chamado e detalhe do chamado | a fazer | |
-| F1-S3-10 | `ticket_visibility_filter()` + testes tabelados das regras de visibilidade (saiu da S2-07) | fazendo | |
+| F1-S3-01 | Cadastro de **categorias** (árvore, grupo padrão, tipo padrão, confidencial) | feito | f0d0413, 6a563ad |
+| F1-S3-02 | Status padrão e **motor de transições** (quem pode, campos exigidos) | feito | f0d0413, 6a563ad |
+| F1-S3-03 | **Registro** de chamado: formulário, setor e pessoa atendidos, responsável na criação, matriz impacto × urgência | feito | f0d0413, 6a563ad |
+| F1-S3-04 | **Observadores** e @menções | feito | f0d0413, 6a563ad |
+| F1-S3-05 | Roteamento por categoria → grupo | feito | f0d0413, 6a563ad |
+| F1-S3-06 | **Comentários**; edição em 10 min | feito | f0d0413, 6a563ad |
+| F1-S3-07 | Assumir, atribuir, **transferir** (com motivo) | feito | f0d0413, 6a563ad |
+| F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | feito | f0d0413, 6a563ad |
+| F1-S3-09 | Telas: novo chamado e detalhe do chamado | feito | 6a563ad |
+| F1-S3-10 | `ticket_visibility_filter()` + testes tabelados das regras de visibilidade (saiu da S2-07) | feito | f0d0413 |
 
 ### Sprint 4 — Anexos, notificações, filas e busca
 
@@ -66,7 +66,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
-| F1-S5-01 | Aguardar, concluir (texto + código), **reabrir**, cancelar | a fazer | |
+| F1-S5-01 | Aguardar, concluir (texto + código), **reabrir**, cancelar | feito | f0d0413, 6a563ad |
 | F1-S5-02 | Status personalizados criados pelo administrador (com `kind`) | a fazer | |
 | F1-S5-03 | Ocultar comentário ou anexo com motivo | a fazer | |
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | a fazer | |
