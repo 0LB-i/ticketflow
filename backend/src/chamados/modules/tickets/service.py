@@ -389,8 +389,9 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
         reason = _text(changes.get("priority_reason"), "Informe o motivo para forçar a prioridade.")
         put("priority", forced)
         put("priority_overridden", True)
-    elif forced is not None or diff.keys() & {"impact", "urgency"}:
-        # Mudar impacto ou urgência recalcula; pedir o valor da matriz desfaz o "forçado".
+    elif "priority" in changes or diff.keys() & {"impact", "urgency"}:
+        # Mudar impacto ou urgência recalcula; priority nula (ou o valor da matriz) desfaz o
+        # "forçado".
         put("priority", computed)
         put("priority_overridden", False)
 

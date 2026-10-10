@@ -84,3 +84,16 @@ export const setoresApi = {
       ERRO,
     ),
 }
+
+export const categoriasApi = {
+  criar: async (body: Schemas['CategoryCreate']) =>
+    ou(await api.POST('/api/v1/categories', { body }), ERRO),
+  editar: async ({ id, ...body }: Schemas['CategoryUpdate'] & { id: string }) =>
+    ou(
+      await api.PATCH('/api/v1/categories/{category_id}', {
+        params: { path: { category_id: id } },
+        body,
+      }),
+      ERRO,
+    ),
+}

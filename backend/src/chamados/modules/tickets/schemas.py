@@ -107,7 +107,10 @@ class TicketUpdate(BaseModel):
     impact: int | None = Field(default=None, ge=1, le=3)
     urgency: int | None = Field(default=None, ge=1, le=3)
     priority: int | None = Field(
-        default=None, ge=1, le=4, description="diferente da matriz exige priority_reason"
+        default=None,
+        ge=1,
+        le=4,
+        description="diferente da matriz exige priority_reason; nula volta ao valor da matriz",
     )
     priority_reason: str | None = Field(default=None, max_length=1000)
 

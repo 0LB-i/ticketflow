@@ -18,6 +18,8 @@ defineProps<{
   label: string
   options: { value: string; label: string }[]
   placeholder?: string
+  required?: boolean
+  error?: string
 }>()
 const model = defineModel<string>()
 const id = useId()
@@ -25,11 +27,18 @@ const id = useId()
 
 <template>
   <div class="flex flex-col gap-1">
-    <label :for="id" class="font-medium">{{ label }}</label>
+    <label :for="id" class="font-medium">
+      {{ label }}<span v-if="required" class="text-danger" aria-hidden="true"> *</span>
+    </label>
     <SelectRoot v-model="model">
       <SelectTrigger
         :id="id"
-        class="inline-flex h-10 items-center justify-between gap-2 rounded-md border border-border-input bg-surface px-3 text-left text-fg data-placeholder:text-muted"
+        :aria-invalid="error ? true : undefined"
+        :aria-describedby="error ? `${id}-erro` : undefined"
+        :class="[
+          'inline-flex h-10 items-center justify-between gap-2 rounded-md border bg-surface px-3 text-left text-fg data-placeholder:text-muted',
+          error ? 'border-danger' : 'border-border-input',
+        ]"
       >
         <SelectValue :placeholder="placeholder ?? $t('comum.selecione')" />
         <SelectIcon><ChevronDown class="size-4 text-muted" aria-hidden="true" /></SelectIcon>
@@ -56,5 +65,6 @@ const id = useId()
         </SelectContent>
       </SelectPortal>
     </SelectRoot>
+    <p v-if="error" :id="`${id}-erro`" class="text-danger">{{ error }}</p>
   </div>
 </template>

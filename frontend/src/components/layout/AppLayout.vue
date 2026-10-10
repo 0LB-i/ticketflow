@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Menu, X } from 'lucide-vue-next'
+import { Menu, Plus, X } from 'lucide-vue-next'
 import {
   DialogClose,
   DialogContent,
@@ -10,6 +10,8 @@ import {
 } from 'reka-ui'
 import { ref } from 'vue'
 
+import { useAuthStore } from '@/stores/auth'
+
 import AppLogo from './AppLogo.vue'
 import SideNav from './SideNav.vue'
 import ThemeMenu from './ThemeMenu.vue'
@@ -17,6 +19,7 @@ import UserMenu from './UserMenu.vue'
 
 /** Estrutura geral (docs/13 §13.1): menu lateral, cabeçalho e área de conteúdo. */
 const gavetaAberta = ref(false)
+const auth = useAuthStore()
 </script>
 
 <template>
@@ -67,6 +70,16 @@ const gavetaAberta = ref(false)
         </DialogRoot>
         <span class="md:hidden"><AppLogo /></span>
         <div class="ml-auto flex items-center gap-1 md:ml-0">
+          <!-- Sempre visível para quem registra chamados (docs/13 §13.1) -->
+          <RouterLink
+            v-if="auth.pode('ticket.create')"
+            to="/chamados/novo"
+            class="mr-1 inline-flex h-9 items-center gap-1 rounded-md bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary-hover"
+          >
+            <Plus class="size-4" aria-hidden="true" />
+            <span class="hidden sm:inline">{{ $t('chamados.novo') }}</span>
+            <span class="sr-only sm:hidden">{{ $t('chamados.novo') }}</span>
+          </RouterLink>
           <ThemeMenu />
           <UserMenu />
         </div>

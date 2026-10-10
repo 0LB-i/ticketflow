@@ -903,12 +903,14 @@ export interface components {
       /** Full Name */
       full_name: string
       /** Email */
-      email: string
+      email: string | null
       /**
        * Role
        * @enum {string}
        */
       role: 'member' | 'supervisor'
+      /** Is Active */
+      is_active: boolean
     }
     /** Ref */
     Ref: {
@@ -1195,7 +1197,7 @@ export interface components {
       urgency?: number | null
       /**
        * Priority
-       * @description diferente da matriz exige priority_reason
+       * @description diferente da matriz exige priority_reason; nula volta ao valor da matriz
        */
       priority?: number | null
       /** Priority Reason */

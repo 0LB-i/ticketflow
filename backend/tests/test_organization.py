@@ -34,6 +34,7 @@ def test_grupo_e_membros(client: TestClient, db: Session) -> None:
             "full_name": "Ana Souza",
             "email": "ana@exemplo.com",
             "role": "supervisor",
+            "is_active": True,
         }
     ]
     r = client.put(url, json={"role": "member"})
@@ -67,3 +68,11 @@ def test_setores_em_arvore_sem_ciclos(client: TestClient, db: Session) -> None:
     assert r.status_code == 422
     r = client.patch(f"/api/v1/departments/{contas['id']}", json={"parent_id": None})
     assert r.json()["parent_id"] is None
+
+
+def test_membro_sem_email(client: TestClient, db: Session) -> None:
+    """O administrador padrão (só usuário "admin") também pode ser membro de um grupo."""
+    criar_usuario(db, None, "admin", username="admin", grupos={"TI": "member"})
+    entrar(client, "admin")
+    membros = client.get("/api/v1/teams").json()["items"][0]["members"]
+    assert membros[0]["email"] is None

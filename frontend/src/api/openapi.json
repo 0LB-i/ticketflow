@@ -2603,17 +2603,28 @@
             "title": "Full Name"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
           },
           "role": {
             "type": "string",
             "enum": ["member", "supervisor"],
             "title": "Role"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
           }
         },
         "type": "object",
-        "required": ["user_id", "full_name", "email", "role"],
+        "required": ["user_id", "full_name", "email", "role", "is_active"],
         "title": "MemberOut"
       },
       "Ref": {
@@ -3396,7 +3407,7 @@
               }
             ],
             "title": "Priority",
-            "description": "diferente da matriz exige priority_reason"
+            "description": "diferente da matriz exige priority_reason; nula volta ao valor da matriz"
           },
           "priority_reason": {
             "anyOf": [

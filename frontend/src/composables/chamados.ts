@@ -1,0 +1,164 @@
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, type MaybeRefOrGetter, toValue } from 'vue'
+
+import { api, mensagemDeErro, ou, type Schemas } from '@/api/client'
+import type { Pessoa } from '@/components/editor/MentionList.vue'
+
+import { useGrupos } from './admin'
+
+export type Chamado = Schemas['TicketOut']
+export type ResumoChamado = Schemas['TicketSummary']
+export type Comentario = Schemas['CommentOut']
+export type Evento = Schemas['EventOut']
+export type Categoria = Schemas['CategoryOut']
+export type Acao = Schemas['TransitionIn']['action']
+export type TipoChamado = Schemas['TicketCreate']['type'] & string
+
+const ERRO = 'Algo deu errado. Tente de novo.'
+const caminho = (numero: string | number) => ({ path: { ticket_ref: String(numero) } })
+
+export function useCategorias() {
+  return useQuery({
+    queryKey: ['categorias'],
+    queryFn: async () => ou(await api.GET('/api/v1/categories'), ERRO).items,
+  })
+}
+
+export function useCodigosDeResolucao() {
+  return useQuery({
+    queryKey: ['codigos-resolucao'],
+    queryFn: async () => ou(await api.GET('/api/v1/resolution-codes'), ERRO).items,
+  })
+}
+
+/** Caminho de cada categoria na árvore ("TI › Acessos › Novo acesso"). */
+export function caminhoDasCategorias(categorias: Categoria[]): Map<string, string> {
+  const porId = new Map(categorias.map((c) => [c.id, c]))
+  const caminho = (c: Categoria): string => {
+    const pai = c.parent_id ? porId.get(c.parent_id) : undefined
+    return pai ? `${caminho(pai)} › ${c.name}` : c.name
+  }
+  return new Map(categorias.map((c) => [c.id, caminho(c)]))
+}
+
+/** Colegas ativos de todos os grupos, para menções, observadores e responsável. */
+export function usePessoas() {
+  const grupos = useGrupos()
+  return computed<Pessoa[]>(() => {
+    const vistos = new Map<string, Pessoa>()
+    for (const g of grupos.data.value ?? []) {
+      for (const m of g.members) {
+        if (m.is_active) vistos.set(m.user_id, { id: m.user_id, label: m.full_name })
+      }
+    }
+    return [...vistos.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+  })
+}
+
+export function useChamados() {
+  return useInfiniteQuery({
+    queryKey: ['chamados'],
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) =>
+      ou(await api.GET('/api/v1/tickets', { params: { query: { cursor: pageParam } } }), ERRO),
+    getNextPageParam: (pagina) => pagina.next_cursor,
+  })
+}
+
+/** Detalhe do chamado. O erro guarda o status HTTP (403 e 404 têm telas próprias). */
+export function useChamado(numero: MaybeRefOrGetter<string>) {
+  return useQuery({
+    queryKey: computed(() => ['chamado', toValue(numero)]),
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api/v1/tickets/{ticket_ref}', {
+        params: caminho(toValue(numero)),
+      })
+      if (error !== undefined || !data)
+        throw Object.assign(new Error(ERRO), { status: response.status })
+      return data
+    },
+    retry: false,
+  })
+}
+
+export function useComentarios(numero: MaybeRefOrGetter<string>) {
+  return useQuery({
+    queryKey: computed(() => ['chamado', toValue(numero), 'comentarios']),
+    queryFn: async () =>
+      ou(
+        await api.GET('/api/v1/tickets/{ticket_ref}/comments', {
+          params: caminho(toValue(numero)),
+        }),
+        ERRO,
+      ).items,
+  })
+}
+
+export function useEventos(numero: MaybeRefOrGetter<string>) {
+  return useQuery({
+    queryKey: computed(() => ['chamado', toValue(numero), 'eventos']),
+    queryFn: async () =>
+      ou(
+        await api.GET('/api/v1/tickets/{ticket_ref}/events', { params: caminho(toValue(numero)) }),
+        ERRO,
+      ).items,
+  })
+}
+
+/** Ação num chamado: ao terminar, recarrega o detalhe, os comentários, o histórico e a lista. */
+export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a: A) => Promise<R>) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ['chamado', toValue(numero)] }),
+        client.invalidateQueries({ queryKey: ['chamados'] }),
+      ]),
+  })
+}
+
+export const chamadosApi = {
+  registrar: async (body: Schemas['TicketCreate']) =>
+    ou(await api.POST('/api/v1/tickets', { body }), ERRO),
+  editar: async (numero: string, body: Schemas['TicketUpdate']) =>
+    ou(await api.PATCH('/api/v1/tickets/{ticket_ref}', { params: caminho(numero), body }), ERRO),
+  comentar: async (numero: string, body: Schemas['CommentIn']) =>
+    ou(
+      await api.POST('/api/v1/tickets/{ticket_ref}/comments', { params: caminho(numero), body }),
+      ERRO,
+    ),
+  editarComentario: async (numero: string, id: string, body: Schemas['CommentIn']) =>
+    ou(
+      await api.PATCH('/api/v1/tickets/{ticket_ref}/comments/{comment_id}', {
+        params: { path: { ticket_ref: numero, comment_id: id } },
+        body,
+      }),
+      ERRO,
+    ),
+  atribuir: async (numero: string, assignee: string | null) =>
+    ou(
+      await api.POST('/api/v1/tickets/{ticket_ref}/assign', {
+        params: caminho(numero),
+        body: { assignee },
+      }),
+      ERRO,
+    ),
+  transferir: async (numero: string, body: Schemas['TransferIn']) =>
+    ou(
+      await api.POST('/api/v1/tickets/{ticket_ref}/transfer', { params: caminho(numero), body }),
+      ERRO,
+    ),
+  mudarStatus: async (numero: string, body: Schemas['TransitionIn']) =>
+    ou(
+      await api.POST('/api/v1/tickets/{ticket_ref}/transitions', { params: caminho(numero), body }),
+      ERRO,
+    ),
+  observar: async (numero: string, usuario: string, observar: boolean) => {
+    const params = { path: { ticket_ref: numero, user_id: usuario } }
+    const r = observar
+      ? await api.PUT('/api/v1/tickets/{ticket_ref}/watchers/{user_id}', { params })
+      : await api.DELETE('/api/v1/tickets/{ticket_ref}/watchers/{user_id}', { params })
+    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error, ERRO))
+  },
+}
