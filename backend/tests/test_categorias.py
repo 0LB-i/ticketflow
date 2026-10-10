@@ -27,7 +27,8 @@ def test_status_e_codigos_padrao(client: TestClient, db: Session) -> None:
     status = client.get("/api/v1/statuses").json()["items"]
     assert [(s["name"], s["kind"]) for s in status] == [
         ("Pendente", "open"),
-        ("Aguardando", "waiting"),
+        ("Aguardando cliente", "waiting"),
+        ("Entregue", "closed"),
         ("Concluído", "closed"),
         ("Cancelado", "canceled"),
     ]

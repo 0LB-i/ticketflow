@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -49,6 +50,8 @@ MATRIZ = {
     P.ADMIN_CATALOG: (N, N, S, N),
     P.ADMIN_SETTINGS: (N, N, S, N),
     P.AUDIT_VIEW: (N, N, S, S),
+    P.CLIENT_VIEW: (S, S, S, S),
+    P.CLIENT_MANAGE: (S, S, S, N),
 }
 
 
@@ -76,11 +79,18 @@ def test_permissoes_efetivas_incluem_as_de_supervisor() -> None:
     assert "ticket.approve" in effective_permissions(supervisor)
 
 
-def test_papeis_da_migracao_batem_com_o_catalogo() -> None:
-    caminho = next(Path(__file__).parents[1].glob("migrations/versions/0002_*.py"))
-    spec = importlib.util.spec_from_file_location("migracao_0002", caminho)
+def _migracao(numero: str) -> Any:
+    caminho = next(Path(__file__).parents[1].glob(f"migrations/versions/{numero}_*.py"))
+    spec = importlib.util.spec_from_file_location(f"migracao_{numero}", caminho)
     assert spec and spec.loader
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
-    for codigo, _, permissoes in modulo.SYSTEM_ROLES:
-        assert set(permissoes) == {str(p) for p in ROLES[codigo]}, codigo
+    return modulo
+
+
+def test_papeis_da_migracao_batem_com_o_catalogo() -> None:
+    # Papéis criados na 0002; permissões acrescentadas depois (0010: clientes).
+    novas = _migracao("0010").NEW_PERMISSIONS
+    for codigo, _, permissoes in _migracao("0002").SYSTEM_ROLES:
+        esperado = set(permissoes) | set(novas.get(codigo, []))
+        assert esperado == {str(p) for p in ROLES[codigo]}, codigo

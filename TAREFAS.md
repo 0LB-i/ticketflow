@@ -68,7 +68,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
 | F1-S5-01 | Aguardar, concluir (texto + código), **reabrir**, cancelar | feito | f0d0413, 6a563ad |
-| F1-S5-02 | Status personalizados criados pelo administrador (com `kind`) | a fazer | |
+| F1-S5-02 | Status personalizados criados pelo administrador (com `kind`); fica em Configurações, códigos de resolução personalizados continuam pendentes | feito | |
 | F1-S5-03 | Ocultar comentário ou anexo com motivo | a fazer | |
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | a fazer | |
 | F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | a fazer | |

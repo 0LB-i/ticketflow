@@ -23,7 +23,7 @@ async function entrar() {
   enviando.value = false
   if (erro.value) return
   const volta = typeof route.query.volta === 'string' && route.query.volta.startsWith('/')
-  await router.replace(volta ? (route.query.volta as string) : { name: 'inicio' })
+  await router.replace(volta ? (route.query.volta as string) : { name: 'chamados' })
 }
 </script>
 

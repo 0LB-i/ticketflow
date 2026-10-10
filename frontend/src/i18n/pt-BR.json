@@ -7,14 +7,13 @@
   },
   "menu": {
     "titulo": "Menu principal",
-    "inicio": "Início",
     "componentes": "Componentes",
     "administracao": "Administração",
     "usuarios": "Usuários",
     "grupos": "Grupos",
     "setores": "Setores atendidos",
     "chamados": "Chamados",
-    "categorias": "Categorias",
+    "clientes": "Clientes",
     "configuracoes": "Configurações"
   },
   "tema": {
@@ -22,19 +21,6 @@
     "claro": "Claro",
     "escuro": "Escuro",
     "automatico": "Automático"
-  },
-  "inicio": {
-    "titulo": "Início",
-    "boasVindas": "Bem-vindo ao TicketFlow",
-    "emConstrucao": "Os chamados já podem ser registrados pelo menu Chamados. As filas e os contadores chegam na próxima etapa.",
-    "estadoDoSistema": "Estado do sistema",
-    "verificando": "Verificando…",
-    "funcionando": "Funcionando",
-    "indisponivel": "Indisponível",
-    "erroAoConsultar": "Não foi possível consultar o servidor. Tente de novo em instantes.",
-    "versao": "Versão",
-    "banco": "Banco de dados",
-    "tentarDeNovo": "Tentar de novo"
   },
   "naoEncontrado": {
     "titulo": "Página não encontrada",
@@ -68,7 +54,7 @@
   },
   "status": {
     "open": "Pendente",
-    "waiting": "Aguardando",
+    "waiting": "Aguardando cliente",
     "approval": "Aguardando aprovação",
     "closed": "Concluído",
     "canceled": "Cancelado"
@@ -246,25 +232,6 @@
     "2": "Um setor ou equipe",
     "3": "A empresa toda ou clientes"
   },
-  "categorias": {
-    "titulo": "Categorias",
-    "descricao": "O que é cada tarefa. Até 3 níveis; a categoria sugere o grupo e o tipo do chamado.",
-    "nova": "Nova categoria",
-    "editar": "Editar categoria",
-    "criada": "Categoria criada",
-    "vazio": "Nenhuma categoria cadastrada ainda.",
-    "mostrarInativas": "Mostrar inativas",
-    "nome": "Nome",
-    "descricaoCampo": "Descrição (opcional)",
-    "descricaoDica": "Ajuda a escolher a categoria certa.",
-    "acima": "Categoria acima",
-    "nenhumaAcima": "Nenhuma (categoria principal)",
-    "grupoPadrao": "Grupo padrão",
-    "semGrupoPadrao": "Nenhum (quem registra escolhe)",
-    "tipoPadrao": "Tipo padrão",
-    "confidencial": "Confidencial",
-    "confidencialDica": "Só o grupo atual, o responsável, os observadores, o administrador e o auditor veem os chamados desta categoria."
-  },
   "chamados": {
     "titulo": "Chamados",
     "novo": "Novo chamado",
@@ -278,22 +245,19 @@
     "semGrupo": "Você ainda não é membro de nenhum grupo. Peça ao administrador para incluí-lo em um grupo antes de registrar chamados.",
     "grupo": "Grupo",
     "escolhaGrupo": "Escolha o grupo.",
-    "categoria": "Categoria",
-    "escolhaCategoria": "Escolha a categoria.",
     "tituloCampo": "Título",
     "tituloDica": "O que precisa ser feito, em poucas palavras.",
     "tituloCurto": "Informe um título com pelo menos 3 letras.",
     "descricao": "Descrição",
     "descricaoDica": "Detalhes. Digite arroba e o nome para mencionar um colega.",
-    "paraQuem": "Para quem (opcional)",
-    "pessoaDica": "Nome de quem pediu ou será atendido.",
     "eu": "Eu",
     "fila": "Deixar na fila do grupo",
     "outro": "Outro membro",
     "qualMembro": "Qual membro",
     "escolhaMembro": "Escolha o membro.",
     "registrar": "Registrar",
-    "registrado": "Chamado #{numero} registrado"
+    "registrado": "Chamado #{numero} registrado",
+    "inicioNoFuturo": "O início não pode ficar no futuro."
   },
   "chamado": {
     "titulo": "Chamado",
@@ -302,13 +266,11 @@
     "naoEncontrado": "Chamado não encontrado",
     "voltarParaLista": "Voltar para os chamados",
     "dados": "Dados do chamado",
+    "inicio": "Início",
     "grupo": "Grupo",
     "responsavel": "Responsável",
     "naFila": "Na fila do grupo",
     "tipo": "Tipo",
-    "para": "Para",
-    "setor": "Setor atendido",
-    "pessoa": "Pessoa atendida",
     "urgencia": "Urgência: para quando?",
     "impacto": "Impacto: quem é afetado?",
     "prioridade": "Prioridade",
@@ -381,7 +343,7 @@
   },
   "editarChamado": {
     "titulo": "Editar chamado #{numero}",
-    "pelaMatriz": "Calculada (impacto × urgência)",
+    "pelaMatriz": "Automática",
     "motivo": "Motivo da prioridade",
     "motivoDica": "Fica no histórico do chamado.",
     "motivoObrigatorio": "Informe o motivo para forçar a prioridade."
@@ -412,7 +374,8 @@
       "beneficiary_name": "pessoa atendida",
       "impact": "impacto",
       "urgency": "urgência",
-      "priority": "prioridade"
+      "priority": "prioridade",
+      "started_at": "início"
     }
   },
   "idioma": {
@@ -467,6 +430,102 @@
       "roxo": "Roxo",
       "ambar": "Âmbar",
       "grafite": "Grafite"
+    }
+  },
+  "dataHora": {
+    "data": "Data",
+    "hora": "Hora",
+    "agora": "Agora",
+    "acompanhando": "Acompanhando a hora atual. Mude a data ou a hora se o trabalho começou antes.",
+    "ajustado": "Ajustado à mão. Agora volta para a hora atual."
+  },
+  "statusConfig": {
+    "titulo": "Status dos chamados",
+    "descricao": "Os status aparecem nesta ordem nas listas e no formulário do chamado. O comportamento diz ao sistema o que o status significa e não muda depois de criado.",
+    "nome": "Nome",
+    "novo": "Novo status",
+    "comportamento": "Comportamento",
+    "comportamentos": {
+      "open": "Em aberto",
+      "waiting": "Em espera",
+      "closed": "Encerrado",
+      "canceled": "Cancelado"
+    },
+    "explicacoes": {
+      "open": "Em aberto: o chamado está na fila do grupo e o trabalho está por fazer ou em andamento.",
+      "waiting": "Em espera: o trabalho está parado esperando alguém, como o cliente ou um fornecedor.",
+      "closed": "Encerrado: o trabalho terminou. Registra a data de conclusão e o chamado pode ser reaberto.",
+      "canceled": "Cancelado: o chamado saiu das filas sem que o trabalho fosse feito."
+    },
+    "padrao": "padrão",
+    "subir": "Subir {nome}",
+    "descer": "Descer {nome}",
+    "renomear": "Renomear {nome}",
+    "remover": "Remover {nome}",
+    "unico": "É o único status com este comportamento. Crie outro antes de remover.",
+    "removerTitulo": "Remover o status {nome}?",
+    "removerSemChamados": "Nenhum chamado usa este status.",
+    "criado": "Status criado",
+    "ordemSalva": "Ordem salva",
+    "removido": "Status {nome} removido",
+    "chamados0": "nenhum chamado",
+    "chamados1": "1 chamado",
+    "chamadosN": "{n} chamados",
+    "removerComUm": "O chamado com este status passa para {destino}.",
+    "removerComVarios": "Os {n} chamados com este status passam para {destino}."
+  },
+  "clientes": {
+    "titulo": "Clientes",
+    "novo": "Novo cliente",
+    "editar": "Cliente",
+    "cadastrado": "Cliente cadastrado",
+    "buscaDica": "Nome, nome fantasia, CPF/CNPJ ou e-mail.",
+    "total": "{n} cliente(s)",
+    "mostrandoDe": "Mostrando {n} de {total} clientes. Refine a busca para ver os outros.",
+    "nome": "Nome",
+    "documento": "CPF/CNPJ",
+    "tipo": "Tipo",
+    "tipos": {
+      "person": "Pessoa física",
+      "company": "Pessoa jurídica"
+    },
+    "tiposLongos": {
+      "person": "Pessoa física (CPF)",
+      "company": "Pessoa jurídica (CNPJ)"
+    },
+    "dados": "Dados do cliente",
+    "nomeCompleto": "Nome completo",
+    "razaoSocial": "Razão social",
+    "nomeFantasia": "Nome fantasia",
+    "rg": "RG",
+    "nascimento": "Data de nascimento",
+    "inscricaoEstadual": "Inscrição estadual",
+    "inscricaoEstadualDica": "Ou \"ISENTO\".",
+    "inscricaoMunicipal": "Inscrição municipal",
+    "pessoaDeContato": "Pessoa de contato",
+    "ativo": "Cliente ativo",
+    "contato": "Contato",
+    "email": "E-mail",
+    "telefone": "Telefone",
+    "celular": "Celular",
+    "observacoes": "Observações",
+    "endereco": "Endereço",
+    "cep": "CEP",
+    "logradouro": "Logradouro",
+    "numero": "Número",
+    "complemento": "Complemento",
+    "bairro": "Bairro",
+    "cidade": "Cidade",
+    "uf": "UF",
+    "erros": {
+      "nome": "Informe o nome.",
+      "cpf": "CPF inválido.",
+      "cnpj": "CNPJ inválido.",
+      "email": "Informe um e-mail válido.",
+      "telefone": "Informe o DDD e o número.",
+      "cep": "O CEP tem 8 números.",
+      "obrigatorio": "Campo obrigatório.",
+      "uf": "Escolha a UF."
     }
   }
 }

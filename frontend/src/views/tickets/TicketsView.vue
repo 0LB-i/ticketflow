@@ -7,8 +7,8 @@ import DataTable from '@/components/ui/DataTable.vue'
 import PriorityBadge, { type Prioridade } from '@/components/ui/PriorityBadge.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useChamados } from '@/composables/chamados'
+import { formatarDataHora } from '@/composables/formato'
 import { useHead } from '@/composables/useHead'
-import { useAuthStore } from '@/stores/auth'
 
 /**
  * Chamados que o usuário vê, na ordenação padrão (prioridade, depois o mais antigo).
@@ -16,14 +16,13 @@ import { useAuthStore } from '@/stores/auth'
  */
 useHead('chamados.titulo')
 const { t } = useI18n()
-const auth = useAuthStore()
 const chamados = useChamados()
 
 const linhas = computed(() => chamados.data.value?.pages.flatMap((p) => p.items) ?? [])
 const colunas = computed(() => [
   { key: 'number', label: t('chamados.numero') },
   { key: 'title', label: t('chamados.tituloColuna') },
-  { key: 'para', label: t('chamado.para'), class: 'hidden lg:table-cell' },
+  { key: 'inicio', label: t('chamado.inicio'), class: 'hidden lg:table-cell' },
   { key: 'priority', label: t('chamado.prioridade') },
   { key: 'status', label: t('chamados.status') },
   { key: 'assignee', label: t('chamado.responsavel'), class: 'hidden sm:table-cell' },
@@ -33,12 +32,7 @@ const colunas = computed(() => [
 
 <template>
   <div class="mx-auto flex max-w-6xl flex-col gap-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-xl font-semibold">{{ t('chamados.titulo') }}</h1>
-      <Button v-if="auth.pode('ticket.create')" @click="$router.push('/chamados/novo')">
-        {{ t('chamados.novo') }}
-      </Button>
-    </div>
+    <h1 class="text-xl font-semibold">{{ t('chamados.titulo') }}</h1>
 
     <p v-if="chamados.isPending.value" class="text-muted">{{ t('comum.carregando') }}</p>
     <p v-else-if="chamados.isError.value" class="text-danger">{{ t('comum.erroInesperado') }}</p>
@@ -54,8 +48,8 @@ const colunas = computed(() => [
             {{ row.title }}
           </RouterLink>
         </template>
-        <template #cell-para="{ row }">
-          {{ [row.department?.name, row.beneficiary_name].filter(Boolean).join(' · ') || '—' }}
+        <template #cell-inicio="{ row }">
+          <span class="tabular-nums">{{ formatarDataHora(row.started_at) }}</span>
         </template>
         <template #cell-priority="{ row }">
           <PriorityBadge :priority="row.priority as Prioridade" />

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 
 TicketType = Literal["incident", "request", "task"]
 StatusKind = Literal["approval", "open", "waiting", "closed", "canceled"]
@@ -48,10 +48,11 @@ class TicketSummary(BaseModel):
     status: StatusRef
     priority: int
     team: Ref
-    category: CategoryRef
+    category: CategoryRef | None
     department: Ref | None
     beneficiary_name: str | None
     assignee: UserRef | None
+    started_at: datetime
     created_at: datetime
     updated_at: datetime
 
@@ -79,13 +80,19 @@ class TicketPage(BaseModel):
 class TicketCreate(BaseModel):
     title: Title
     description: str = Field(default="", max_length=50_000)
-    category_id: uuid.UUID
+    category_id: uuid.UUID | None = None
     team_id: uuid.UUID | None = Field(
         default=None, description="sem grupo, vai para o grupo padrão da categoria"
     )
-    type: TicketType | None = Field(default=None, description="sem tipo, usa o da categoria")
+    type: TicketType | None = Field(
+        default=None, description='sem tipo, usa o da categoria (sem categoria, "incident")'
+    )
     department_id: uuid.UUID | None = None
     beneficiary_name: str | None = Field(default=None, max_length=200)
+    started_at: AwareDatetime | None = Field(
+        default=None, description="início do trabalho; sem valor, a hora do registro"
+    )
+    status_id: int | None = Field(default=None, description="sem valor, Pendente")
     impact: int = Field(default=1, ge=1, le=3)
     urgency: int = Field(default=1, ge=1, le=3)
     assignee: Literal["me"] | uuid.UUID | None = Field(
@@ -100,10 +107,14 @@ class TicketCreate(BaseModel):
 class TicketUpdate(BaseModel):
     title: Title | None = None
     description: str | None = Field(default=None, max_length=50_000)
-    category_id: uuid.UUID | None = None
+    category_id: uuid.UUID | None = Field(default=None, description="nula tira a categoria")
     type: TicketType | None = None
     department_id: uuid.UUID | None = None
     beneficiary_name: str | None = Field(default=None, max_length=200)
+    started_at: AwareDatetime | None = None
+    status_id: int | None = Field(
+        default=None, description="qualquer status, sem as exigências do fluxo (set_status)"
+    )
     impact: int | None = Field(default=None, ge=1, le=3)
     urgency: int | None = Field(default=None, ge=1, le=3)
     priority: int | None = Field(

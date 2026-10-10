@@ -62,7 +62,7 @@ class Ticket(Base):
     beneficiary_name: Mapped[str | None] = mapped_column(Text)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
     status_id: Mapped[int] = mapped_column(ForeignKey("ticket_statuses.id"))
     impact: Mapped[int] = mapped_column(SmallInteger)  # 1 uma pessoa · 2 setor · 3 empresa
     urgency: Mapped[int] = mapped_column(SmallInteger)  # 1 pode esperar · 2 semana · 3 agora
@@ -70,6 +70,8 @@ class Ticket(Base):
     priority_overridden: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     resolution_code_id: Mapped[int | None] = mapped_column(ForeignKey("resolution_codes.id"))
     reopened_count: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    # Quando o trabalho começou: o registro sugere a hora atual, e a pessoa pode ajustar.
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -80,7 +82,7 @@ class Ticket(Base):
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
     assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id], lazy="joined")
     team: Mapped[Team] = relationship(lazy="joined")
-    category: Mapped[Category] = relationship(lazy="joined")
+    category: Mapped[Category | None] = relationship(lazy="joined")
     department: Mapped[Department | None] = relationship(lazy="joined")
     status: Mapped[TicketStatus] = relationship(lazy="joined")
     resolution_code: Mapped[ResolutionCode | None] = relationship(lazy="joined")

@@ -1,7 +1,7 @@
 import { mount, type ComponentMountingOptions } from '@vue/test-utils'
 import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query'
 import { createPinia, setActivePinia } from 'pinia'
-import { vi } from 'vitest'
+import { expect, vi } from 'vitest'
 import type { Component } from 'vue'
 
 import { i18n } from '@/i18n'
@@ -75,3 +75,19 @@ export const ME_ADMIN = {
 }
 
 export const ME_AGENTE = { ...ME_ADMIN, role: 'agent', permissions: ['ticket.create'] }
+
+/** Escolhe uma opção de um Select (Reka UI) pelo teclado, como um usuário. */
+export async function escolher(rotulo: string, opcao: string) {
+  const label = [...document.querySelectorAll('label')].find((l) => l.textContent?.includes(rotulo))
+  const trigger = document.getElementById(label!.htmlFor)!
+  trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  const item = await vi.waitFor(() => {
+    const encontrado = [...document.querySelectorAll('[role=option]')].find(
+      (o) => o.textContent?.trim() === opcao,
+    )
+    expect(encontrado).toBeTruthy()
+    return encontrado as HTMLElement
+  })
+  item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  await vi.waitFor(() => expect(document.querySelector('[role=listbox]')).toBeNull())
+}

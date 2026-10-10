@@ -44,7 +44,15 @@ def situacao(kind: str, *, ator: Actor, assignee: int | None = 2) -> TicketState
     )
 
 
-DO_GRUPO = {"comment", "watch_self", "edit", "set_priority", "manage_watchers", "transfer"}
+DO_GRUPO = {
+    "comment",
+    "watch_self",
+    "edit",
+    "set_priority",
+    "set_status",
+    "manage_watchers",
+    "transfer",
+}
 DONO = {"wait", "close", "cancel"}
 
 # Chamado Pendente, com responsável (docs/08 §8.5)
@@ -94,4 +102,4 @@ def test_transicoes(kind: str, ator: Actor, esperado: set[str]) -> None:
 def test_finalizado_nao_se_atribui_nem_transfere(kind: str) -> None:
     acoes = allowed_actions(supervisor, situacao(kind, ator=supervisor))
     assert not acoes & {"assign_self", "assign_others", "unassign", "transfer"}
-    assert {"comment", "edit"} <= acoes
+    assert {"comment", "edit", "set_status"} <= acoes  # reabrir pelo formulário

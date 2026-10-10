@@ -91,15 +91,23 @@ export const setoresApi = {
     ),
 }
 
-export const categoriasApi = {
-  criar: async (body: Schemas['CategoryCreate']) =>
-    ou(await api.POST('/api/v1/categories', { body }), erro()),
-  editar: async ({ id, ...body }: Schemas['CategoryUpdate'] & { id: string }) =>
+/** Status dos chamados (Configurações). Cada chamada devolve a lista inteira, já na ordem. */
+export const statusApi = {
+  criar: async (body: Schemas['StatusCreate']) =>
+    ou(await api.POST('/api/v1/statuses', { body }), erro()),
+  renomear: async (a: { id: number; name: string }) =>
     ou(
-      await api.PATCH('/api/v1/categories/{category_id}', {
-        params: { path: { category_id: id } },
-        body,
+      await api.PATCH('/api/v1/statuses/{status_id}', {
+        params: { path: { status_id: a.id } },
+        body: { name: a.name },
       }),
+      erro(),
+    ),
+  ordenar: async (ids: number[]) =>
+    ou(await api.PUT('/api/v1/statuses/order', { body: { ids } }), erro()),
+  remover: async (id: number) =>
+    ou(
+      await api.DELETE('/api/v1/statuses/{status_id}', { params: { path: { status_id: id } } }),
       erro(),
     ),
 }
