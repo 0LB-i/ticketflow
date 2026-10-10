@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import {
   Building2,
-  FolderTree,
-  House,
+  Contact,
   LayoutGrid,
   Settings,
   Ticket,
@@ -10,17 +9,21 @@ import {
   UsersRound,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
 
 defineEmits<{ navigate: [] }>()
 
 const auth = useAuthStore()
+const route = useRoute()
 
-const principal = [
-  { to: '/', rotulo: 'menu.inicio', icone: House },
-  { to: '/chamados', rotulo: 'menu.chamados', icone: Ticket },
-]
+const principal = computed(() =>
+  [
+    { to: '/chamados', rotulo: 'menu.chamados', icone: Ticket, perm: null },
+    { to: '/clientes', rotulo: 'menu.clientes', icone: Contact, perm: 'client.view' },
+  ].filter((item) => !item.perm || auth.pode(item.perm)),
+)
 const administracao = computed(() =>
   [
     { to: '/admin/usuarios', rotulo: 'menu.usuarios', icone: Users, perm: 'admin.users' },
@@ -32,12 +35,6 @@ const administracao = computed(() =>
       perm: 'admin.organization',
     },
     {
-      to: '/admin/categorias',
-      rotulo: 'menu.categorias',
-      icone: FolderTree,
-      perm: 'admin.catalog',
-    },
-    {
       to: '/admin/configuracoes',
       rotulo: 'menu.configuracoes',
       icone: Settings,
@@ -45,6 +42,12 @@ const administracao = computed(() =>
     },
   ].filter((item) => auth.pode(item.perm)),
 )
+
+/** As rotas são planas, então o vue-router não marca "Chamados" em /chamados/123: compara o caminho. */
+function ativo(to: string) {
+  return route.path === to || route.path.startsWith(`${to}/`)
+}
+
 const dev = import.meta.env.DEV
   ? [{ to: '/dev/componentes', rotulo: 'menu.componentes', icone: LayoutGrid }]
   : []
@@ -68,8 +71,11 @@ const dev = import.meta.env.DEV
           v-for="item in secao.itens"
           :key="item.to"
           :to="item.to"
-          class="flex h-10 items-center gap-3 rounded-md px-3 font-medium text-fg hover:bg-surface-raised"
-          exact-active-class="bg-primary-subtle text-primary"
+          class="flex h-10 items-center gap-3 rounded-md px-3 font-medium"
+          :class="
+            ativo(item.to) ? 'bg-primary-subtle text-primary' : 'text-fg hover:bg-surface-raised'
+          "
+          :aria-current="ativo(item.to) ? 'page' : undefined"
           @click="$emit('navigate')"
         >
           <component :is="item.icone" class="size-5" aria-hidden="true" />

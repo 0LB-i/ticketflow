@@ -11,17 +11,18 @@ export type Chamado = Schemas['TicketOut']
 export type ResumoChamado = Schemas['TicketSummary']
 export type Comentario = Schemas['CommentOut']
 export type Evento = Schemas['EventOut']
-export type Categoria = Schemas['CategoryOut']
 export type Acao = Schemas['TransitionIn']['action']
 export type TipoChamado = Schemas['TicketCreate']['type'] & string
 
 const erro = () => i18n.global.t('comum.erroInesperado')
 const caminho = (numero: string | number) => ({ path: { ticket_ref: String(numero) } })
 
-export function useCategorias() {
+/** Os status na ordem definida em Configurações. */
+export function useStatus() {
   return useQuery({
-    queryKey: ['categorias'],
-    queryFn: async () => ou(await api.GET('/api/v1/categories'), erro()).items,
+    queryKey: ['status'],
+    queryFn: async () => ou(await api.GET('/api/v1/statuses'), erro()).items,
+    staleTime: Infinity,
   })
 }
 
@@ -30,16 +31,6 @@ export function useCodigosDeResolucao() {
     queryKey: ['codigos-resolucao'],
     queryFn: async () => ou(await api.GET('/api/v1/resolution-codes'), erro()).items,
   })
-}
-
-/** Caminho de cada categoria na árvore ("TI › Acessos › Novo acesso"). */
-export function caminhoDasCategorias(categorias: Categoria[]): Map<string, string> {
-  const porId = new Map(categorias.map((c) => [c.id, c]))
-  const caminho = (c: Categoria): string => {
-    const pai = c.parent_id ? porId.get(c.parent_id) : undefined
-    return pai ? `${caminho(pai)} › ${c.name}` : c.name
-  }
-  return new Map(categorias.map((c) => [c.id, caminho(c)]))
 }
 
 /** Colegas ativos de todos os grupos, para menções, observadores e responsável. */

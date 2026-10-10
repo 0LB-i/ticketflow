@@ -1,7 +1,8 @@
 """Categorias, status e códigos de resolução (docs/13: /admin/categorias).
 
 Listar exige estar logado (o formulário de chamado usa as listas). Alterar categorias exige
-admin.catalog. Criar status e códigos fica para a Sprint 5 (F1-S5-02).
+admin.catalog; criar, renomear, ordenar e remover status exige admin.settings (a tela fica em
+Configurações). Códigos de resolução personalizados ficam para a Sprint 5.
 """
 
 import uuid
@@ -9,7 +10,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.permissions import P
@@ -18,11 +19,15 @@ from chamados.modules.audit.service import record
 from chamados.modules.catalog.models import Category, ResolutionCode, TicketStatus
 from chamados.modules.identity.deps import Auth, CurrentAuth, require
 from chamados.modules.organization.models import Team
+from chamados.modules.tickets.models import Ticket
 
 router = APIRouter(tags=["catálogo"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_CATALOG))]
+SettingsAdmin = Annotated[Auth, Depends(require(P.ADMIN_SETTINGS))]
 TicketType = Literal["incident", "request", "task"]
 StatusKind = Literal["approval", "open", "waiting", "closed", "canceled"]
+# Aprovação entra na Fase 2: o administrador escolhe entre estes.
+EditableKind = Literal["open", "waiting", "closed", "canceled"]
 MAX_DEPTH = 3  # docs/08 §8.1
 
 
@@ -231,10 +236,28 @@ class StatusOut(BaseModel):
     id: int
     name: str
     kind: StatusKind
+    is_default: bool = Field(description="usado quando o fluxo leva a este kind")
+    ticket_count: int
 
 
 class StatusList(BaseModel):
     items: list[StatusOut]
+
+
+StatusName = Annotated[str, Field(min_length=1, max_length=50)]
+
+
+class StatusCreate(BaseModel):
+    name: StatusName
+    kind: EditableKind
+
+
+class StatusUpdate(BaseModel):
+    name: StatusName
+
+
+class StatusOrder(BaseModel):
+    ids: list[int] = Field(description="todos os status, na nova ordem")
 
 
 class ResolutionCodeOut(BaseModel):
@@ -247,10 +270,151 @@ class ResolutionCodeList(BaseModel):
     items: list[ResolutionCodeOut]
 
 
+async def _statuses(db: AsyncSession) -> StatusList:
+    counts = dict(
+        (await db.execute(select(Ticket.status_id, func.count()).group_by(Ticket.status_id))).all()
+    )
+    rows = await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order, TicketStatus.id))
+    return StatusList(
+        items=[
+            StatusOut(
+                id=s.id,
+                name=s.name,
+                kind=s.kind,
+                is_default=s.is_default_for_kind,
+                ticket_count=counts.get(s.id, 0),
+            )
+            for s in rows
+        ]
+    )
+
+
+async def _status(db: AsyncSession, status_id: int) -> TicketStatus:
+    status = await db.get(TicketStatus, status_id)
+    if status is None:
+        raise HTTPException(404, "Status não encontrado.")
+    return status
+
+
+async def _check_status_name(db: AsyncSession, name: str, except_id: int | None = None) -> str:
+    name = name.strip()
+    if not name:
+        raise HTTPException(422, "Informe o nome do status.")
+    found = await db.scalar(
+        select(TicketStatus.id).where(func.lower(TicketStatus.name) == name.lower())
+    )
+    if found is not None and found != except_id:
+        raise HTTPException(422, "Já existe um status com este nome.")
+    return name
+
+
 @router.get("/statuses", response_model=StatusList)
 async def list_statuses(_: CurrentAuth, db: DB) -> StatusList:
-    rows = await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order))
-    return StatusList(items=[StatusOut(id=s.id, name=s.name, kind=s.kind) for s in rows])
+    return await _statuses(db)
+
+
+@router.post("/statuses", response_model=StatusList, status_code=201)
+async def create_status(
+    data: StatusCreate, auth: SettingsAdmin, request: Request, db: DB
+) -> StatusList:
+    """O novo status entra no fim da lista. O primeiro de um kind vira o padrão dele."""
+    name = await _check_status_name(db, data.name)
+    last = await db.scalar(select(func.max(TicketStatus.sort_order))) or 0
+    has_kind = await db.scalar(
+        select(TicketStatus.id).where(TicketStatus.kind == data.kind).limit(1)
+    )
+    status = TicketStatus(
+        name=name, kind=data.kind, sort_order=last + 1, is_default_for_kind=has_kind is None
+    )
+    db.add(status)
+    await db.flush()
+    record(
+        db,
+        "ticket_status.created",
+        request=request,
+        actor_user_id=auth.user.id,
+        target_type="ticket_status",
+        target_id=status.id,
+        after={"name": name, "kind": data.kind},
+    )
+    await db.commit()
+    return await _statuses(db)
+
+
+@router.patch("/statuses/{status_id}", response_model=StatusList)
+async def update_status(
+    status_id: int, data: StatusUpdate, auth: SettingsAdmin, request: Request, db: DB
+) -> StatusList:
+    """Só o nome muda: trocar o kind mudaria o sentido dos chamados que já estão nele."""
+    status = await _status(db, status_id)
+    name = await _check_status_name(db, data.name, status.id)
+    if name != status.name:
+        record(
+            db,
+            "ticket_status.updated",
+            request=request,
+            actor_user_id=auth.user.id,
+            target_type="ticket_status",
+            target_id=status.id,
+            before={"name": status.name},
+            after={"name": name},
+        )
+        status.name = name
+        await db.commit()
+    return await _statuses(db)
+
+
+@router.put("/statuses/order", response_model=StatusList)
+async def reorder_statuses(data: StatusOrder, auth: SettingsAdmin, db: DB) -> StatusList:
+    statuses = {s.id: s for s in await db.scalars(select(TicketStatus))}
+    if sorted(data.ids) != sorted(statuses):
+        raise HTTPException(422, "Envie todos os status, cada um uma vez.")
+    for position, status_id in enumerate(data.ids, start=1):
+        statuses[status_id].sort_order = position
+    await db.commit()
+    return await _statuses(db)
+
+
+@router.delete("/statuses/{status_id}", response_model=StatusList)
+async def delete_status(
+    status_id: int, auth: SettingsAdmin, request: Request, db: DB
+) -> StatusList:
+    """Cada kind precisa de um status. Os chamados no status removido vão para o padrão do kind;
+    se o removido era o padrão, o próximo do mesmo kind (na ordem da lista) passa a ser."""
+    status = await _status(db, status_id)
+    same_kind = (
+        await db.scalars(
+            select(TicketStatus)
+            .where(TicketStatus.kind == status.kind, TicketStatus.id != status.id)
+            .order_by(TicketStatus.sort_order, TicketStatus.id)
+        )
+    ).all()
+    if not same_kind:
+        raise HTTPException(
+            422, "Este é o único status com este comportamento. Crie outro antes de remover."
+        )
+    target = next((s for s in same_kind if s.is_default_for_kind), same_kind[0])
+    if status.is_default_for_kind:
+        status.is_default_for_kind = False
+        await db.flush()  # o índice único aceita um padrão por kind
+        target.is_default_for_kind = True
+    moved = await db.scalar(select(func.count()).where(Ticket.status_id == status.id))
+    await db.execute(
+        update(Ticket).where(Ticket.status_id == status.id).values(status_id=target.id)
+    )
+    record(
+        db,
+        "ticket_status.deleted",
+        request=request,
+        actor_user_id=auth.user.id,
+        target_type="ticket_status",
+        target_id=status.id,
+        before={"name": status.name, "kind": status.kind},
+        after={"tickets_moved_to": target.name, "tickets_moved": moved},
+    )
+    await db.delete(status)
+    await db.commit()
+    return await _statuses(db)
 
 
 @router.get("/resolution-codes", response_model=ResolutionCodeList)

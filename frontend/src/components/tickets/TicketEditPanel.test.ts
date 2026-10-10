@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Chamado } from '@/composables/chamados'
-import { montar, simularApi } from '@/test/setup'
+import { escolher, montar, simularApi } from '@/test/setup'
 
 import TicketEditPanel from './TicketEditPanel.vue'
 
@@ -22,6 +22,7 @@ const CHAMADO: Chamado = {
   department: null,
   beneficiary_name: null,
   assignee: null,
+  started_at: '2026-10-10T11:30:00Z',
   created_at: '2026-10-10T12:00:00Z',
   updated_at: '2026-10-10T12:00:00Z',
   description: '',
@@ -37,30 +38,42 @@ const CHAMADO: Chamado = {
 }
 
 describe('TicketEditPanel', () => {
-  it('mudar a urgência de uma prioridade forçada volta para a matriz, como a API grava', async () => {
+  it('muda o status sem as exigências do fluxo', async () => {
+    const feitas = simularApi({
+      'GET /api/v1/statuses': [
+        200,
+        {
+          items: [
+            { id: 1, name: 'Pendente', kind: 'open' },
+            { id: 5, name: 'Entregue', kind: 'closed' },
+          ],
+        },
+      ],
+      'PATCH /api/v1/tickets/1000': [200, CHAMADO],
+    })
+    montar(TicketEditPanel, {
+      props: { chamado: { ...CHAMADO, allowed_actions: ['set_status'] }, open: false },
+    }).setProps({ open: true })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Pendente'))
+
+    await escolher('Status', 'Entregue')
+    document.querySelector<HTMLFormElement>('#form-editar-chamado')!.requestSubmit()
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ status_id: 5 }),
+    )
+  })
+
+  it('prioridade forçada pode voltar a ser automática', async () => {
     const feitas = simularApi({ 'PATCH /api/v1/tickets/1000': [200, CHAMADO] })
     montar(TicketEditPanel, { props: { chamado: CHAMADO, open: false } }).setProps({
       open: true,
     })
-    const opcao = await vi.waitFor(() => {
-      const radio = [...document.querySelectorAll('label')].find((l) =>
-        l.textContent?.includes('Pode esperar'),
-      )
-      expect(radio).toBeTruthy()
-      return radio!.querySelector('input')!
-    })
-    expect(document.body.textContent).not.toContain('Calculada (impacto × urgência)')
+    await vi.waitFor(() => expect(document.querySelector('#form-editar-chamado')).toBeTruthy())
 
-    opcao.click()
-    await vi.waitFor(() =>
-      expect(document.body.textContent).toContain('Calculada (impacto × urgência)'),
-    )
+    await escolher('Prioridade', 'Automática')
     document.querySelector<HTMLFormElement>('#form-editar-chamado')!.requestSubmit()
     await vi.waitFor(() =>
-      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({
-        urgency: 1,
-        priority: null,
-      }),
+      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ priority: null }),
     )
   })
 })

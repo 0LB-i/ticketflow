@@ -6,7 +6,6 @@ import {
 } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
-import HomeView from '@/views/HomeView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -21,7 +20,8 @@ declare module 'vue-router' {
 }
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'inicio', component: HomeView },
+  // A tela inicial é a lista de chamados.
+  { path: '/', redirect: { name: 'chamados' } },
   {
     path: '/login',
     name: 'login',
@@ -72,6 +72,25 @@ const routes: RouteRecordRaw[] = [
     props: true,
   },
   {
+    path: '/clientes',
+    name: 'clientes',
+    component: () => import('@/views/clients/ClientsView.vue'),
+    meta: { permissao: 'client.view' },
+  },
+  {
+    path: '/clientes/novo',
+    name: 'novo-cliente',
+    component: () => import('@/views/clients/ClientFormView.vue'),
+    meta: { permissao: 'client.manage' },
+  },
+  {
+    path: '/clientes/:id([0-9a-f-]{36})',
+    name: 'cliente',
+    component: () => import('@/views/clients/ClientFormView.vue'),
+    props: true,
+    meta: { permissao: 'client.view' },
+  },
+  {
     path: '/admin/usuarios',
     name: 'admin-usuarios',
     component: () => import('@/views/admin/UsersView.vue'),
@@ -88,12 +107,6 @@ const routes: RouteRecordRaw[] = [
     name: 'admin-setores',
     component: () => import('@/views/admin/DepartmentsView.vue'),
     meta: { permissao: 'admin.organization' },
-  },
-  {
-    path: '/admin/categorias',
-    name: 'admin-categorias',
-    component: () => import('@/views/admin/CategoriesView.vue'),
-    meta: { permissao: 'admin.catalog' },
   },
   {
     path: '/admin/configuracoes',
@@ -134,16 +147,17 @@ async function protegerRota(to: RouteLocationNormalized) {
 
   if (to.meta.publica) {
     // Logado não precisa da tela de login; convite e redefinição continuam acessíveis.
-    return to.name === 'login' && auth.logado ? { name: 'inicio' } : true
+    return to.name === 'login' && auth.logado ? { name: 'chamados' } : true
   }
   if (!auth.logado) {
-    return { name: 'login', query: to.fullPath === '/' ? {} : { volta: to.fullPath } }
+    // A tela inicial já é o destino padrão depois do login: não precisa de "volta".
+    return { name: 'login', query: to.fullPath === '/chamados' ? {} : { volta: to.fullPath } }
   }
   // Senha provisória (admin/admin na instalação): nada abre antes da troca (docs/09 §9.2).
   if (auth.precisaTrocarSenha) {
     return to.name === 'trocar-senha' ? true : { name: 'trocar-senha' }
   }
-  if (to.name === 'trocar-senha') return { name: 'inicio' }
+  if (to.name === 'trocar-senha') return { name: 'chamados' }
   if (to.meta.permissao && !auth.pode(to.meta.permissao)) {
     return { name: 'sem-acesso' }
   }

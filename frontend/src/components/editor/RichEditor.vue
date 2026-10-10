@@ -22,6 +22,8 @@ const props = defineProps<{
   placeholder?: string
   required?: boolean
   error?: string
+  /** Área de texto maior, para a descrição no registro. */
+  alto?: boolean
 }>()
 const model = defineModel<string>({ default: '' })
 const { t } = useI18n()
@@ -95,7 +97,7 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       id,
-      class: 'texto-formatado min-h-24 px-3 py-2 outline-none',
+      class: `texto-formatado ${props.alto ? 'min-h-80' : 'min-h-24'} px-3 py-2 outline-none`,
       role: 'textbox',
       'aria-multiline': 'true',
       'aria-labelledby': `${id}-rotulo`,

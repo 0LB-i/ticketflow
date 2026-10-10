@@ -8,7 +8,7 @@ import StatusBadge from './StatusBadge.vue'
 describe('StatusBadge', () => {
   it('usa o nome padrão do status e a cor do kind', () => {
     const w = montar(StatusBadge, { props: { kind: 'waiting' } })
-    expect(w.text()).toBe('Aguardando')
+    expect(w.text()).toBe('Aguardando cliente')
     expect(w.classes()).toContain('text-violet-fg')
   })
 

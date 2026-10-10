@@ -116,23 +116,16 @@ const editando = ref(false)
       <dd class="font-medium">{{ chamado.team.name }}</dd>
       <dt class="text-muted">{{ t('chamado.responsavel') }}</dt>
       <dd class="font-medium">{{ chamado.assignee?.full_name ?? t('chamado.naFila') }}</dd>
-      <dt class="text-muted">{{ t('novoChamado.categoria') }}</dt>
-      <dd>{{ chamado.category.path }}</dd>
       <dt class="text-muted">{{ t('chamado.tipo') }}</dt>
       <dd>{{ t(`tipos.${chamado.type}`) }}</dd>
-      <dt class="text-muted">{{ t('chamado.para') }}</dt>
-      <dd>
-        {{
-          [chamado.department?.name, chamado.beneficiary_name].filter(Boolean).join(' · ') || '—'
-        }}
-      </dd>
+      <dt class="text-muted">{{ t('chamado.inicio') }}</dt>
+      <dd class="tabular-nums">{{ formatarDataHora(chamado.started_at) }}</dd>
       <dt class="text-muted">{{ t('chamado.prioridade') }}</dt>
       <dd class="flex flex-col items-start gap-1">
         <PriorityBadge :priority="chamado.priority as Prioridade" />
-        <span class="text-muted">
-          {{ t(`urgencia.${chamado.urgency}`) }} · {{ t(`impacto.${chamado.impact}`) }}
-          <template v-if="chamado.priority_overridden"> · {{ t('chamado.forcada') }}</template>
-        </span>
+        <span v-if="chamado.priority_overridden" class="text-muted">{{
+          t('chamado.forcada')
+        }}</span>
       </dd>
       <template v-if="chamado.resolution_code">
         <dt class="text-muted">{{ t('chamado.resolucao') }}</dt>
@@ -166,7 +159,7 @@ const editando = ref(false)
         {{ t('chamado.transferir') }}
       </Button>
       <Button
-        v-if="pode.has('edit') || pode.has('set_priority')"
+        v-if="pode.has('edit') || pode.has('set_priority') || pode.has('set_status')"
         size="sm"
         variant="secondary"
         @click="editando = true"

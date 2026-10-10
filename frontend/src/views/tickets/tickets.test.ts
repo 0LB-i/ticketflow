@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth'
 import { criarRouter } from '@/router'
-import { ME_AGENTE, montar, simularApi } from '@/test/setup'
+import { escolher, ME_AGENTE, montar, simularApi } from '@/test/setup'
 
 import NewTicketView from './NewTicketView.vue'
 import TicketView from './TicketView.vue'
@@ -22,6 +22,15 @@ const ME = {
   teams: [{ id: TI, name: 'TI', role: 'member' as const }],
   permissions: ['ticket.create'],
 }
+const STATUS = {
+  items: [
+    { id: 1, name: 'Pendente', kind: 'open' },
+    { id: 2, name: 'Aguardando cliente', kind: 'waiting' },
+    { id: 5, name: 'Entregue', kind: 'closed' },
+    { id: 3, name: 'Concluído', kind: 'closed' },
+    { id: 4, name: 'Cancelado', kind: 'canceled' },
+  ],
+}
 const GRUPOS = {
   items: [
     {
@@ -37,21 +46,6 @@ const GRUPOS = {
     },
   ],
 }
-const CATEGORIAS = {
-  items: [
-    {
-      id: IMPRESSAO,
-      name: 'Impressão',
-      description: null,
-      parent_id: null,
-      default_team_id: TI,
-      default_type: 'incident',
-      is_confidential: false,
-      is_active: true,
-    },
-  ],
-}
-
 /** Marca a opção (radio) cujo rótulo contém o texto. */
 function marcar(w: ReturnType<typeof montar>, texto: string) {
   return w
@@ -61,39 +55,21 @@ function marcar(w: ReturnType<typeof montar>, texto: string) {
     .setValue()
 }
 
-/** Escolhe uma opção de um Select (Reka UI) pelo teclado, como um usuário. */
-async function escolher(rotulo: string, opcao: string) {
-  const label = [...document.querySelectorAll('label')].find((l) => l.textContent?.includes(rotulo))
-  const trigger = document.getElementById(label!.htmlFor)!
-  trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-  const item = await vi.waitFor(() => {
-    const encontrado = [...document.querySelectorAll('[role=option]')].find(
-      (o) => o.textContent?.trim() === opcao,
-    )
-    expect(encontrado).toBeTruthy()
-    return encontrado as HTMLElement
-  })
-  item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-  await vi.waitFor(() => expect(document.querySelector('[role=listbox]')).toBeNull())
-}
-
 describe('NewTicketView', () => {
-  it('registra com o grupo, a categoria, a urgência e o responsável escolhidos', async () => {
+  it('registra com o grupo, o status e o responsável escolhidos', async () => {
     const feitas = simularApi({
-      'GET /api/v1/me': [200, ME],
+      'GET /api/v1/me': [200, { ...ME, permissions: ['ticket.create', 'ticket.transition'] }],
       'GET /api/v1/teams': [200, GRUPOS],
-      'GET /api/v1/categories': [200, CATEGORIAS],
-      'GET /api/v1/departments': [200, { items: [] }],
+      'GET /api/v1/statuses': [200, STATUS],
       'POST /api/v1/tickets': [201, { number: 1000, title: 'Impressora parada' }],
     })
     const router = criarRouter()
     const w = montar(NewTicketView, { global: { plugins: [router] } })
     await router.push('/chamados/novo')
 
-    await vi.waitFor(() => expect(w.text()).toContain('Categoria'))
-    await escolher('Categoria', 'Impressão')
+    await vi.waitFor(() => expect(w.text()).toContain('Pendente')) // o padrão
+    await escolher('Status', 'Entregue')
     await w.get('input[type=text]').setValue('Impressora parada')
-    await marcar(w, 'Agora')
     await marcar(w, 'Deixar na fila')
     await w.get('form').trigger('submit')
 
@@ -102,10 +78,9 @@ describe('NewTicketView', () => {
       title: 'Impressora parada',
       description: '',
       team_id: TI,
-      category_id: IMPRESSAO,
-      department_id: null,
-      beneficiary_name: null,
-      urgency: 3,
+      status_id: 5,
+      started_at: null,
+      urgency: 1,
       impact: 1,
       assignee: null,
       watcher_ids: [],
@@ -117,8 +92,7 @@ describe('NewTicketView', () => {
     simularApi({
       'GET /api/v1/me': [200, ME],
       'GET /api/v1/teams': [200, GRUPOS],
-      'GET /api/v1/categories': [200, CATEGORIAS],
-      'GET /api/v1/departments': [200, { items: [] }],
+      'GET /api/v1/statuses': [200, STATUS],
     })
     const w = montar(NewTicketView)
     useAuthStore().me = { ...ME, teams: [] } // dados do login, antes de entrar no grupo
@@ -126,18 +100,51 @@ describe('NewTicketView', () => {
     expect(w.text()).not.toContain('ainda não é membro')
   })
 
-  it('não envia sem título e categoria', async () => {
+  it('o início acompanha a hora atual até a pessoa mudar', async () => {
+    const feitas = simularApi({
+      'GET /api/v1/me': [200, ME],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/statuses': [200, STATUS],
+      'POST /api/v1/tickets': [201, { number: 1002, title: 'Começou cedo' }],
+    })
+    const router = criarRouter()
+    const w = montar(NewTicketView, { global: { plugins: [router] } })
+    await router.push('/chamados/novo')
+    await vi.waitFor(() => expect(w.text()).toContain('Acompanhando a hora atual'))
+
+    await w.get('input[type=date]').setValue('2026-10-01')
+    await w.get('input[type=time]').setValue('07:45')
+    expect(w.text()).toContain('Ajustado à mão')
+    await w.get('input[type=text]').setValue('Começou cedo')
+    await w.get('form').trigger('submit')
+
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1002'))
+    expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toMatchObject({
+      started_at: '2026-10-01T10:45:00.000Z',
+    })
+  })
+
+  it('sem ticket.transition, não escolhe o status: vai como Pendente', async () => {
+    simularApi({
+      'GET /api/v1/me': [200, ME],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/statuses': [200, STATUS],
+    })
+    const w = montar(NewTicketView, { global: { plugins: [criarRouter()] } })
+    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    expect(w.text()).not.toContain('Status')
+  })
+
+  it('não envia sem título', async () => {
     // O router faz a navegação inicial ao ser instalado, e o guard carrega o /me.
     const feitas = simularApi({
       'GET /api/v1/me': [200, ME],
       'GET /api/v1/teams': [200, GRUPOS],
-      'GET /api/v1/categories': [200, CATEGORIAS],
-      'GET /api/v1/departments': [200, { items: [] }],
+      'GET /api/v1/statuses': [200, STATUS],
     })
     const w = montar(NewTicketView, { global: { plugins: [criarRouter()] } })
     await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
     await w.get('form').trigger('submit')
-    expect(w.text()).toContain('Escolha a categoria.')
     expect(w.text()).toContain('Informe um título com pelo menos 3 letras.')
     expect(feitas.some((r) => r.metodo === 'POST')).toBe(false)
   })
@@ -153,8 +160,9 @@ const CHAMADO = {
   team: { id: TI, name: 'TI' },
   category: { id: IMPRESSAO, name: 'Impressão', path: 'Impressão' },
   department: null,
-  beneficiary_name: 'João Silva',
+  beneficiary_name: null,
   assignee: null,
+  started_at: '2026-10-10T11:30:00Z',
   created_at: '2026-10-10T12:00:00Z',
   updated_at: '2026-10-10T12:00:00Z',
   description: 'Aparece **offline**.',
@@ -205,7 +213,7 @@ describe('TicketView', () => {
     await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
     expect(w.find('strong').text()).toBe('offline')
     expect(w.text()).toContain('Bia transferiu de Infra para TI')
-    expect(w.text()).toContain('João Silva')
+    expect(w.text()).toContain('10/10/2026, 08:30') // início, no fuso de São Paulo
     const botoes = w.findAll('button').map((b) => b.text())
     expect(botoes).toContain('Assumir')
     expect(botoes).toContain('Transferir')

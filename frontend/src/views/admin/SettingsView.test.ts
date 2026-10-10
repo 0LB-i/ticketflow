@@ -39,7 +39,10 @@ describe('SettingsView', () => {
 
     await w.get('form').trigger('submit')
     await vi.waitFor(() => expect(document.getElementById('tf-cores')).not.toBeNull())
-    expect(feitas[0]!.corpo).toEqual({ default_locale: 'pt-BR', colors: amarelo })
+    expect(feitas.find((r) => r.metodo === 'PATCH')!.corpo).toEqual({
+      default_locale: 'pt-BR',
+      colors: amarelo,
+    })
     expect(document.getElementById('tf-cores')!.textContent).toContain(
       'html:root{--tf-brand:#FDE047',
     )
@@ -50,8 +53,11 @@ describe('SettingsView', () => {
     const feitas = simularApi({ 'PATCH /api/v1/admin/settings': [200, PADRAO] })
     const w = montar(SettingsView)
     await w.get('form').trigger('submit')
-    await vi.waitFor(() => expect(feitas).toHaveLength(1))
-    expect(feitas[0]!.corpo).toEqual({ default_locale: 'pt-BR', colors: null })
+    await vi.waitFor(() => expect(feitas.filter((r) => r.metodo === 'PATCH')).toHaveLength(1))
+    expect(feitas.find((r) => r.metodo === 'PATCH')!.corpo).toEqual({
+      default_locale: 'pt-BR',
+      colors: null,
+    })
   })
 
   it('combinação pronta preenche as três cores; a padrão vem marcada', async () => {
@@ -82,6 +88,6 @@ describe('SettingsView', () => {
     input.dispatchEvent(new Event('change'))
     await nextTick()
     expect(w.get('[role=alert]').text()).toBe('Envie uma imagem PNG, JPEG ou WebP.')
-    expect(feitas).toHaveLength(0)
+    expect(feitas.filter((r) => r.metodo !== 'GET')).toHaveLength(0)
   })
 })

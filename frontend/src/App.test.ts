@@ -16,7 +16,7 @@ describe('App', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {} }))
     simularApi({
       'GET /api/v1/me': [200, ME_AGENTE],
-      'GET /api/health': [200, { status: 'ok', version: '0.1.0', database: 'ok' }],
+      'GET /api/v1/tickets': [200, { items: [], next_cursor: null }],
     })
     const router = criarRouter()
     const w = montar(App, { global: { plugins: [router] } })

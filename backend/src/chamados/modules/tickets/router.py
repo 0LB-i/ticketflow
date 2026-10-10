@@ -54,13 +54,16 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
         priority=t.priority,
         team=RefOut(id=t.team.public_id, name=t.team.name),
         category=CategoryRef(
-            id=t.category.public_id, name=t.category.name, path=paths[t.category_id]
-        ),
+            id=t.category.public_id, name=t.category.name, path=paths[t.category.id]
+        )
+        if t.category
+        else None,
         department=RefOut(id=t.department.public_id, name=t.department.name)
         if t.department
         else None,
         beneficiary_name=t.beneficiary_name,
         assignee=_user(t.assignee),
+        started_at=t.started_at,
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
@@ -134,7 +137,8 @@ async def get_ticket(ticket_ref: str, auth: CurrentAuth, db: DB, request: Reques
     ticket = await service.load(db, auth, ticket_ref)
     # Regra 6 do docs/08 §8.4: admin e auditor leem confidenciais, e isso fica na auditoria.
     if (
-        ticket.category.is_confidential
+        ticket.category
+        and ticket.category.is_confidential
         and auth.actor.role in SEE_EVERYTHING
         and not sees_without_privilege(auth.actor, ticket)
     ):

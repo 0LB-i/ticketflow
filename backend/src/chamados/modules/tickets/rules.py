@@ -77,6 +77,8 @@ def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
         (P.TICKET_EDIT, "edit"),
         (P.TICKET_SET_PRIORITY, "set_priority"),
         (P.TICKET_WATCH, "manage_watchers"),
+        # Escolher qualquer status no formulário, sem as exigências do fluxo.
+        (P.TICKET_TRANSITION, "set_status"),
     ):
         if can(actor, permission):
             actions.add(action)

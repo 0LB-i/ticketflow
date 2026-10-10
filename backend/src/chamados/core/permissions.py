@@ -40,6 +40,8 @@ class P(StrEnum):
     ADMIN_CATALOG = "admin.catalog"
     ADMIN_SETTINGS = "admin.settings"
     AUDIT_VIEW = "audit.view"
+    CLIENT_VIEW = "client.view"
+    CLIENT_MANAGE = "client.manage"
 
 
 # Concedidas a quem é supervisor do grupo do chamado (👤).
@@ -70,6 +72,8 @@ ROLES: dict[str, frozenset[P]] = {
             P.TICKET_MERGE,
             P.KB_READ,
             P.KB_WRITE,
+            P.CLIENT_VIEW,
+            P.CLIENT_MANAGE,
         }
     ),
     "admin": frozenset(P),
@@ -82,6 +86,7 @@ ROLES: dict[str, frozenset[P]] = {
             P.REPORT_VIEW_TEAM,
             P.REPORT_VIEW_ALL,
             P.AUDIT_VIEW,
+            P.CLIENT_VIEW,
         }
     ),
 }

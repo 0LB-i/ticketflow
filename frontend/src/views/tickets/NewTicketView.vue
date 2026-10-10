@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { compararTexto } from '@/i18n'
 import { X } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -7,17 +6,12 @@ import { useRouter } from 'vue-router'
 
 import RichEditor from '@/components/editor/RichEditor.vue'
 import Button from '@/components/ui/Button.vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
 import RadioGroup from '@/components/ui/RadioGroup.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import TextField from '@/components/ui/TextField.vue'
-import { useGrupos, useSetores } from '@/composables/admin'
-import {
-  caminhoDasCategorias,
-  chamadosApi,
-  useAcaoNoChamado,
-  useCategorias,
-  usePessoas,
-} from '@/composables/chamados'
+import { useGrupos } from '@/composables/admin'
+import { chamadosApi, useAcaoNoChamado, usePessoas, useStatus } from '@/composables/chamados'
 import { useHead } from '@/composables/useHead'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
@@ -28,23 +22,19 @@ const { t } = useI18n()
 const router = useRouter()
 const toast = useToast()
 const auth = useAuthStore()
-const categorias = useCategorias()
+const status = useStatus()
 const grupos = useGrupos()
-const setores = useSetores()
 const pessoas = usePessoas()
 const editor = useTemplateRef('editor')
-const NENHUM = '__nenhum__'
 
 const meusGrupos = computed(() => auth.me?.teams ?? [])
 const form = reactive({
   team: meusGrupos.value.length === 1 ? meusGrupos.value[0]!.id : '',
-  category: '',
+  status: '',
   title: '',
   description: '',
-  department: NENHUM,
-  beneficiary: '',
-  urgency: '1',
-  impact: '1',
+  // Início do trabalho: nulo acompanha a hora atual até a pessoa mudar.
+  inicio: null as string | null,
   responsavel: 'me' as 'me' | 'fila' | 'outro',
   outro: '',
   observadores: [] as string[],
@@ -58,43 +48,21 @@ watch(meusGrupos, (grupos) => {
   if (!form.team && grupos.length === 1) form.team = grupos[0]!.id
 })
 
-const caminhos = computed(() => caminhoDasCategorias(categorias.data.value ?? []))
-const idsMeusGrupos = computed(() => new Set(meusGrupos.value.map((g) => g.id)))
-
-/** Categorias ativas do grupo escolhido (ou sem grupo padrão), pelo caminho na árvore. */
-const opcoesCategoria = computed(() =>
-  (categorias.data.value ?? [])
-    .filter(
-      (c) =>
-        c.is_active &&
-        (!c.default_team_id ||
-          (form.team
-            ? c.default_team_id === form.team
-            : idsMeusGrupos.value.has(c.default_team_id))),
-    )
-    .map((c) => ({ value: c.id, label: caminhos.value.get(c.id) ?? c.name }))
-    .sort((a, b) => compararTexto(a.label, b.label)),
+// Status: começa em Pendente (o primeiro do tipo "open") e pode ser qualquer um dos cinco.
+const podeEscolherStatus = computed(() => auth.pode('ticket.transition'))
+const opcoesStatus = computed(() =>
+  (status.data.value ?? []).map((s) => ({ value: String(s.id), label: s.name })),
 )
-
-// Roteamento: escolher a categoria preenche o grupo padrão dela, se for um dos meus.
 watch(
-  () => form.category,
-  (id) => {
-    const categoria = categorias.data.value?.find((c) => c.id === id)
-    if (
-      !form.team &&
-      categoria?.default_team_id &&
-      idsMeusGrupos.value.has(categoria.default_team_id)
-    )
-      form.team = categoria.default_team_id
+  () => status.data.value,
+  (lista) => {
+    if (!form.status && lista) form.status = String(lista.find((s) => s.kind === 'open')?.id ?? '')
   },
+  { immediate: true },
 )
 watch(
   () => form.team,
-  () => {
-    if (!opcoesCategoria.value.some((o) => o.value === form.category)) form.category = ''
-    form.outro = ''
-  },
+  () => (form.outro = ''),
 )
 
 const supervisorDoGrupo = computed(
@@ -112,15 +80,6 @@ const opcoesResponsavel = computed(() => [
   { value: 'fila', label: t('novoChamado.fila') },
   ...(supervisorDoGrupo.value ? [{ value: 'outro', label: t('novoChamado.outro') }] : []),
 ])
-const opcoesSetor = computed(() => [
-  { value: NENHUM, label: t('comum.nenhum') },
-  ...(setores.data.value ?? [])
-    .filter((s) => s.is_active)
-    .map((s) => ({ value: s.id, label: s.name })),
-])
-const niveis = (chave: string) =>
-  ['1', '2', '3'].map((n) => ({ value: n, label: t(`${chave}.${n}`) }))
-
 const nomes = computed(() => new Map(pessoas.value.map((p) => [p.id, p.label])))
 const opcoesObservador = computed(() =>
   pessoas.value
@@ -137,8 +96,9 @@ watch(novoObservador, (id) => {
 
 const faltando = computed(() => ({
   team: !form.team,
-  category: !form.category,
   title: form.title.trim().length < 3,
+  // A API aceita até 5 minutos adiantado (relógio do computador); aqui, qualquer futuro.
+  inicio: form.inicio !== null && new Date(form.inicio).getTime() > Date.now(),
   outro: form.responsavel === 'outro' && !form.outro,
 }))
 
@@ -153,11 +113,11 @@ async function enviar() {
       title: form.title,
       description: form.description,
       team_id: form.team,
-      category_id: form.category,
-      department_id: form.department === NENHUM ? null : form.department,
-      beneficiary_name: form.beneficiary.trim() || null,
-      urgency: Number(form.urgency),
-      impact: Number(form.impact),
+      status_id: podeEscolherStatus.value && form.status ? Number(form.status) : null,
+      started_at: form.inicio,
+      // Impacto e urgência saíram da tela por enquanto: vão no mínimo (prioridade baixa).
+      urgency: 1,
+      impact: 1,
       assignee: form.responsavel === 'me' ? 'me' : form.responsavel === 'outro' ? form.outro : null,
       watcher_ids: form.observadores,
       mention_ids: editor.value?.mencionados() ?? [],
@@ -174,129 +134,113 @@ async function enviar() {
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-3xl flex-col gap-4">
-    <h1 class="text-xl font-semibold">{{ $t('novoChamado.titulo') }}</h1>
+  <!-- Pensada para computador: texto à esquerda e campos à direita, sem rolar a página. -->
+  <div class="mx-auto flex max-w-7xl flex-col gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-xl font-semibold">{{ $t('novoChamado.titulo') }}</h1>
+      <div v-if="meusGrupos.length" class="flex gap-2">
+        <Button variant="secondary" @click="router.push('/chamados')">
+          {{ $t('comum.cancelar') }}
+        </Button>
+        <Button type="submit" form="form-novo-chamado" :disabled="registrar.isPending.value">
+          {{ $t('novoChamado.registrar') }}
+        </Button>
+      </div>
+    </div>
     <p v-if="!meusGrupos.length" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">
       {{ $t('novoChamado.semGrupo') }}
     </p>
 
     <form
       v-else
-      class="flex flex-col gap-5 rounded-lg border border-border bg-surface p-4 md:p-6"
+      id="form-novo-chamado"
+      class="flex flex-col gap-4"
       novalidate
       @submit.prevent="enviar"
     >
       <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
 
-      <div class="grid gap-4 md:grid-cols-2">
-        <SelectField
-          v-model="form.team"
-          :label="$t('novoChamado.grupo')"
-          :options="meusGrupos.map((g) => ({ value: g.id, label: g.name }))"
-          :error="tentou && faltando.team ? $t('novoChamado.escolhaGrupo') : undefined"
-          required
-        />
-        <SelectField
-          v-model="form.category"
-          :label="$t('novoChamado.categoria')"
-          :options="opcoesCategoria"
-          :error="tentou && faltando.category ? $t('novoChamado.escolhaCategoria') : undefined"
-          required
-        />
-      </div>
-
-      <TextField
-        v-model="form.title"
-        :label="$t('novoChamado.tituloCampo')"
-        :hint="$t('novoChamado.tituloDica')"
-        :error="tentou && faltando.title ? $t('novoChamado.tituloCurto') : undefined"
-        required
-      />
-      <RichEditor
-        ref="editor"
-        v-model="form.description"
-        :label="$t('novoChamado.descricao')"
-        :placeholder="$t('novoChamado.descricaoDica')"
-        :pessoas="pessoas"
-      />
-
-      <fieldset class="grid gap-4 md:grid-cols-2">
-        <legend class="mb-2 font-medium">{{ $t('novoChamado.paraQuem') }}</legend>
-        <SelectField
-          v-model="form.department"
-          :label="$t('chamado.setor')"
-          :options="opcoesSetor"
-        />
-        <TextField
-          v-model="form.beneficiary"
-          :label="$t('chamado.pessoa')"
-          :hint="$t('novoChamado.pessoaDica')"
-        />
-      </fieldset>
-
-      <RadioGroup
-        v-model="form.urgency"
-        :legend="$t('chamado.urgencia')"
-        :options="niveis('urgencia')"
-      />
-      <RadioGroup
-        v-model="form.impact"
-        :legend="$t('chamado.impacto')"
-        :options="niveis('impacto')"
-      />
-
-      <div class="flex flex-col gap-3">
-        <RadioGroup
-          v-model="form.responsavel"
-          :legend="$t('chamado.responsavel')"
-          :options="opcoesResponsavel"
-        />
-        <div v-if="form.responsavel === 'outro'" class="max-w-sm">
-          <SelectField
-            v-model="form.outro"
-            :label="$t('novoChamado.qualMembro')"
-            :options="membrosDoGrupo"
-            :error="tentou && faltando.outro ? $t('novoChamado.escolhaMembro') : undefined"
+      <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6">
+          <TextField
+            v-model="form.title"
+            :label="$t('novoChamado.tituloCampo')"
+            :hint="$t('novoChamado.tituloDica')"
+            :error="tentou && faltando.title ? $t('novoChamado.tituloCurto') : undefined"
             required
           />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <div class="max-w-sm">
-          <SelectField
-            v-model="novoObservador"
-            :label="$t('chamado.observadores')"
-            :placeholder="$t('chamado.adicionarColega')"
-            :options="opcoesObservador"
+          <RichEditor
+            ref="editor"
+            v-model="form.description"
+            :label="$t('novoChamado.descricao')"
+            :placeholder="$t('novoChamado.descricaoDica')"
+            :pessoas="pessoas"
+            alto
           />
         </div>
-        <ul v-if="form.observadores.length" class="flex flex-wrap gap-2">
-          <li
-            v-for="id in form.observadores"
-            :key="id"
-            class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3"
-          >
-            {{ nomes.get(id) }}
-            <button
-              type="button"
-              class="rounded-full p-0.5 text-muted hover:bg-border"
-              :aria-label="$t('chamado.removerObservador', { nome: nomes.get(id) })"
-              @click="form.observadores = form.observadores.filter((o) => o !== id)"
-            >
-              <X class="size-4" aria-hidden="true" />
-            </button>
-          </li>
-        </ul>
-      </div>
 
-      <div class="flex justify-end gap-2 border-t border-border pt-4">
-        <Button variant="secondary" @click="router.push('/chamados')">
-          {{ $t('comum.cancelar') }}
-        </Button>
-        <Button type="submit" :disabled="registrar.isPending.value">
-          {{ $t('novoChamado.registrar') }}
-        </Button>
+        <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+          <DateTimeField
+            v-model="form.inicio"
+            :label="$t('chamado.inicio')"
+            :error="tentou && faltando.inicio ? $t('novoChamado.inicioNoFuturo') : undefined"
+          />
+          <SelectField
+            v-model="form.team"
+            :label="$t('novoChamado.grupo')"
+            :options="meusGrupos.map((g) => ({ value: g.id, label: g.name }))"
+            :error="tentou && faltando.team ? $t('novoChamado.escolhaGrupo') : undefined"
+            required
+          />
+          <SelectField
+            v-if="podeEscolherStatus"
+            v-model="form.status"
+            :label="$t('chamados.status')"
+            :options="opcoesStatus"
+          />
+
+          <div class="flex flex-col gap-3 border-t border-border pt-4">
+            <RadioGroup
+              v-model="form.responsavel"
+              :legend="$t('chamado.responsavel')"
+              :options="opcoesResponsavel"
+            />
+            <SelectField
+              v-if="form.responsavel === 'outro'"
+              v-model="form.outro"
+              :label="$t('novoChamado.qualMembro')"
+              :options="membrosDoGrupo"
+              :error="tentou && faltando.outro ? $t('novoChamado.escolhaMembro') : undefined"
+              required
+            />
+          </div>
+
+          <div class="flex flex-col gap-2 border-t border-border pt-4">
+            <SelectField
+              v-model="novoObservador"
+              :label="$t('chamado.observadores')"
+              :placeholder="$t('chamado.adicionarColega')"
+              :options="opcoesObservador"
+            />
+            <ul v-if="form.observadores.length" class="flex flex-wrap gap-2">
+              <li
+                v-for="id in form.observadores"
+                :key="id"
+                class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3"
+              >
+                {{ nomes.get(id) }}
+                <button
+                  type="button"
+                  class="rounded-full p-0.5 text-muted hover:bg-border"
+                  :aria-label="$t('chamado.removerObservador', { nome: nomes.get(id) })"
+                  @click="form.observadores = form.observadores.filter((o) => o !== id)"
+                >
+                  <X class="size-4" aria-hidden="true" />
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </form>
   </div>

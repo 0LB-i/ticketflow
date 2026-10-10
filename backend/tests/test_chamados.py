@@ -1,5 +1,6 @@
 """Chamados pela API (Sprint 3: docs/10). Cenário: Ana e Bia (supervisora) no TI, Caio na Infra."""
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -120,6 +121,101 @@ def test_registro_valida_grupo_responsavel_e_perfil(
         client.post(API, json={"title": "Auditor", "category_id": cenario["impressao"]}).status_code
         == 403
     )
+
+
+def test_registro_sem_categoria(client: TestClient, cenario: dict[str, Any]) -> None:
+    # Sem categoria não há grupo padrão: o grupo é obrigatório
+    r = client.post(API, json={"title": "Sem categoria"})
+    assert r.status_code == 422
+    assert r.json()["detail"] == "Escolha o grupo do chamado."
+
+    r = client.post(API, json={"title": "Sem categoria", "team_id": cenario["ti"]})
+    assert r.status_code == 201, r.text
+    t = r.json()
+    assert t["category"] is None and t["type"] == "incident" and t["team"]["name"] == "TI"
+    assert client.get(f"{API}/{t['number']}").json()["category"] is None
+    assert client.get(API).json()["items"][0]["category"] is None
+
+    # A categoria pode ser escolhida depois e tirada de novo
+    url = f"{API}/{t['number']}"
+    assert client.patch(url, json={"category_id": cenario["impressao"]}).json()["category"]
+    r = client.patch(url, json={"category_id": None})
+    assert r.status_code == 200 and r.json()["category"] is None
+    mudancas = eventos(client, t["number"])[-1]["payload"]["changes"]
+    assert mudancas["category"] == {
+        "from": {"id": cenario["impressao"], "name": "Impressão"},
+        "to": None,
+    }
+
+
+def test_inicio_do_chamado(client: TestClient, cenario: dict[str, Any]) -> None:
+    # Sem início informado, vale a hora do registro
+    t = registrar(client, cenario)
+    assert t["started_at"] == t["created_at"]
+
+    # Quem registra pode informar outro início, mas não no futuro
+    t = registrar(client, cenario, started_at="2026-10-01T08:30:00-03:00")
+    assert t["started_at"] == "2026-10-01T11:30:00Z"
+    futuro = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+    r = client.post(
+        API, json={"title": "Futuro", "category_id": cenario["impressao"], "started_at": futuro}
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"] == "O início não pode ficar no futuro."
+    r = client.post(
+        API,
+        json={
+            "title": "Sem fuso",
+            "category_id": cenario["impressao"],
+            "started_at": "2026-10-01T08:30:00",
+        },
+    )
+    assert r.status_code == 422
+
+    # E ajustar depois, com registro no histórico
+    url = f"{API}/{t['number']}"
+    r = client.patch(url, json={"started_at": "2026-10-01T09:00:00-03:00"})
+    assert r.status_code == 200 and r.json()["started_at"] == "2026-10-01T12:00:00Z"
+    mudancas = eventos(client, t["number"])[-1]["payload"]["changes"]
+    assert mudancas["started_at"] == {
+        "from": "2026-10-01T11:30:00+00:00",
+        "to": "2026-10-01T12:00:00+00:00",
+    }
+    assert client.patch(url, json={"started_at": futuro}).status_code == 422
+
+
+def test_status_escolhido_no_formulario(client: TestClient, cenario: dict[str, Any]) -> None:
+    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
+    assert list(status) == ["Pendente", "Aguardando cliente", "Entregue", "Concluído", "Cancelado"]
+
+    # Sem status, Pendente; com status, qualquer um, sem comentário nem código de resolução
+    assert registrar(client, cenario)["status"]["name"] == "Pendente"
+    t = registrar(client, cenario, status_id=status["Entregue"])
+    assert t["status"] == {"id": status["Entregue"], "name": "Entregue", "kind": "closed"}
+    assert t["closed_at"] is not None
+    r = client.post(
+        API, json={"title": "Status?", "category_id": cenario["impressao"], "status_id": 99}
+    )
+    assert r.status_code == 422
+
+    # Na edição: entre dois status de conclusão, a data de conclusão não muda
+    url = f"{API}/{t['number']}"
+    assert "set_status" in t["allowed_actions"]
+    r = client.patch(url, json={"status_id": status["Concluído"]})
+    assert r.status_code == 200
+    assert r.json()["status"]["name"] == "Concluído" and r.json()["closed_at"] == t["closed_at"]
+    ultimo = eventos(client, t["number"])[-1]
+    assert ultimo["type"] == "ticket.status_changed"
+    assert ultimo["payload"]["from"]["name"] == "Entregue"
+    assert ultimo["payload"]["to"]["name"] == "Concluído"
+
+    # Voltar para Pendente reabre
+    r = client.patch(url, json={"status_id": status["Pendente"]}).json()
+    assert r["closed_at"] is None and r["reopened_count"] == 1
+
+    # Quem não muda status no fluxo também não muda no formulário
+    entrar(client, "auditor@x.com")
+    assert client.patch(url, json={"status_id": status["Cancelado"]}).status_code == 403
 
 
 # --- edição e prioridade ------------------------------------------------------------------------

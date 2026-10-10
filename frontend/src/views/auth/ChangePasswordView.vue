@@ -36,7 +36,7 @@ async function salvar() {
   }
   await auth.carregar()
   toast.show({ title: t('trocarSenha.pronto') })
-  await router.replace({ name: 'inicio' })
+  await router.replace({ name: 'chamados' })
 }
 
 async function sair() {

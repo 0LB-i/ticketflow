@@ -21,6 +21,19 @@ describe('proteção das rotas (docs/13 §13.3)', () => {
     expect(router.currentRoute.value.query.volta).toBe('/admin/usuarios')
   })
 
+  it('a tela inicial é a lista de chamados', async () => {
+    simularApi({ 'GET /api/v1/me': [200, ME_AGENTE] })
+    await router.push('/')
+    expect(router.currentRoute.value.name).toBe('chamados')
+  })
+
+  it('sem sessão, a tela inicial vai para o login sem "volta"', async () => {
+    simularApi({ 'GET /api/v1/me': [401, { status: 401 }] })
+    await router.push('/')
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query).toEqual({})
+  })
+
   it('sem a permissão da tela mostra "sem acesso"', async () => {
     simularApi({ 'GET /api/v1/me': [200, ME_AGENTE] })
     await router.push('/admin/grupos')
@@ -38,7 +51,7 @@ describe('proteção das rotas (docs/13 §13.3)', () => {
   it('quem já está logado não vê a tela de login', async () => {
     simularApi({ 'GET /api/v1/me': [200, ME_AGENTE] })
     await router.push('/login')
-    expect(router.currentRoute.value.name).toBe('inicio')
+    expect(router.currentRoute.value.name).toBe('chamados')
   })
 
   it('convite continua acessível mesmo logado', async () => {
@@ -71,6 +84,6 @@ describe('senha provisória (docs/09 §9.2)', () => {
   it('depois da troca, a tela de troca obrigatória não abre mais', async () => {
     simularApi({ 'GET /api/v1/me': [200, ME_ADMIN] })
     await router.push('/trocar-senha')
-    expect(router.currentRoute.value.name).toBe('inicio')
+    expect(router.currentRoute.value.name).toBe('chamados')
   })
 })

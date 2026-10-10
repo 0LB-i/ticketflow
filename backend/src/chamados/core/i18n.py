@@ -110,6 +110,33 @@ EN: dict[str, str] = {
     "Escolha o grupo: a categoria não tem um grupo padrão ativo.": (
         "Choose the team: the category has no active default team."
     ),
+    "Escolha o grupo do chamado.": "Choose the ticket's team.",
+    "Status não encontrado.": "Status not found.",
+    "Informe o nome do cliente.": "Enter the client's name.",
+    "Informe o endereço.": "Enter the address.",
+    "Informe o número do endereço.": "Enter the address number.",
+    "Informe o bairro.": "Enter the district.",
+    "Informe a cidade.": "Enter the city.",
+    "CPF inválido.": "Invalid CPF.",
+    "CNPJ inválido.": "Invalid CNPJ.",
+    "A data de nascimento não pode ficar no futuro.": "The date of birth cannot be in the future.",
+    "Telefone inválido: informe o DDD e o número.": (
+        "Invalid phone: enter the area code and the number."
+    ),
+    "Celular inválido: informe o DDD e o número.": (
+        "Invalid mobile: enter the area code and the number."
+    ),
+    "CEP inválido: são 8 números.": "Invalid postal code (CEP): it has 8 digits.",
+    "UF inválida.": "Invalid state.",
+    "Já existe um cliente com este CPF/CNPJ.": "A client with this CPF/CNPJ already exists.",
+    "Cliente não encontrado.": "Client not found.",
+    "Informe o nome do status.": "Enter the status name.",
+    "Já existe um status com este nome.": "A status with this name already exists.",
+    "Envie todos os status, cada um uma vez.": "Send every status, each one once.",
+    "Este é o único status com este comportamento. Crie outro antes de remover.": (
+        "This is the only status with this behavior. Create another one before removing it."
+    ),
+    "O início não pode ficar no futuro.": "The start cannot be in the future.",
     "Você só registra chamados nos grupos de que é membro.": (
         "You can only create tickets in teams you are a member of."
     ),

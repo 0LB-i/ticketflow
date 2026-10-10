@@ -7,14 +7,13 @@
   },
   "menu": {
     "titulo": "Main menu",
-    "inicio": "Home",
     "componentes": "Components",
     "administracao": "Administration",
     "usuarios": "Users",
     "grupos": "Teams",
     "setores": "Departments served",
     "chamados": "Tickets",
-    "categorias": "Categories",
+    "clientes": "Clients",
     "configuracoes": "Settings"
   },
   "tema": {
@@ -22,19 +21,6 @@
     "claro": "Light",
     "escuro": "Dark",
     "automatico": "Automatic"
-  },
-  "inicio": {
-    "titulo": "Home",
-    "boasVindas": "Welcome to TicketFlow",
-    "emConstrucao": "Tickets can already be created from the Tickets menu. Queues and counters arrive in the next stage.",
-    "estadoDoSistema": "System status",
-    "verificando": "Checking…",
-    "funcionando": "Running",
-    "indisponivel": "Unavailable",
-    "erroAoConsultar": "Could not reach the server. Try again in a moment.",
-    "versao": "Version",
-    "banco": "Database",
-    "tentarDeNovo": "Try again"
   },
   "naoEncontrado": {
     "titulo": "Page not found",
@@ -68,7 +54,7 @@
   },
   "status": {
     "open": "Pending",
-    "waiting": "Waiting",
+    "waiting": "Waiting for customer",
     "approval": "Awaiting approval",
     "closed": "Done",
     "canceled": "Canceled"
@@ -246,25 +232,6 @@
     "2": "A department or team",
     "3": "The whole company or customers"
   },
-  "categorias": {
-    "titulo": "Categories",
-    "descricao": "What each task is. Up to 3 levels; the category suggests the ticket's team and type.",
-    "nova": "New category",
-    "editar": "Edit category",
-    "criada": "Category created",
-    "vazio": "No categories yet.",
-    "mostrarInativas": "Show inactive",
-    "nome": "Name",
-    "descricaoCampo": "Description (optional)",
-    "descricaoDica": "Helps choose the right category.",
-    "acima": "Parent category",
-    "nenhumaAcima": "None (top-level category)",
-    "grupoPadrao": "Default team",
-    "semGrupoPadrao": "None (chosen when creating)",
-    "tipoPadrao": "Default type",
-    "confidencial": "Confidential",
-    "confidencialDica": "Only the current team, the assignee, the watchers, the administrator and the auditor see tickets in this category."
-  },
   "chamados": {
     "titulo": "Tickets",
     "novo": "New ticket",
@@ -278,22 +245,19 @@
     "semGrupo": "You are not a member of any team yet. Ask the administrator to add you to a team before creating tickets.",
     "grupo": "Team",
     "escolhaGrupo": "Choose the team.",
-    "categoria": "Category",
-    "escolhaCategoria": "Choose the category.",
     "tituloCampo": "Title",
     "tituloDica": "What needs to be done, in a few words.",
     "tituloCurto": "Enter a title with at least 3 letters.",
     "descricao": "Description",
     "descricaoDica": "Details. Type the at sign and a name to mention a colleague.",
-    "paraQuem": "For whom (optional)",
-    "pessoaDica": "Name of who asked or will be served.",
     "eu": "Me",
     "fila": "Leave in the team queue",
     "outro": "Another member",
     "qualMembro": "Which member",
     "escolhaMembro": "Choose the member.",
     "registrar": "Create",
-    "registrado": "Ticket #{numero} created"
+    "registrado": "Ticket #{numero} created",
+    "inicioNoFuturo": "The start cannot be in the future."
   },
   "chamado": {
     "titulo": "Ticket",
@@ -302,13 +266,11 @@
     "naoEncontrado": "Ticket not found",
     "voltarParaLista": "Back to tickets",
     "dados": "Ticket details",
+    "inicio": "Start",
     "grupo": "Team",
     "responsavel": "Assignee",
     "naFila": "In the team queue",
     "tipo": "Type",
-    "para": "For",
-    "setor": "Department served",
-    "pessoa": "Person served",
     "urgencia": "Urgency: by when?",
     "impacto": "Impact: who is affected?",
     "prioridade": "Priority",
@@ -381,7 +343,7 @@
   },
   "editarChamado": {
     "titulo": "Edit ticket #{numero}",
-    "pelaMatriz": "Calculated (impact × urgency)",
+    "pelaMatriz": "Automatic",
     "motivo": "Reason for the priority",
     "motivoDica": "Recorded in the ticket history.",
     "motivoObrigatorio": "Give a reason to override the priority."
@@ -412,7 +374,8 @@
       "beneficiary_name": "person served",
       "impact": "impact",
       "urgency": "urgency",
-      "priority": "priority"
+      "priority": "priority",
+      "started_at": "start"
     }
   },
   "idioma": {
@@ -467,6 +430,102 @@
       "roxo": "Purple",
       "ambar": "Amber",
       "grafite": "Graphite"
+    }
+  },
+  "dataHora": {
+    "data": "Date",
+    "hora": "Time",
+    "agora": "Now",
+    "acompanhando": "Following the current time. Change the date or time if the work started earlier.",
+    "ajustado": "Set by hand. Now goes back to the current time."
+  },
+  "statusConfig": {
+    "titulo": "Ticket statuses",
+    "descricao": "Statuses appear in this order in lists and in the ticket form. The behavior tells the system what the status means and cannot change after it is created.",
+    "nome": "Name",
+    "novo": "New status",
+    "comportamento": "Behavior",
+    "comportamentos": {
+      "open": "Open",
+      "waiting": "On hold",
+      "closed": "Closed",
+      "canceled": "Canceled"
+    },
+    "explicacoes": {
+      "open": "Open: the ticket is in the team queue and the work is to do or in progress.",
+      "waiting": "On hold: the work is paused waiting for someone, such as the customer or a supplier.",
+      "closed": "Closed: the work is finished. Records the completion date and the ticket can be reopened.",
+      "canceled": "Canceled: the ticket left the queues without the work being done."
+    },
+    "padrao": "default",
+    "subir": "Move {nome} up",
+    "descer": "Move {nome} down",
+    "renomear": "Rename {nome}",
+    "remover": "Remove {nome}",
+    "unico": "This is the only status with this behavior. Create another one before removing it.",
+    "removerTitulo": "Remove the status {nome}?",
+    "removerSemChamados": "No ticket uses this status.",
+    "criado": "Status created",
+    "ordemSalva": "Order saved",
+    "removido": "Status {nome} removed",
+    "chamados0": "no tickets",
+    "chamados1": "1 ticket",
+    "chamadosN": "{n} tickets",
+    "removerComUm": "The ticket with this status moves to {destino}.",
+    "removerComVarios": "The {n} tickets with this status move to {destino}."
+  },
+  "clientes": {
+    "titulo": "Clients",
+    "novo": "New client",
+    "editar": "Client",
+    "cadastrado": "Client registered",
+    "buscaDica": "Name, trade name, CPF/CNPJ or e-mail.",
+    "total": "{n} client(s)",
+    "mostrandoDe": "Showing {n} of {total} clients. Refine the search to see the others.",
+    "nome": "Name",
+    "documento": "CPF/CNPJ",
+    "tipo": "Type",
+    "tipos": {
+      "person": "Individual",
+      "company": "Company"
+    },
+    "tiposLongos": {
+      "person": "Individual (CPF)",
+      "company": "Company (CNPJ)"
+    },
+    "dados": "Client details",
+    "nomeCompleto": "Full name",
+    "razaoSocial": "Legal name",
+    "nomeFantasia": "Trade name",
+    "rg": "ID (RG)",
+    "nascimento": "Date of birth",
+    "inscricaoEstadual": "State registration",
+    "inscricaoEstadualDica": "Or \"ISENTO\" (exempt).",
+    "inscricaoMunicipal": "Municipal registration",
+    "pessoaDeContato": "Contact person",
+    "ativo": "Active client",
+    "contato": "Contact",
+    "email": "E-mail",
+    "telefone": "Phone",
+    "celular": "Mobile",
+    "observacoes": "Notes",
+    "endereco": "Address",
+    "cep": "Postal code (CEP)",
+    "logradouro": "Street",
+    "numero": "Number",
+    "complemento": "Complement",
+    "bairro": "District",
+    "cidade": "City",
+    "uf": "State",
+    "erros": {
+      "nome": "Enter the name.",
+      "cpf": "Invalid CPF.",
+      "cnpj": "Invalid CNPJ.",
+      "email": "Enter a valid e-mail.",
+      "telefone": "Enter the area code and the number.",
+      "cep": "The postal code has 8 digits.",
+      "obrigatorio": "Required field.",
+      "uf": "Choose the state."
     }
   }
 }

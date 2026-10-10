@@ -6,7 +6,7 @@ import base64
 import json
 import uuid
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import HTTPException
@@ -191,6 +191,26 @@ async def _default_status(db: AsyncSession, kind: str) -> TicketStatus:
     return status
 
 
+async def _status(db: AsyncSession, status_id: int) -> TicketStatus:
+    status = await db.get(TicketStatus, status_id)
+    if status is None:
+        raise HTTPException(422, "Status não encontrado.")
+    return status
+
+
+def _apply_status(ticket: Ticket, before: TicketStatus | None, status: TicketStatus) -> None:
+    """Status escolhido livremente: acerta a data de conclusão e a contagem de reaberturas."""
+    was_closed = before is not None and before.kind == "closed"
+    ticket.status = status
+    if status.kind == "closed" and not was_closed:
+        ticket.closed_at = func.now()
+    elif status.kind != "closed" and was_closed:
+        ticket.closed_at = None
+        ticket.resolution_code_id = None
+        if status.kind in ("open", "waiting"):
+            ticket.reopened_count += 1
+
+
 async def _active_category(db: AsyncSession, public_id: uuid.UUID) -> Category:
     category = await db.scalar(
         select(Category).where(Category.public_id == public_id, Category.is_active)
@@ -279,6 +299,16 @@ async def _comment(
     return comment
 
 
+# Folga para o relógio do computador de quem registra estar um pouco adiantado.
+CLOCK_SKEW = timedelta(minutes=5)
+
+
+def _started_at(value: datetime) -> datetime:
+    if value > datetime.now(UTC) + CLOCK_SKEW:
+        raise HTTPException(422, "O início não pode ficar no futuro.")
+    return value.astimezone(UTC)
+
+
 def _text(value: str | None, message: str) -> str:
     text = (value or "").strip()
     if not text:
@@ -293,18 +323,25 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     """Registro (docs/10 §10.4). O grupo vem da categoria quando não é informado (roteamento)."""
     if not can(auth.actor, P.TICKET_CREATE):
         raise HTTPException(403, FORBIDDEN)
-    category = await _active_category(db, data.category_id)
+    category = await _active_category(db, data.category_id) if data.category_id else None
     if data.team_id is not None:
         team = await _active_team(db, data.team_id)
-    elif category.default_team is not None and category.default_team.is_active:
+    elif category and category.default_team is not None and category.default_team.is_active:
         team = category.default_team
-    else:
+    elif category:
         raise HTTPException(422, "Escolha o grupo: a categoria não tem um grupo padrão ativo.")
+    else:
+        raise HTTPException(422, "Escolha o grupo do chamado.")
     if team.id not in auth.actor.teams:
         raise HTTPException(403, "Você só registra chamados nos grupos de que é membro.")
     department = await _active_department(db, data.department_id)
     if data.watcher_ids and not can(auth.actor, P.TICKET_WATCH):
         raise HTTPException(403, FORBIDDEN)
+    if data.status_id is not None and not can(auth.actor, P.TICKET_TRANSITION):
+        raise HTTPException(403, FORBIDDEN)
+    status = await (
+        _status(db, data.status_id) if data.status_id is not None else _default_status(db, "open")
+    )
 
     assignee: User | None = None
     if data.assignee == "me" or data.assignee == auth.user.public_id:
@@ -317,19 +354,22 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     ticket = Ticket(
         title=data.title,
         description=data.description,
-        type=data.type or category.default_type,
+        type=data.type or (category.default_type if category else "incident"),
         created_by_id=auth.user.id,
         department_id=department.id if department else None,
         beneficiary_name=(data.beneficiary_name or "").strip() or None,
         team_id=team.id,
         assignee_id=assignee.id if assignee else None,
-        category_id=category.id,
-        status_id=(await _default_status(db, "open")).id,
+        category_id=category.id if category else None,
+        status_id=status.id,
         impact=data.impact,
         urgency=data.urgency,
         priority=rules.priority_for(data.impact, data.urgency),
         first_assigned_at=func.now() if assignee else None,
     )
+    _apply_status(ticket, None, status)
+    if data.started_at is not None:
+        ticket.started_at = _started_at(data.started_at)
     db.add(ticket)
     await db.flush()
     db.add(TicketTeam(ticket_id=ticket.id, team_id=team.id))
@@ -342,7 +382,15 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
 
 # --- alterações -------------------------------------------------------------------------------
 
-EDIT_FIELDS = {"title", "description", "category_id", "type", "department_id", "beneficiary_name"}
+EDIT_FIELDS = {
+    "title",
+    "description",
+    "category_id",
+    "type",
+    "department_id",
+    "beneficiary_name",
+    "started_at",
+}
 PRIORITY_FIELDS = {"impact", "urgency", "priority", "priority_reason"}
 
 
@@ -353,6 +401,19 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
         require(auth, ticket, "edit")
     if changes.keys() & PRIORITY_FIELDS:
         require(auth, ticket, "set_priority")
+    if changes.get("status_id") is not None:
+        require(auth, ticket, "set_status")
+        status = await _status(db, changes["status_id"])
+        if status.id != ticket.status_id:
+            before = ticket.status
+            add_event(
+                db,
+                ticket,
+                "ticket.status_changed",
+                auth,
+                **{"from": ref(before), "to": ref(status)},
+            )
+            _apply_status(ticket, before, status)
     diff: dict[str, dict[str, Any]] = {}
 
     def put(field: str, new: Any, before: Any = None, after: Any = None) -> None:
@@ -371,14 +432,18 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
         put("description", changes["description"])
     if changes.get("type") is not None:
         put("type", changes["type"])
-    if changes.get("category_id") is not None:
-        category = await _active_category(db, changes["category_id"])
-        put("category_id", category.id, ref(ticket.category), ref(category))
+    if "category_id" in changes:
+        new_id = changes["category_id"]
+        category = await _active_category(db, new_id) if new_id else None
+        put("category_id", category.id if category else None, ref(ticket.category), ref(category))
     if "department_id" in changes:
         dept = await _active_department(db, changes["department_id"])
         put("department_id", dept.id if dept else None, ref(ticket.department), ref(dept))
     if "beneficiary_name" in changes:
         put("beneficiary_name", (changes["beneficiary_name"] or "").strip() or None)
+    if changes.get("started_at") is not None:
+        new = _started_at(changes["started_at"])
+        put("started_at", new, ticket.started_at.isoformat(), new.isoformat())
 
     reason = None
     if changes.get("impact") is not None:

@@ -17,6 +17,7 @@ from chamados.db.engine import create_engine
 from chamados.db.session import make_sessionmaker
 from chamados.modules.audit.router import router as audit_router
 from chamados.modules.catalog.router import router as catalog_router
+from chamados.modules.clients.router import router as clients_router
 from chamados.modules.identity.admin_router import router as users_router
 from chamados.modules.identity.ratelimit import IpLimiter
 from chamados.modules.identity.router import router as auth_router
@@ -58,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         users_router,
         organization_router,
         catalog_router,
+        clients_router,
         tickets_router,
         system_router,
         audit_router,

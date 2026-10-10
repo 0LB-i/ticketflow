@@ -359,6 +359,52 @@ export interface paths {
     /** List Statuses */
     get: operations['list_statuses_api_v1_statuses_get']
     put?: never
+    /**
+     * Create Status
+     * @description O novo status entra no fim da lista. O primeiro de um kind vira o padrão dele.
+     */
+    post: operations['create_status_api_v1_statuses_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/statuses/{status_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete Status
+     * @description Cada kind precisa de um status. Os chamados no status removido vão para o padrão do kind;
+     *     se o removido era o padrão, o próximo do mesmo kind (na ordem da lista) passa a ser.
+     */
+    delete: operations['delete_status_api_v1_statuses__status_id__delete']
+    options?: never
+    head?: never
+    /**
+     * Update Status
+     * @description Só o nome muda: trocar o kind mudaria o sentido dos chamados que já estão nele.
+     */
+    patch: operations['update_status_api_v1_statuses__status_id__patch']
+    trace?: never
+  }
+  '/api/v1/statuses/order': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Reorder Statuses */
+    put: operations['reorder_statuses_api_v1_statuses_order_put']
     post?: never
     delete?: never
     options?: never
@@ -376,6 +422,45 @@ export interface paths {
     /** List Resolution Codes */
     get: operations['list_resolution_codes_api_v1_resolution_codes_get']
     put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/clients': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Clients */
+    get: operations['list_clients_api_v1_clients_get']
+    put?: never
+    /** Create Client */
+    post: operations['create_client_api_v1_clients_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/clients/{client_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Client */
+    get: operations['get_client_api_v1_clients__client_id__get']
+    /**
+     * Update Client
+     * @description Substitui o cadastro inteiro (o formulário envia todos os campos).
+     */
+    put: operations['update_client_api_v1_clients__client_id__put']
     post?: never
     delete?: never
     options?: never
@@ -778,6 +863,222 @@ export interface components {
       /** New Password */
       new_password: string
     }
+    /** ClientIn */
+    ClientIn: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'person' | 'company'
+      /**
+       * Name
+       * @description nome completo ou razão social
+       */
+      name: string
+      /**
+       * Trade Name
+       * @description nome fantasia (PJ)
+       */
+      trade_name?: string | null
+      /**
+       * Document
+       * @description CPF ou CNPJ, com ou sem pontuação
+       */
+      document: string
+      /**
+       * Id Number
+       * @description RG (PF)
+       */
+      id_number?: string | null
+      /**
+       * Birth Date
+       * @description PF
+       */
+      birth_date?: string | null
+      /**
+       * State Registration
+       * @description IE (PJ), ou "ISENTO"
+       */
+      state_registration?: string | null
+      /**
+       * Municipal Registration
+       * @description IM (PJ)
+       */
+      municipal_registration?: string | null
+      /**
+       * Contact Name
+       * @description pessoa de contato (PJ)
+       */
+      contact_name?: string | null
+      /**
+       * Email
+       * Format: email
+       */
+      email: string
+      /** Phone */
+      phone: string
+      /** Mobile */
+      mobile?: string | null
+      /** Postal Code */
+      postal_code: string
+      /** Street */
+      street: string
+      /**
+       * Number
+       * @description "S/N" quando não houver
+       */
+      number: string
+      /** Complement */
+      complement?: string | null
+      /** District */
+      district: string
+      /** City */
+      city: string
+      /**
+       * State
+       * @description UF
+       */
+      state: string
+      /** Notes */
+      notes?: string | null
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active: boolean
+    }
+    /** ClientOut */
+    ClientOut: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'person' | 'company'
+      /**
+       * Name
+       * @description nome completo ou razão social
+       */
+      name: string
+      /**
+       * Trade Name
+       * @description nome fantasia (PJ)
+       */
+      trade_name?: string | null
+      /**
+       * Document
+       * @description CPF ou CNPJ, com ou sem pontuação
+       */
+      document: string
+      /**
+       * Id Number
+       * @description RG (PF)
+       */
+      id_number?: string | null
+      /**
+       * Birth Date
+       * @description PF
+       */
+      birth_date?: string | null
+      /**
+       * State Registration
+       * @description IE (PJ), ou "ISENTO"
+       */
+      state_registration?: string | null
+      /**
+       * Municipal Registration
+       * @description IM (PJ)
+       */
+      municipal_registration?: string | null
+      /**
+       * Contact Name
+       * @description pessoa de contato (PJ)
+       */
+      contact_name?: string | null
+      /** Email */
+      email: string
+      /** Phone */
+      phone: string
+      /** Mobile */
+      mobile?: string | null
+      /** Postal Code */
+      postal_code: string
+      /** Street */
+      street: string
+      /**
+       * Number
+       * @description "S/N" quando não houver
+       */
+      number: string
+      /** Complement */
+      complement?: string | null
+      /** District */
+      district: string
+      /** City */
+      city: string
+      /**
+       * State
+       * @description UF
+       */
+      state: string
+      /** Notes */
+      notes?: string | null
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active: boolean
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
+    }
+    /** ClientPage */
+    ClientPage: {
+      /** Items */
+      items: components['schemas']['ClientSummary'][]
+      /** Total */
+      total: number
+    }
+    /** ClientSummary */
+    ClientSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'person' | 'company'
+      /** Name */
+      name: string
+      /** Trade Name */
+      trade_name: string | null
+      /** Document */
+      document: string
+      /** Email */
+      email: string
+      /** Phone */
+      phone: string
+      /** City */
+      city: string
+      /** State */
+      state: string
+      /** Is Active */
+      is_active: boolean
+    }
     /**
      * Colors
      * @description As 3 cores da identidade (docs/17 §17.2). A interface deriva delas a paleta inteira.
@@ -1077,10 +1378,28 @@ export interface components {
       /** @description nulo volta às cores padrão */
       colors?: components['schemas']['Colors'] | null
     }
+    /** StatusCreate */
+    StatusCreate: {
+      /** Name */
+      name: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'open' | 'waiting' | 'closed' | 'canceled'
+    }
     /** StatusList */
     StatusList: {
       /** Items */
       items: components['schemas']['StatusOut'][]
+    }
+    /** StatusOrder */
+    StatusOrder: {
+      /**
+       * Ids
+       * @description todos os status, na nova ordem
+       */
+      ids: number[]
     }
     /** StatusOut */
     StatusOut: {
@@ -1093,6 +1412,13 @@ export interface components {
        * @enum {string}
        */
       kind: 'approval' | 'open' | 'waiting' | 'closed' | 'canceled'
+      /**
+       * Is Default
+       * @description usado quando o fluxo leva a este kind
+       */
+      is_default: boolean
+      /** Ticket Count */
+      ticket_count: number
     }
     /** StatusRef */
     StatusRef: {
@@ -1105,6 +1431,11 @@ export interface components {
        * @enum {string}
        */
       kind: 'approval' | 'open' | 'waiting' | 'closed' | 'canceled'
+    }
+    /** StatusUpdate */
+    StatusUpdate: {
+      /** Name */
+      name: string
     }
     /** TeamCreate */
     TeamCreate: {
@@ -1165,11 +1496,8 @@ export interface components {
        * @default
        */
       description: string
-      /**
-       * Category Id
-       * Format: uuid
-       */
-      category_id: string
+      /** Category Id */
+      category_id?: string | null
       /**
        * Team Id
        * @description sem grupo, vai para o grupo padrão da categoria
@@ -1177,13 +1505,23 @@ export interface components {
       team_id?: string | null
       /**
        * Type
-       * @description sem tipo, usa o da categoria
+       * @description sem tipo, usa o da categoria (sem categoria, "incident")
        */
       type?: ('incident' | 'request' | 'task') | null
       /** Department Id */
       department_id?: string | null
       /** Beneficiary Name */
       beneficiary_name?: string | null
+      /**
+       * Started At
+       * @description início do trabalho; sem valor, a hora do registro
+       */
+      started_at?: string | null
+      /**
+       * Status Id
+       * @description sem valor, Pendente
+       */
+      status_id?: number | null
       /**
        * Impact
        * @default 1
@@ -1231,11 +1569,16 @@ export interface components {
       /** Priority */
       priority: number
       team: components['schemas']['Ref']
-      category: components['schemas']['CategoryRef']
+      category: components['schemas']['CategoryRef'] | null
       department: components['schemas']['Ref'] | null
       /** Beneficiary Name */
       beneficiary_name: string | null
       assignee: components['schemas']['UserRef'] | null
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string
       /**
        * Created At
        * Format: date-time
@@ -1295,11 +1638,16 @@ export interface components {
       /** Priority */
       priority: number
       team: components['schemas']['Ref']
-      category: components['schemas']['CategoryRef']
+      category: components['schemas']['CategoryRef'] | null
       department: components['schemas']['Ref'] | null
       /** Beneficiary Name */
       beneficiary_name: string | null
       assignee: components['schemas']['UserRef'] | null
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string
       /**
        * Created At
        * Format: date-time
@@ -1317,7 +1665,10 @@ export interface components {
       title?: string | null
       /** Description */
       description?: string | null
-      /** Category Id */
+      /**
+       * Category Id
+       * @description nula tira a categoria
+       */
       category_id?: string | null
       /** Type */
       type?: ('incident' | 'request' | 'task') | null
@@ -1325,6 +1676,13 @@ export interface components {
       department_id?: string | null
       /** Beneficiary Name */
       beneficiary_name?: string | null
+      /** Started At */
+      started_at?: string | null
+      /**
+       * Status Id
+       * @description qualquer status, sem as exigências do fluxo (set_status)
+       */
+      status_id?: number | null
       /** Impact */
       impact?: number | null
       /** Urgency */
@@ -2327,6 +2685,138 @@ export interface operations {
       }
     }
   }
+  create_status_api_v1_statuses_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StatusCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StatusList']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  delete_status_api_v1_statuses__status_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        status_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StatusList']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_status_api_v1_statuses__status_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        status_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StatusUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StatusList']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  reorder_statuses_api_v1_statuses_order_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StatusOrder']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StatusList']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   list_resolution_codes_api_v1_resolution_codes_get: {
     parameters: {
       query?: never
@@ -2343,6 +2833,141 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ResolutionCodeList']
+        }
+      }
+    }
+  }
+  list_clients_api_v1_clients_get: {
+    parameters: {
+      query?: {
+        /** @description nome, nome fantasia, CPF/CNPJ ou e-mail */
+        q?: string | null
+        /** @description incluir os inativos */
+        inactive?: boolean
+        limit?: number
+        offset?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientPage']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  create_client_api_v1_clients_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ClientIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_client_api_v1_clients__client_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        client_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_client_api_v1_clients__client_id__put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        client_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ClientIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

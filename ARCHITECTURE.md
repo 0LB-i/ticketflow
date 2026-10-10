@@ -38,7 +38,7 @@ Ainda **não existem** o worker (fila de tarefas e e-mails assíncronos) nem o a
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0005
+│   ├── migrations/        Alembic: env.py e versions/0001…0010
 │   ├── src/chamados/      código (seção 3)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
@@ -111,7 +111,8 @@ Variáveis de ambiente (em produção, `/etc/sistema-chamados/env`; em desenvolv
 |--------|----------|------------------|-------|
 | `identity` | `models` (User, UserSession, AuthToken), `router` (login, `/me`), `admin_router` (usuários), `deps`, `sessions`, `passwords`, `tokens`, `ratelimit`, `service` (convites e e-mails), `schemas` | Login, sessões e CSRF, senhas (Argon2id), convite e redefinição, força bruta, usuários, idioma da pessoa | `/auth/*`, `/me`, `/users` |
 | `organization` | `models` (Role, Team, TeamMember, Department), `router` | Papéis, grupos e membros, setores atendidos | `/teams`, `/departments` |
-| `catalog` | `models` (Category, TicketStatus, ResolutionCode), `router` | Árvore de categorias (até 3 níveis), status por `kind`, códigos de resolução | `/categories`, `/statuses`, `/resolution-codes` |
+| `catalog` | `models` (Category, TicketStatus, ResolutionCode), `router` | Árvore de categorias (até 3 níveis; sem tela desde que saíram dos chamados), status por `kind`, códigos de resolução | `/categories`, `/statuses`, `/resolution-codes` |
+| `clients` | `models` (Client), `router`, `documents` (CPF, CNPJ alfanumérico, telefone, CEP) | Cadastro de clientes pessoa física e jurídica, com contato e endereço; sem exclusão (inativa) | `/clients` |
 | `tickets` | `models`, `schemas`, `router`, `service`, `rules`, `visibility` | Chamados, comentários, observadores, atribuição, transferência, transições e histórico | `/tickets/*` |
 | `system` | `models` (SystemSetting), `router`, `service` | Configurações da instalação: idioma padrão, cores, logotipo; idioma efetivo de um usuário | `/branding`, `/admin/settings` |
 | `audit` | `models` (AuditLog), `service` (`record()`), `router` | Auditoria de login e administração | `/admin/audit-log` |
@@ -136,14 +137,18 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - `rules.py` é **puro** (sem banco), por isso os testes são tabelados: perfil × situação → ações esperadas.
 - O detalhe responde **403** quando o chamado existe mas não é visível e **404** quando não existe. O acesso de admin ou auditor a um chamado confidencial, fora das regras 1, 3 e 4, vai para a auditoria.
 - A interface **nunca decide**: ela só mostra ou esconde botões conforme `allowed_actions` e `me.permissions`.
-- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, conferida por um teste), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
+- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, mais as permissões acrescentadas depois em `NEW_PERMISSIONS` das migrações, como a 0010; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
 
 ### 3.5 Chamados (`modules/tickets/`)
 
 - **Identificação:** `id` interno (bigint), `public_id` (UUID, exposto) e `number` (sequência `ticket_number_seq`, começa em 1000). As rotas aceitam o número ou o UUID (`/tickets/1234`).
 - **Status:** a tabela `ticket_statuses` tem um `kind` fixo (`open`, `waiting`, `closed`, `canceled`, `approval`). As regras usam só o `kind`, e cada mudança vai para o status padrão do `kind` de destino.
 - **Transições:** `rules.TRANSITIONS` define, para cada ação (`wait`, `resume`, `close`, `reopen`, `cancel`), de quais `kind` se sai, para qual se vai, quem pode e se exige comentário ou código de resolução. O comentário da transição é gravado como comentário do chamado; o de conclusão leva `is_solution`.
-- **Prioridade:** `rules.PRIORITY_MATRIX` (impacto × urgência). Forçar outra prioridade exige motivo; `priority: null` volta ao valor da matriz.
+- **Prioridade:** `rules.PRIORITY_MATRIX` (impacto × urgência). Forçar outra prioridade exige motivo; `priority: null` volta ao valor da matriz. Por enquanto a interface não mostra impacto nem urgência (ficam 1 × 1, prioridade baixa).
+- **Status personalizados:** o admin cria (nome + `kind`: open, waiting, closed, canceled), renomeia, ordena (`PUT /statuses/order`) e remove em Configurações (`admin.settings`). O `kind` não muda depois de criado. Cada `kind` precisa de ao menos um status; ao remover, os chamados vão para o padrão do mesmo `kind`, e se o removido era o padrão o próximo da lista assume. O primeiro status criado de um `kind` vira o padrão. Ações em `audit_log` (`ticket_status.*`).
+- **Status no formulário:** além das transições do fluxo, a ação `set_status` (quem tem `ticket.transition` no grupo) escolhe qualquer status no registro (`status_id`, padrão Pendente) e na edição, sem comentário nem código de resolução. `_apply_status` acerta `closed_at` e conta a reabertura ao sair de um `closed`. O evento é `ticket.status_changed` sem `action`.
+- **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
+- **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, `DateTimeField` acompanha a hora atual até ser mudado. Setor e pessoa atendida (`department_id`, `beneficiary_name`) continuam na API, mas saíram da interface até serem redesenhados.
 - **Histórico:** cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
 - **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids`: o texto guarda só "@Nome".
@@ -161,6 +166,15 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - `GET /branding` é **público**: a tela de login também usa as cores, o logotipo e o idioma.
 - O logotipo é servido por `GET /branding/logo?v=<hash>`, com cache permanente (o endereço muda quando a imagem muda). Só PNG, JPEG e WebP, conferidos pelos primeiros bytes; SVG é recusado porque pode conter scripts.
 - O backend guarda só as **três cores**; a paleta inteira é derivada no frontend (4.6).
+
+### 3.7.1 Clientes (`modules/clients/`)
+
+- Pessoa física (`person`: CPF, RG, nascimento) ou jurídica (`company`: CNPJ, nome fantasia, inscrições estadual e municipal, pessoa de contato). Os campos do outro tipo ficam nulos.
+- Obrigatórios: nome ou razão social, CPF/CNPJ (único), e-mail, telefone e endereço (CEP, logradouro, número, bairro, cidade, UF).
+- Documentos, telefones e CEP são gravados sem pontuação; a interface formata (`composables/documentos.ts`). O CNPJ aceita o formato alfanumérico (julho de 2026): mesmo cálculo dos dígitos, com o valor de cada caractere = ASCII − 48.
+- A validação fica no router (`_clean`), com mensagens do catálogo de idiomas. O formulário envia o cadastro inteiro (`PUT`).
+- Permissões: `client.view` (agente, admin, auditor) e `client.manage` (agente, admin). A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
+- Ainda não há ligação com os chamados.
 
 ### 3.8 Auditoria × histórico
 
@@ -181,6 +195,11 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0003` | Login por nome de usuário, troca obrigatória de senha e administrador padrão `admin`/`admin` |
 | `0004` | Categorias, status (os 4 padrão), códigos de resolução, chamados, grupos que atuaram, observadores, comentários, histórico (trigger *append-only*) |
 | `0005` | `settings` e `users.locale` |
+| `0006` | `tickets.category_id` opcional |
+| `0007` | `tickets.started_at` (início do trabalho) |
+| `0008` | Status "Entregue" (`closed`, não é o padrão do kind) |
+| `0009` | "Aguardando" passa a "Aguardando cliente" |
+| `0010` | `clients` e as permissões `client.view`/`client.manage` nos papéis |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -209,19 +228,21 @@ src/
 ├── router/index.ts      rotas, meta (publica, permissao, cartao) e o guard
 ├── stores/              Pinia: auth (usuário logado), branding (cores, logotipo, idioma padrão), theme
 ├── composables/         consultas e mutações (TanStack Query) e utilidades
-│   ├── admin.ts         usuários, grupos, setores, categorias (admin)
-│   ├── chamados.ts      chamados, comentários, histórico, categorias, pessoas
-│   └── formato.ts, useHead.ts, useHealth.ts, useToast.ts
-├── views/               uma pasta por área: auth/, tickets/, admin/
+│   ├── admin.ts         usuários, grupos, setores, status (admin)
+│   ├── chamados.ts      chamados, comentários, histórico, status, pessoas
+│   ├── clientes.ts      clientes; documentos.ts formata e valida CPF, CNPJ, telefone e CEP
+│   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
+├── views/               uma pasta por área: auth/, tickets/, clients/, admin/
 ├── components/
-│   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, Modal, SidePanel, DataTable, badges…
+│   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, DateTimeField, Modal, SidePanel, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
+│   ├── admin/           StatusSettings (status dos chamados, dentro de Configurações)
 │   ├── editor/          RichEditor (Tiptap → Markdown, @menções), MarkdownView, markdown.ts
 │   └── tickets/         TicketTimeline, CommentBox, TicketDetails, TicketEditPanel, eventos.ts
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
 ├── i18n/                index.ts, pt-BR.json, en.json
 ├── assets/main.css      Tailwind 4 + tokens de cor (--tf-*) dos modos claro e escuro
-└── test/setup.ts        montar() e simularApi() para os testes
+└── test/setup.ts        montar(), simularApi() e escolher() (opção de Select) para os testes
 ```
 
 ### 4.1 Inicialização
@@ -236,7 +257,7 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['chamados']`, `['chamado', numero]`, `['chamado', numero, 'comentarios' | 'eventos']`, `['grupos']`, `['usuarios']`, `['setores']`, `['categorias']`, `['codigos-resolucao']`.
+- **Leitura** com TanStack Query: as chaves são `['chamados']`, `['chamado', numero]`, `['chamado', numero, 'comentarios' | 'eventos']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['codigos-resolucao']`, `['clientes', filtro]`, `['cliente', id]`.
 - **Escrita:** `useAlteracao(fn, chaves)` (admin) e `useAcaoNoChamado(numero, fn)` (chamados) fazem a mutação e invalidam as chaves afetadas.
 - **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
 
@@ -246,13 +267,13 @@ src/
 |------|------|--------|
 | `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | `views/auth/` | Público |
 | `/trocar-senha` | Troca obrigatória da senha provisória | Logado |
-| `/` | Início | Logado |
-| `/chamados` | Lista simples (as abas das filas são da Sprint 4) | Logado |
+| `/chamados` | Lista simples (as abas das filas são da Sprint 4). É a tela inicial: `/` redireciona para cá | Logado |
 | `/chamados/novo` | Registro | `ticket.create` |
 | `/chamados/:numero` | Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
+| `/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail) | `client.view` |
+| `/clientes/novo`, `/clientes/:id` | Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
 | `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | Cadastros | `admin.users` / `admin.organization` |
-| `/admin/categorias` | Árvore de categorias | `admin.catalog` |
-| `/admin/configuracoes` | Idioma, cores, logotipo | `admin.settings` |
+| `/admin/configuracoes` | Idioma, cores, logotipo e status dos chamados | `admin.settings` |
 | `/dev/componentes` | Vitrine do design system | Só em desenvolvimento |
 
 Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão)`. O botão "Novo chamado" fica no cabeçalho (`AppLayout.vue`).

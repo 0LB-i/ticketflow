@@ -940,6 +940,173 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": ["catálogo"],
+        "summary": "Create Status",
+        "description": "O novo status entra no fim da lista. O primeiro de um kind vira o padrão dele.",
+        "operationId": "create_status_api_v1_statuses_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/statuses/{status_id}": {
+      "patch": {
+        "tags": ["catálogo"],
+        "summary": "Update Status",
+        "description": "Só o nome muda: trocar o kind mudaria o sentido dos chamados que já estão nele.",
+        "operationId": "update_status_api_v1_statuses__status_id__patch",
+        "parameters": [
+          {
+            "name": "status_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Status Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["catálogo"],
+        "summary": "Delete Status",
+        "description": "Cada kind precisa de um status. Os chamados no status removido vão para o padrão do kind;\nse o removido era o padrão, o próximo do mesmo kind (na ordem da lista) passa a ser.",
+        "operationId": "delete_status_api_v1_statuses__status_id__delete",
+        "parameters": [
+          {
+            "name": "status_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Status Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/statuses/order": {
+      "put": {
+        "tags": ["catálogo"],
+        "summary": "Reorder Statuses",
+        "operationId": "reorder_statuses_api_v1_statuses_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/resolution-codes": {
@@ -954,6 +1121,218 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ResolutionCodeList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clients": {
+      "get": {
+        "tags": ["clientes"],
+        "summary": "List Clients",
+        "operationId": "list_clients_api_v1_clients_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "nome, nome fantasia, CPF/CNPJ ou e-mail",
+              "title": "Q"
+            },
+            "description": "nome, nome fantasia, CPF/CNPJ ou e-mail"
+          },
+          {
+            "name": "inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "incluir os inativos",
+              "default": false,
+              "title": "Inactive"
+            },
+            "description": "incluir os inativos"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["clientes"],
+        "summary": "Create Client",
+        "operationId": "create_client_api_v1_clients_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clients/{client_id}": {
+      "get": {
+        "tags": ["clientes"],
+        "summary": "Get Client",
+        "operationId": "get_client_api_v1_clients__client_id__get",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["clientes"],
+        "summary": "Update Client",
+        "description": "Substitui o cadastro inteiro (o formulário envia todos os campos).",
+        "operationId": "update_client_api_v1_clients__client_id__put",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2307,6 +2686,504 @@
         "required": ["new_password"],
         "title": "ChangePasswordIn"
       },
+      "ClientIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["person", "company"],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "description": "nome completo ou razão social"
+          },
+          "trade_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Name",
+            "description": "nome fantasia (PJ)"
+          },
+          "document": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Document",
+            "description": "CPF ou CNPJ, com ou sem pontuação"
+          },
+          "id_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Number",
+            "description": "RG (PF)"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date",
+            "description": "PF"
+          },
+          "state_registration": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Registration",
+            "description": "IE (PJ), ou \"ISENTO\""
+          },
+          "municipal_registration": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipal Registration",
+            "description": "IM (PJ)"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name",
+            "description": "pessoa de contato (PJ)"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Phone"
+          },
+          "mobile": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobile"
+          },
+          "postal_code": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Postal Code"
+          },
+          "street": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Street"
+          },
+          "number": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Number",
+            "description": "\"S/N\" quando não houver"
+          },
+          "complement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complement"
+          },
+          "district": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "District"
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "City"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "State",
+            "description": "UF"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "document",
+          "email",
+          "phone",
+          "postal_code",
+          "street",
+          "number",
+          "district",
+          "city",
+          "state"
+        ],
+        "title": "ClientIn"
+      },
+      "ClientOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["person", "company"],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "description": "nome completo ou razão social"
+          },
+          "trade_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Name",
+            "description": "nome fantasia (PJ)"
+          },
+          "document": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Document",
+            "description": "CPF ou CNPJ, com ou sem pontuação"
+          },
+          "id_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Number",
+            "description": "RG (PF)"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date",
+            "description": "PF"
+          },
+          "state_registration": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Registration",
+            "description": "IE (PJ), ou \"ISENTO\""
+          },
+          "municipal_registration": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipal Registration",
+            "description": "IM (PJ)"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name",
+            "description": "pessoa de contato (PJ)"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Phone"
+          },
+          "mobile": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobile"
+          },
+          "postal_code": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Postal Code"
+          },
+          "street": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Street"
+          },
+          "number": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Number",
+            "description": "\"S/N\" quando não houver"
+          },
+          "complement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complement"
+          },
+          "district": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "District"
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "City"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "State",
+            "description": "UF"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "document",
+          "email",
+          "phone",
+          "postal_code",
+          "street",
+          "number",
+          "district",
+          "city",
+          "state",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ClientOut"
+      },
+      "ClientPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClientSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": ["items", "total"],
+        "title": "ClientPage"
+      },
+      "ClientSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["person", "company"],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "trade_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Name"
+          },
+          "document": {
+            "type": "string",
+            "title": "Document"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "trade_name",
+          "document",
+          "email",
+          "phone",
+          "city",
+          "state",
+          "is_active"
+        ],
+        "title": "ClientSummary"
+      },
       "Colors": {
         "properties": {
           "brand": {
@@ -2991,6 +3868,24 @@
         "type": "object",
         "title": "SettingsUpdate"
       },
+      "StatusCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["open", "waiting", "closed", "canceled"],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": ["name", "kind"],
+        "title": "StatusCreate"
+      },
       "StatusList": {
         "properties": {
           "items": {
@@ -3004,6 +3899,21 @@
         "type": "object",
         "required": ["items"],
         "title": "StatusList"
+      },
+      "StatusOrder": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "todos os status, na nova ordem"
+          }
+        },
+        "type": "object",
+        "required": ["ids"],
+        "title": "StatusOrder"
       },
       "StatusOut": {
         "properties": {
@@ -3019,10 +3929,19 @@
             "type": "string",
             "enum": ["approval", "open", "waiting", "closed", "canceled"],
             "title": "Kind"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default",
+            "description": "usado quando o fluxo leva a este kind"
+          },
+          "ticket_count": {
+            "type": "integer",
+            "title": "Ticket Count"
           }
         },
         "type": "object",
-        "required": ["id", "name", "kind"],
+        "required": ["id", "name", "kind", "is_default", "ticket_count"],
         "title": "StatusOut"
       },
       "StatusRef": {
@@ -3044,6 +3963,19 @@
         "type": "object",
         "required": ["id", "name", "kind"],
         "title": "StatusRef"
+      },
+      "StatusUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": ["name"],
+        "title": "StatusUpdate"
       },
       "TeamCreate": {
         "properties": {
@@ -3202,8 +4134,15 @@
             "default": ""
           },
           "category_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Category Id"
           },
           "team_id": {
@@ -3230,7 +4169,7 @@
               }
             ],
             "title": "Type",
-            "description": "sem tipo, usa o da categoria"
+            "description": "sem tipo, usa o da categoria (sem categoria, \"incident\")"
           },
           "department_id": {
             "anyOf": [
@@ -3255,6 +4194,31 @@
               }
             ],
             "title": "Beneficiary Name"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At",
+            "description": "início do trabalho; sem valor, a hora do registro"
+          },
+          "status_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Id",
+            "description": "sem valor, Pendente"
           },
           "impact": {
             "type": "integer",
@@ -3310,7 +4274,7 @@
           }
         },
         "type": "object",
-        "required": ["title", "category_id"],
+        "required": ["title"],
         "title": "TicketCreate"
       },
       "TicketOut": {
@@ -3344,7 +4308,14 @@
             "$ref": "#/components/schemas/Ref"
           },
           "category": {
-            "$ref": "#/components/schemas/CategoryRef"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CategoryRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "department": {
             "anyOf": [
@@ -3376,6 +4347,11 @@
                 "type": "null"
               }
             ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
           },
           "created_at": {
             "type": "string",
@@ -3461,6 +4437,7 @@
           "department",
           "beneficiary_name",
           "assignee",
+          "started_at",
           "created_at",
           "updated_at",
           "description",
@@ -3532,7 +4509,14 @@
             "$ref": "#/components/schemas/Ref"
           },
           "category": {
-            "$ref": "#/components/schemas/CategoryRef"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CategoryRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "department": {
             "anyOf": [
@@ -3565,6 +4549,11 @@
               }
             ]
           },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3589,6 +4578,7 @@
           "department",
           "beneficiary_name",
           "assignee",
+          "started_at",
           "created_at",
           "updated_at"
         ],
@@ -3631,7 +4621,8 @@
                 "type": "null"
               }
             ],
-            "title": "Category Id"
+            "title": "Category Id",
+            "description": "nula tira a categoria"
           },
           "type": {
             "anyOf": [
@@ -3668,6 +4659,30 @@
               }
             ],
             "title": "Beneficiary Name"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Id",
+            "description": "qualquer status, sem as exigências do fluxo (set_status)"
           },
           "impact": {
             "anyOf": [
