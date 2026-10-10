@@ -35,6 +35,9 @@ from chamados.modules.system.service import user_locale
 
 router = APIRouter(tags=["autenticação"])
 
+# O Argon2 gasta ~100 ms de CPU de propósito. Ele roda em run_in_threadpool para não travar as
+# outras requisições enquanto isso (a API é um processo só).
+
 INVALID = "E-mail ou senha inválidos."
 
 
@@ -67,7 +70,7 @@ async def login(
         return HTTPException(401, INVALID)
 
     if user is None or not user.is_active or user.password_hash is None:
-        verify_password(None, data.password)  # mesmo tempo de resposta
+        await run_in_threadpool(verify_password, None, data.password)  # mesmo tempo de resposta
         exc = fail("conta inexistente ou inativa")
         await db.commit()
         raise exc
@@ -78,7 +81,7 @@ async def login(
         await db.commit()
         raise exc
 
-    ok, rehash = verify_password(user.password_hash, data.password)
+    ok, rehash = await run_in_threadpool(verify_password, user.password_hash, data.password)
     if not ok:
         user.failed_logins += 1
         user.last_failed_login_at = t
@@ -106,7 +109,7 @@ async def login(
     user.locked_until = None
     user.last_login_at = t
     if rehash:
-        user.password_hash = hash_password(data.password)
+        user.password_hash = await run_in_threadpool(hash_password, data.password)
     await create_session(db, user, request, response, settings)
     record(db, "auth.login", request=request, actor_user_id=user.id)
     await db.commit()
@@ -160,7 +163,7 @@ async def _set_password_with_token(
     user = token.user
     if problem := password_problem(data.password, user.email, user.username):
         raise HTTPException(422, problem)
-    user.password_hash = hash_password(data.password)
+    user.password_hash = await run_in_threadpool(hash_password, data.password)
     user.password_changed_at = now()
     user.failed_logins = 0
     user.locked_until = None
@@ -219,14 +222,16 @@ async def change_password(
     user = auth.user
     # Na troca obrigatória a pessoa acabou de entrar com a senha provisória: não pede de novo.
     if not user.must_change_password:
-        ok, _ = verify_password(user.password_hash, data.current_password or "")
+        ok, _ = await run_in_threadpool(
+            verify_password, user.password_hash, data.current_password or ""
+        )
         if not ok:
             raise HTTPException(422, "A senha atual não confere.")
     if problem := password_problem(data.new_password, user.email, user.username):
         raise HTTPException(422, problem)
-    if verify_password(user.password_hash, data.new_password)[0]:
+    if (await run_in_threadpool(verify_password, user.password_hash, data.new_password))[0]:
         raise HTTPException(422, "A senha nova precisa ser diferente da atual.")
-    user.password_hash = hash_password(data.new_password)
+    user.password_hash = await run_in_threadpool(hash_password, data.new_password)
     user.password_changed_at = now()
     user.must_change_password = False
     await revoke_sessions(db, auth.user.id, keep_id=auth.session.id)
