@@ -1,0 +1,23 @@
+# API + SPA do TicketFlow (ADR 0010, docs/18 §18.3 passo 8).
+[Unit]
+Description=TicketFlow (API e interface web)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+User=sistema-chamados
+Group=sistema-chamados
+EnvironmentFile=/etc/sistema-chamados/env
+WorkingDirectory=/opt/sistema-chamados/backend
+ExecStart=/opt/sistema-chamados/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
+          --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sistema-chamados
+
+[Install]
+WantedBy=multi-user.target

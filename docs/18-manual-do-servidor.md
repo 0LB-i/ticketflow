@@ -137,7 +137,8 @@ O script faz `git pull`, `uv sync --frozen`, `pnpm install --frozen-lockfile && 
 sudo cp /opt/sistema-chamados/deploy/sistema-chamados*.service /etc/systemd/system/
 sudo cp /opt/sistema-chamados/deploy/sistema-chamados-backup.* /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now sistema-chamados sistema-chamados-worker sistema-chamados-backup.timer
+sudo systemctl enable --now sistema-chamados sistema-chamados-backup.timer
+sudo systemctl enable --now sistema-chamados-worker     # só a partir da Sprint 4, quando o worker existir
 ```
 
 Pontos principais de `deploy/sistema-chamados.service`:
@@ -147,7 +148,7 @@ Pontos principais de `deploy/sistema-chamados.service`:
 User=sistema-chamados
 EnvironmentFile=/etc/sistema-chamados/env
 WorkingDirectory=/opt/sistema-chamados/backend
-ExecStart=/opt/sistema-chamados/backend/.venv/bin/uvicorn chamados.main:app \
+ExecStart=/opt/sistema-chamados/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
           --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 NoNewPrivileges=true
@@ -156,7 +157,7 @@ ProtectSystem=strict
 ReadWritePaths=/var/lib/sistema-chamados
 ```
 
-O `sistema-chamados-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`.
+O `sistema-chamados-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`. Os arquivos completos estão em [`deploy/`](../deploy/).
 
 ### 9. nginx e HTTPS
 

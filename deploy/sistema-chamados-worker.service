@@ -1,0 +1,23 @@
+# Fila de tarefas e rotinas (e-mails, lembretes, limpeza). O comando `chamados worker`
+# entra na Sprint 4 (F1-S4-03): habilitar este serviço só a partir dela.
+[Unit]
+Description=TicketFlow (worker)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+User=sistema-chamados
+Group=sistema-chamados
+EnvironmentFile=/etc/sistema-chamados/env
+WorkingDirectory=/opt/sistema-chamados/backend
+ExecStart=/opt/sistema-chamados/backend/.venv/bin/chamados worker
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sistema-chamados
+
+[Install]
+WantedBy=multi-user.target

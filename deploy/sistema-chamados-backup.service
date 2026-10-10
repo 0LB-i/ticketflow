@@ -1,0 +1,12 @@
+# Backup do banco e dos anexos (docs/18 §18.5). Disparado pelo sistema-chamados-backup.timer.
+[Unit]
+Description=TicketFlow (backup)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=sistema-chamados
+Group=sistema-chamados
+ExecStart=/opt/sistema-chamados/scripts/backup.sh
+NoNewPrivileges=true
+PrivateTmp=true
