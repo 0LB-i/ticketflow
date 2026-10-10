@@ -143,7 +143,11 @@ export interface paths {
     delete?: never
     options?: never
     head?: never
-    patch?: never
+    /**
+     * Update Me
+     * @description Preferências da própria pessoa: por enquanto, o idioma.
+     */
+    patch: operations['update_me_api_v1_me_patch']
     trace?: never
   }
   '/api/v1/me/password': {
@@ -536,6 +540,75 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/branding': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Branding */
+    get: operations['branding_api_v1_branding_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/branding/logo': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Branding Logo */
+    get: operations['branding_logo_api_v1_branding_logo_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/settings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update Settings */
+    patch: operations['update_settings_api_v1_admin_settings_patch']
+    trace?: never
+  }
+  '/api/v1/admin/settings/logo': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Set Logo */
+    put: operations['set_logo_api_v1_admin_settings_logo_put']
+    post?: never
+    /** Remove Logo */
+    delete: operations['remove_logo_api_v1_admin_settings_logo_delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/admin/audit-log': {
     parameters: {
       query?: never
@@ -601,6 +674,18 @@ export interface components {
       items: components['schemas']['AuditEntry'][]
       /** Next Cursor */
       next_cursor: number | null
+    }
+    /** Branding */
+    Branding: {
+      /**
+       * Default Locale
+       * @enum {string}
+       */
+      default_locale: 'pt-BR' | 'en'
+      /** @description nulo: cores padrão do TicketFlow */
+      colors: components['schemas']['Colors'] | null
+      /** Logo Url */
+      logo_url: string | null
     }
     /** CategoryCreate */
     CategoryCreate: {
@@ -692,6 +777,27 @@ export interface components {
       current_password?: string | null
       /** New Password */
       new_password: string
+    }
+    /**
+     * Colors
+     * @description As 3 cores da identidade (docs/17 §17.2). A interface deriva delas a paleta inteira.
+     */
+    Colors: {
+      /**
+       * Brand
+       * @description cor da marca (laranja): ações e destaques
+       */
+      brand: string
+      /**
+       * Neutral
+       * @description cor neutra (cinza): textos secundários e bordas
+       */
+      neutral: string
+      /**
+       * Background
+       * @description fundo das telas no modo claro (branco)
+       */
+      background: string
     }
     /** CommentIn */
     CommentIn: {
@@ -847,6 +953,14 @@ export interface components {
       /** Password */
       password: string
     }
+    /** LogoIn */
+    LogoIn: {
+      /**
+       * Data Url
+       * @description data:image/png;base64,... (PNG, JPEG ou WebP)
+       */
+      data_url: string
+    }
     /** Me */
     Me: {
       /**
@@ -868,6 +982,11 @@ export interface components {
       teams: components['schemas']['MeTeam'][]
       /** Permissions */
       permissions: string[]
+      /**
+       * Locale
+       * @description idioma escolhido; nulo segue o padrão do sistema
+       */
+      locale: ('pt-BR' | 'en') | null
     }
     /** MeTeam */
     MeTeam: {
@@ -883,6 +1002,14 @@ export interface components {
        * @enum {string}
        */
       role: 'member' | 'supervisor'
+    }
+    /** MeUpdate */
+    MeUpdate: {
+      /**
+       * Locale
+       * @description nulo volta ao idioma padrão do sistema
+       */
+      locale: ('pt-BR' | 'en') | null
     }
     /** MemberIn */
     MemberIn: {
@@ -942,6 +1069,13 @@ export interface components {
       id: number
       /** Name */
       name: string
+    }
+    /** SettingsUpdate */
+    SettingsUpdate: {
+      /** Default Locale */
+      default_locale?: ('pt-BR' | 'en') | null
+      /** @description nulo volta às cores padrão */
+      colors?: components['schemas']['Colors'] | null
     }
     /** StatusList */
     StatusList: {
@@ -1623,6 +1757,39 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['Me']
+        }
+      }
+    }
+  }
+  update_me_api_v1_me_patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MeUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Me']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }
@@ -2611,6 +2778,130 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  branding_api_v1_branding_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Branding']
+        }
+      }
+    }
+  }
+  branding_logo_api_v1_branding_logo_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  update_settings_api_v1_admin_settings_patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SettingsUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Branding']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  set_logo_api_v1_admin_settings_logo_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LogoIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Branding']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  remove_logo_api_v1_admin_settings_logo_delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Branding']
         }
       }
     }

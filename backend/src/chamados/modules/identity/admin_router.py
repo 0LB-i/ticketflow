@@ -18,6 +18,7 @@ from chamados.modules.identity.models import User
 from chamados.modules.identity.service import issue_token, link, send_link_email
 from chamados.modules.identity.sessions import revoke_sessions
 from chamados.modules.organization.models import Role, TeamMember
+from chamados.modules.system.service import user_locale
 
 router = APIRouter(prefix="/users", tags=["usuários"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_USERS))]
@@ -133,7 +134,7 @@ async def _send_link(
         raise HTTPException(409, "Cadastre um e-mail para este usuário antes de enviar o link.")
     raw = await issue_token(db, user, purpose)
     url = link(settings, purpose, raw)
-    tasks.add_task(send_link_email, mailer, user, purpose, url)
+    tasks.add_task(send_link_email, mailer, user, purpose, url, await user_locale(db, user))
     return LinkOut(
         purpose=purpose, sent_by_email=mailer.configured, url=None if mailer.configured else url
     )

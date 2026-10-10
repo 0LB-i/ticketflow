@@ -56,37 +56,69 @@ async def find_token(db: AsyncSession, raw: str) -> AuthToken | None:
     return token
 
 
-def send_link_email(mailer: Mailer, user: User, purpose: Purpose, url: str) -> None:
-    if user.email is None:
-        return
-    first_name = user.full_name.split()[0]
-    if purpose == "invite":
-        subject = "Seu acesso ao TicketFlow"
-        body = (
-            f"Olá, {first_name}.\n\n"
+# Textos dos e-mails por idioma (core/i18n.py). {nome}: primeiro nome; {url}: link.
+EMAILS: dict[str, dict[str, tuple[str, str]]] = {
+    "pt-BR": {
+        "invite": (
+            "Seu acesso ao TicketFlow",
+            "Olá, {nome}.\n\n"
             "Você foi cadastrado no TicketFlow, o sistema de chamados da equipe.\n"
-            f"Para criar sua senha, acesse o link abaixo (válido por 72 horas):\n\n{url}\n\n"
-            "Se você não esperava este convite, ignore este e-mail."
-        )
-    else:
-        subject = "Redefinição de senha do TicketFlow"
-        body = (
-            f"Olá, {first_name}.\n\n"
+            "Para criar sua senha, acesse o link abaixo (válido por 72 horas):\n\n{url}\n\n"
+            "Se você não esperava este convite, ignore este e-mail.",
+        ),
+        "password_reset": (
+            "Redefinição de senha do TicketFlow",
+            "Olá, {nome}.\n\n"
             "Recebemos um pedido para redefinir sua senha do TicketFlow.\n"
-            f"Para criar uma senha nova, acesse o link abaixo (válido por 30 minutos):\n\n{url}\n\n"
-            "Se não foi você, ignore este e-mail: sua senha continua a mesma."
-        )
-    mailer.send(user.email, subject, body)
+            "Para criar uma senha nova, acesse o link abaixo (válido por 30 minutos):\n\n"
+            "{url}\n\n"
+            "Se não foi você, ignore este e-mail: sua senha continua a mesma.",
+        ),
+        "locked": (
+            "Sua conta do TicketFlow foi bloqueada por 15 minutos",
+            "Olá, {nome}.\n\n"
+            "Houve 10 tentativas seguidas de entrar na sua conta com a senha errada, então ela "
+            "foi bloqueada por 15 minutos.\n\nSe não foi você, avise o administrador do "
+            "sistema e, depois do bloqueio, troque sua senha.",
+        ),
+    },
+    "en": {
+        "invite": (
+            "Your TicketFlow access",
+            "Hello, {nome}.\n\n"
+            "You have been added to TicketFlow, the team's ticket system.\n"
+            "To create your password, open the link below (valid for 72 hours):\n\n{url}\n\n"
+            "If you were not expecting this invitation, ignore this email.",
+        ),
+        "password_reset": (
+            "TicketFlow password reset",
+            "Hello, {nome}.\n\n"
+            "We received a request to reset your TicketFlow password.\n"
+            "To create a new password, open the link below (valid for 30 minutes):\n\n"
+            "{url}\n\n"
+            "If it wasn't you, ignore this email: your password stays the same.",
+        ),
+        "locked": (
+            "Your TicketFlow account was locked for 15 minutes",
+            "Hello, {nome}.\n\n"
+            "There were 10 failed sign-in attempts in a row on your account, so it was locked "
+            "for 15 minutes.\n\nIf it wasn't you, tell the system administrator and change "
+            "your password after the lock ends.",
+        ),
+    },
+}
 
 
-def send_locked_email(mailer: Mailer, user: User) -> None:
+def _send(mailer: Mailer, user: User, kind: str, locale: str, url: str = "") -> None:
     if user.email is None:
         return
-    mailer.send(
-        user.email,
-        "Sua conta do TicketFlow foi bloqueada por 15 minutos",
-        f"Olá, {user.full_name.split()[0]}.\n\n"
-        "Houve 10 tentativas seguidas de entrar na sua conta com a senha errada, então ela foi "
-        "bloqueada por 15 minutos.\n\nSe não foi você, avise o administrador do sistema e, "
-        "depois do bloqueio, troque sua senha.",
-    )
+    subject, body = EMAILS.get(locale, EMAILS["pt-BR"])[kind]
+    mailer.send(user.email, subject, body.format(nome=user.full_name.split()[0], url=url))
+
+
+def send_link_email(mailer: Mailer, user: User, purpose: Purpose, url: str, locale: str) -> None:
+    _send(mailer, user, purpose, locale, url)
+
+
+def send_locked_email(mailer: Mailer, user: User, locale: str) -> None:
+    _send(mailer, user, "locked", locale)

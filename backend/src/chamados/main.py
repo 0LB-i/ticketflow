@@ -22,6 +22,7 @@ from chamados.modules.identity.ratelimit import IpLimiter
 from chamados.modules.identity.router import router as auth_router
 from chamados.modules.notifications.email import make_mailer
 from chamados.modules.organization.router import router as organization_router
+from chamados.modules.system.router import router as system_router
 from chamados.modules.tickets.router import router as tickets_router
 
 
@@ -58,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         organization_router,
         catalog_router,
         tickets_router,
+        system_router,
         audit_router,
     ):
         v1.include_router(router)

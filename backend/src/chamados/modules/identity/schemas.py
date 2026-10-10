@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
+from chamados.core.i18n import Locale
+
 
 class LoginIn(BaseModel):
     login: str = Field(min_length=1, max_length=254, description="e-mail ou nome de usuário")
@@ -45,3 +47,8 @@ class Me(BaseModel):
     role: str
     teams: list[MeTeam]
     permissions: list[str]
+    locale: Locale | None = Field(description="idioma escolhido; nulo segue o padrão do sistema")
+
+
+class MeUpdate(BaseModel):
+    locale: Locale | None = Field(description="nulo volta ao idioma padrão do sistema")
