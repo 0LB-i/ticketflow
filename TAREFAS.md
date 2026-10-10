@@ -32,7 +32,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S2-06 | Cadastro de **usuários** (papel, grupos) com convite por e-mail | feito | 933cc3d |
 | F1-S2-07 | **Motor de permissões**: catálogo, papéis fixos, `can()` e `ticket_visibility_filter()` + testes tabelados | feito | 933cc3d |
 | F1-S2-08 | Log de auditoria (`audit_log`) para login e administração | feito | 933cc3d |
-| F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, grupos e setores | feito | |
+| F1-S2-09 | Telas: login, redefinição de senha, administração de usuários, grupos e setores | feito | 415d0c2 |
 
 ### Sprint 3 — Núcleo dos chamados
 
