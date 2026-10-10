@@ -2,7 +2,7 @@
 
 Esboço completo e comentado: [`esboco-schema.sql`](esboco-schema.sql). Ele é o ponto de partida da primeira migração Alembic e ainda vai mudar.
 
-As tabelas dos itens que ficaram para depois da v1.0 (tokens de API, webhooks, visões salvas, campos extras, antivírus e IA) estão em [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql).
+As tabelas dos itens que ficaram para depois da v1.0 (tokens de API, webhooks, visões salvas, campos extras, antivírus, IA e mapeamento de grupos do SSO) estão em [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql).
 
 ## Diagrama de entidades (simplificado)
 
@@ -16,8 +16,6 @@ erDiagram
     users ||--o{ user_sessions : sessoes
     users ||--o| user_mfa : mfa
     users ||--o{ auth_tokens : "convite / reset"
-    idp_group_mappings }o--o| roles : mapeia
-    idp_group_mappings }o--o| teams : mapeia
 ```
 
 Chamados ([10](10-chamados.md), [11](11-anexos-e-arquivos.md)):

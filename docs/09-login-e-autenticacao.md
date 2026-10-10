@@ -22,7 +22,7 @@ Quando o SSO existir, o administrador poderá ligar **"SSO obrigatório"**: o lo
    ```bash
    sudo -u sistema-chamados uv run chamados admin create --email ti@empresa.com --name "Administrador"
    ```
-   O comando mostra um link de definição de senha válido por 24 h.
+   O comando mostra um link de definição de senha válido por 24 h. O comando completo, com as variáveis de ambiente, está no [manual do servidor](18-manual-do-servidor.md#10-primeiro-administrador-e-verificação).
 3. O administrador configura grupos, setores atendidos e categorias e cadastra os usuários, que recebem um convite por e-mail.
 
 ## 9.3 Login local

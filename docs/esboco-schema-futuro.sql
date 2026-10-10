@@ -186,3 +186,18 @@ CREATE TABLE canned_responses (
     CHECK (scope <> 'personal' OR owner_user_id IS NOT NULL),
     CHECK (scope <> 'team' OR team_id IS NOT NULL)
 );
+
+-- -----------------------------------------------------------------------------
+-- SSO (docs/09 §9.6)
+-- -----------------------------------------------------------------------------
+
+-- Mapeamento de grupos do provedor de identidade (SSO) → papel ou grupo  (docs/09 §9.6)
+CREATE TABLE idp_group_mappings (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    idp_group       text        NOT NULL,               -- id ou nome do grupo no provedor
+    role_id         smallint    REFERENCES roles(id),
+    team_id         bigint      REFERENCES teams(id),
+    team_role       text        CHECK (team_role IN ('member', 'supervisor')),
+    CHECK (num_nonnulls(role_id, team_id) = 1),
+    CHECK ((team_id IS NULL) = (team_role IS NULL))
+);

@@ -2,20 +2,19 @@
 
 ## Premissas
 
-- **Equipe de referência:** 2 desenvolvedores full stack (Python + Vue) + 1 pessoa dividida entre produto, QA e design. Com outra composição, as durações mudam.
-- **Sprints de 2 semanas.** No GitHub: cada **fase** é um *milestone* e cada sprint é uma *iteração* no GitHub Projects (ver [processo de desenvolvimento](12-processo-de-desenvolvimento.md)).
-- As estimativas são revistas ao fim de cada sprint. A ordem das fases é fixa; o conteúdo de cada sprint pode ser rearranjado dentro da fase.
-- Cada item abaixo vira uma ou mais *issues* no GitHub. Os códigos (ex.: `F1-S3-02`) servem para rastrear.
+- **Equipe (2026-10-10):** **uma pessoa** desenvolvendo com o Claude Code, que também faz o papel de produto e de testes. A primeira versão deste roadmap supunha 2 desenvolvedores + 1 pessoa de produto/QA; as durações abaixo foram refeitas para uma pessoa.
+- **Sprints** continuam sendo os blocos de entrega, na ordem fixa. A duração de cada um é uma estimativa e é revista ao fim da Fase 0, com o ritmo real medido, e depois a cada sprint.
+- Cada item abaixo vira uma linha no `TAREFAS.md` do repositório ([12.1](12-processo-de-desenvolvimento.md#121-repositório-e-tarefas)). Os códigos (ex.: `F1-S3-02`) servem para rastrear.
 
 ## Visão geral
 
 | Fase | Sprints | Duração | Resultado | Marco |
 |------|---------|---------|-----------|-------|
-| **0. Fundação** | 1 | 2 sem. | Repositório, CI, esqueletos backend e frontend, banco | M0: "roda no meu computador e no CI" |
-| **1. MVP** | 2–5 | 8 sem. | Chamados de ponta a ponta com login local, setores, grupos, permissões, anexos e e-mail | **M1: piloto com a TI** |
-| **2. Operação completa** | 6–8 | 6 sem. | Notificações no sistema, MFA, aprovações, e-mail de entrada, relatórios, base de conhecimento | **M2: versão 1.0 e expansão para outras áreas** |
+| **0. Fundação** | 1 | 2–3 sem. | Repositório, verificação local, esqueletos backend e frontend, banco | M0: "roda no meu computador e passa na verificação" |
+| **1. MVP** | 2–5 | 10–14 sem. | Chamados de ponta a ponta com login local, grupos, setores atendidos, permissões, anexos e e-mail | **M1: piloto com a TI** |
+| **2. Operação completa** | 6–8 | 8–10 sem. | Notificações no sistema, MFA, aprovações, relatórios, base de conhecimento | **M2: versão 1.0 e expansão para outras equipes** |
 
-**Total estimado:** 16 semanas (~4 meses) até a versão 1.0. O piloto começa com cerca de 2 meses e meio.
+**Total estimado:** 20 a 27 semanas (~5 a 6 meses) até a versão 1.0. O piloto começa entre o 3º e o 4º mês. A faixa diminui depois da Fase 0, quando houver ritmo medido.
 
 A integração com IA e outros itens ficaram para depois da v1.0 (revisão de escopo de 2026-10-09; ver [Backlog futuro](#backlog-futuro-fora-da-v10)).
 
@@ -30,11 +29,11 @@ flowchart LR
 
 ## Fase 0 — Fundação (Sprint 1)
 
-**Objetivo:** qualquer pessoa da equipe clona o repositório, sobe o ambiente com um comando e faz push na `main` com o CI verde.
+**Objetivo:** o ambiente sobe com um comando, a verificação local passa e o servidor de produção consegue receber o código.
 
 | Código | Entrega |
 |--------|---------|
-| F0-01 | Repositório no GitHub: templates de issue, labels, Dependabot, GitHub Projects |
+| F0-01 | Repositório local: `TAREFAS.md` com os itens deste roadmap, `CHANGELOG.md`, `.gitignore` ([12.1](12-processo-de-desenvolvimento.md#121-repositório-e-tarefas)) |
 | F0-02 | Monorepo `backend/` + `frontend/`; README com "como rodar" |
 | F0-03 | Backend: `pyproject.toml` (uv), FastAPI com `/health`, configuração com pydantic-settings, logs estruturados (structlog), tratamento de erros (RFC 9457) |
 | F0-04 | Banco: SQLAlchemy 2 + Alembic; migração inicial com extensões (`unaccent`, `pg_trgm`, `citext`) e a configuração de busca `pt_br` |
@@ -42,10 +41,10 @@ flowchart LR
 | F0-06 | Design system inicial conforme a [identidade visual](17-identidade-visual.md): cores, tipografia, espaçamento (tokens do Tailwind), modo claro e escuro; componentes base: Botão, Campo, Select, Modal, Toast, Tabela, Badge de status |
 | F0-07 | Layout do aplicativo: menu lateral, cabeçalho, área de conteúdo, responsivo |
 | F0-08 | Geração do cliente TypeScript a partir do OpenAPI (`pnpm gen:api`) + verificação no CI |
-| F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17, Mailpit); arquivos de exemplo do systemd e do nginx; `scripts/deploy.sh` |
-| F0-10 | GitHub Actions: lint, tipos e testes do backend em **PG 16 e 17**; lint, tipos, testes e build do frontend |
+| F0-09 | `docker-compose.yml` só para desenvolvimento (PostgreSQL 17, Mailpit); arquivos do systemd (serviços e timer de backup) e do nginx; `scripts/deploy.sh` e `scripts/backup.sh` ([18](18-manual-do-servidor.md)) |
+| F0-10 | `scripts/check.sh` (rápido, padrão e completo, com testes em **PG 16 e 17**) e hook de pre-commit ([12.3](12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci)) |
 
-**Pronto quando:** `docker compose up` + `pnpm dev` mostram a tela inicial da SPA consumindo o `/health`, e o CI roda nas duas versões do PostgreSQL.
+**Pronto quando:** `docker compose up` + `pnpm dev` mostram a tela inicial da SPA consumindo o `/health`, e `scripts/check.sh --completo` passa nas duas versões do PostgreSQL.
 
 ---
 
@@ -103,7 +102,7 @@ flowchart LR
 | F1-S5-03 | Ocultar comentário ou anexo com motivo | [10.6](10-chamados.md#regras-de-edição) |
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | — |
 | F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | — |
-| F1-S5-06 | Instalação no servidor da Martiniti (systemd, nginx, PostgreSQL 17), guia de atualização, backup do banco + arquivos | [ADR 0010](adr/0010-producao-systemd.md) |
+| F1-S5-06 | Instalação no servidor da Martiniti (systemd, nginx, PostgreSQL 17), backup testado com restauração | [18](18-manual-do-servidor.md) |
 | F1-S5-07 | Carga inicial da Martiniti: grupos, usuários, setores atendidos, categorias | [15](15-estrutura-martiniti.md) |
 | F1-S5-08 | Treinamento, guia rápido e virada da TI | [16](16-implantacao.md) |
 
@@ -188,5 +187,7 @@ O desenho de banco destes itens está em [`esboco-schema-futuro.sql`](esboco-sch
 | Risco | Mitigação |
 |-------|-----------|
 | Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
+| Desenvolvedor único: indisponibilidade ou conhecimento concentrado | Documentação em `docs/`, testes automatizados, `TAREFAS.md` sempre atualizado e decisões registradas em ADR |
+| Código só na máquina de desenvolvimento | `git push` frequente para o repositório de passagem do servidor ([18.3](18-manual-do-servidor.md#5-código)), que também entra no backup |
 | Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
 | A equipe registrar só parte do trabalho | Virada com data marcada, combinados da equipe e acompanhamento diário nas duas primeiras semanas ([16](16-implantacao.md)) |

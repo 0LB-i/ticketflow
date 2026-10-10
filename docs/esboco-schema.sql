@@ -2,7 +2,7 @@
 -- Esboço do schema do TicketFlow (Sistema de Chamados)
 -- Alvo: PostgreSQL 16 e 17 (não usar recursos exclusivos do 17)
 -- Modelo: uma instalação por empresa (sem tenant_id) — ADR 0005
--- v1.0 sem IA, tokens de API, webhooks, visões salvas, antivírus e campos extras:
+-- v1.0 sem IA, tokens de API, webhooks, visões salvas, antivírus, campos extras e mapeamento do SSO:
 --   desenho guardado em esboco-schema-futuro.sql.
 -- Modelo (2026-10-10): só membros das equipes têm conta; os atendidos ficam em
 --   tickets.department_id / beneficiary_name. Sem solicitante, notas internas nem satisfação.
@@ -168,17 +168,6 @@ CREATE TABLE team_members (
     PRIMARY KEY (team_id, user_id)
 );
 CREATE INDEX team_members_user_idx ON team_members (user_id);
-
--- Mapeamento de grupos do provedor de identidade (SSO) → papel ou grupo  (docs/09 §9.6)
-CREATE TABLE idp_group_mappings (
-    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    idp_group       text        NOT NULL,               -- id ou nome do grupo no provedor
-    role_id         smallint    REFERENCES roles(id),
-    team_id         bigint      REFERENCES teams(id),
-    team_role       text        CHECK (team_role IN ('member', 'supervisor')),
-    CHECK (num_nonnulls(role_id, team_id) = 1),
-    CHECK ((team_id IS NULL) = (team_role IS NULL))
-);
 
 -- -----------------------------------------------------------------------------
 -- Catálogo: categorias, status, códigos de resolução  (docs/10)
