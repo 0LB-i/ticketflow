@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from chamados.cli import alembic_config
 from chamados.config import Settings
 from chamados.main import create_app
+from chamados.modules.catalog.models import Category
 from chamados.modules.identity import passwords
 from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import hash_password
@@ -29,7 +30,10 @@ TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://chamados:chamados@localhost:5432/chamados_test"
 )
 SENHA = "uma senha longa de teste"
-TABELAS = "audit_log, auth_tokens, user_sessions, team_members, teams, departments, users"
+TABELAS = (
+    "ticket_events, ticket_comments, ticket_watchers, ticket_teams, tickets, categories, "
+    "audit_log, auth_tokens, user_sessions, team_members, teams, departments, users"
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -141,3 +145,32 @@ def entrar(client: TestClient, email: str = "ana@exemplo.com", senha: str = SENH
     r = client.post("/api/v1/auth/login", json={"login": email, "password": senha})
     assert r.status_code == 204, r.text
     client.headers["X-CSRF-Token"] = client.cookies["tf_csrf"]
+
+
+def grupo(db: Session, nome: str) -> Team:
+    """Grupo pelo nome, criado se ainda não existir."""
+    team = db.scalar(select(Team).where(Team.name == nome))
+    if team is None:
+        team = Team(name=nome)
+        db.add(team)
+        db.commit()
+    return team
+
+
+def criar_categoria(
+    db: Session,
+    nome: str = "Impressão",
+    *,
+    grupo_padrao: str | None = None,
+    confidencial: bool = False,
+    tipo: str = "incident",
+) -> Category:
+    category = Category(
+        name=nome,
+        default_team_id=grupo(db, grupo_padrao).id if grupo_padrao else None,
+        default_type=tipo,
+        is_confidential=confidencial,
+    )
+    db.add(category)
+    db.commit()
+    return category

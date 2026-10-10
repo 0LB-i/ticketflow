@@ -1,7 +1,7 @@
 """Migrações sobem e descem (docs/12 §12.4) e a busca em português ignora acentos."""
 
 from alembic import command
-from sqlalchemy import create_engine, text
+from sqlalchemy import Engine, create_engine, text
 
 from chamados.cli import alembic_config
 
@@ -19,8 +19,10 @@ def test_busca_pt_br_sem_acentos(database_url: str) -> None:
     assert _tsvector(database_url, "Impressão") == _tsvector(database_url, "impressao")
 
 
-def test_downgrade_e_upgrade(database_url: str) -> None:
+def test_downgrade_e_upgrade(database_url: str, sync_engine: Engine) -> None:
     cfg = alembic_config(database_url)
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
     assert "impress" in _tsvector(database_url, "Impressora")
+    # As extensões foram recriadas com novos OIDs: conexões antigas do pool guardam os velhos.
+    sync_engine.dispose()

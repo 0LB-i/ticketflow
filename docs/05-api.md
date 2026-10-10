@@ -52,14 +52,15 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `POST` | `/tickets` | Registrar chamado |
 | `GET` | `/tickets/{id}` | Detalhe |
 | `PATCH` | `/tickets/{id}` | Alterar campos (título, prioridade, categoria, setor e pessoa atendidos, tags) |
-| `POST` | `/tickets/{id}/transitions` | Mudar status: `{"to": "closed", "comment": "...", "resolution_code_id": ...}` |
+| `POST` | `/tickets/{id}/transitions` | Mudar status pelo fluxo: `{"action": "close", "comment": "...", "resolution_code_id": ...}`. Ações: `wait`, `resume`, `close`, `reopen`, `cancel` ([10.5](10-chamados.md#105-status-e-fluxo)); o comentário vira comentário do chamado |
 | `GET` | `/tickets/{id}/comments` | Listar comentários |
-| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "attachment_ids": [...]}`; `@nome` no texto adiciona o mencionado como observador |
+| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "mention_ids": [...], "attachment_ids": [...]}`. Os `@mencionados` vão em `mention_ids` (o editor os escolhe numa lista) e viram observadores |
+| `PATCH` | `/tickets/{id}/comments/{cid}` | Editar o próprio comentário, por até 10 minutos |
 | `GET` | `/tickets/{id}/events` | Histórico / linha do tempo |
-| `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores |
+| `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores (respondem `204`: quem se retira de um chamado de outro grupo deixa de vê-lo) |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
 | `GET` | `/tickets/search` | Busca textual: `?q=...` (no futuro, `&mode=semantic\|hybrid` com a IA) |
-| `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir |
+| `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`), atribuir (id de um membro do grupo) ou devolver à fila (`null`) |
 | `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "reason"}` |
 | `POST` | `/tickets/next` | "Pegar o próximo" da fila |
 | `POST` | `/tickets/{id}/merge` | Mesclar em outro chamado |
@@ -69,6 +70,8 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `POST` | `/tickets/{id}/comments/{cid}/hide` | Ocultar comentário (com motivo) |
 
 O detalhe do chamado inclui `allowed_actions` (ex.: `["comment", "assign_self", "transfer", "close"]`), calculado pelo backend, para a interface decidir quais botões mostrar.
+
+Um chamado que o usuário não pode ver responde `403` ("Você não tem acesso a este chamado"); um número inexistente, `404`. Sem `team_id`, `POST /tickets` usa o grupo padrão da categoria (roteamento), que precisa ser um dos grupos do usuário.
 
 ### Anexos
 
