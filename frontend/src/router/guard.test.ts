@@ -27,6 +27,14 @@ describe('proteção das rotas (docs/13 §13.3)', () => {
     expect(router.currentRoute.value.name).toBe('sem-acesso')
   })
 
+  it('registrar chamado exige ticket.create (o auditor não registra)', async () => {
+    simularApi({ 'GET /api/v1/me': [200, { ...ME_AGENTE, role: 'auditor', permissions: [] }] })
+    await router.push('/chamados/novo')
+    expect(router.currentRoute.value.name).toBe('sem-acesso')
+    await router.push('/chamados/1234')
+    expect(router.currentRoute.value.name).toBe('chamado')
+  })
+
   it('quem já está logado não vê a tela de login', async () => {
     simularApi({ 'GET /api/v1/me': [200, ME_AGENTE] })
     await router.push('/login')

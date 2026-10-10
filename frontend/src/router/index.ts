@@ -55,6 +55,23 @@ const routes: RouteRecordRaw[] = [
     meta: { cartao: true },
   },
   {
+    path: '/chamados',
+    name: 'chamados',
+    component: () => import('@/views/tickets/TicketsView.vue'),
+  },
+  {
+    path: '/chamados/novo',
+    name: 'novo-chamado',
+    component: () => import('@/views/tickets/NewTicketView.vue'),
+    meta: { permissao: 'ticket.create' },
+  },
+  {
+    path: '/chamados/:numero(\\d+)',
+    name: 'chamado',
+    component: () => import('@/views/tickets/TicketView.vue'),
+    props: true,
+  },
+  {
     path: '/admin/usuarios',
     name: 'admin-usuarios',
     component: () => import('@/views/admin/UsersView.vue'),
@@ -71,6 +88,12 @@ const routes: RouteRecordRaw[] = [
     name: 'admin-setores',
     component: () => import('@/views/admin/DepartmentsView.vue'),
     meta: { permissao: 'admin.organization' },
+  },
+  {
+    path: '/admin/categorias',
+    name: 'admin-categorias',
+    component: () => import('@/views/admin/CategoriesView.vue'),
+    meta: { permissao: 'admin.catalog' },
   },
   {
     path: '/sem-acesso',

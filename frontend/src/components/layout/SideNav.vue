@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { Building2, House, LayoutGrid, Users, UsersRound } from 'lucide-vue-next'
+import {
+  Building2,
+  FolderTree,
+  House,
+  LayoutGrid,
+  Ticket,
+  Users,
+  UsersRound,
+} from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import { useAuthStore } from '@/stores/auth'
@@ -8,7 +16,10 @@ defineEmits<{ navigate: [] }>()
 
 const auth = useAuthStore()
 
-const principal = [{ to: '/', rotulo: 'menu.inicio', icone: House }]
+const principal = [
+  { to: '/', rotulo: 'menu.inicio', icone: House },
+  { to: '/chamados', rotulo: 'menu.chamados', icone: Ticket },
+]
 const administracao = computed(() =>
   [
     { to: '/admin/usuarios', rotulo: 'menu.usuarios', icone: Users, perm: 'admin.users' },
@@ -18,6 +29,12 @@ const administracao = computed(() =>
       rotulo: 'menu.setores',
       icone: Building2,
       perm: 'admin.organization',
+    },
+    {
+      to: '/admin/categorias',
+      rotulo: 'menu.categorias',
+      icone: FolderTree,
+      perm: 'admin.catalog',
     },
   ].filter((item) => auth.pode(item.perm)),
 )

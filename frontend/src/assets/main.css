@@ -123,3 +123,45 @@
     @apply outline-2 outline-offset-2 outline-focus;
   }
 }
+
+/* Texto formatado (Markdown) da descrição e dos comentários, e o mesmo visual no editor. */
+@layer components {
+  .texto-formatado {
+    @apply leading-relaxed break-words;
+  }
+  .texto-formatado > * + * {
+    @apply mt-2;
+  }
+  .texto-formatado ul {
+    @apply list-disc pl-6;
+  }
+  .texto-formatado ol {
+    @apply list-decimal pl-6;
+  }
+  .texto-formatado a {
+    @apply text-primary underline;
+  }
+  .texto-formatado code {
+    @apply rounded bg-surface-raised px-1 font-mono text-[0.85em];
+  }
+  .texto-formatado pre {
+    @apply overflow-x-auto rounded bg-surface-raised p-3;
+  }
+  .texto-formatado pre code {
+    @apply bg-transparent p-0;
+  }
+  .texto-formatado blockquote {
+    @apply border-l-2 border-border-input pl-3 text-muted;
+  }
+  .texto-formatado h1,
+  .texto-formatado h2,
+  .texto-formatado h3 {
+    @apply font-semibold;
+  }
+  .texto-formatado .mencao {
+    @apply rounded bg-primary-subtle px-1 font-medium text-primary;
+  }
+  .texto-formatado p.is-editor-empty:first-child::before {
+    @apply pointer-events-none float-left h-0 text-muted content-[attr(data-placeholder)];
+  }
+}

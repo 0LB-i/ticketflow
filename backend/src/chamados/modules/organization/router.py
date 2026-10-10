@@ -32,8 +32,9 @@ Notify = Literal["queue_only", "email_all_members"]
 class MemberOut(BaseModel):
     user_id: uuid.UUID
     full_name: str
-    email: str
+    email: str | None
     role: MemberRole
+    is_active: bool
 
 
 class TeamOut(BaseModel):
@@ -82,6 +83,7 @@ def _team_out(team: Team) -> TeamOut:
                 full_name=m.user.full_name,
                 email=m.user.email,
                 role=m.role,
+                is_active=m.user.is_active,
             )
             for m in sorted(team.members, key=lambda m: (m.role != "supervisor", m.user.full_name))
         ],

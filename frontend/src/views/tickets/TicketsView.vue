@@ -1,0 +1,80 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+import Button from '@/components/ui/Button.vue'
+import DataTable from '@/components/ui/DataTable.vue'
+import PriorityBadge, { type Prioridade } from '@/components/ui/PriorityBadge.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
+import { useChamados } from '@/composables/chamados'
+import { useHead } from '@/composables/useHead'
+import { useAuthStore } from '@/stores/auth'
+
+/**
+ * Chamados que o usuário vê, na ordenação padrão (prioridade, depois o mais antigo).
+ * As abas das filas e os filtros entram na Sprint 4 (F1-S4-05).
+ */
+useHead('chamados.titulo')
+const { t } = useI18n()
+const auth = useAuthStore()
+const chamados = useChamados()
+
+const linhas = computed(() => chamados.data.value?.pages.flatMap((p) => p.items) ?? [])
+const colunas = computed(() => [
+  { key: 'number', label: t('chamados.numero') },
+  { key: 'title', label: t('chamados.tituloColuna') },
+  { key: 'para', label: t('chamado.para') },
+  { key: 'priority', label: t('chamado.prioridade') },
+  { key: 'status', label: t('chamados.status') },
+  { key: 'assignee', label: t('chamado.responsavel') },
+  { key: 'team', label: t('chamado.grupo') },
+])
+</script>
+
+<template>
+  <div class="mx-auto flex max-w-6xl flex-col gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-xl font-semibold">{{ t('chamados.titulo') }}</h1>
+      <Button v-if="auth.pode('ticket.create')" @click="$router.push('/chamados/novo')">
+        {{ t('chamados.novo') }}
+      </Button>
+    </div>
+
+    <p v-if="chamados.isPending.value" class="text-muted">{{ t('comum.carregando') }}</p>
+    <p v-else-if="chamados.isError.value" class="text-danger">{{ t('comum.erroInesperado') }}</p>
+    <template v-else>
+      <DataTable :columns="colunas" :rows="linhas" row-key="id" :caption="t('chamados.titulo')">
+        <template #cell-number="{ row }">
+          <RouterLink :to="`/chamados/${row.number}`" class="text-primary underline">
+            {{ row.number }}
+          </RouterLink>
+        </template>
+        <template #cell-title="{ row }">
+          <RouterLink :to="`/chamados/${row.number}`" class="font-medium hover:underline">
+            {{ row.title }}
+          </RouterLink>
+        </template>
+        <template #cell-para="{ row }">
+          {{ [row.department?.name, row.beneficiary_name].filter(Boolean).join(' · ') || '—' }}
+        </template>
+        <template #cell-priority="{ row }">
+          <PriorityBadge :priority="row.priority as Prioridade" />
+        </template>
+        <template #cell-status="{ row }">
+          <StatusBadge :kind="row.status.kind" :label="row.status.name" />
+        </template>
+        <template #cell-assignee="{ row }">{{ row.assignee?.full_name ?? '—' }}</template>
+        <template #cell-team="{ row }">{{ row.team.name }}</template>
+      </DataTable>
+      <div v-if="chamados.hasNextPage.value" class="flex justify-center">
+        <Button
+          variant="secondary"
+          :disabled="chamados.isFetchingNextPage.value"
+          @click="chamados.fetchNextPage()"
+        >
+          {{ t('chamados.carregarMais') }}
+        </Button>
+      </div>
+    </template>
+  </div>
+</template>

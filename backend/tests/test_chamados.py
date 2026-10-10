@@ -142,6 +142,11 @@ def test_prioridade_forcada_exige_motivo(client: TestClient, cenario: dict[str, 
     r = client.patch(url, json={"impact": 3})
     assert r.json()["priority"] == 3 and r.json()["priority_overridden"] is False
 
+    # priority nula volta ao valor da matriz
+    client.patch(url, json={"priority": 1, "priority_reason": "Pode esperar"})
+    r = client.patch(url, json={"priority": None})
+    assert r.json()["priority"] == 3 and r.json()["priority_overridden"] is False
+
 
 def test_edicao_de_campos_vai_para_o_historico(
     client: TestClient, cenario: dict[str, Any], db: Session
