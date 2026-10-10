@@ -1,32 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 
 import { api, ou, type Schemas } from '@/api/client'
+import { i18n } from '@/i18n'
 
 export type Usuario = Schemas['UserOut']
 export type Grupo = Schemas['TeamOut']
 export type Setor = Schemas['DepartmentOut']
 export type LinkDeAcesso = Schemas['LinkOut']
 
-const ERRO = 'Algo deu errado. Tente de novo.'
+const erro = () => i18n.global.t('comum.erroInesperado')
 
 export function useUsuarios() {
   return useQuery({
     queryKey: ['usuarios'],
-    queryFn: async () => ou(await api.GET('/api/v1/users'), ERRO).items,
+    queryFn: async () => ou(await api.GET('/api/v1/users'), erro()).items,
   })
 }
 
 export function useGrupos() {
   return useQuery({
     queryKey: ['grupos'],
-    queryFn: async () => ou(await api.GET('/api/v1/teams'), ERRO).items,
+    queryFn: async () => ou(await api.GET('/api/v1/teams'), erro()).items,
   })
 }
 
 export function useSetores() {
   return useQuery({
     queryKey: ['setores'],
-    queryFn: async () => ou(await api.GET('/api/v1/departments'), ERRO).items,
+    queryFn: async () => ou(await api.GET('/api/v1/departments'), erro()).items,
   })
 }
 
@@ -41,22 +42,27 @@ export function useAlteracao<A, R>(fn: (args: A) => Promise<R>, recarregar: stri
 }
 
 export const usuariosApi = {
-  criar: async (body: Schemas['UserCreate']) => ou(await api.POST('/api/v1/users', { body }), ERRO),
+  criar: async (body: Schemas['UserCreate']) =>
+    ou(await api.POST('/api/v1/users', { body }), erro()),
   editar: async ({ id, ...body }: Schemas['UserUpdate'] & { id: string }) =>
     ou(
       await api.PATCH('/api/v1/users/{user_id}', { params: { path: { user_id: id } }, body }),
-      ERRO,
+      erro(),
     ),
   enviarLink: async (id: string) =>
-    ou(await api.POST('/api/v1/users/{user_id}/link', { params: { path: { user_id: id } } }), ERRO),
+    ou(
+      await api.POST('/api/v1/users/{user_id}/link', { params: { path: { user_id: id } } }),
+      erro(),
+    ),
 }
 
 export const gruposApi = {
-  criar: async (body: Schemas['TeamCreate']) => ou(await api.POST('/api/v1/teams', { body }), ERRO),
+  criar: async (body: Schemas['TeamCreate']) =>
+    ou(await api.POST('/api/v1/teams', { body }), erro()),
   editar: async ({ id, ...body }: Schemas['TeamUpdate'] & { id: string }) =>
     ou(
       await api.PATCH('/api/v1/teams/{team_id}', { params: { path: { team_id: id } }, body }),
-      ERRO,
+      erro(),
     ),
   definirMembro: async (a: { grupo: string; usuario: string; role: 'member' | 'supervisor' }) =>
     ou(
@@ -64,36 +70,36 @@ export const gruposApi = {
         params: { path: { team_id: a.grupo, user_id: a.usuario } },
         body: { role: a.role },
       }),
-      ERRO,
+      erro(),
     ),
   removerMembro: async (a: { grupo: string; usuario: string }) =>
     ou(
       await api.DELETE('/api/v1/teams/{team_id}/members/{user_id}', {
         params: { path: { team_id: a.grupo, user_id: a.usuario } },
       }),
-      ERRO,
+      erro(),
     ),
 }
 
 export const setoresApi = {
   criar: async (body: Schemas['DepartmentCreate']) =>
-    ou(await api.POST('/api/v1/departments', { body }), ERRO),
+    ou(await api.POST('/api/v1/departments', { body }), erro()),
   editar: async ({ id, ...body }: Schemas['DepartmentUpdate'] & { id: string }) =>
     ou(
       await api.PATCH('/api/v1/departments/{dept_id}', { params: { path: { dept_id: id } }, body }),
-      ERRO,
+      erro(),
     ),
 }
 
 export const categoriasApi = {
   criar: async (body: Schemas['CategoryCreate']) =>
-    ou(await api.POST('/api/v1/categories', { body }), ERRO),
+    ou(await api.POST('/api/v1/categories', { body }), erro()),
   editar: async ({ id, ...body }: Schemas['CategoryUpdate'] & { id: string }) =>
     ou(
       await api.PATCH('/api/v1/categories/{category_id}', {
         params: { path: { category_id: id } },
         body,
       }),
-      ERRO,
+      erro(),
     ),
 }

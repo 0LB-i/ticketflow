@@ -96,6 +96,12 @@ const routes: RouteRecordRaw[] = [
     meta: { permissao: 'admin.catalog' },
   },
   {
+    path: '/admin/configuracoes',
+    name: 'admin-configuracoes',
+    component: () => import('@/views/admin/SettingsView.vue'),
+    meta: { permissao: 'admin.settings' },
+  },
+  {
     path: '/sem-acesso',
     name: 'sem-acesso',
     component: () => import('@/views/ForbiddenView.vue'),

@@ -4,6 +4,7 @@ import {
   FolderTree,
   House,
   LayoutGrid,
+  Settings,
   Ticket,
   Users,
   UsersRound,
@@ -35,6 +36,12 @@ const administracao = computed(() =>
       rotulo: 'menu.categorias',
       icone: FolderTree,
       perm: 'admin.catalog',
+    },
+    {
+      to: '/admin/configuracoes',
+      rotulo: 'menu.configuracoes',
+      icone: Settings,
+      perm: 'admin.settings',
     },
   ].filter((item) => auth.pode(item.perm)),
 )

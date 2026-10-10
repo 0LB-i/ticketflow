@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { api, mensagemDeErro, type Schemas } from '@/api/client'
+import { api, mensagemDeErro, ou, type Schemas } from '@/api/client'
+import { i18n, type Idioma } from '@/i18n'
 
 /** Usuário logado (docs/09). As permissões vêm do backend e só decidem o que mostrar. */
 export const useAuthStore = defineStore('auth', () => {
@@ -24,8 +25,8 @@ export const useAuthStore = defineStore('auth', () => {
     })
     if (error !== undefined) {
       return response.status === 429
-        ? mensagemDeErro(error, 'Muitas tentativas. Tente de novo mais tarde.')
-        : mensagemDeErro(error, 'Não foi possível entrar.')
+        ? mensagemDeErro(error, i18n.global.t('login.muitasTentativas'))
+        : mensagemDeErro(error, i18n.global.t('login.falhou'))
     }
     await carregar()
     return null
@@ -40,9 +41,28 @@ export const useAuthStore = defineStore('auth', () => {
     me.value = null
   }
 
+  /** Idioma da pessoa; nulo volta ao padrão do sistema. */
+  async function mudarIdioma(locale: Idioma | null): Promise<void> {
+    me.value = ou(
+      await api.PATCH('/api/v1/me', { body: { locale } }),
+      i18n.global.t('comum.erroInesperado'),
+    )
+  }
+
   function pode(permissao: string): boolean {
     return me.value?.permissions.includes(permissao) ?? false
   }
 
-  return { me, carregado, logado, precisaTrocarSenha, carregar, entrar, sair, esquecer, pode }
+  return {
+    me,
+    carregado,
+    logado,
+    precisaTrocarSenha,
+    carregar,
+    entrar,
+    sair,
+    esquecer,
+    mudarIdioma,
+    pode,
+  }
 })

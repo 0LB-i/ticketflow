@@ -66,7 +66,7 @@ flowchart LR
 | `/admin/setores` | Árvore de setores atendidos | Admin | 1 |
 | `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade | Admin | 1 (aprovação: 2) |
 | `/admin/status` | Status (criar com `kind`, renomear, ordenar) e códigos de resolução | Admin | 1 |
-| `/admin/configuracoes` | Geral (nome do sistema, logotipo), e-mail de envio (SMTP), anexos (tipos, limites), matriz de prioridade | Admin | 1 |
+| `/admin/configuracoes` | Idioma padrão (português ou inglês; cada pessoa pode escolher outro no menu do usuário), as três cores da identidade com prévia nos modos claro e escuro ([17.2](17-identidade-visual.md#172-cores)) e logotipo. Depois: nome do sistema, e-mail de envio (SMTP), anexos (tipos, limites), matriz de prioridade | Admin | 1 |
 | `/admin/auditoria` | Log de auditoria com filtros | Admin, auditor | 1 |
 
 Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **sessão expirada** (volta ao login e depois à página onde estava).

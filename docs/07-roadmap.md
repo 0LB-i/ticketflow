@@ -80,6 +80,7 @@ flowchart LR
 | F1-S3-08 | **Histórico** (`ticket_events`) e linha do tempo | — |
 | F1-S3-09 | Telas: novo chamado e detalhe do chamado | [13](13-telas-e-navegacao.md) |
 | F1-S3-10 | `ticket_visibility_filter()` + testes tabelados das regras de visibilidade (saiu da S2-07: depende da tabela de chamados) | [08](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) |
+| F1-S3-11 | **Configurações**: idioma (português e inglês, padrão do sistema + escolha de cada usuário), as 3 cores com ajuste de contraste e logotipo (pedido de 2026-10-10) | [13](13-telas-e-navegacao.md#133-lista-de-telas), [17](17-identidade-visual.md#172-cores) |
 
 ### Sprint 4 — Anexos, notificações, filas e busca
 

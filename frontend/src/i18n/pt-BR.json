@@ -14,7 +14,8 @@
     "grupos": "Grupos",
     "setores": "Setores atendidos",
     "chamados": "Chamados",
-    "categorias": "Categorias"
+    "categorias": "Categorias",
+    "configuracoes": "Configurações"
   },
   "tema": {
     "titulo": "Tema",
@@ -119,7 +120,9 @@
     "entrando": "Entrando…",
     "esqueci": "Esqueci minha senha",
     "expirou": "Sua sessão expirou. Entre novamente.",
-    "usuario": "E-mail ou usuário"
+    "usuario": "E-mail ou usuário",
+    "muitasTentativas": "Muitas tentativas. Tente de novo mais tarde.",
+    "falhou": "Não foi possível entrar."
   },
   "esqueci": {
     "titulo": "Esqueci minha senha",
@@ -411,5 +414,48 @@
       "urgency": "urgência",
       "priority": "prioridade"
     }
+  },
+  "idioma": {
+    "titulo": "Idioma",
+    "padraoDoSistema": "Padrão do sistema ({idioma})",
+    "nomes": {
+      "pt-BR": "Português (Brasil)",
+      "en": "English"
+    }
+  },
+  "configuracoes": {
+    "titulo": "Configurações",
+    "descricao": "Idioma e identidade visual do sistema. Valem para todos os usuários.",
+    "idiomaPadrao": "Idioma padrão",
+    "idiomaDica": "Cada pessoa pode escolher outro idioma no menu do usuário.",
+    "cores": "Cores",
+    "coresDescricao": "Escolha as três cores da empresa. O sistema ajusta os tons onde for preciso para que botões, links e textos continuem fáceis de ler, nos modos claro e escuro.",
+    "corMarca": "Cor da marca",
+    "corMarcaDica": "Botões, links e destaques.",
+    "corNeutra": "Cor neutra",
+    "corNeutraDica": "Textos secundários e bordas; base do modo escuro.",
+    "corFundo": "Cor de fundo",
+    "corFundoDica": "Fundo das telas no modo claro.",
+    "hexInvalido": "Use o formato #RRGGBB.",
+    "ajustada": "Tom ajustado para leitura: {cor}",
+    "previa": "Prévia",
+    "previaClaro": "Modo claro",
+    "previaEscuro": "Modo escuro",
+    "previaTitulo": "Impressora do 3º andar",
+    "previaTexto": "Texto secundário, datas e rótulos.",
+    "previaLink": "Abrir chamado",
+    "previaBotao": "Registrar",
+    "previaSecundario": "Cancelar",
+    "previaCampo": "Campo de texto",
+    "salvar": "Salvar idioma e cores",
+    "logotipo": "Logotipo",
+    "logotipoDescricao": "Aparece no topo do menu e na tela de login. PNG, JPEG ou WebP, até 256 KB.",
+    "enviarLogotipo": "Enviar imagem",
+    "removerLogotipo": "Remover logotipo",
+    "semLogotipo": "Usando o logotipo padrão do TicketFlow.",
+    "logotipoSalvo": "Logotipo atualizado",
+    "logotipoRemovido": "Logotipo removido",
+    "logotipoGrande": "A imagem passa de 256 KB.",
+    "logotipoTipo": "Envie uma imagem PNG, JPEG ou WebP."
   }
 }
