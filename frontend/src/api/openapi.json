@@ -3451,6 +3451,20 @@
             "minLength": 1,
             "title": "Body"
           },
+          "time_spent_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 60000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Spent Minutes",
+            "description": "tempo gasto, em minutos"
+          },
           "mention_ids": {
             "items": {
               "type": "string",
@@ -3509,6 +3523,17 @@
             "type": "boolean",
             "title": "Is Solution"
           },
+          "time_spent_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Spent Minutes"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3539,6 +3564,7 @@
           "author",
           "body",
           "is_solution",
+          "time_spent_minutes",
           "created_at",
           "edited_at",
           "editable_until"
@@ -4037,6 +4063,26 @@
         },
         "type": "object",
         "title": "NextIn"
+      },
+      "PersonTime": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          }
+        },
+        "type": "object",
+        "required": ["id", "full_name", "minutes"],
+        "title": "PersonTime"
       },
       "Ref": {
         "properties": {
@@ -4857,6 +4903,19 @@
             "title": "Attachments",
             "description": "do registro e de todos os comentários"
           },
+          "time_spent_minutes": {
+            "type": "integer",
+            "title": "Time Spent Minutes",
+            "description": "soma do tempo gasto nos comentários"
+          },
+          "time_by_person": {
+            "items": {
+              "$ref": "#/components/schemas/PersonTime"
+            },
+            "type": "array",
+            "title": "Time By Person",
+            "description": "a mesma soma, por autor (maior primeiro)"
+          },
           "allowed_actions": {
             "items": {
               "type": "string"
@@ -4890,6 +4949,8 @@
           "co_assignees",
           "watchers",
           "attachments",
+          "time_spent_minutes",
+          "time_by_person",
           "allowed_actions"
         ],
         "title": "TicketOut"
@@ -5134,6 +5195,20 @@
               }
             ],
             "title": "Comment"
+          },
+          "time_spent_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 60000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Spent Minutes",
+            "description": "tempo gasto, em minutos"
           },
           "resolution_code_id": {
             "anyOf": [

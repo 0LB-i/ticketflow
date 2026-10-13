@@ -68,3 +68,29 @@ export function formatarHaQuanto(iso: string, agora = Date.now()): string {
   const [unidade, ms] = UNIDADES.find(([, ms]) => passado >= ms) ?? ['minute', 60_000]
   return formato.format(-Math.floor(passado / ms), unidade)
 }
+
+/** Tempo gasto em minutos como "1h30", "2h" ou "45min". */
+export function formatarDuracao(minutos: number): string {
+  const h = Math.floor(minutos / 60)
+  const m = minutos % 60
+  if (!h) return `${m}min`
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`
+}
+
+/** Até 1000 horas num andamento, como a API aceita. */
+const DURACAO_MAXIMA = 60_000
+
+/**
+ * Minutos de um tempo digitado: "1:30", "1h30", "1h 30min", "2h" ou "45min". Vazio dá `null`;
+ * o que não se entende (ou zero) dá `undefined`. Número solto é recusado: seriam horas ou minutos?
+ */
+export function lerDuracao(texto: string): number | null | undefined {
+  const s = texto.trim().toLowerCase().replace(/\s+/g, '')
+  if (!s) return null
+  let minutos: number | undefined
+  const hm = /^(\d{1,4}):([0-5]\d)$/.exec(s) ?? /^(\d{1,4})h(?:([0-5]?\d)(?:m|min)?)?$/.exec(s)
+  if (hm) minutos = Number(hm[1]) * 60 + Number(hm[2] ?? 0)
+  const so = /^(\d{1,5})(?:m|min)$/.exec(s)
+  if (so) minutos = Number(so[1])
+  return minutos && minutos <= DURACAO_MAXIMA ? minutos : undefined
+}

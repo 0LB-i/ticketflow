@@ -33,6 +33,8 @@ const CHAMADO: Chamado = {
   co_assignees: [],
   watchers: [],
   attachments: [],
+  time_spent_minutes: 0,
+  time_by_person: [],
   allowed_actions: ['edit'],
 }
 

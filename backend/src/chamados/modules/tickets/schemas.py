@@ -10,6 +10,8 @@ TransitionAction = Literal["wait", "resume", "close", "reopen", "cancel"]
 TicketView = Literal["unassigned", "mine", "news", "waiting", "watching", "all"]
 Body = Annotated[str, Field(min_length=1, max_length=50_000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
+# Até 1000 horas num andamento: mais que isso é erro de digitação.
+TimeSpent = Annotated[int | None, Field(ge=1, le=60_000, description="tempo gasto, em minutos")]
 
 
 class Ref(BaseModel):
@@ -68,6 +70,10 @@ class TicketSummary(BaseModel):
     updated_at: datetime
 
 
+class PersonTime(UserRef):
+    minutes: int
+
+
 class TicketOut(TicketSummary):
     description: str
     created_by: UserRef
@@ -77,6 +83,8 @@ class TicketOut(TicketSummary):
     co_assignees: list[UserRef] = Field(description="outros responsáveis, além do assignee")
     watchers: list[WatcherOut]
     attachments: list[AttachmentOut] = Field(description="do registro e de todos os comentários")
+    time_spent_minutes: int = Field(description="soma do tempo gasto nos comentários")
+    time_by_person: list[PersonTime] = Field(description="a mesma soma, por autor (maior primeiro)")
     allowed_actions: list[str] = Field(
         description="o que o usuário pode fazer no chamado (a interface mostra os botões)"
     )
@@ -164,6 +172,7 @@ class TicketUpdate(BaseModel):
 
 class CommentIn(BaseModel):
     body: Body
+    time_spent_minutes: TimeSpent = None
     mention_ids: list[uuid.UUID] = Field(default=[], max_length=50)
     attachment_ids: list[uuid.UUID] = Field(
         default=[], max_length=10, description="envios (POST /uploads) a vincular"
@@ -175,6 +184,7 @@ class CommentOut(BaseModel):
     author: UserRef
     body: str
     is_solution: bool
+    time_spent_minutes: int | None
     created_at: datetime
     edited_at: datetime | None
     editable_until: datetime = Field(description="o autor pode editar até este momento")
@@ -198,6 +208,7 @@ class TransferIn(BaseModel):
 class TransitionIn(BaseModel):
     action: TransitionAction
     comment: str | None = Field(default=None, max_length=50_000)
+    time_spent_minutes: TimeSpent = None
     resolution_code_id: int | None = None
     attachment_ids: list[uuid.UUID] = Field(
         default=[], max_length=10, description="envios (POST /uploads) a vincular"

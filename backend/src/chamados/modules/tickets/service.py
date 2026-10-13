@@ -426,10 +426,15 @@ async def _comment(
     mention_ids: list[uuid.UUID] | None = None,
     attachment_ids: list[uuid.UUID] | None = None,
     *,
+    time_spent_minutes: int | None = None,
     is_solution: bool = False,
 ) -> TicketComment:
     comment = TicketComment(
-        ticket_id=ticket.id, author_id=auth.user.id, body=body, is_solution=is_solution
+        ticket_id=ticket.id,
+        author_id=auth.user.id,
+        body=body,
+        time_spent_minutes=time_spent_minutes,
+        is_solution=is_solution,
     )
     db.add(comment)
     await db.flush()
@@ -437,6 +442,19 @@ async def _comment(
     await attachments.link(db, auth, ticket, attachment_ids or [], comment)
     ticket.updated_at = func.now()
     return comment
+
+
+async def time_by_person(db: AsyncSession, ticket: Ticket) -> list[tuple[User, int]]:
+    """Tempo gasto nos comentários somado por autor, de quem gastou mais para quem gastou menos."""
+    total = func.sum(TicketComment.time_spent_minutes)
+    rows = await db.execute(
+        select(User, total)
+        .join(TicketComment, TicketComment.author_id == User.id)
+        .where(TicketComment.ticket_id == ticket.id, TicketComment.time_spent_minutes.is_not(None))
+        .group_by(User.id)
+        .order_by(total.desc(), User.full_name)
+    )
+    return [(user, minutes or 0) for user, minutes in rows]
 
 
 # Folga para o relógio do computador de quem registra estar um pouco adiantado.
@@ -618,6 +636,7 @@ async def add_comment(
         _text(data.body, "Escreva o comentário."),
         data.mention_ids,
         data.attachment_ids,
+        time_spent_minutes=data.time_spent_minutes,
     )
     await db.commit()
     return comment
@@ -644,16 +663,14 @@ async def edit_comment(
     if await db.scalar(select(func.now() > comment.created_at + COMMENT_EDIT_WINDOW)):
         raise HTTPException(409, "O prazo de 10 minutos para editar este comentário acabou.")
     body = _text(data.body, "Escreva o comentário.")
-    if body != comment.body:
-        add_event(
-            db,
-            ticket,
-            "comment.edited",
-            auth,
-            comment_id=str(comment.public_id),
-            before=comment.body,
-        )
+    minutes = data.time_spent_minutes
+    if body != comment.body or minutes != comment.time_spent_minutes:
+        before: dict[str, Any] = {"before": comment.body}
+        if minutes != comment.time_spent_minutes:
+            before["before_time_spent_minutes"] = comment.time_spent_minutes
+        add_event(db, ticket, "comment.edited", auth, comment_id=str(comment.public_id), **before)
         comment.body = body
+        comment.time_spent_minutes = minutes
         comment.edited_at = func.now()
     await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
     await attachments.link(db, auth, ticket, data.attachment_ids, comment)
@@ -752,6 +769,8 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
     text = (data.comment or "").strip()
     if tr.comment_required and not text:
         raise HTTPException(422, "Escreva o comentário: ele é obrigatório nesta mudança.")
+    if data.time_spent_minutes and not text:
+        raise HTTPException(422, "Escreva o comentário do tempo gasto.")
     code = None
     if tr.resolution_required:
         code = await db.scalar(
@@ -774,6 +793,7 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
             ticket,
             text,
             attachment_ids=data.attachment_ids,
+            time_spent_minutes=data.time_spent_minutes,
             is_solution=data.action == "close",
         )
         payload["comment_id"] = str(comment.public_id)

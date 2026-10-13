@@ -173,6 +173,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 ```
 
 - **Comentar e mudar status:** o comentário e a mudança de status saem numa única ação (ex.: "Comentar e concluir", "Comentar e aguardar").
+- **Tempo gasto (andamentos):** cada comentário é um andamento do chamado e pode levar o **tempo gasto** nele (opcional; "1:30", "1h30" ou "45min"; até 1000 h). A cobrança dos funcionários é feita por esse tempo. A lateral mostra o **total** do chamado e a **soma de cada pessoa** (quem gastou mais primeiro); cada comentário mostra o seu tempo. Tempo sem comentário não é aceito (ex.: "Retomar" sem texto). O tempo se corrige na edição do comentário (10 minutos), e o valor anterior fica no histórico.
 - **Menções:** `@nome` notifica o colega, que vira observador do chamado.
 - **Colisão:** o sistema mostra quem mais está com o chamado aberto. Se chegou um comentário novo depois que a tela foi carregada, aparece um aviso antes de enviar. Alterações de campos usam `ETag` para não sobrescrever a mudança de outra pessoa.
 - **Rascunho automático:** o texto em edição é salvo localmente no navegador e restaurado se a página for recarregada.
@@ -196,7 +197,7 @@ Atribuir, transferir, adicionar tag, concluir com o mesmo texto (ex.: incidente 
 
 ### Regras de edição
 
-- Comentários podem ser editados pelo autor por **10 minutos**. As versões anteriores ficam no histórico.
+- Comentários podem ser editados pelo autor por **10 minutos**, inclusive o tempo gasto. As versões anteriores ficam no histórico.
 - **Ninguém apaga comentários.** Com `ticket.hide_content`, um comentário ou anexo pode ser **ocultado**, com motivo, e o original continua na auditoria (ex.: alguém colou uma senha).
 
 ## 10.7 Observadores

@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Identity,
     Index,
+    Integer,
     Sequence,
     SmallInteger,
     Text,
@@ -153,6 +154,7 @@ class TicketComment(Base):
     __tablename__ = "ticket_comments"
     __table_args__ = (
         CheckConstraint("length(body) > 0", name="body"),
+        CheckConstraint("time_spent_minutes > 0", name="time_spent_minutes"),
         Index("ticket_comments_ticket_idx", "ticket_id", "created_at"),
         Index("ticket_comments_search_idx", "search_vector", postgresql_using="gin"),
     )
@@ -165,6 +167,8 @@ class TicketComment(Base):
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     body: Mapped[str] = mapped_column(Text)
     is_solution: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Tempo gasto neste andamento: a soma por pessoa é a base da cobrança.
+    time_spent_minutes: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     search_vector: Mapped[Any] = mapped_column(

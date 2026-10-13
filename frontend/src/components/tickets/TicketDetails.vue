@@ -10,7 +10,7 @@ import SelectField from '@/components/ui/SelectField.vue'
 import TextAreaField from '@/components/ui/TextAreaField.vue'
 import { useGrupos } from '@/composables/admin'
 import { type Chamado, chamadosApi, useAcaoNoChamado } from '@/composables/chamados'
-import { formatarDataHora } from '@/composables/formato'
+import { formatarDataHora, formatarDuracao } from '@/composables/formato'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
@@ -181,6 +181,23 @@ const editando = ref(false)
       :placeholder="t('chamado.escolhaMembro')"
       :options="membros"
     />
+
+    <section class="flex flex-col gap-2 border-t border-border pt-4" aria-labelledby="tempo-titulo">
+      <div class="flex items-baseline justify-between gap-2">
+        <h2 id="tempo-titulo" class="font-semibold">{{ t('chamado.tempoGasto') }}</h2>
+        <p v-if="chamado.time_spent_minutes" class="text-lg font-semibold tabular-nums">
+          <span class="sr-only">{{ t('chamado.tempoTotal') }}:</span>
+          {{ formatarDuracao(chamado.time_spent_minutes) }}
+        </p>
+      </div>
+      <p v-if="!chamado.time_by_person.length" class="text-muted">{{ t('chamado.semTempo') }}</p>
+      <dl v-else class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+        <template v-for="p in chamado.time_by_person" :key="p.id">
+          <dt>{{ p.full_name }}</dt>
+          <dd class="text-right tabular-nums">{{ formatarDuracao(p.minutes) }}</dd>
+        </template>
+      </dl>
+    </section>
 
     <section
       class="flex flex-col gap-2 border-t border-border pt-4"
