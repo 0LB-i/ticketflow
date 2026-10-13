@@ -141,6 +141,12 @@
   .texto-formatado a {
     @apply text-primary underline;
   }
+  .texto-formatado img {
+    @apply max-h-96 max-w-full rounded border border-border;
+  }
+  .texto-formatado img.ProseMirror-selectednode {
+    @apply outline-2 outline-focus;
+  }
   .texto-formatado code {
     @apply rounded bg-surface-raised px-1 font-mono text-[0.85em];
   }

@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import RichEditor from '@/components/editor/RichEditor.vue'
+import AttachmentUploader from '@/components/tickets/AttachmentUploader.vue'
 import ClientPicker from '@/components/tickets/ClientPicker.vue'
 import Button from '@/components/ui/Button.vue'
 import DateTimeField from '@/components/ui/DateTimeField.vue'
@@ -12,6 +13,7 @@ import RadioGroup from '@/components/ui/RadioGroup.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import TextField from '@/components/ui/TextField.vue'
 import { useGrupos } from '@/composables/admin'
+import { anexosNoTexto } from '@/composables/anexos'
 import { chamadosApi, useAcaoNoChamado, usePessoas, useStatus } from '@/composables/chamados'
 import { useHead } from '@/composables/useHead'
 import { useToast } from '@/composables/useToast'
@@ -27,6 +29,7 @@ const status = useStatus()
 const grupos = useGrupos()
 const pessoas = usePessoas()
 const editor = useTemplateRef('editor')
+const anexador = useTemplateRef('anexador')
 
 const meusGrupos = computed(() => auth.me?.teams ?? [])
 const form = reactive({
@@ -41,6 +44,7 @@ const form = reactive({
   responsavel: 'me' as 'me' | 'fila' | 'outro',
   outro: '',
   observadores: [] as string[],
+  anexos: [] as string[],
 })
 const erro = ref<string | null>(null)
 const tentou = ref(false)
@@ -126,6 +130,7 @@ async function enviar() {
       assignee: form.responsavel === 'me' ? 'me' : form.responsavel === 'outro' ? form.outro : null,
       watcher_ids: form.observadores,
       mention_ids: editor.value?.mencionados() ?? [],
+      attachment_ids: [...new Set([...form.anexos, ...anexosNoTexto(form.description)])],
     })
     toast.show({
       title: t('novoChamado.registrado', { numero: chamado.number }),
@@ -147,7 +152,11 @@ async function enviar() {
         <Button variant="secondary" @click="router.push('/chamados')">
           {{ $t('comum.cancelar') }}
         </Button>
-        <Button type="submit" form="form-novo-chamado" :disabled="registrar.isPending.value">
+        <Button
+          type="submit"
+          form="form-novo-chamado"
+          :disabled="registrar.isPending.value || editor?.enviando || anexador?.enviando"
+        >
           {{ $t('novoChamado.registrar') }}
         </Button>
       </div>
@@ -181,7 +190,9 @@ async function enviar() {
             :placeholder="$t('novoChamado.descricaoDica')"
             :pessoas="pessoas"
             alto
+            anexar
           />
+          <AttachmentUploader ref="anexador" v-model="form.anexos" />
         </div>
 
         <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">

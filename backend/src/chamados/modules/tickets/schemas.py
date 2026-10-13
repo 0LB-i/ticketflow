@@ -37,6 +37,16 @@ class ResolutionRef(BaseModel):
     name: str
 
 
+class AttachmentOut(BaseModel):
+    id: uuid.UUID
+    filename: str
+    content_type: str
+    size_bytes: int
+    comment_id: uuid.UUID | None = Field(description="nulo: anexo do registro (descrição)")
+    uploaded_by: UserRef
+    created_at: datetime
+
+
 class WatcherOut(UserRef):
     kind: Literal["watcher", "mentioned"]
 
@@ -69,6 +79,7 @@ class TicketOut(TicketSummary):
     reopened_count: int
     closed_at: datetime | None
     watchers: list[WatcherOut]
+    attachments: list[AttachmentOut] = Field(description="do registro e de todos os comentários")
     allowed_actions: list[str] = Field(
         description="o que o usuário pode fazer no chamado (a interface mostra os botões)"
     )
@@ -127,6 +138,9 @@ class TicketCreate(BaseModel):
     mention_ids: list[uuid.UUID] = Field(
         default=[], max_length=50, description="@mencionados na descrição: viram observadores"
     )
+    attachment_ids: list[uuid.UUID] = Field(
+        default=[], max_length=10, description="envios (POST /uploads) a vincular"
+    )
 
 
 class TicketUpdate(BaseModel):
@@ -152,11 +166,17 @@ class TicketUpdate(BaseModel):
         description="diferente da matriz exige priority_reason; nula volta ao valor da matriz",
     )
     priority_reason: str | None = Field(default=None, max_length=1000)
+    attachment_ids: list[uuid.UUID] | None = Field(
+        default=None, max_length=10, description="imagens coladas na descrição (POST /uploads)"
+    )
 
 
 class CommentIn(BaseModel):
     body: Body
     mention_ids: list[uuid.UUID] = Field(default=[], max_length=50)
+    attachment_ids: list[uuid.UUID] = Field(
+        default=[], max_length=10, description="envios (POST /uploads) a vincular"
+    )
 
 
 class CommentOut(BaseModel):
@@ -188,6 +208,9 @@ class TransitionIn(BaseModel):
     action: TransitionAction
     comment: str | None = Field(default=None, max_length=50_000)
     resolution_code_id: int | None = None
+    attachment_ids: list[uuid.UUID] = Field(
+        default=[], max_length=10, description="envios (POST /uploads) a vincular"
+    )
 
 
 class EventOut(BaseModel):

@@ -35,6 +35,7 @@ const CHAMADO: Chamado = {
   reopened_count: 0,
   closed_at: null,
   watchers: [],
+  attachments: [],
   allowed_actions: ['set_priority'],
 }
 

@@ -14,9 +14,11 @@ import {
   type Evento,
   useAcaoNoChamado,
 } from '@/composables/chamados'
+import { type Anexo, anexosNoTexto } from '@/composables/anexos'
 import { formatarDataHora } from '@/composables/formato'
 import { useAuthStore } from '@/stores/auth'
 
+import AttachmentList from './AttachmentList.vue'
 import { descreverEvento } from './eventos'
 
 /** Linha do tempo do chamado (docs/10 §10.6): registro, comentários e eventos em ordem. */
@@ -47,6 +49,12 @@ const itens = computed<Item[]>(() =>
   ].sort((a, b) => a.quando.localeCompare(b.quando)),
 )
 
+/** Anexos do registro (comentario = null) ou de um comentário, menos as imagens já no texto. */
+function anexosDe(comentario: string | null, texto: string): Anexo[] {
+  const noTexto = new Set(anexosNoTexto(texto))
+  return props.chamado.attachments.filter((a) => a.comment_id === comentario && !noTexto.has(a.id))
+}
+
 const editando = ref<string | null>(null)
 const texto = ref('')
 const erro = ref<string | null>(null)
@@ -73,6 +81,7 @@ const salvar = useAcaoNoChamado(
     chamadosApi.editarComentario(String(props.chamado.number), a.id, {
       body: a.body,
       mention_ids: a.mention_ids,
+      attachment_ids: anexosNoTexto(a.body),
     }),
 )
 
@@ -100,6 +109,11 @@ async function salvarEdicao(id: string) {
       </p>
       <MarkdownView v-if="chamado.description" class="mt-2" :source="chamado.description" />
       <p v-else class="mt-2 text-muted italic">{{ t('chamado.semDescricao') }}</p>
+      <AttachmentList
+        v-if="anexosDe(null, chamado.description).length"
+        class="mt-3"
+        :anexos="anexosDe(null, chamado.description)"
+      />
     </li>
 
     <template
@@ -134,6 +148,7 @@ async function salvarEdicao(id: string) {
             v-model="texto"
             :label="t('chamado.editarComentario')"
             :pessoas="pessoas"
+            anexar
           />
           <div class="flex justify-end gap-2">
             <Button variant="secondary" size="sm" @click="editando = null">
@@ -141,14 +156,21 @@ async function salvarEdicao(id: string) {
             </Button>
             <Button
               size="sm"
-              :disabled="salvar.isPending.value || !texto.trim()"
+              :disabled="salvar.isPending.value || !texto.trim() || editor?.[0]?.enviando"
               @click="salvarEdicao(item.comentario.id)"
             >
               {{ t('comum.salvar') }}
             </Button>
           </div>
         </div>
-        <MarkdownView v-else class="mt-2" :source="item.comentario.body" />
+        <template v-else>
+          <MarkdownView class="mt-2" :source="item.comentario.body" />
+          <AttachmentList
+            v-if="anexosDe(item.comentario.id, item.comentario.body).length"
+            class="mt-3"
+            :anexos="anexosDe(item.comentario.id, item.comentario.body)"
+          />
+        </template>
       </li>
     </template>
   </ol>

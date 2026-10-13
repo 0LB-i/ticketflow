@@ -2,14 +2,17 @@ import type { Editor } from '@tiptap/vue-3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
-import { montar } from '@/test/setup'
+import { montar, simularApi } from '@/test/setup'
 
 import MarkdownView from './MarkdownView.vue'
 import RichEditor from './RichEditor.vue'
 
 afterEach(() => {
+  vi.unstubAllGlobals()
   document.body.innerHTML = ''
 })
+
+const ANEXO = '00000000-0000-0000-0000-0000000000f1'
 
 const PESSOAS = [
   { id: 'u-ana', label: 'Ana Souza' },
@@ -44,6 +47,43 @@ describe('RichEditor', () => {
     expect(emitido).toBe('Oi @Caio Dias, pode olhar?')
     expect((w.vm as unknown as { mencionados: () => string[] }).mencionados()).toEqual(['u-caio'])
   })
+
+  it('imagem colada vai para a API e entra no texto como anexo', async () => {
+    const feitas = simularApi({
+      'POST /api/v1/uploads': [201, { id: ANEXO, filename: 'image.png' }],
+    })
+    const w = montar(RichEditor, { props: { label: 'Comentário', anexar: true } })
+    await vi.waitFor(() => expect(w.find('[role=textbox]').exists()).toBe(true))
+    const { editor } = (w.vm.$ as unknown as { setupState: { editor: Editor } }).setupState
+    const print = new File([new Uint8Array([137, 80, 78, 71])], 'image.png', { type: 'image/png' })
+    const colar = editor.view.props.handlePaste!
+    expect(colar(editor.view, { clipboardData: { files: [print] } } as never, null as never)).toBe(
+      true,
+    )
+
+    await vi.waitFor(() =>
+      expect((w.emitted('update:modelValue')!.at(-1)![0] as string).trim()).toBe(
+        `![image.png](/api/v1/attachments/${ANEXO})`,
+      ),
+    )
+    expect(feitas[0]!.caminho).toBe('/api/v1/uploads')
+    expect(feitas[0]!.corpo).toContain('name="file"') // multipart
+    expect(w.find(`img[src="/api/v1/attachments/${ANEXO}"]`).exists()).toBe(true)
+  })
+
+  it('sem anexar, colar imagem segue o comportamento padrão', async () => {
+    const w = montar(RichEditor, { props: { label: 'Comentário' } })
+    await vi.waitFor(() => expect(w.find('[role=textbox]').exists()).toBe(true))
+    const { editor } = (w.vm.$ as unknown as { setupState: { editor: Editor } }).setupState
+    const print = new File(['x'], 'image.png', { type: 'image/png' })
+    expect(
+      editor.view.props.handlePaste!(
+        editor.view,
+        { clipboardData: { files: [print] } } as never,
+        null as never,
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('MarkdownView', () => {
@@ -64,5 +104,18 @@ describe('MarkdownView', () => {
       target: '_blank',
       rel: 'noopener noreferrer',
     })
+  })
+
+  it('mostra só as imagens anexadas no próprio sistema', () => {
+    const w = montar(MarkdownView, {
+      props: {
+        source: `![print](/api/v1/attachments/${ANEXO})\n\n![rastreio](https://fora.com/pixel.gif)`,
+      },
+    })
+    const imagens = w.findAll('img')
+    expect(imagens).toHaveLength(1)
+    expect(imagens[0]!.attributes('src')).toBe(`/api/v1/attachments/${ANEXO}`)
+    expect(w.get('a').attributes('href')).toBe(`/api/v1/attachments/${ANEXO}`)
+    expect(w.text()).toContain('https://fora.com/pixel.gif')
   })
 })

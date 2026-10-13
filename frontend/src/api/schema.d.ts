@@ -659,6 +659,46 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/uploads': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Upload
+     * @description Guarda o arquivo até ele ser vinculado a um chamado ou comentário (`attachment_ids`).
+     */
+    post: operations['upload_api_v1_uploads_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/attachments/{attachment_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Download
+     * @description Quem vê o chamado baixa; um envio ainda não vinculado, só quem o enviou.
+     */
+    get: operations['download_api_v1_attachments__attachment_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/branding': {
     parameters: {
       query?: never
@@ -757,6 +797,31 @@ export interface components {
        */
       assignee: 'me' | string | null
     }
+    /** AttachmentOut */
+    AttachmentOut: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Filename */
+      filename: string
+      /** Content Type */
+      content_type: string
+      /** Size Bytes */
+      size_bytes: number
+      /**
+       * Comment Id
+       * @description nulo: anexo do registro (descrição)
+       */
+      comment_id: string | null
+      uploaded_by: components['schemas']['UserRef']
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+    }
     /** AuditEntry */
     AuditEntry: {
       /** Id */
@@ -793,6 +858,11 @@ export interface components {
       items: components['schemas']['AuditEntry'][]
       /** Next Cursor */
       next_cursor: number | null
+    }
+    /** Body_upload_api_v1_uploads_post */
+    Body_upload_api_v1_uploads_post: {
+      /** File */
+      file: string
     }
     /** Branding */
     Branding: {
@@ -1143,6 +1213,12 @@ export interface components {
        * @default []
        */
       mention_ids: string[]
+      /**
+       * Attachment Ids
+       * @description envios (POST /uploads) a vincular
+       * @default []
+       */
+      attachment_ids: string[]
     }
     /** CommentList */
     CommentList: {
@@ -1611,6 +1687,12 @@ export interface components {
        * @default []
        */
       mention_ids: string[]
+      /**
+       * Attachment Ids
+       * @description envios (POST /uploads) a vincular
+       * @default []
+       */
+      attachment_ids: string[]
     }
     /** TicketListItem */
     TicketListItem: {
@@ -1723,6 +1805,11 @@ export interface components {
       /** Watchers */
       watchers: components['schemas']['WatcherOut'][]
       /**
+       * Attachments
+       * @description do registro e de todos os comentários
+       */
+      attachments: components['schemas']['AttachmentOut'][]
+      /**
        * Allowed Actions
        * @description o que o usuário pode fazer no chamado (a interface mostra os botões)
        */
@@ -1778,6 +1865,11 @@ export interface components {
       priority?: number | null
       /** Priority Reason */
       priority_reason?: string | null
+      /**
+       * Attachment Ids
+       * @description imagens coladas na descrição (POST /uploads)
+       */
+      attachment_ids?: string[] | null
     }
     /** TokenInfo */
     TokenInfo: {
@@ -1819,6 +1911,12 @@ export interface components {
       comment?: string | null
       /** Resolution Code Id */
       resolution_code_id?: number | null
+      /**
+       * Attachment Ids
+       * @description envios (POST /uploads) a vincular
+       * @default []
+       */
+      attachment_ids: string[]
     }
     /** UserCreate */
     UserCreate: {
@@ -3536,6 +3634,70 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['EventList']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  upload_api_v1_uploads_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'multipart/form-data': components['schemas']['Body_upload_api_v1_uploads_post']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AttachmentOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  download_api_v1_attachments__attachment_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        attachment_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/octet-stream': unknown
         }
       }
       /** @description Validation Error */

@@ -15,6 +15,7 @@ import { formatarDataHora } from '@/composables/formato'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
+import AttachmentList from './AttachmentList.vue'
 import TicketEditPanel from './TicketEditPanel.vue'
 
 /** Dados do chamado e as ações sobre eles, conforme `allowed_actions` (docs/08 §8.5). */
@@ -235,6 +236,17 @@ const editando = ref(false)
         :placeholder="t('chamado.adicionarColega')"
         :options="candidatos"
       />
+    </section>
+
+    <section
+      v-if="chamado.attachments.length"
+      class="flex flex-col gap-2 border-t border-border pt-4"
+      aria-labelledby="anexos-titulo"
+    >
+      <h2 id="anexos-titulo" class="font-semibold">
+        {{ t('anexos.tituloComTotal', { n: chamado.attachments.length }) }}
+      </h2>
+      <AttachmentList :anexos="chamado.attachments" />
     </section>
 
     <Modal

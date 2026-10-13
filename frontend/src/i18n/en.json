@@ -572,5 +572,15 @@
       "obrigatorio": "Required field.",
       "uf": "Choose the state."
     }
+  },
+  "anexos": {
+    "titulo": "Attachments",
+    "tituloComTotal": "Attachments ({n})",
+    "anexar": "Attach",
+    "arraste": "or drop files here (up to 25 MB each)",
+    "enviando": "Uploading",
+    "enviandoImagem": "Uploading the image…",
+    "remover": "Remove {nome}",
+    "demais": "At most {n} files per submission."
   }
 }
