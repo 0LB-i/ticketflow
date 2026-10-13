@@ -5,9 +5,9 @@ import { useI18n } from 'vue-i18n'
 import type { Pessoa } from '@/components/editor/MentionList.vue'
 import RichEditor from '@/components/editor/RichEditor.vue'
 import Button from '@/components/ui/Button.vue'
+import DurationField from '@/components/ui/DurationField.vue'
 import Modal from '@/components/ui/Modal.vue'
 import SelectField from '@/components/ui/SelectField.vue'
-import TextField from '@/components/ui/TextField.vue'
 import { anexosNoTexto } from '@/composables/anexos'
 import {
   type Acao,
@@ -165,11 +165,10 @@ function mudarStatus(acao: Acao) {
       anexar
     />
     <AttachmentUploader ref="anexador" v-model="anexos" />
-    <TextField
+    <DurationField
       v-model="tempo"
-      class="max-w-56"
+      class="max-w-40"
       :label="t('chamado.tempoGasto')"
-      :hint="minutos === undefined ? undefined : t('chamado.tempoDica')"
       :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
     />
     <div class="flex flex-wrap gap-2">

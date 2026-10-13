@@ -262,7 +262,7 @@ src/
 │   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
 ├── views/               uma pasta por área: auth/, tickets/, clients/, admin/
 ├── components/
-│   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, DateTimeField, Modal, SidePanel, DataTable, badges…
+│   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, DateTimeField, DurationField (hh:mm com lista), Modal, SidePanel, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
 │   ├── admin/           StatusSettings (status dos chamados, dentro de Configurações)
 │   ├── editor/          RichEditor (Tiptap → Markdown, @menções, imagens coladas), MarkdownView, markdown.ts

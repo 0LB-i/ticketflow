@@ -77,20 +77,35 @@ export function formatarDuracao(minutos: number): string {
   return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`
 }
 
-/** Até 1000 horas num andamento, como a API aceita. */
-const DURACAO_MAXIMA = 60_000
+/** Tempo gasto em minutos como o campo mostra: "01:30". */
+export function formatarHoraMinuto(minutos: number): string {
+  const h = String(Math.floor(minutos / 60)).padStart(2, '0')
+  return `${h}:${String(minutos % 60).padStart(2, '0')}`
+}
+
+/** Horários da lista do campo: 20 e 30 min, de 15 em 15 até 3 h, de hora em hora até 24 h. */
+export const TEMPOS_SUGERIDOS: number[] = [
+  20,
+  30,
+  ...Array.from({ length: 10 }, (_, i) => 45 + i * 15),
+  ...Array.from({ length: 21 }, (_, i) => (4 + i) * 60),
+]
 
 /**
- * Minutos de um tempo digitado: "1:30", "1h30", "1h 30min", "2h" ou "45min". Vazio dá `null`;
- * o que não se entende (ou zero) dá `undefined`. Número solto é recusado: seriam horas ou minutos?
+ * Máscara hh:mm: os números entram pela direita, como numa calculadora ("130" → "01:30",
+ * "45" → "00:45"). Sem números, fica vazio.
  */
+export function mascararHoraMinuto(texto: string): string {
+  const numeros = texto.replace(/\D/g, '').replace(/^0+/, '').slice(-4)
+  if (!numeros) return ''
+  const n = numeros.padStart(4, '0')
+  return `${n.slice(0, 2)}:${n.slice(2)}`
+}
+
+/** Minutos de um "hh:mm". Vazio dá `null`; minutos acima de 59 ou zero dão `undefined`. */
 export function lerDuracao(texto: string): number | null | undefined {
-  const s = texto.trim().toLowerCase().replace(/\s+/g, '')
-  if (!s) return null
-  let minutos: number | undefined
-  const hm = /^(\d{1,4}):([0-5]\d)$/.exec(s) ?? /^(\d{1,4})h(?:([0-5]?\d)(?:m|min)?)?$/.exec(s)
-  if (hm) minutos = Number(hm[1]) * 60 + Number(hm[2] ?? 0)
-  const so = /^(\d{1,5})(?:m|min)$/.exec(s)
-  if (so) minutos = Number(so[1])
-  return minutos && minutos <= DURACAO_MAXIMA ? minutos : undefined
+  if (!texto) return null
+  const hm = /^(\d{2}):(\d{2})$/.exec(texto)
+  if (!hm || Number(hm[2]) > 59) return undefined
+  return Number(hm[1]) * 60 + Number(hm[2]) || undefined
 }
