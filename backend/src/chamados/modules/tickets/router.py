@@ -61,6 +61,7 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
         department=RefOut(id=t.department.public_id, name=t.department.name)
         if t.department
         else None,
+        client=RefOut(id=t.client.public_id, name=t.client.name) if t.client else None,
         beneficiary_name=t.beneficiary_name,
         assignee=_user(t.assignee),
         started_at=t.started_at,

@@ -16,6 +16,7 @@ from sqlalchemy.orm import contains_eager, defer, selectinload
 
 from chamados.core.permissions import P, can
 from chamados.modules.catalog.models import Category, ResolutionCode, TicketStatus
+from chamados.modules.clients.models import Client
 from chamados.modules.identity.deps import Auth
 from chamados.modules.identity.models import User
 from chamados.modules.organization.models import Department, Team, TeamMember
@@ -35,7 +36,9 @@ FORBIDDEN = "Você não tem permissão para esta ação."
 Assignee = Literal["me"] | uuid.UUID | None
 
 
-def ref(obj: User | Team | Category | Department | TicketStatus | ResolutionCode | None) -> Any:
+def ref(
+    obj: User | Team | Category | Department | Client | TicketStatus | ResolutionCode | None,
+) -> Any:
     """Referência gravada no histórico: id e nome na data do evento."""
     if obj is None:
         return None
@@ -238,6 +241,15 @@ async def _active_department(db: AsyncSession, public_id: uuid.UUID | None) -> D
     return dept
 
 
+async def _active_client(db: AsyncSession, public_id: uuid.UUID | None) -> Client | None:
+    if public_id is None:
+        return None
+    client = await db.scalar(select(Client).where(Client.public_id == public_id, Client.is_active))
+    if client is None:
+        raise HTTPException(422, "Cliente não encontrado ou inativo.")
+    return client
+
+
 async def _team_member(db: AsyncSession, public_id: uuid.UUID, team_id: int) -> User:
     user = await db.scalar(
         select(User)
@@ -335,6 +347,7 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     if team.id not in auth.actor.teams:
         raise HTTPException(403, "Você só registra chamados nos grupos de que é membro.")
     department = await _active_department(db, data.department_id)
+    client = await _active_client(db, data.client_id)
     if data.watcher_ids and not can(auth.actor, P.TICKET_WATCH):
         raise HTTPException(403, FORBIDDEN)
     if data.status_id is not None and not can(auth.actor, P.TICKET_TRANSITION):
@@ -357,6 +370,7 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         type=data.type or (category.default_type if category else "incident"),
         created_by_id=auth.user.id,
         department_id=department.id if department else None,
+        client_id=client.id if client else None,
         beneficiary_name=(data.beneficiary_name or "").strip() or None,
         team_id=team.id,
         assignee_id=assignee.id if assignee else None,
@@ -388,6 +402,7 @@ EDIT_FIELDS = {
     "category_id",
     "type",
     "department_id",
+    "client_id",
     "beneficiary_name",
     "started_at",
 }
@@ -439,6 +454,9 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
     if "department_id" in changes:
         dept = await _active_department(db, changes["department_id"])
         put("department_id", dept.id if dept else None, ref(ticket.department), ref(dept))
+    if "client_id" in changes:
+        client = await _active_client(db, changes["client_id"])
+        put("client_id", client.id if client else None, ref(ticket.client), ref(client))
     if "beneficiary_name" in changes:
         put("beneficiary_name", (changes["beneficiary_name"] or "").strip() or None)
     if changes.get("started_at") is not None:

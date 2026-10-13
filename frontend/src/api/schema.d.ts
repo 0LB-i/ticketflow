@@ -1510,7 +1510,12 @@ export interface components {
       type?: ('incident' | 'request' | 'task') | null
       /** Department Id */
       department_id?: string | null
-      /** Beneficiary Name */
+      /** Client Id */
+      client_id?: string | null
+      /**
+       * Beneficiary Name
+       * @description contato: quem pediu (texto livre)
+       */
       beneficiary_name?: string | null
       /**
        * Started At
@@ -1571,7 +1576,11 @@ export interface components {
       team: components['schemas']['Ref']
       category: components['schemas']['CategoryRef'] | null
       department: components['schemas']['Ref'] | null
-      /** Beneficiary Name */
+      client: components['schemas']['Ref'] | null
+      /**
+       * Beneficiary Name
+       * @description contato: quem pediu (texto livre)
+       */
       beneficiary_name: string | null
       assignee: components['schemas']['UserRef'] | null
       /**
@@ -1640,7 +1649,11 @@ export interface components {
       team: components['schemas']['Ref']
       category: components['schemas']['CategoryRef'] | null
       department: components['schemas']['Ref'] | null
-      /** Beneficiary Name */
+      client: components['schemas']['Ref'] | null
+      /**
+       * Beneficiary Name
+       * @description contato: quem pediu (texto livre)
+       */
       beneficiary_name: string | null
       assignee: components['schemas']['UserRef'] | null
       /**
@@ -1674,7 +1687,15 @@ export interface components {
       type?: ('incident' | 'request' | 'task') | null
       /** Department Id */
       department_id?: string | null
-      /** Beneficiary Name */
+      /**
+       * Client Id
+       * @description nulo tira o cliente
+       */
+      client_id?: string | null
+      /**
+       * Beneficiary Name
+       * @description contato: quem pediu (texto livre)
+       */
       beneficiary_name?: string | null
       /** Started At */
       started_at?: string | null

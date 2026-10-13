@@ -8,6 +8,7 @@ import DateTimeField from '@/components/ui/DateTimeField.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import SidePanel from '@/components/ui/SidePanel.vue'
 import TextField from '@/components/ui/TextField.vue'
+import ClientPicker from '@/components/tickets/ClientPicker.vue'
 import { type Schemas } from '@/api/client'
 import {
   type Chamado,
@@ -33,6 +34,8 @@ const form = reactive({
   status: '',
   type: 'incident' as TipoChamado,
   inicio: null as string | null,
+  cliente: null as { id: string; name: string } | null,
+  contato: '',
   priority: MATRIZ,
   reason: '',
 })
@@ -47,6 +50,8 @@ watch(open, (aberto) => {
     status: String(c.status.id),
     type: c.type,
     inicio: c.started_at,
+    cliente: c.client,
+    contato: c.beneficiary_name ?? '',
     priority: c.priority_overridden ? String(c.priority) : MATRIZ,
     reason: '',
   })
@@ -79,6 +84,10 @@ function mudancas(): Schemas['TicketUpdate'] {
     if (form.type !== c.type) m.type = form.type
     // Agora (nulo) grava a hora do clique.
     if (form.inicio !== c.started_at) m.started_at = form.inicio ?? new Date().toISOString()
+    if ((form.cliente?.id ?? null) !== (c.client?.id ?? null))
+      m.client_id = form.cliente?.id ?? null
+    if ((form.contato.trim() || null) !== c.beneficiary_name)
+      m.beneficiary_name = form.contato.trim() || null
   }
   if (pode.value.has('set_status') && Number(form.status) !== c.status.id)
     m.status_id = Number(form.status)
@@ -126,6 +135,12 @@ async function enviar() {
         <RichEditor v-model="form.description" :label="t('novoChamado.descricao')" />
         <SelectField v-model="form.type" :label="t('chamado.tipo')" :options="opcoesTipo" />
         <DateTimeField v-model="form.inicio" :label="t('chamado.inicio')" />
+        <ClientPicker v-model="form.cliente" :label="t('chamado.cliente')" />
+        <TextField
+          v-model="form.contato"
+          :label="t('chamado.contato')"
+          :hint="t('chamado.contatoDica')"
+        />
       </template>
       <SelectField
         v-if="pode.has('set_status')"

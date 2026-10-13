@@ -112,6 +112,14 @@ const editando = ref(false)
     <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
 
     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+      <template v-if="chamado.client">
+        <dt class="text-muted">{{ t('chamado.cliente') }}</dt>
+        <dd class="font-medium">{{ chamado.client.name }}</dd>
+      </template>
+      <template v-if="chamado.beneficiary_name">
+        <dt class="text-muted">{{ t('chamado.contato') }}</dt>
+        <dd>{{ chamado.beneficiary_name }}</dd>
+      </template>
       <dt class="text-muted">{{ t('chamado.grupo') }}</dt>
       <dd class="font-medium">{{ chamado.team.name }}</dd>
       <dt class="text-muted">{{ t('chamado.responsavel') }}</dt>

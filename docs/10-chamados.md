@@ -60,7 +60,7 @@ Quem registra responde duas perguntas, e o sistema calcula a prioridade:
 | **API / integrações** | `POST /tickets` com token de API | Futuro |
 | **Agente de IA / MCP** | Via API ou servidor MCP | Futuro |
 
-Pedidos que chegam por fora (telefone, conversa, mensagem) são registrados por quem os recebeu, preenchendo o **setor** e a **pessoa atendida**.
+Pedidos que chegam por fora (telefone, conversa, mensagem) são registrados por quem os recebeu, preenchendo o **cliente** (do cadastro de clientes, opcional) e o **contato**, quem pediu.
 
 ### Formulário
 

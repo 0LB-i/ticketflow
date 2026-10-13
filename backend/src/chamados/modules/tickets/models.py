@@ -28,6 +28,7 @@ from chamados.modules.catalog.models import (
     ResolutionCode,
     TicketStatus,
 )
+from chamados.modules.clients.models import Client
 from chamados.modules.identity.models import User
 from chamados.modules.organization.models import Department, Team
 
@@ -59,7 +60,8 @@ class Ticket(Base):
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     # Para quem é a tarefa: setor e pessoa atendidos, sem conta no sistema (docs/08).
     department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"))
-    beneficiary_name: Mapped[str | None] = mapped_column(Text)
+    client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
+    beneficiary_name: Mapped[str | None] = mapped_column(Text)  # contato: quem pediu, texto livre
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
@@ -84,6 +86,7 @@ class Ticket(Base):
     team: Mapped[Team] = relationship(lazy="joined")
     category: Mapped[Category | None] = relationship(lazy="joined")
     department: Mapped[Department | None] = relationship(lazy="joined")
+    client: Mapped[Client | None] = relationship(lazy="joined")
     status: Mapped[TicketStatus] = relationship(lazy="joined")
     resolution_code: Mapped[ResolutionCode | None] = relationship(lazy="joined")
     watchers: Mapped[list["TicketWatcher"]] = relationship(

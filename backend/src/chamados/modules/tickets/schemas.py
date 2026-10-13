@@ -50,7 +50,8 @@ class TicketSummary(BaseModel):
     team: Ref
     category: CategoryRef | None
     department: Ref | None
-    beneficiary_name: str | None
+    client: Ref | None
+    beneficiary_name: str | None = Field(description="contato: quem pediu (texto livre)")
     assignee: UserRef | None
     started_at: datetime
     created_at: datetime
@@ -88,7 +89,10 @@ class TicketCreate(BaseModel):
         default=None, description='sem tipo, usa o da categoria (sem categoria, "incident")'
     )
     department_id: uuid.UUID | None = None
-    beneficiary_name: str | None = Field(default=None, max_length=200)
+    client_id: uuid.UUID | None = None
+    beneficiary_name: str | None = Field(
+        default=None, max_length=200, description="contato: quem pediu (texto livre)"
+    )
     started_at: AwareDatetime | None = Field(
         default=None, description="início do trabalho; sem valor, a hora do registro"
     )
@@ -110,7 +114,10 @@ class TicketUpdate(BaseModel):
     category_id: uuid.UUID | None = Field(default=None, description="nula tira a categoria")
     type: TicketType | None = None
     department_id: uuid.UUID | None = None
-    beneficiary_name: str | None = Field(default=None, max_length=200)
+    client_id: uuid.UUID | None = Field(default=None, description="nulo tira o cliente")
+    beneficiary_name: str | None = Field(
+        default=None, max_length=200, description="contato: quem pediu (texto livre)"
+    )
     started_at: AwareDatetime | None = None
     status_id: int | None = Field(
         default=None, description="qualquer status, sem as exigências do fluxo (set_status)"

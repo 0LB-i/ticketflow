@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
+from chamados.modules.clients.models import Client
 from tests.conftest import criar_categoria, criar_usuario, entrar, grupo
 
 API = "/api/v1/tickets"
@@ -274,6 +275,56 @@ def test_edicao_de_campos_vai_para_o_historico(
     with pytest.raises(ProgrammingError, match="só aceita inserção"):
         db.execute(text("UPDATE ticket_events SET event_type = 'x'"))
     db.rollback()
+
+
+def criar_cliente(db: Session, nome: str, documento: str, *, ativo: bool = True) -> str:
+    cliente = Client(
+        kind="company",
+        name=nome,
+        document=documento,
+        email="contato@x.com",
+        phone="1133334444",
+        postal_code="01310100",
+        street="Avenida Paulista",
+        number="1000",
+        district="Bela Vista",
+        city="São Paulo",
+        state="SP",
+        is_active=ativo,
+    )
+    db.add(cliente)
+    db.commit()
+    return str(cliente.public_id)
+
+
+def test_cliente_e_contato_do_chamado(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
+    mercado = criar_cliente(db, "Mercado Bom Preço", "11444777000161")
+    antigo = criar_cliente(db, "Cliente Antigo", "12ABC34501DE35", ativo=False)
+
+    t = registrar(client, cenario, client_id=padaria, beneficiary_name="  Maria  ")
+    assert t["client"] == {"id": padaria, "name": "Padaria Pão Quente"}
+    assert t["beneficiary_name"] == "Maria"
+    lista = client.get(API).json()["items"]
+    assert lista[0]["client"]["name"] == "Padaria Pão Quente"
+
+    url = f"{API}/{t['number']}"
+    r = client.patch(url, json={"client_id": mercado})
+    assert r.status_code == 200 and r.json()["client"]["name"] == "Mercado Bom Preço"
+    assert eventos(client, t["number"])[-1]["payload"]["changes"]["client"] == {
+        "from": {"id": padaria, "name": "Padaria Pão Quente"},
+        "to": {"id": mercado, "name": "Mercado Bom Preço"},
+    }
+    r = client.patch(url, json={"client_id": None})
+    assert r.json()["client"] is None
+    assert eventos(client, t["number"])[-1]["payload"]["changes"]["client"]["to"] is None
+
+    # Cliente inativo não entra em chamado novo nem numa alteração
+    r = client.post(API, json={"title": "Outro", "team_id": cenario["ti"], "client_id": antigo})
+    assert r.status_code == 422 and r.json()["detail"] == "Cliente não encontrado ou inativo."
+    assert client.patch(url, json={"client_id": antigo}).status_code == 422
 
 
 # --- comentários, menções e observadores ---------------------------------------------------------

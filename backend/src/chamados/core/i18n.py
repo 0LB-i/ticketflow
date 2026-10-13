@@ -101,6 +101,7 @@ EN: dict[str, str] = {
     "Categoria não encontrada ou inativa.": "Category not found or inactive.",
     "Grupo não encontrado ou inativo.": "Team not found or inactive.",
     "Setor não encontrado ou inativo.": "Department not found or inactive.",
+    "Cliente não encontrado ou inativo.": "Client not found or inactive.",
     "O responsável precisa ser um membro ativo do grupo.": (
         "The assignee must be an active member of the team."
     ),
