@@ -20,12 +20,16 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Migração `0005`: tabela `settings` e `users.locale`.
 - Cliente e contato no chamado: o registro e a edição escolhem um cliente do cadastro (busca por nome ou CPF/CNPJ) e informam quem pediu; a lista de chamados mostra o cliente. Migração `0011`: `tickets.client_id`.
 - Filas na lista de chamados (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos) com contadores e filtros na URL; aviso de comentário novo de outra pessoa desde a última visita; botão "Pegar o próximo"; busca em português, sem acentos, no título, na descrição, nos comentários, no cliente e no contato, a partir do cabeçalho. Migração `0012`: `ticket_reads` e as colunas de busca.
-- Anexos: botão "Anexar" com arrastar e soltar no registro e nos comentários (inclusive na conclusão), imagens coladas no editor, lista de anexos no chamado; download só para quem vê o chamado. Tipos conferidos pelo conteúdo; 25 MB por arquivo, 10 por envio e 200 MB por chamado. Migração `0013`: `attachments`. Os arquivos ficam em `FILES_DIR` (padrão `/var/lib/sistema-chamados/files`). Até o worker existir, agende `chamados attachments purge` (diário) para apagar os envios esquecidos.
+- Anexos: botão "Anexar" com arrastar e soltar no registro e nos comentários (inclusive na conclusão), imagens coladas no editor, lista de anexos no chamado; download só para quem vê o chamado. Tipos conferidos pelo conteúdo; 25 MB por arquivo, 10 por envio e 200 MB por chamado. Migração `0013`: `attachments`. Os arquivos ficam em `FILES_DIR` (padrão `/var/lib/ticketflow/files`). Até o worker existir, agende `chamados attachments purge` (diário) para apagar os envios esquecidos.
 - Migração `0004`: categorias, status, códigos de resolução, chamados, grupos que atuaram, observadores, comentários e histórico (só aceita inserção).
+
+### Mudado
+
+- Identificadores da instalação passam a ser `ticketflow`: código em `/opt/ticketflow`, serviços `ticketflow`, `ticketflow-worker` e `ticketflow-backup` (units em `deploy/ticketflow*.service`), usuário do sistema e papel no PostgreSQL `ticketflow`, configuração em `/etc/ticketflow/env`, anexos em `/var/lib/ticketflow/files` e backups em `/var/backups/ticketflow`. O banco (`chamados`) e o comando `chamados` não mudam.
 
 ### Variáveis de ambiente
 
 - `DATABASE_URL`, `LOG_LEVEL`, `LOG_FORMAT` (`json` em produção).
-- `FILES_DIR`: pasta dos anexos (padrão `/var/lib/sistema-chamados/files`).
+- `FILES_DIR`: pasta dos anexos (padrão `/var/lib/ticketflow/files`).
 - `APP_BASE_URL` (endereço usado nos links dos e-mails), `COOKIE_SECURE`, `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS`.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`. Sem `SMTP_HOST`, os e-mails vão para o log.

@@ -5,9 +5,9 @@ After=network.target postgresql.service
 Wants=postgresql.service
 
 [Service]
-User=sistema-chamados
-Group=sistema-chamados
-EnvironmentFile=/etc/sistema-chamados/env
+User=ticketflow
+Group=ticketflow
+EnvironmentFile=/etc/ticketflow/env
 WorkingDirectory=/opt/ticketflow/backend
 ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
           --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
@@ -17,7 +17,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/sistema-chamados
+ReadWritePaths=/var/lib/ticketflow
 
 [Install]
 WantedBy=multi-user.target

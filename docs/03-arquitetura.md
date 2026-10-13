@@ -100,15 +100,15 @@ Assim nenhuma notificação é enviada para uma transação que deu rollback, e 
 Cada empresa tem a **sua própria instalação**: aplicação e banco de dados próprios (ver [ADR 0005](adr/0005-instalacao-por-empresa.md)). Na empresa, tudo roda **em um único servidor Linux** ([ADR 0010](adr/0010-producao-systemd.md)):
 
 ```
-navegador ──HTTPS──► nginx ──► uvicorn (sistema-chamados.service) ──► PostgreSQL 17
+navegador ──HTTPS──► nginx ──► uvicorn (ticketflow.service) ──► PostgreSQL 17
                                     │  API + SPA (frontend/dist)          ▲
                                     │                                     │
-                     sistema-chamados-worker.service ─────────────────────┘
+                     ticketflow-worker.service ─────────────────────┘
                      (fila de tarefas, e-mails, rotinas)
 ```
 
 - A SPA compilada é servida pelo próprio uvicorn, **na mesma origem** da API: sem CORS e com o cookie de sessão funcionando sem configuração extra.
-- Logs vão para o journald (`journalctl -u sistema-chamados`).
+- Logs vão para o journald (`journalctl -u ticketflow`).
 - **Atualização:** `scripts/deploy.sh` (git pull, dependências, build do frontend, migrações). Quem reinicia os serviços é o usuário.
 - **Desenvolvimento:** PostgreSQL nativo ou `docker compose` (PostgreSQL 17, Mailpit para capturar e-mails), backend com `uvicorn --reload` e frontend com `pnpm dev` (Vite); ou o serviço systemd local, instalado por `scripts/instalar-servico-dev.sh` ([README](../README.md#como-rodar-desenvolvimento)).
-- **Backup:** `pg_dump` diário + cópia de `/var/lib/sistema-chamados/files`.
+- **Backup:** `pg_dump` diário + cópia de `/var/lib/ticketflow/files`.

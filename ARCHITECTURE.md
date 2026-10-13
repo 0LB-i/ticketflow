@@ -13,7 +13,7 @@ Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-
 ## 1. Visão geral
 
 ```
-navegador ── HTTPS ──► nginx ──► uvicorn (sistema-chamados.service) ──► PostgreSQL 17 (ou 16)
+navegador ── HTTPS ──► nginx ──► uvicorn (ticketflow.service) ──► PostgreSQL 17 (ou 16)
                                    │
                                    ├─ /api/*  API REST (FastAPI)
                                    └─ /*      interface web compilada (frontend/dist)
@@ -93,7 +93,7 @@ HTTP ─► rota (router.py) ─► dependências ─► service.py / regras ─
 
 ### 3.2 Configuração (`config.py`)
 
-Variáveis de ambiente (em produção, `/etc/sistema-chamados/env`; em desenvolvimento, `backend/.env`):
+Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento, `backend/.env`):
 
 | Variável | Padrão | Uso |
 |----------|--------|-----|
@@ -104,7 +104,7 @@ Variáveis de ambiente (em produção, `/etc/sistema-chamados/env`; em desenvolv
 | `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS` | `8`, `7` | Expiração das sessões |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | sem `SMTP_HOST` | Sem SMTP, os e-mails vão para o log |
 | `FRONTEND_DIST` | `frontend/dist` | Pasta da SPA compilada |
-| `FILES_DIR` | `/var/lib/sistema-chamados/files` | Anexos (só o usuário do serviço acessa; entra no backup com o banco) |
+| `FILES_DIR` | `/var/lib/ticketflow/files` | Anexos (só o usuário do serviço acessa; entra no backup com o banco) |
 
 ### 3.3 Módulos
 
@@ -372,7 +372,7 @@ modelos Pydantic (backend) ──chamados openapi──► openapi.json ──op
 | Ambiente | Como |
 |----------|------|
 | **Desenvolvimento, terminais** | PostgreSQL nativo ou `docker compose up -d db`; `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `pnpm dev` (porta 5173, repassa `/api` para a 8000). Ver o [README](README.md#como-rodar-desenvolvimento) |
-| **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: instala o `sistema-chamados.service` com a unit da produção e um ajuste local (escuta em `0.0.0.0:8000`, sem nginx), compila o frontend e aplica as migrações |
+| **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: instala o `ticketflow.service` com a unit da produção e um ajuste local (escuta em `0.0.0.0:8000`, sem nginx), compila o frontend e aplica as migrações |
 | **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`; backup diário por `scripts/backup.sh` (timer). Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 
 Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o Claude Code ([CLAUDE.md](CLAUDE.md)). O frontend compilado é servido direto da pasta e muda na hora; o backend só muda depois do `systemctl restart`.
@@ -397,7 +397,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 | Peça | Onde entra | Referência |
 |------|------------|------------|
-| Worker, fila de tarefas e *outbox* (eventos → notificações) | Comando `chamados worker`; a unit `deploy/sistema-chamados-worker.service` já existe, mas só deve ser instalada quando o comando existir | Sprint 4, [docs/03](docs/03-arquitetura.md#eventos-de-domínio) |
+| Worker, fila de tarefas e *outbox* (eventos → notificações) | Comando `chamados worker`; a unit `deploy/ticketflow-worker.service` já existe, mas só deve ser instalada quando o comando existir | Sprint 4, [docs/03](docs/03-arquitetura.md#eventos-de-domínio) |
 | Notificações por e-mail dos chamados | Hoje só existem os e-mails de convite, redefinição e bloqueio, enviados na hora | Sprint 4 |
 | Ocultar anexo, lista de tipos configurável pelo admin, miniaturas, antivírus | `attachments` | Sprint 5 e depois, [docs/11](docs/11-anexos-e-arquivos.md) |
 | `ETag` e aviso de colisão | `tickets` | Sprint 4 |

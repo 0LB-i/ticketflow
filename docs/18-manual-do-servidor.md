@@ -7,10 +7,10 @@ Instalação, atualização, backup e diagnóstico do TicketFlow em produção, 
 ## 18.1 Visão geral
 
 ```
-navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (sistema-chamados.service)
+navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (ticketflow.service)
                                            │                    │
                                            ▼                    ▼
-                                    PostgreSQL 17 ◄──── worker (sistema-chamados-worker.service)
+                                    PostgreSQL 17 ◄──── worker (ticketflow-worker.service)
                                     (socket local)
 ```
 
@@ -18,12 +18,12 @@ navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (sist
 |------|------|
 | Código (checkout da `main`) | `/opt/ticketflow` |
 | Repositório Git de passagem (recebe o `git push`) | `/srv/git/ticketflow.git` |
-| Configuração e segredos | `/etc/sistema-chamados/env` |
-| Anexos | `/var/lib/sistema-chamados/files` |
-| Backups locais | `/var/backups/sistema-chamados` |
-| Usuário do sistema que roda os serviços | `sistema-chamados` |
-| Banco de dados / papel no PostgreSQL | `chamados` / `sistema-chamados` (autenticação *peer*, sem senha) |
-| Logs | journald: `journalctl -u sistema-chamados -u sistema-chamados-worker` |
+| Configuração e segredos | `/etc/ticketflow/env` |
+| Anexos | `/var/lib/ticketflow/files` |
+| Backups locais | `/var/backups/ticketflow` |
+| Usuário do sistema que roda os serviços | `ticketflow` |
+| Banco de dados / papel no PostgreSQL | `chamados` / `ticketflow` (autenticação *peer*, sem senha) |
+| Logs | journald: `journalctl -u ticketflow -u ticketflow-worker` |
 
 ## 18.2 Requisitos
 
@@ -55,11 +55,11 @@ O acesso SSH deve ser só por chave (`PasswordAuthentication no` em `/etc/ssh/ss
 ### 2. Usuário e diretórios
 
 ```bash
-sudo adduser --system --group --home /var/lib/sistema-chamados sistema-chamados
-sudo install -d -o sistema-chamados -g sistema-chamados -m 750 /var/lib/sistema-chamados/files
-sudo install -d -o sistema-chamados -g sistema-chamados -m 755 /opt/ticketflow
-sudo install -d -o root -g sistema-chamados -m 750 /etc/sistema-chamados
-sudo install -d -o sistema-chamados -g sistema-chamados -m 700 /var/backups/sistema-chamados
+sudo adduser --system --group --home /var/lib/ticketflow ticketflow
+sudo install -d -o ticketflow -g ticketflow -m 750 /var/lib/ticketflow/files
+sudo install -d -o ticketflow -g ticketflow -m 755 /opt/ticketflow
+sudo install -d -o root -g ticketflow -m 750 /etc/ticketflow
+sudo install -d -o ticketflow -g ticketflow -m 700 /var/backups/ticketflow
 ```
 
 ### 3. PostgreSQL 17
@@ -68,8 +68,8 @@ sudo install -d -o sistema-chamados -g sistema-chamados -m 700 /var/backups/sist
 sudo apt install -y postgresql-common
 sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh      # adiciona o repositório oficial
 sudo apt install -y postgresql-17
-sudo -u postgres createuser sistema-chamados
-sudo -u postgres createdb -O sistema-chamados chamados
+sudo -u postgres createuser ticketflow
+sudo -u postgres createdb -O ticketflow chamados
 ```
 
 - O banco escuta só no socket local e em `localhost` (padrão do pacote). Não abrir a porta 5432 no firewall.
@@ -100,20 +100,20 @@ git remote add producao ssh://USUARIO@SERVIDOR/srv/git/ticketflow.git
 git push producao main
 
 # no servidor
-sudo -u sistema-chamados git clone /srv/git/ticketflow.git /opt/ticketflow
+sudo -u ticketflow git clone /srv/git/ticketflow.git /opt/ticketflow
 ```
 
 Esse repositório de passagem também é uma **cópia do código fora da máquina de desenvolvimento**. Quando houver um remoto no GitHub, o checkout passa a buscar dele.
 
 ### 6. Configuração
 
-`/etc/sistema-chamados/env` (dono `root`, grupo `sistema-chamados`, permissão `640`):
+`/etc/ticketflow/env` (dono `root`, grupo `ticketflow`, permissão `640`):
 
 ```bash
 APP_BASE_URL=https://ticketflow.example.com
-DATABASE_URL=postgresql+psycopg://sistema-chamados@/chamados?host=/var/run/postgresql
+DATABASE_URL=postgresql+psycopg://ticketflow@/chamados?host=/var/run/postgresql
 SECRET_KEY=                       # gerar com: openssl rand -hex 32  (nunca reutilizar nem versionar)
-FILES_DIR=/var/lib/sistema-chamados/files
+FILES_DIR=/var/lib/ticketflow/files
 SMTP_HOST=                        # a definir (questão 1)
 SMTP_PORT=587
 SMTP_STARTTLS=true
@@ -127,7 +127,7 @@ Trocar o `SECRET_KEY` encerra todas as sessões e invalida os convites pendentes
 ### 7. Primeira compilação e banco
 
 ```bash
-sudo -u sistema-chamados /opt/ticketflow/scripts/deploy.sh
+sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh
 ```
 
 O script faz `git pull`, `uv sync --frozen`, `pnpm install --frozen-lockfile && pnpm build` e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
@@ -135,19 +135,19 @@ O script faz `git pull`, `uv sync --frozen`, `pnpm install --frozen-lockfile && 
 ### 8. Serviços systemd
 
 ```bash
-sudo cp /opt/ticketflow/deploy/sistema-chamados*.service /etc/systemd/system/
-sudo cp /opt/ticketflow/deploy/sistema-chamados-backup.* /etc/systemd/system/
+sudo cp /opt/ticketflow/deploy/ticketflow*.service /etc/systemd/system/
+sudo cp /opt/ticketflow/deploy/ticketflow-backup.* /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now sistema-chamados sistema-chamados-backup.timer
-sudo systemctl enable --now sistema-chamados-worker     # só a partir da Sprint 4, quando o worker existir
+sudo systemctl enable --now ticketflow ticketflow-backup.timer
+sudo systemctl enable --now ticketflow-worker     # só a partir da Sprint 4, quando o worker existir
 ```
 
-Pontos principais de `deploy/sistema-chamados.service`:
+Pontos principais de `deploy/ticketflow.service`:
 
 ```ini
 [Service]
-User=sistema-chamados
-EnvironmentFile=/etc/sistema-chamados/env
+User=ticketflow
+EnvironmentFile=/etc/ticketflow/env
 WorkingDirectory=/opt/ticketflow/backend
 ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
           --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
@@ -155,10 +155,10 @@ Restart=on-failure
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/sistema-chamados
+ReadWritePaths=/var/lib/ticketflow
 ```
 
-O `sistema-chamados-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`. Os arquivos completos estão em [`deploy/`](../deploy/).
+O `ticketflow-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`. Os arquivos completos estão em [`deploy/`](../deploy/).
 
 ### 9. nginx e HTTPS
 
@@ -187,7 +187,7 @@ curl -fsS https://ticketflow.example.com/api/health
 Se todos os administradores perderem a senha, crie outro pela linha de comando:
 
 ```bash
-sudo -u sistema-chamados bash -c 'cd /opt/ticketflow/backend && set -a && . /etc/sistema-chamados/env && .venv/bin/chamados admin create --email ti@example.com --name "Administrador"'
+sudo -u ticketflow bash -c 'cd /opt/ticketflow/backend && set -a && . /etc/ticketflow/env && .venv/bin/chamados admin create --email ti@example.com --name "Administrador"'
 ```
 
 ## 18.4 Atualização
@@ -197,8 +197,8 @@ sudo -u sistema-chamados bash -c 'cd /opt/ticketflow/backend && set -a && . /etc
 git push producao main
 
 # no servidor
-sudo -u sistema-chamados /opt/ticketflow/scripts/deploy.sh
-sudo systemctl restart sistema-chamados sistema-chamados-worker
+sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh
+sudo systemctl restart ticketflow ticketflow-worker
 curl -fsS https://ticketflow.example.com/api/health
 ```
 
@@ -210,20 +210,20 @@ curl -fsS https://ticketflow.example.com/api/health
 
 ## 18.5 Backup e restauração
 
-**Backup diário** (`sistema-chamados-backup.timer`, às 02:00, roda `scripts/backup.sh`):
+**Backup diário** (`ticketflow-backup.timer`, às 02:00, roda `scripts/backup.sh`):
 
-1. `pg_dump -Fc chamados` → `/var/backups/sistema-chamados/db-AAAA-MM-DD.dump`;
-2. `rsync -a --delete` dos anexos → `/var/backups/sistema-chamados/files/`;
+1. `pg_dump -Fc chamados` → `/var/backups/ticketflow/db-AAAA-MM-DD.dump`;
+2. `rsync -a --delete` dos anexos → `/var/backups/ticketflow/files/`;
 3. apaga dumps com mais de 14 dias;
 4. **copia para fora do servidor** (destino da questão 13). Um backup que fica só no próprio servidor não protege contra perda do disco.
 
 **Restauração** (testar antes da virada, no D−15 de [16.3](16-implantacao.md#163-cronograma), e depois a cada 3 meses):
 
 ```bash
-sudo systemctl stop sistema-chamados sistema-chamados-worker
-sudo -u sistema-chamados pg_restore --clean --if-exists -d chamados /var/backups/sistema-chamados/db-AAAA-MM-DD.dump
-sudo -u sistema-chamados rsync -a --delete /var/backups/sistema-chamados/files/ /var/lib/sistema-chamados/files/
-sudo systemctl start sistema-chamados sistema-chamados-worker
+sudo systemctl stop ticketflow ticketflow-worker
+sudo -u ticketflow pg_restore --clean --if-exists -d chamados /var/backups/ticketflow/db-AAAA-MM-DD.dump
+sudo -u ticketflow rsync -a --delete /var/backups/ticketflow/files/ /var/lib/ticketflow/files/
+sudo systemctl start ticketflow ticketflow-worker
 ```
 
 Banco e anexos precisam ser da **mesma data**; anexos mais novos que o banco ficam órfãos e são ignorados.
@@ -232,9 +232,9 @@ Banco e anexos precisam ser da **mesma data**; anexos mais novos que o banco fic
 
 | O quê | Como | Frequência |
 |-------|------|------------|
-| Serviços no ar | `systemctl status sistema-chamados sistema-chamados-worker` ou `/api/health` (confere o banco) | Diária, ou por um monitor externo |
-| Erros | `journalctl -u sistema-chamados -p warning --since today` | Semanal |
-| Backup rodou | `systemctl list-timers sistema-chamados-backup.timer` e data do último arquivo | Semanal |
+| Serviços no ar | `systemctl status ticketflow ticketflow-worker` ou `/api/health` (confere o banco) | Diária, ou por um monitor externo |
+| Erros | `journalctl -u ticketflow -p warning --since today` | Semanal |
+| Backup rodou | `systemctl list-timers ticketflow-backup.timer` e data do último arquivo | Semanal |
 | Espaço em disco | `df -h /var/lib /var/backups` | Mensal |
 | Certificado | O `certbot` renova sozinho; conferir com `sudo certbot certificates` | Mensal |
 | Atualizações do sistema | Automáticas (segurança); reiniciar o servidor quando `/var/run/reboot-required` existir | Mensal |
@@ -243,8 +243,8 @@ Banco e anexos precisam ser da **mesma data**; anexos mais novos que o banco fic
 
 | Sintoma | Causa provável | O que fazer |
 |---------|----------------|-------------|
-| Página "502 Bad Gateway" | Serviço da API parado | `systemctl status sistema-chamados`; ver o erro em `journalctl -u sistema-chamados -n 100` |
-| E-mails não chegam | Worker parado ou SMTP errado | `systemctl status sistema-chamados-worker`; procurar `smtp` no journal; conferir `/etc/sistema-chamados/env` |
+| Página "502 Bad Gateway" | Serviço da API parado | `systemctl status ticketflow`; ver o erro em `journalctl -u ticketflow -n 100` |
+| E-mails não chegam | Worker parado ou SMTP errado | `systemctl status ticketflow-worker`; procurar `smtp` no journal; conferir `/etc/ticketflow/env` |
 | Upload falha com erro 413 | Limite do nginx menor que o do sistema | Ajustar `client_max_body_size` e recarregar o nginx |
 | Todos foram desconectados | `SECRET_KEY` mudou ou o banco foi restaurado | Esperado; cada um entra de novo |
 | Serviço não sobe depois de atualizar | Migração falhou ou dependência faltando | Ler o fim da saída do `deploy.sh`; voltar à versão anterior (18.4) |

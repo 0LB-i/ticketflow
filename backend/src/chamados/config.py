@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     smtp_from: str = "TicketFlow <ticketflow@localhost>"
 
     # Anexos (docs/11 §11.6): só o usuário do serviço acessa. Entra no backup junto com o banco.
-    files_dir: Path = Path("/var/lib/sistema-chamados/files")
+    files_dir: Path = Path("/var/lib/ticketflow/files")
 
 
 @lru_cache
