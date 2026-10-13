@@ -11,9 +11,9 @@ export default defineConfig({
   },
   server: {
     // Em desenvolvimento a API roda no uvicorn; em produção, na mesma origem (ADR 0010).
-    // TF_API: o serviço de desenvolvimento (scripts/instalar-servico-dev.sh) usa outra porta.
-    // xfwd: o IP de quem acessa chega à API (limite de tentativas de login por IP).
-    proxy: { '/api': { target: process.env.TF_API ?? 'http://127.0.0.1:8000', xfwd: true } },
+    proxy: { '/api': 'http://127.0.0.1:8000' },
+    // Atrás do nginx (scripts/instalar-servico-dev.sh), o navegador abre o websocket na 443.
+    hmr: process.env.TF_HMR_PORT ? { clientPort: Number(process.env.TF_HMR_PORT) } : undefined,
   },
   test: {
     environment: 'jsdom',
