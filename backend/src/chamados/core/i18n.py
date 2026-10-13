@@ -115,6 +115,9 @@ EN: dict[str, str] = {
     "Os anexos deste chamado passariam do limite de 200 MB.": (
         "This ticket's attachments would exceed the 200 MB limit."
     ),
+    "Escolha o responsável principal antes dos demais.": (
+        "Choose the main assignee before the others."
+    ),
     "O responsável precisa ser um membro ativo do grupo.": (
         "The assignee must be an active member of the team."
     ),
@@ -154,9 +157,6 @@ EN: dict[str, str] = {
     "O início não pode ficar no futuro.": "The start cannot be in the future.",
     "Você só registra chamados nos grupos de que é membro.": (
         "You can only create tickets in teams you are a member of."
-    ),
-    "Só o supervisor do grupo registra para outro membro.": (
-        "Only the team supervisor can create a ticket for another member."
     ),
     "Informe o motivo para forçar a prioridade.": "Give a reason to override the priority.",
     "Escreva o comentário.": "Write the comment.",

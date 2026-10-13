@@ -46,15 +46,6 @@ const GRUPOS = {
     },
   ],
 }
-/** Marca a opção (radio) cujo rótulo contém o texto. */
-function marcar(w: ReturnType<typeof montar>, texto: string) {
-  return w
-    .findAll('label')
-    .find((l) => l.text().includes(texto))!
-    .get('input')
-    .setValue()
-}
-
 const PADARIA = {
   id: '00000000-0000-0000-0000-0000000000e1',
   kind: 'company',
@@ -103,7 +94,8 @@ describe('NewTicketView', () => {
     await w.get('input[type=text]').setValue('Impressora parada')
     await escolherCliente(w, 'Padaria Pão Quente')
     await campo(w, 'Contato').setValue('Maria')
-    await marcar(w, 'Deixar na fila')
+    await w.get('button[aria-label="Remover Ana"]').trigger('click') // ninguém: fila do grupo
+    expect(w.text()).toContain('fica na fila do grupo')
     await w.get('form').trigger('submit')
 
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1000'))
@@ -118,9 +110,38 @@ describe('NewTicketView', () => {
       urgency: 1,
       impact: 1,
       assignee: null,
+      co_assignee_ids: [],
       watcher_ids: [],
       mention_ids: [],
       attachment_ids: [],
+    })
+  })
+
+  it('o usuário começa com quem registra e aceita outras pessoas ou o grupo todo', async () => {
+    const feitas = simularApi({
+      'GET /api/v1/me': [200, ME],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/statuses': [200, STATUS],
+      'POST /api/v1/tickets': [201, { number: 1001, title: 'Para o grupo' }],
+    })
+    const router = criarRouter()
+    const w = montar(NewTicketView, { global: { plugins: [router] } })
+    await router.push('/chamados/novo')
+    await vi.waitFor(() => expect(w.find('button[aria-label="Remover Ana"]').exists()).toBe(true))
+
+    await w.get('button[aria-label="Remover Ana"]').trigger('click')
+    await escolher('Usuários', 'Bia')
+    await vi.waitFor(() => expect(w.find('button[aria-label="Remover Bia"]').exists()).toBe(true))
+    await escolher('Usuários', 'Todas as pessoas do grupo')
+    await vi.waitFor(() => expect(w.find('button[aria-label="Remover Ana"]').exists()).toBe(true))
+    await w.get('input[type=text]').setValue('Para o grupo')
+    await w.get('form').trigger('submit')
+
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1001'))
+    // Quem registra fica como principal; os demais vão em co_assignee_ids.
+    expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toMatchObject({
+      assignee: 'me',
+      co_assignee_ids: [BIA],
     })
   })
 
@@ -210,6 +231,7 @@ const CHAMADO = {
   resolution_code: null,
   reopened_count: 0,
   closed_at: null,
+  co_assignees: [],
   watchers: [],
   attachments: [],
   allowed_actions: ['assign_self', 'comment', 'edit', 'transfer', 'watch_self'],

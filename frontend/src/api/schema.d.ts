@@ -1673,9 +1673,15 @@ export interface components {
       urgency: number
       /**
        * Assignee
-       * @description "me", outro membro do grupo (supervisor) ou nulo (fila)
+       * @description "me", outro membro do grupo ou nulo (fila)
        */
       assignee?: 'me' | string | null
+      /**
+       * Co Assignee Ids
+       * @description outros responsáveis, membros ativos do grupo; exige o assignee
+       * @default []
+       */
+      co_assignee_ids: string[]
       /**
        * Watcher Ids
        * @default []
@@ -1802,6 +1808,11 @@ export interface components {
       reopened_count: number
       /** Closed At */
       closed_at: string | null
+      /**
+       * Co Assignees
+       * @description outros responsáveis, além do assignee
+       */
+      co_assignees: components['schemas']['UserRef'][]
       /** Watchers */
       watchers: components['schemas']['WatcherOut'][]
       /**

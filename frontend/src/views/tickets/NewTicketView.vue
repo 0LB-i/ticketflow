@@ -9,7 +9,6 @@ import AttachmentUploader from '@/components/tickets/AttachmentUploader.vue'
 import ClientPicker from '@/components/tickets/ClientPicker.vue'
 import Button from '@/components/ui/Button.vue'
 import DateTimeField from '@/components/ui/DateTimeField.vue'
-import RadioGroup from '@/components/ui/RadioGroup.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import TextField from '@/components/ui/TextField.vue'
 import { useGrupos } from '@/composables/admin'
@@ -41,8 +40,8 @@ const form = reactive({
   inicio: null as string | null,
   cliente: null as { id: string; name: string } | null,
   contato: '',
-  responsavel: 'me' as 'me' | 'fila' | 'outro',
-  outro: '',
+  // Responsáveis: começa com quem registra; vazio deixa na fila do grupo.
+  responsaveis: auth.me ? [auth.me.id] : ([] as string[]),
   observadores: [] as string[],
   anexos: [] as string[],
 })
@@ -69,24 +68,31 @@ watch(
 )
 watch(
   () => form.team,
-  () => (form.outro = ''),
+  () => (form.responsaveis = auth.me ? [auth.me.id] : []),
 )
 
-const supervisorDoGrupo = computed(
-  () =>
-    auth.me?.role === 'admin' ||
-    meusGrupos.value.some((g) => g.id === form.team && g.role === 'supervisor'),
-)
+const TODOS = 'todos'
 const membrosDoGrupo = computed(() =>
-  (grupos.data.value?.find((g) => g.id === form.team)?.members ?? [])
-    .filter((m) => m.is_active && m.user_id !== auth.me?.id)
-    .map((m) => ({ value: m.user_id, label: m.full_name })),
+  (grupos.data.value?.find((g) => g.id === form.team)?.members ?? []).filter((m) => m.is_active),
 )
-const opcoesResponsavel = computed(() => [
-  { value: 'me', label: t('novoChamado.eu') },
-  { value: 'fila', label: t('novoChamado.fila') },
-  ...(supervisorDoGrupo.value ? [{ value: 'outro', label: t('novoChamado.outro') }] : []),
-])
+const nomesDosMembros = computed(
+  () => new Map(membrosDoGrupo.value.map((m) => [m.user_id, m.full_name])),
+)
+const opcoesResponsavel = computed(() => {
+  const fora = membrosDoGrupo.value.filter((m) => !form.responsaveis.includes(m.user_id))
+  if (!fora.length) return []
+  return [
+    { value: TODOS, label: t('novoChamado.todosDoGrupo') },
+    ...fora.map((m) => ({ value: m.user_id, label: m.full_name })),
+  ]
+})
+const novoResponsavel = ref('')
+watch(novoResponsavel, (id) => {
+  if (!id) return
+  form.responsaveis =
+    id === TODOS ? membrosDoGrupo.value.map((m) => m.user_id) : [...form.responsaveis, id]
+  novoResponsavel.value = ''
+})
 const nomes = computed(() => new Map(pessoas.value.map((p) => [p.id, p.label])))
 const opcoesObservador = computed(() =>
   pessoas.value
@@ -106,7 +112,6 @@ const faltando = computed(() => ({
   title: form.title.trim().length < 3,
   // A API aceita até 5 minutos adiantado (relógio do computador); aqui, qualquer futuro.
   inicio: form.inicio !== null && new Date(form.inicio).getTime() > Date.now(),
-  outro: form.responsavel === 'outro' && !form.outro,
 }))
 
 const registrar = useAcaoNoChamado('novo', chamadosApi.registrar)
@@ -115,6 +120,9 @@ async function enviar() {
   tentou.value = true
   erro.value = null
   if (Object.values(faltando.value).some(Boolean)) return
+  // A API guarda um responsável principal (quem registra, se estiver na lista) e os demais.
+  const eu = auth.me?.id
+  const principal = eu && form.responsaveis.includes(eu) ? eu : form.responsaveis[0]
   try {
     const chamado = await registrar.mutateAsync({
       title: form.title,
@@ -127,7 +135,8 @@ async function enviar() {
       // Impacto e urgência saíram da tela por enquanto: vão no mínimo (prioridade baixa).
       urgency: 1,
       impact: 1,
-      assignee: form.responsavel === 'me' ? 'me' : form.responsavel === 'outro' ? form.outro : null,
+      assignee: principal === eu ? 'me' : (principal ?? null),
+      co_assignee_ids: form.responsaveis.filter((id) => id !== principal),
       watcher_ids: form.observadores,
       mention_ids: editor.value?.mencionados() ?? [],
       attachment_ids: [...new Set([...form.anexos, ...anexosNoTexto(form.description)])],
@@ -208,6 +217,38 @@ async function enviar() {
             :error="tentou && faltando.team ? $t('novoChamado.escolhaGrupo') : undefined"
             required
           />
+          <div v-if="form.team" class="flex flex-col gap-2">
+            <SelectField
+              v-model="novoResponsavel"
+              :label="$t('novoChamado.usuarios')"
+              :placeholder="$t('novoChamado.adicionarUsuario')"
+              :options="opcoesResponsavel"
+            />
+            <p v-if="!form.responsaveis.length" class="text-muted">
+              {{ $t('novoChamado.usuariosDica') }}
+            </p>
+            <ul v-else class="flex flex-wrap gap-2">
+              <li
+                v-for="id in form.responsaveis"
+                :key="id"
+                class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3"
+              >
+                {{ nomesDosMembros.get(id) ?? nomes.get(id) }}
+                <button
+                  type="button"
+                  class="rounded-full p-0.5 text-muted hover:bg-border"
+                  :aria-label="
+                    $t('novoChamado.removerUsuario', {
+                      nome: nomesDosMembros.get(id) ?? nomes.get(id),
+                    })
+                  "
+                  @click="form.responsaveis = form.responsaveis.filter((r) => r !== id)"
+                >
+                  <X class="size-4" aria-hidden="true" />
+                </button>
+              </li>
+            </ul>
+          </div>
           <SelectField
             v-if="podeEscolherStatus"
             v-model="form.status"
@@ -221,22 +262,6 @@ async function enviar() {
               v-model="form.contato"
               :label="$t('chamado.contato')"
               :hint="$t('chamado.contatoDica')"
-            />
-          </div>
-
-          <div class="flex flex-col gap-3 border-t border-border pt-4">
-            <RadioGroup
-              v-model="form.responsavel"
-              :legend="$t('chamado.responsavel')"
-              :options="opcoesResponsavel"
-            />
-            <SelectField
-              v-if="form.responsavel === 'outro'"
-              v-model="form.outro"
-              :label="$t('novoChamado.qualMembro')"
-              :options="membrosDoGrupo"
-              :error="tentou && faltando.outro ? $t('novoChamado.escolhaMembro') : undefined"
-              required
             />
           </div>
 

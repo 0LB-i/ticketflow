@@ -54,6 +54,7 @@ class TicketState:
     created_by_id: int
     assignee_id: int | None
     is_watcher: bool
+    co_assignee_ids: frozenset[int] = frozenset()
 
 
 def is_supervisor(actor: Actor, team_id: int) -> bool:
@@ -62,7 +63,7 @@ def is_supervisor(actor: Actor, team_id: int) -> bool:
 
 def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
     """Ações que o ator pode fazer no chamado. A API devolve a lista para a interface."""
-    mine = t.assignee_id == actor.user_id
+    mine = t.assignee_id == actor.user_id or actor.user_id in t.co_assignee_ids
     # Alterar exige ser do grupo atual (ou admin); observadores de outros grupos só comentam.
     member = t.team_id in actor.teams or actor.role == "admin"
     actions: set[str] = set()

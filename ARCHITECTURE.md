@@ -38,7 +38,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0014
+│   ├── migrations/        Alembic: env.py e versions/0001…0015
 │   ├── src/chamados/      código (seção 3)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
@@ -114,7 +114,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `organization` | `models` (Role, Team, TeamMember, Department), `router` | Papéis, grupos e membros, setores atendidos | `/teams`, `/departments` |
 | `catalog` | `models` (Category, TicketStatus, ResolutionCode), `router` | Árvore de categorias (até 3 níveis; sem tela desde que saíram dos chamados), status por `kind`, códigos de resolução | `/categories`, `/statuses`, `/resolution-codes` |
 | `clients` | `models` (Client), `router`, `documents` (CPF, CNPJ alfanumérico, telefone, CEP) | Cadastro de clientes pessoa física e jurídica, com contato e endereço; sem exclusão (inativa) | `/clients` |
-| `tickets` | `models`, `schemas`, `router`, `service`, `rules`, `visibility` | Chamados, comentários, observadores, atribuição, transferência, transições e histórico | `/tickets/*` |
+| `tickets` | `models`, `schemas`, `router`, `service`, `rules`, `visibility` | Chamados, comentários, observadores, atribuição (um ou mais responsáveis), transferência, transições e histórico | `/tickets/*` |
 | `system` | `models` (SystemSetting), `router`, `service` | Configurações da instalação: idioma padrão, cores, logotipo; idioma efetivo de um usuário | `/branding`, `/admin/settings` |
 | `audit` | `models` (AuditLog), `service` (`record()`), `router` | Auditoria de login e administração | `/admin/audit-log` |
 | `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
@@ -139,7 +139,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - `rules.py` é **puro** (sem banco), por isso os testes são tabelados: perfil × situação → ações esperadas.
 - O detalhe responde **403** quando o chamado existe mas não é visível e **404** quando não existe. O acesso de admin ou auditor a um chamado confidencial, fora das regras 1, 3 e 4, vai para a auditoria.
 - A interface **nunca decide**: ela só mostra ou esconde botões conforme `allowed_actions` e `me.permissions`.
-- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, mais as permissões acrescentadas depois em `NEW_PERMISSIONS` das migrações, como a 0010; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
+- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, mais as permissões acrescentadas depois em `NEW_PERMISSIONS` das migrações, como a 0010 e a 0015; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
 
 ### 3.5 Chamados (`modules/tickets/`)
 
@@ -153,6 +153,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, `DateTimeField` acompanha a hora atual até ser mudado.
 - **Cliente e contato:** para quem é o trabalho. `client_id` é opcional e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); `null` no PATCH tira o cliente. O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o `ClientPicker` busca na API de clientes (`client.view`, que todos os papéis têm). O setor atendido (`department_id`) continua na API, mas saiu da interface.
 - **Histórico:** cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
+- **Mais de um responsável:** `tickets.assignee_id` é o responsável principal e `ticket_co_assignees` guarda os demais (só no registro, `co_assignee_ids`, membros ativos do grupo; exige o principal). Para regras, visibilidade (regra 3), filas Meus e Com novidades e o filtro por responsável, todos contam igual (`visibility.assigned_to`). Devolver à fila e transferir tiram todos; trocar o principal mantém os demais. A interface envia quem registra como principal, se estiver na lista, senão a primeira pessoa.
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
 - **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids`: o texto guarda só "@Nome".
 - **Lista:** ordenação padrão (prioridade desc., mais antigo primeiro) com paginação por cursor (base64 de prioridade, data e id). Filtros: `team`, `assignee`, `status` (kinds), `priority` e `q`.
@@ -222,6 +223,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0012` | `ticket_reads` (última visita, para as novidades) e `search_vector` em `tickets` e `ticket_comments` |
 | `0013` | `attachments` |
 | `0014` | Grupo padrão "Administradores", com o `admin` como membro |
+| `0015` | `ticket_co_assignees` (outros responsáveis) e `ticket.assign_others` para o agente |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).

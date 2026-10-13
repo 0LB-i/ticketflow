@@ -8,10 +8,20 @@ from sqlalchemy import ColumnElement, and_, exists, false, or_, true
 
 from chamados.core.permissions import Actor, P, can
 from chamados.modules.catalog.models import Category
-from chamados.modules.tickets.models import Ticket, TicketTeam, TicketWatcher
+from chamados.modules.tickets.models import Ticket, TicketCoAssignee, TicketTeam, TicketWatcher
 
 # Regra 6: leem tudo, inclusive os confidenciais (o acesso a estes vai para a auditoria).
 SEE_EVERYTHING = frozenset({"admin", "auditor"})
+
+
+def assigned_to(user_id: int) -> ColumnElement[bool]:
+    """A pessoa é responsável pelo chamado: a principal ou uma das outras."""
+    return or_(
+        Ticket.assignee_id == user_id,
+        exists().where(
+            TicketCoAssignee.ticket_id == Ticket.id, TicketCoAssignee.user_id == user_id
+        ),
+    )
 
 
 def ticket_visibility_filter(actor: Actor) -> ColumnElement[bool]:
@@ -19,7 +29,7 @@ def ticket_visibility_filter(actor: Actor) -> ColumnElement[bool]:
         return true()
     not_confidential = ~exists().where(Category.id == Ticket.category_id, Category.is_confidential)
     rules: list[ColumnElement[bool]] = [
-        Ticket.assignee_id == actor.user_id,  # 3
+        assigned_to(actor.user_id),  # 3
         exists().where(  # 4 (inclui os mencionados)
             TicketWatcher.ticket_id == Ticket.id, TicketWatcher.user_id == actor.user_id
         ),
@@ -44,5 +54,6 @@ def sees_without_privilege(actor: Actor, ticket: Ticket) -> bool:
     return (
         ticket.team_id in actor.teams
         or ticket.assignee_id == actor.user_id
+        or any(c.user_id == actor.user_id for c in ticket.co_assignees)
         or any(w.user_id == actor.user_id for w in ticket.watchers)
     )

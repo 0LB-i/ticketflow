@@ -124,7 +124,13 @@ const editando = ref(false)
       <dt class="text-muted">{{ t('chamado.grupo') }}</dt>
       <dd class="font-medium">{{ chamado.team.name }}</dd>
       <dt class="text-muted">{{ t('chamado.responsavel') }}</dt>
-      <dd class="font-medium">{{ chamado.assignee?.full_name ?? t('chamado.naFila') }}</dd>
+      <dd class="font-medium">
+        {{
+          chamado.assignee
+            ? [chamado.assignee, ...chamado.co_assignees].map((u) => u.full_name).join(', ')
+            : t('chamado.naFila')
+        }}
+      </dd>
       <dt class="text-muted">{{ t('chamado.tipo') }}</dt>
       <dd>{{ t(`tipos.${chamado.type}`) }}</dd>
       <dt class="text-muted">{{ t('chamado.inicio') }}</dt>
