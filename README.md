@@ -60,11 +60,7 @@ No fim ele mostra a chave pública, para cadastrar no GitHub como *deploy key* c
 
 Requisitos: [uv](https://docs.astral.sh/uv/), Node.js 22 com `corepack enable` (pnpm) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
 
-O PostgreSQL pode ser nativo (como nesta máquina de desenvolvimento, com o 16 também na porta 5433 para a verificação completa) ou do Docker:
-
-```bash
-docker compose up -d db                 # alternativa ao PostgreSQL nativo
-```
+O PostgreSQL 16 também fica instalado, na porta 5433, para a verificação completa.
 
 ```bash
 # backend: API em http://127.0.0.1:8000 (documentação em /api/docs)

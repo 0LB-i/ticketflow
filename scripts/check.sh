@@ -27,12 +27,8 @@ segredos() {
 banco_no_ar() {
   local porta="$1"
   if ! pg_isready -q -h localhost -p "$porta"; then
-    if [[ "$porta" == 5432 ]] && command -v docker >/dev/null; then
-      docker compose up -d --wait db
-    else
-      echo "PostgreSQL não responde em localhost:$porta (veja o README, \"Como rodar\")." >&2
-      exit 1
-    fi
+    echo "PostgreSQL não responde em localhost:$porta (veja o README, \"Como rodar\")." >&2
+    exit 1
   fi
 }
 
