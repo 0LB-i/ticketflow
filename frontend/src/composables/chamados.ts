@@ -136,8 +136,6 @@ export const chamadosApi = {
     ou(await api.POST('/api/v1/tickets/next', { body: { team_id } }), erro()),
   registrar: async (body: Schemas['TicketCreate']) =>
     ou(await api.POST('/api/v1/tickets', { body }), erro()),
-  editar: async (numero: string, body: Schemas['TicketUpdate']) =>
-    ou(await api.PATCH('/api/v1/tickets/{ticket_ref}', { params: caminho(numero), body }), erro()),
   comentar: async (numero: string, body: Schemas['CommentIn']) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/comments', { params: caminho(numero), body }),

@@ -296,7 +296,6 @@
     "assumir": "Take it",
     "devolver": "Return to queue",
     "transferir": "Transfer",
-    "editar": "Edit",
     "atribuirA": "Assign to",
     "escolhaMembro": "Choose a team member",
     "observadores": "Watchers",
@@ -367,9 +366,6 @@
     "buscarCliente": "Search by name or tax ID",
     "nenhumCliente": "No client found.",
     "tirarCliente": "Remove the client"
-  },
-  "editarChamado": {
-    "titulo": "Edit ticket #{numero}"
   },
   "evento": {
     "sistema": "System",
