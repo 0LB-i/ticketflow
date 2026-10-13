@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Instala o TicketFlow como serviço systemd na máquina de desenvolvimento, sem nginx.
-# Usa a mesma unit da produção (deploy/ticketflow.service) com um ajuste local
-# (drop-in) para escutar na rede, em http://IP:PORTA. Roda como root:
-#   sudo scripts/instalar-servico-dev.sh            # porta 8000
-#   sudo PORTA=8080 scripts/instalar-servico-dev.sh
+# Instala o TicketFlow como serviço systemd na máquina de desenvolvimento, atrás do nginx.
+# Usa a mesma unit da produção (deploy/ticketflow.service, uvicorn em 127.0.0.1:8000) e o
+# deploy/nginx.conf, aceitando qualquer nome, em http://IP (porta 80). Roda como root:
+#   sudo scripts/instalar-servico-dev.sh
 # Pode ser rodado de novo para recompilar e aplicar migrações. Na primeira vez o serviço é
 # iniciado; depois disso, quem reinicia é você: sudo systemctl restart ticketflow
 set -euo pipefail
@@ -12,7 +11,6 @@ export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 [[ $EUID -eq 0 ]] || { echo "Rode como root (sudo)." >&2; exit 1; }
 
-PORTA="${PORTA:-8000}"
 IP="$(hostname -I | awk '{print $1}')"
 ENV_FILE=/etc/ticketflow/env
 SERVICO=ticketflow
@@ -44,7 +42,7 @@ else
 DATABASE_URL=postgresql+psycopg://chamados:chamados@localhost:5432/chamados
 LOG_FORMAT=console
 LOG_LEVEL=INFO
-APP_BASE_URL=http://$IP:$PORTA
+APP_BASE_URL=http://$IP
 # Sem HTTPS o navegador recusa cookies Secure.
 COOKIE_SECURE=false
 # Sem SMTP_HOST, os e-mails vão para o log: journalctl -u $SERVICO
@@ -68,13 +66,9 @@ como_dono "cd frontend && pnpm install -s --frozen-lockfile && pnpm -s build"
 
 etapa "serviço systemd"
 cp deploy/ticketflow.service /etc/systemd/system/
-install -d "$DROPIN_DIR"
-cat >"$DROPIN_DIR/desenvolvimento.conf" <<FIM
-# Só nesta máquina: sem nginx, o uvicorn escuta na rede (a produção usa 127.0.0.1 + nginx).
-[Service]
-ExecStart=
-ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory --host 0.0.0.0 --port $PORTA
-FIM
+# Instalações antigas deste script escutavam na rede, na porta 8000, com este ajuste local.
+rm -f "$DROPIN_DIR/desenvolvimento.conf"
+rmdir --ignore-fail-on-non-empty "$DROPIN_DIR" 2>/dev/null || true
 systemctl daemon-reload
 systemctl enable -q "$SERVICO"
 if systemctl is-active -q "$SERVICO"; then
@@ -84,9 +78,19 @@ else
   echo "Serviço iniciado."
 fi
 
+etapa "nginx (docs/18 §18.3, passo 9, sem HTTPS)"
+apt-get install -y -q --no-upgrade nginx
+# Sem domínio nesta máquina: atende por qualquer nome (o IP, por exemplo).
+sed 's/^\(\s*server_name\) .*;/\1 _;/' deploy/nginx.conf >/etc/nginx/sites-available/$SERVICO
+ln -sf /etc/nginx/sites-available/$SERVICO /etc/nginx/sites-enabled/$SERVICO
+rm -f /etc/nginx/sites-enabled/default
+nginx -t -q
+systemctl enable -q --now nginx
+systemctl reload nginx
+
 cat <<FIM
 
-TicketFlow em http://$IP:$PORTA (documentação da API em /api/docs)
+TicketFlow em http://$IP (documentação da API em /api/docs)
   estado:    systemctl status $SERVICO
   log:       journalctl -u $SERVICO -f
   reiniciar: sudo systemctl restart $SERVICO

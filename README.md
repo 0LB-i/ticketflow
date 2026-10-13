@@ -79,7 +79,7 @@ pnpm dev
 
 Depois de mudar a API no backend: `pnpm gen:api` (no `frontend/`) regenera o cliente TypeScript.
 
-**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala o `ticketflow.service` (a mesma unit da produção, escutando na rede na porta 8000, sem nginx), compila o frontend e aplica as migrações. Rodar de novo atualiza; depois, `sudo systemctl restart ticketflow`.
+**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala o `ticketflow.service` (a mesma unit da produção, atrás do nginx em `http://IP`, porta 80; o uvicorn escuta só em `127.0.0.1:8000`), compila o frontend e aplica as migrações. Rodar de novo atualiza; depois, `sudo systemctl restart ticketflow`.
 
 ### Verificação
 
