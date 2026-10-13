@@ -102,6 +102,7 @@ EN: dict[str, str] = {
     "Grupo não encontrado ou inativo.": "Team not found or inactive.",
     "Setor não encontrado ou inativo.": "Department not found or inactive.",
     "Cliente não encontrado ou inativo.": "Client not found or inactive.",
+    "Não há chamados na fila.": "There are no tickets in the queue.",
     "O responsável precisa ser um membro ativo do grupo.": (
         "The assignee must be an active member of the team."
     ),

@@ -4,13 +4,15 @@ pelo filtro de visibilidade. Cada mudança gera um evento no histórico (ticket_
 
 import base64
 import json
+import re
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import HTTPException
-from sqlalchemy import ColumnElement, and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, exists, func, literal_column, or_, select, true
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager, defer, selectinload
 
@@ -25,10 +27,11 @@ from chamados.modules.tickets.models import (
     Ticket,
     TicketComment,
     TicketEvent,
+    TicketRead,
     TicketTeam,
     TicketWatcher,
 )
-from chamados.modules.tickets.schemas import TicketCreate, TicketUpdate, TransitionIn
+from chamados.modules.tickets.schemas import TicketCreate, TicketUpdate, TicketView, TransitionIn
 from chamados.modules.tickets.visibility import ticket_visibility_filter
 
 COMMENT_EDIT_WINDOW = timedelta(minutes=10)
@@ -129,26 +132,104 @@ def _decode_cursor(cursor: str) -> tuple[int, datetime, int]:
         raise HTTPException(422, "Cursor inválido.") from None
 
 
+def has_news(user_id: int) -> ColumnElement[bool]:
+    """Comentário de outra pessoa depois da última visita (ou nunca aberto) (docs/13 §13.5)."""
+    read_at = (
+        select(TicketRead.read_at)
+        .where(TicketRead.ticket_id == Ticket.id, TicketRead.user_id == user_id)
+        .scalar_subquery()
+    )
+    return exists().where(
+        TicketComment.ticket_id == Ticket.id,
+        TicketComment.author_id != user_id,
+        or_(read_at.is_(None), TicketComment.created_at > read_at),
+    )
+
+
+ACTIVE = ("open", "waiting")
+PT_BR: ColumnElement[Any] = literal_column("'pt_br'::regconfig")
+
+
+def view_filter(auth: Auth, view: TicketView) -> ColumnElement[bool]:
+    """As filas da lista (docs/10 §10.6). O status vem do join com ticket_statuses."""
+    me = auth.user.id
+    my_teams = Ticket.team_id.in_(auth.actor.teams)
+    match view:
+        case "unassigned":
+            return and_(my_teams, Ticket.assignee_id.is_(None), TicketStatus.kind == "open")
+        case "mine":
+            return and_(Ticket.assignee_id == me, TicketStatus.kind.in_(ACTIVE))
+        case "news":
+            return and_(Ticket.assignee_id == me, has_news(me))
+        case "waiting":
+            return and_(my_teams, TicketStatus.kind == "waiting")
+        case "watching":
+            return and_(
+                exists().where(TicketWatcher.ticket_id == Ticket.id, TicketWatcher.user_id == me),
+                TicketStatus.kind.in_(ACTIVE),
+            )
+        case "all":
+            return true()
+
+
+def search_filter(q: str) -> ColumnElement[bool] | None:
+    """Busca em português, sem acentos e por começo de palavra, no título, na descrição e nos
+    comentários; também pelo número, pelo cliente e pelo contato."""
+    words = re.findall(r"\w+", q)
+    if not words:
+        return None
+    query = func.to_tsquery(PT_BR, " & ".join(f"{w}:*" for w in words))
+    like = func.unaccent(f"%{q.strip()}%")
+    rules: list[ColumnElement[bool]] = [
+        Ticket.search_vector.op("@@")(query),
+        exists().where(
+            TicketComment.ticket_id == Ticket.id, TicketComment.search_vector.op("@@")(query)
+        ),
+        func.unaccent(Ticket.beneficiary_name).ilike(like),
+        exists().where(
+            Client.id == Ticket.client_id,
+            or_(
+                func.unaccent(Client.name).ilike(like), func.unaccent(Client.trade_name).ilike(like)
+            ),
+        ),
+    ]
+    number = q.strip().removeprefix("#")
+    if number.isdigit() and len(number) < 19:
+        rules.append(Ticket.number == int(number))
+    return or_(*rules)
+
+
+def _ordered(stmt: Any) -> Any:
+    """Ordenação padrão: prioridade, depois o mais antigo (docs/10 §10.6)."""
+    return stmt.order_by(Ticket.priority.desc(), Ticket.created_at, Ticket.id)
+
+
 async def list_tickets(
     db: AsyncSession,
     auth: Auth,
     *,
+    view: TicketView,
     team: uuid.UUID | None,
     assignee: str | None,
     kinds: Sequence[str],
+    priority: int | None,
+    q: str | None,
     limit: int,
     cursor: str | None,
-) -> tuple[list[Ticket], str | None]:
-    """Chamados visíveis na ordenação padrão: prioridade, depois o mais antigo (docs/10 §10.6)."""
-    stmt = (
-        select(Ticket)
+) -> tuple[list[tuple[Ticket, bool]], str | None]:
+    """Chamados visíveis de uma fila, com o aviso de novidade de cada um."""
+    stmt = _ordered(
+        select(Ticket, has_news(auth.user.id).label("has_news"))
         .join(Ticket.status)
         # A lista não mostra a descrição, que pode ter até 50 mil caracteres por chamado.
         .options(contains_eager(Ticket.status), defer(Ticket.description))
-        .where(ticket_visibility_filter(auth.actor))
-        .order_by(Ticket.priority.desc(), Ticket.created_at, Ticket.id)
+        .where(ticket_visibility_filter(auth.actor), view_filter(auth, view))
         .limit(limit + 1)
     )
+    if priority is not None:
+        stmt = stmt.where(Ticket.priority == priority)
+    if q and (search := search_filter(q)) is not None:
+        stmt = stmt.where(search)
     if team is not None:
         stmt = stmt.where(Ticket.team.has(Team.public_id == team))
     if assignee == "me":
@@ -177,9 +258,36 @@ async def list_tickets(
                 ),
             )
         )
-    rows = list((await db.scalars(stmt)).all())
-    next_cursor = _encode_cursor(rows[limit - 1]) if len(rows) > limit else None
+    rows = [(t, news) for t, news in (await db.execute(stmt)).all()]
+    next_cursor = _encode_cursor(rows[limit - 1][0]) if len(rows) > limit else None
     return rows[:limit], next_cursor
+
+
+async def counts(db: AsyncSession, auth: Auth) -> dict[str, int]:
+    """Quantos chamados visíveis há em cada fila, numa consulta só."""
+    views: tuple[TicketView, ...] = ("unassigned", "mine", "news", "waiting", "watching")
+    row = (
+        await db.execute(
+            select(*(func.count().filter(view_filter(auth, v)).label(v) for v in views))
+            .select_from(Ticket)
+            .join(Ticket.status)
+            .where(ticket_visibility_filter(auth.actor))
+        )
+    ).one()
+    return dict(row._mapping)
+
+
+async def mark_read(db: AsyncSession, auth: Auth, ticket: Ticket) -> None:
+    """Guarda a visita: os comentários até agora deixam de ser novidade."""
+    await db.execute(
+        insert(TicketRead)
+        .values(ticket_id=ticket.id, user_id=auth.user.id)
+        .on_conflict_do_update(
+            index_elements=[TicketRead.ticket_id, TicketRead.user_id],
+            set_={"read_at": func.now()},
+        )
+    )
+    await db.commit()
 
 
 # --- apoio --------------------------------------------------------------------------------------
@@ -555,6 +663,28 @@ async def assign(db: AsyncSession, auth: Auth, ticket: Ticket, assignee: Assigne
     if new is not None and ticket.first_assigned_at is None:
         ticket.first_assigned_at = func.now()
     await db.commit()
+
+
+async def take_next(db: AsyncSession, auth: Auth, team: uuid.UUID | None) -> Ticket:
+    """Pegar o próximo: assume o primeiro da fila Não atribuídos na ordenação padrão.
+
+    SKIP LOCKED: duas pessoas clicando juntas pegam chamados diferentes.
+    """
+    stmt = _ordered(
+        select(Ticket.public_id)
+        .join(Ticket.status)
+        .where(ticket_visibility_filter(auth.actor), view_filter(auth, "unassigned"))
+        .limit(1)
+        .with_for_update(of=Ticket, skip_locked=True)
+    )
+    if team is not None:
+        stmt = stmt.where(Ticket.team.has(Team.public_id == team))
+    public_id = await db.scalar(stmt)
+    if public_id is None:
+        raise HTTPException(404, "Não há chamados na fila.")
+    ticket = await load(db, auth, str(public_id))
+    await assign(db, auth, ticket, "me")
+    return ticket
 
 
 async def transfer(

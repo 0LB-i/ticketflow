@@ -58,9 +58,9 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S4-02 | Download com verificação de permissão; imagens coladas no editor | a fazer | |
 | F1-S4-03 | **Outbox + worker + fila de tarefas** no PostgreSQL | a fazer | |
 | F1-S4-04 | **Notificações por e-mail** (templates em pt-BR) | a fazer | |
-| F1-S4-05 | **Filas**: não atribuídos, meus chamados, com novidades, aguardando, acompanhando, todos do grupo | a fazer | |
-| F1-S4-06 | Botão "Pegar o próximo" | a fazer | |
-| F1-S4-07 | **Busca textual** em português + filtros | a fazer | |
+| F1-S4-05 | **Filas**: não atribuídos, meus chamados, com novidades, aguardando, acompanhando, todos do grupo | feito | |
+| F1-S4-06 | Botão "Pegar o próximo" | feito | |
+| F1-S4-07 | **Busca textual** em português + filtros | feito | |
 | F1-S4-08 | Indicador de colisão ("Fulano está vendo") + `ETag` | a fazer | |
 
 ### Sprint 5 — Ciclo completo e preparação do piloto

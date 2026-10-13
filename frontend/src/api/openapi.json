@@ -1347,6 +1347,19 @@
         "operationId": "list_tickets_api_v1_tickets_get",
         "parameters": [
           {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": ["unassigned", "mine", "news", "waiting", "watching", "all"],
+              "type": "string",
+              "description": "fila (aba da lista)",
+              "default": "all",
+              "title": "View"
+            },
+            "description": "fila (aba da lista)"
+          },
+          {
             "name": "team",
             "in": "query",
             "required": false,
@@ -1404,6 +1417,43 @@
               "title": "Status"
             },
             "description": "kinds de status"
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 4,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Priority"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "busca: texto, comentários, número, cliente, contato",
+              "title": "Q"
+            },
+            "description": "busca: texto, comentários, número, cliente, contato"
           },
           {
             "name": "limit",
@@ -1473,6 +1523,64 @@
         },
         "responses": {
           "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/counts": {
+      "get": {
+        "tags": ["chamados"],
+        "summary": "Ticket Counts",
+        "operationId": "ticket_counts_api_v1_tickets_counts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketCounts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/next": {
+      "post": {
+        "tags": ["chamados"],
+        "summary": "Take Next",
+        "operationId": "take_next_api_v1_tickets_next_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NextIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -3775,6 +3883,25 @@
         "required": ["user_id", "full_name", "email", "role", "is_active"],
         "title": "MemberOut"
       },
+      "NextIn": {
+        "properties": {
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id",
+            "description": "sem grupo, a fila de todos os meus grupos"
+          }
+        },
+        "type": "object",
+        "title": "NextIn"
+      },
       "Ref": {
         "properties": {
           "id": {
@@ -4119,6 +4246,34 @@
         "type": "object",
         "title": "TeamUpdate"
       },
+      "TicketCounts": {
+        "properties": {
+          "unassigned": {
+            "type": "integer",
+            "title": "Unassigned"
+          },
+          "mine": {
+            "type": "integer",
+            "title": "Mine"
+          },
+          "news": {
+            "type": "integer",
+            "title": "News"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "watching": {
+            "type": "integer",
+            "title": "Watching"
+          }
+        },
+        "type": "object",
+        "required": ["unassigned", "mine", "news", "waiting", "watching"],
+        "title": "TicketCounts",
+        "description": "Quantos chamados há em cada fila (as abas da lista)."
+      },
       "TicketCreate": {
         "properties": {
           "title": {
@@ -4289,6 +4444,130 @@
         "type": "object",
         "required": ["title"],
         "title": "TicketCreate"
+      },
+      "TicketListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["incident", "request", "task"],
+            "title": "Type"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusRef"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "team": {
+            "$ref": "#/components/schemas/Ref"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CategoryRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "department": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "beneficiary_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beneficiary Name",
+            "description": "contato: quem pediu (texto livre)"
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "has_news": {
+            "type": "boolean",
+            "title": "Has News",
+            "description": "comentário de outra pessoa desde a minha última visita"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "title",
+          "type",
+          "status",
+          "priority",
+          "team",
+          "category",
+          "department",
+          "client",
+          "beneficiary_name",
+          "assignee",
+          "started_at",
+          "created_at",
+          "updated_at",
+          "has_news"
+        ],
+        "title": "TicketListItem"
       },
       "TicketOut": {
         "properties": {
@@ -4482,7 +4761,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/TicketSummary"
+              "$ref": "#/components/schemas/TicketListItem"
             },
             "type": "array",
             "title": "Items"
@@ -4502,124 +4781,6 @@
         "type": "object",
         "required": ["items", "next_cursor"],
         "title": "TicketPage"
-      },
-      "TicketSummary": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "number": {
-            "type": "integer",
-            "title": "Number"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["incident", "request", "task"],
-            "title": "Type"
-          },
-          "status": {
-            "$ref": "#/components/schemas/StatusRef"
-          },
-          "priority": {
-            "type": "integer",
-            "title": "Priority"
-          },
-          "team": {
-            "$ref": "#/components/schemas/Ref"
-          },
-          "category": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CategoryRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "department": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Ref"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "client": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Ref"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "beneficiary_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beneficiary Name",
-            "description": "contato: quem pediu (texto livre)"
-          },
-          "assignee": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/UserRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "started_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Started At"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "number",
-          "title",
-          "type",
-          "status",
-          "priority",
-          "team",
-          "category",
-          "department",
-          "client",
-          "beneficiary_name",
-          "assignee",
-          "started_at",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "TicketSummary"
       },
       "TicketUpdate": {
         "properties": {

@@ -7,6 +7,7 @@ from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 TicketType = Literal["incident", "request", "task"]
 StatusKind = Literal["approval", "open", "waiting", "closed", "canceled"]
 TransitionAction = Literal["wait", "resume", "close", "reopen", "cancel"]
+TicketView = Literal["unassigned", "mine", "news", "waiting", "watching", "all"]
 Body = Annotated[str, Field(min_length=1, max_length=50_000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
 
@@ -73,9 +74,29 @@ class TicketOut(TicketSummary):
     )
 
 
+class TicketListItem(TicketSummary):
+    has_news: bool = Field(description="comentário de outra pessoa desde a minha última visita")
+
+
 class TicketPage(BaseModel):
-    items: list[TicketSummary]
+    items: list[TicketListItem]
     next_cursor: str | None
+
+
+class TicketCounts(BaseModel):
+    """Quantos chamados há em cada fila (as abas da lista)."""
+
+    unassigned: int
+    mine: int
+    news: int
+    waiting: int
+    watching: int
+
+
+class NextIn(BaseModel):
+    team_id: uuid.UUID | None = Field(
+        default=None, description="sem grupo, a fila de todos os meus grupos"
+    )
 
 
 class TicketCreate(BaseModel):
