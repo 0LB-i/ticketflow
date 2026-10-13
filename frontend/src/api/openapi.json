@@ -2980,7 +2980,7 @@
               }
             ],
             "title": "Id Number",
-            "description": "RG (PF)"
+            "description": "RG (PF), só números, até 14"
           },
           "birth_date": {
             "anyOf": [
@@ -3178,7 +3178,7 @@
               }
             ],
             "title": "Id Number",
-            "description": "RG (PF)"
+            "description": "RG (PF), só números, até 14"
           },
           "birth_date": {
             "anyOf": [

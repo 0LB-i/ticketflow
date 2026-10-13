@@ -140,6 +140,7 @@ EN: dict[str, str] = {
     "Celular inválido: informe o DDD e o número.": (
         "Invalid mobile: enter the area code and the number."
     ),
+    "RG inválido: só números, até 14.": "Invalid ID (RG): digits only, up to 14.",
     "CEP inválido: são 8 números.": "Invalid postal code (CEP): it has 8 digits.",
     "UF inválida.": "Invalid state.",
     "Já existe um cliente com este CPF/CNPJ.": "A client with this CPF/CNPJ already exists.",

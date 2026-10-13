@@ -65,6 +65,25 @@ describe('ClientFormView', () => {
     })
   })
 
+  it('CPF e RG só aceitam números: o CPF no máximo 11, o RG no máximo 14', async () => {
+    simularApi({ 'GET /api/v1/me': [200, ME] })
+    const w = montar(ClientFormView, { global: { plugins: [criarRouter()] } })
+    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    const campo = (rotulo: string) => {
+      const label = w.findAll('label').find((l) => l.text().replace(' *', '') === rotulo)!
+      return w.get<HTMLInputElement>(`#${label.attributes('for')}`).element
+    }
+    await digitar(w, 'CPF', '529.982.247-25')
+    await digitar(w, 'CPF', '529.982.247-251')
+    await vi.waitFor(() => expect(campo('CPF').value).toBe('529.982.247-25'))
+    await digitar(w, 'CPF', '529.982.247-25a')
+    await vi.waitFor(() => expect(campo('CPF').value).toBe('529.982.247-25'))
+    await digitar(w, 'RG', '12.345.678-x9')
+    await vi.waitFor(() => expect(campo('RG').value).toBe('123456789'))
+    await digitar(w, 'RG', '123456789012345')
+    await vi.waitFor(() => expect(campo('RG').value).toBe('12345678901234'))
+  })
+
   it('não envia com CPF inválido e campos obrigatórios vazios', async () => {
     const feitas = simularApi({ 'GET /api/v1/me': [200, ME] })
     const w = montar(ClientFormView, { global: { plugins: [criarRouter()] } })
