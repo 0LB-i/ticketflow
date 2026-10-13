@@ -54,8 +54,8 @@ Ao concluir um item, marque `feito` e anote o commit.
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
-| F1-S4-01 | **Upload em duas etapas**, validação de tipo e tamanho, armazenamento local | feito | |
-| F1-S4-02 | Download com verificação de permissão; imagens coladas no editor | feito | |
+| F1-S4-01 | **Upload em duas etapas**, validação de tipo e tamanho, armazenamento local | feito | e7d0f2a |
+| F1-S4-02 | Download com verificação de permissão; imagens coladas no editor | feito | e7d0f2a |
 | F1-S4-03 | **Outbox + worker + fila de tarefas** no PostgreSQL | a fazer | |
 | F1-S4-04 | **Notificações por e-mail** (templates em pt-BR) | a fazer | |
 | F1-S4-05 | **Filas**: não atribuídos, meus chamados, com novidades, aguardando, acompanhando, todos do grupo | feito | d7dc992 |
