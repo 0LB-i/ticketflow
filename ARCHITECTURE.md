@@ -46,8 +46,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 │   └── src/               código (seção 4)
 ├── scripts/               check.sh, install-hooks.sh, deploy.sh, backup.sh, instalar-servico-dev.sh,
 │                          preparar-maquina-dev.sh (Ubuntu 24.04 novo pronto para desenvolver)
-├── deploy/                units do systemd (app, worker, backup) e nginx.conf
-└── docker-compose.yml     só desenvolvimento: PostgreSQL 17 e Mailpit
+└── deploy/                units do systemd (app, worker, backup) e nginx.conf
 ```
 
 Convenção de nomes ([ADR 0001](docs/adr/0001-registro-de-decisoes.md)): **código, banco e API em inglês** (`ticket`, `assignee`); **documentação, mensagens, testes e comentários em português**. No frontend, variáveis e funções de tela também estão em português (`chamado`, `mudarStatus`), enquanto os tipos vindos da API mantêm os nomes em inglês.
@@ -372,7 +371,7 @@ modelos Pydantic (backend) ──chamados openapi──► openapi.json ──op
 
 | Ambiente | Como |
 |----------|------|
-| **Desenvolvimento, terminais** | PostgreSQL nativo ou `docker compose up -d db`; `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `pnpm dev` (porta 5173, repassa `/api` para a 8000). Ver o [README](README.md#como-rodar-desenvolvimento) |
+| **Desenvolvimento, terminais** | PostgreSQL nativo (17 na 5432, 16 na 5433; numa máquina nova, `scripts/preparar-maquina-dev.sh`); `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `pnpm dev` (porta 5173, repassa `/api` para a 8000). Ver o [README](README.md#como-rodar-desenvolvimento) |
 | **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: instala o `ticketflow.service` com a unit da produção e um ajuste local (escuta em `0.0.0.0:8000`, sem nginx), compila o frontend e aplica as migrações |
 | **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`; backup diário por `scripts/backup.sh` (timer). Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 

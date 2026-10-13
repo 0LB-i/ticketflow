@@ -11,6 +11,7 @@ A primeira instalação é a da Martiniti: até 50 usuários, um único servidor
 ## Decisão
 
 - **Sem Docker em produção.** O Docker Compose continua só no desenvolvimento (PostgreSQL + Mailpit).
+  - *Atualização (2026-10-13):* o Docker Compose de desenvolvimento também saiu. O ambiente de desenvolvimento é nativo, preparado por `scripts/preparar-maquina-dev.sh`; sem SMTP, os e-mails aparecem no log.
 - **Serviços systemd:**
   - `ticketflow.service`: uvicorn servindo a API e os arquivos estáticos da SPA (`frontend/dist`), escutando só em `127.0.0.1`;
   - `ticketflow-worker.service`: fila de tarefas e rotinas periódicas.

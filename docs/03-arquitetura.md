@@ -33,7 +33,7 @@ Princípios, escolhas de tecnologia e arquitetura-alvo. Para o mapa do código c
 | Qualidade (backend) | ruff, mypy (strict), pytest com PostgreSQL real (16 e 17) | Ver [12.7](12-processo-de-desenvolvimento.md#127-estratégia-de-testes) |
 | Qualidade (frontend) | ESLint, Prettier, vue-tsc, Vitest, Playwright (testes ponta a ponta) | |
 | Observabilidade | structlog (logs estruturados no journald); OpenTelemetry e métricas só se houver necessidade | |
-| Execução | systemd + uvicorn atrás do nginx; Docker Compose só em desenvolvimento | Ver [ADR 0010](adr/0010-producao-systemd.md) |
+| Execução | systemd + uvicorn atrás do nginx; sem Docker (nem em desenvolvimento) | Ver [ADR 0010](adr/0010-producao-systemd.md) |
 
 ## Visão de componentes
 
@@ -110,5 +110,5 @@ navegador ──HTTPS──► nginx ──► uvicorn (ticketflow.service) ─�
 - A SPA compilada é servida pelo próprio uvicorn, **na mesma origem** da API: sem CORS e com o cookie de sessão funcionando sem configuração extra.
 - Logs vão para o journald (`journalctl -u ticketflow`).
 - **Atualização:** `scripts/deploy.sh` (git pull, dependências, build do frontend, migrações). Quem reinicia os serviços é o usuário.
-- **Desenvolvimento:** PostgreSQL nativo ou `docker compose` (PostgreSQL 17, Mailpit para capturar e-mails), backend com `uvicorn --reload` e frontend com `pnpm dev` (Vite); ou o serviço systemd local, instalado por `scripts/instalar-servico-dev.sh` ([README](../README.md#como-rodar-desenvolvimento)).
+- **Desenvolvimento:** PostgreSQL 17 e 16 nativos (numa máquina nova, `scripts/preparar-maquina-dev.sh`), backend com `uvicorn --reload` e frontend com `pnpm dev` (Vite); ou o serviço systemd local, instalado por `scripts/instalar-servico-dev.sh` ([README](../README.md#como-rodar-desenvolvimento)).
 - **Backup:** `pg_dump` diário + cópia de `/var/lib/ticketflow/files`.

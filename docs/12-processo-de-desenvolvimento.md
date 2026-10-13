@@ -39,10 +39,10 @@ docs/10-chamados.md#transferência
 | Quando | Comando | O que roda |
 |--------|---------|------------|
 | Antes de cada commit (hook `pre-commit`, instalado por `scripts/install-hooks.sh`) | `scripts/check.sh --rapido` | `ruff check`, `ruff format --check`, ESLint e Prettier nos arquivos alterados |
-| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy`, `pytest` com cobertura no PostgreSQL 17 do Docker Compose, `vue-tsc`, Vitest, `vite build` e a verificação do contrato (OpenAPI e cliente TypeScript sem diferença não commitada) |
+| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy`, `pytest` com cobertura no PostgreSQL 17 (porta 5432), `vue-tsc`, Vitest, `vite build` e a verificação do contrato (OpenAPI e cliente TypeScript sem diferença não commitada) |
 | Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima + `pytest` também no **PostgreSQL 16**, Playwright e auditoria de dependências (`pip-audit`, `pnpm audit`) |
 
-- O `check.sh` sobe o banco de teste com o Docker Compose se ele não estiver rodando.
+- O `check.sh` para com uma mensagem clara se o PostgreSQL não estiver respondendo.
 - **Dependências:** sem Dependabot, a atualização é uma rotina mensal registrada no `TAREFAS.md`: `uv lock --upgrade`, `pnpm update`, verificação completa e commit.
 - **Segredos:** `.env` e chaves nunca entram no repositório (`.gitignore`); o `check.sh` falha se encontrar padrões de chave nos arquivos alterados.
 
@@ -72,7 +72,7 @@ Uma tarefa só fica `feito` quando:
 
 | Ambiente | Para quê |
 |----------|----------|
-| **Local** | Desenvolvimento: PostgreSQL 17 e 16 nativos (ou Docker Compose com banco e Mailpit) + `uvicorn --reload` + `pnpm dev`, ou o serviço systemd local (`scripts/instalar-servico-dev.sh`). Também é onde roda a verificação (12.3) e, quando existir, a demonstração com `chamados dev seed` |
+| **Local** | Desenvolvimento: PostgreSQL 17 e 16 nativos (`scripts/preparar-maquina-dev.sh` prepara uma máquina nova) + `uvicorn --reload` + `pnpm dev`, ou o serviço systemd local (`scripts/instalar-servico-dev.sh`). Também é onde roda a verificação (12.3) e, quando existir, a demonstração com `chamados dev seed` |
 | **Produção** | Servidor da Martiniti, com serviços systemd, atualizado pelo script de deploy ([18](18-manual-do-servidor.md)) |
 
 Não há homologação separada: com um único desenvolvedor, mais um servidor seria mais trabalho de manutenção do que ganho. O treinamento da equipe é feito na própria produção, antes da virada, num grupo **Treinamento** que é desativado depois ([16.5](16-implantacao.md#165-treinamento-1-hora)). Se o sistema for instalado em outras empresas, a homologação volta a ser avaliada.
@@ -82,7 +82,7 @@ Não há homologação separada: com um único desenvolvedor, mais um servidor s
 | Nível | Ferramenta | Cobre |
 |-------|------------|-------|
 | Unitário (backend) | pytest | Regras puras: matriz de prioridade, transições |
-| Integração (backend) | pytest + PostgreSQL real (banco `chamados_test`, nativo ou do Docker Compose) | Services e endpoints com PostgreSQL real |
+| Integração (backend) | pytest + PostgreSQL real (banco `chamados_test`) | Services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
 | Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |
 | Ponta a ponta | Playwright | Fluxos completos: registrar → assumir → aguardar → concluir → reabrir; aprovação; transferência |
