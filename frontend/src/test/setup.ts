@@ -6,6 +6,9 @@ import type { Component } from 'vue'
 
 import { i18n } from '@/i18n'
 
+// O jsdom não tem scrollIntoView, que a lista do Combobox (Reka UI) chama ao abrir.
+Element.prototype.scrollIntoView ??= () => {}
+
 /**
  * Monta um componente com os mesmos plugins da aplicação (router só se for passado).
  * O `queryClient` do teste fica junto do wrapper, para conferir o cache.

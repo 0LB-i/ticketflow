@@ -11,7 +11,10 @@ export type TipoCliente = Cliente['kind']
 const erro = () => i18n.global.t('comum.erroInesperado')
 
 /** Lista paginada pela API, com a busca e os inativos como filtros. */
-export function useClientes(filtro: MaybeRefOrGetter<{ q: string; inativos: boolean }>) {
+export function useClientes(
+  filtro: MaybeRefOrGetter<{ q: string; inativos: boolean }>,
+  ativa: MaybeRefOrGetter<boolean> = true,
+) {
   return useQuery({
     queryKey: computed(() => ['clientes', toValue(filtro)]),
     queryFn: async () => {
@@ -24,6 +27,7 @@ export function useClientes(filtro: MaybeRefOrGetter<{ q: string; inativos: bool
       )
     },
     placeholderData: keepPreviousData,
+    enabled: computed(() => toValue(ativa)),
   })
 }
 

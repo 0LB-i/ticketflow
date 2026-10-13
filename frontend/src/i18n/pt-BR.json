@@ -339,7 +339,13 @@
       "observadorRemovido": "Observador removido",
       "acompanhando": "Você está acompanhando o chamado",
       "deixouDeAcompanhar": "Você deixou de acompanhar o chamado"
-    }
+    },
+    "cliente": "Cliente",
+    "contato": "Contato",
+    "contatoDica": "Quem pediu o atendimento.",
+    "buscarCliente": "Buscar por nome ou CPF/CNPJ",
+    "nenhumCliente": "Nenhum cliente encontrado.",
+    "tirarCliente": "Tirar o cliente"
   },
   "editarChamado": {
     "titulo": "Editar chamado #{numero}",
@@ -371,7 +377,8 @@
       "category": "categoria",
       "type": "tipo",
       "department": "setor",
-      "beneficiary_name": "pessoa atendida",
+      "client": "cliente",
+      "beneficiary_name": "contato",
       "impact": "impacto",
       "urgency": "urgência",
       "priority": "prioridade",

@@ -6,7 +6,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 - **O que** o sistema faz (regras de negócio): [docs/08](docs/08-organizacao-e-permissoes.md), [docs/10](docs/10-chamados.md) e os demais documentos em [docs/](docs/).
 - **Em que ponto está** cada item do roadmap: [TAREFAS.md](TAREFAS.md).
 
-Situação em 2026-10-10: Fase 0, Sprint 2, Sprint 3 e as Configurações (F1-S3-11) prontas. A seção 10 lista o que ainda não existe.
+Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11) e o cadastro de clientes, já ligado aos chamados, prontos. A seção 10 lista o que ainda não existe.
 
 ---
 
@@ -38,7 +38,7 @@ Ainda **não existem** o worker (fila de tarefas e e-mails assíncronos) nem o a
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0010
+│   ├── migrations/        Alembic: env.py e versions/0001…0011
 │   ├── src/chamados/      código (seção 3)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
@@ -148,7 +148,8 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Status personalizados:** o admin cria (nome + `kind`: open, waiting, closed, canceled), renomeia, ordena (`PUT /statuses/order`) e remove em Configurações (`admin.settings`). O `kind` não muda depois de criado. Cada `kind` precisa de ao menos um status; ao remover, os chamados vão para o padrão do mesmo `kind`, e se o removido era o padrão o próximo da lista assume. O primeiro status criado de um `kind` vira o padrão. Ações em `audit_log` (`ticket_status.*`).
 - **Status no formulário:** além das transições do fluxo, a ação `set_status` (quem tem `ticket.transition` no grupo) escolhe qualquer status no registro (`status_id`, padrão Pendente) e na edição, sem comentário nem código de resolução. `_apply_status` acerta `closed_at` e conta a reabertura ao sair de um `closed`. O evento é `ticket.status_changed` sem `action`.
 - **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
-- **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, `DateTimeField` acompanha a hora atual até ser mudado. Setor e pessoa atendida (`department_id`, `beneficiary_name`) continuam na API, mas saíram da interface até serem redesenhados.
+- **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, `DateTimeField` acompanha a hora atual até ser mudado.
+- **Cliente e contato:** para quem é o trabalho. `client_id` é opcional e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); `null` no PATCH tira o cliente. O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o `ClientPicker` busca na API de clientes (`client.view`, que todos os papéis têm). O setor atendido (`department_id`) continua na API, mas saiu da interface.
 - **Histórico:** cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
 - **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids`: o texto guarda só "@Nome".
@@ -174,7 +175,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - Documentos, telefones e CEP são gravados sem pontuação; a interface formata (`composables/documentos.ts`). O CNPJ aceita o formato alfanumérico (julho de 2026): mesmo cálculo dos dígitos, com o valor de cada caractere = ASCII − 48.
 - A validação fica no router (`_clean`), com mensagens do catálogo de idiomas. O formulário envia o cadastro inteiro (`PUT`).
 - Permissões: `client.view` (agente, admin, auditor) e `client.manage` (agente, admin). A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
-- Ainda não há ligação com os chamados.
+- Ligação com os chamados: `tickets.client_id` (3.5).
 
 ### 3.8 Auditoria × histórico
 
@@ -200,6 +201,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0008` | Status "Entregue" (`closed`, não é o padrão do kind) |
 | `0009` | "Aguardando" passa a "Aguardando cliente" |
 | `0010` | `clients` e as permissões `client.view`/`client.manage` nos papéis |
+| `0011` | `tickets.client_id` (cliente do chamado, opcional) |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -238,7 +240,7 @@ src/
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
 │   ├── admin/           StatusSettings (status dos chamados, dentro de Configurações)
 │   ├── editor/          RichEditor (Tiptap → Markdown, @menções), MarkdownView, markdown.ts
-│   └── tickets/         TicketTimeline, CommentBox, TicketDetails, TicketEditPanel, eventos.ts
+│   └── tickets/         TicketTimeline, CommentBox, TicketDetails, TicketEditPanel, ClientPicker, eventos.ts
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
 ├── i18n/                index.ts, pt-BR.json, en.json
 ├── assets/main.css      Tailwind 4 + tokens de cor (--tf-*) dos modos claro e escuro

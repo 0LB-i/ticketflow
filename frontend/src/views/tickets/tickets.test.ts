@@ -55,12 +55,43 @@ function marcar(w: ReturnType<typeof montar>, texto: string) {
     .setValue()
 }
 
+const PADARIA = {
+  id: '00000000-0000-0000-0000-0000000000e1',
+  kind: 'company',
+  name: 'Padaria Pão Quente',
+  trade_name: 'Pão Quente',
+  document: '11222333000181',
+  email: 'contato@paoquente.com.br',
+  phone: '1133334444',
+  city: 'São Paulo',
+  state: 'SP',
+  is_active: true,
+}
+/** Campo de texto pelo rótulo. */
+function campo(w: ReturnType<typeof montar>, rotulo: string) {
+  const label = w.findAll('label').find((l) => l.text() === rotulo)!
+  return w.get(`#${CSS.escape(label.attributes('for')!)}`)
+}
+/** Digita no seletor de cliente e escolhe o resultado, como um usuário. */
+async function escolherCliente(w: ReturnType<typeof montar>, nome: string) {
+  await campo(w, 'Cliente').setValue(nome.slice(0, 4))
+  const item = await vi.waitFor(() => {
+    const encontrado = [...document.querySelectorAll('[role=option]')].find((o) =>
+      o.textContent?.includes(nome),
+    )
+    expect(encontrado).toBeTruthy()
+    return encontrado as HTMLElement
+  })
+  item.click()
+}
+
 describe('NewTicketView', () => {
   it('registra com o grupo, o status e o responsável escolhidos', async () => {
     const feitas = simularApi({
       'GET /api/v1/me': [200, { ...ME, permissions: ['ticket.create', 'ticket.transition'] }],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS],
+      'GET /api/v1/clients': [200, { items: [PADARIA], total: 1 }],
       'POST /api/v1/tickets': [201, { number: 1000, title: 'Impressora parada' }],
     })
     const router = criarRouter()
@@ -70,6 +101,8 @@ describe('NewTicketView', () => {
     await vi.waitFor(() => expect(w.text()).toContain('Pendente')) // o padrão
     await escolher('Status', 'Entregue')
     await w.get('input[type=text]').setValue('Impressora parada')
+    await escolherCliente(w, 'Padaria Pão Quente')
+    await campo(w, 'Contato').setValue('Maria')
     await marcar(w, 'Deixar na fila')
     await w.get('form').trigger('submit')
 
@@ -80,6 +113,8 @@ describe('NewTicketView', () => {
       team_id: TI,
       status_id: 5,
       started_at: null,
+      client_id: PADARIA.id,
+      beneficiary_name: 'Maria',
       urgency: 1,
       impact: 1,
       assignee: null,
@@ -160,7 +195,8 @@ const CHAMADO = {
   team: { id: TI, name: 'TI' },
   category: { id: IMPRESSAO, name: 'Impressão', path: 'Impressão' },
   department: null,
-  beneficiary_name: null,
+  client: { id: '00000000-0000-0000-0000-0000000000e1', name: 'Padaria Pão Quente' },
+  beneficiary_name: 'Maria',
   assignee: null,
   started_at: '2026-10-10T11:30:00Z',
   created_at: '2026-10-10T12:00:00Z',
@@ -214,6 +250,8 @@ describe('TicketView', () => {
     expect(w.find('strong').text()).toBe('offline')
     expect(w.text()).toContain('Bia transferiu de Infra para TI')
     expect(w.text()).toContain('10/10/2026, 08:30') // início, no fuso de São Paulo
+    expect(w.text()).toContain('Padaria Pão Quente')
+    expect(w.text()).toContain('Maria')
     const botoes = w.findAll('button').map((b) => b.text())
     expect(botoes).toContain('Assumir')
     expect(botoes).toContain('Transferir')

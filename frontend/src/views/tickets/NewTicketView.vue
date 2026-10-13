@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import RichEditor from '@/components/editor/RichEditor.vue'
+import ClientPicker from '@/components/tickets/ClientPicker.vue'
 import Button from '@/components/ui/Button.vue'
 import DateTimeField from '@/components/ui/DateTimeField.vue'
 import RadioGroup from '@/components/ui/RadioGroup.vue'
@@ -35,6 +36,8 @@ const form = reactive({
   description: '',
   // Início do trabalho: nulo acompanha a hora atual até a pessoa mudar.
   inicio: null as string | null,
+  cliente: null as { id: string; name: string } | null,
+  contato: '',
   responsavel: 'me' as 'me' | 'fila' | 'outro',
   outro: '',
   observadores: [] as string[],
@@ -115,6 +118,8 @@ async function enviar() {
       team_id: form.team,
       status_id: podeEscolherStatus.value && form.status ? Number(form.status) : null,
       started_at: form.inicio,
+      client_id: form.cliente?.id ?? null,
+      beneficiary_name: form.contato.trim() || null,
       // Impacto e urgência saíram da tela por enquanto: vão no mínimo (prioridade baixa).
       urgency: 1,
       impact: 1,
@@ -198,6 +203,15 @@ async function enviar() {
             :label="$t('chamados.status')"
             :options="opcoesStatus"
           />
+
+          <div class="flex flex-col gap-4 border-t border-border pt-4">
+            <ClientPicker v-model="form.cliente" :label="$t('chamado.cliente')" />
+            <TextField
+              v-model="form.contato"
+              :label="$t('chamado.contato')"
+              :hint="$t('chamado.contatoDica')"
+            />
+          </div>
 
           <div class="flex flex-col gap-3 border-t border-border pt-4">
             <RadioGroup

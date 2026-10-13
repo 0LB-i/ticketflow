@@ -22,6 +22,7 @@ const linhas = computed(() => chamados.data.value?.pages.flatMap((p) => p.items)
 const colunas = computed(() => [
   { key: 'number', label: t('chamados.numero') },
   { key: 'title', label: t('chamados.tituloColuna') },
+  { key: 'client', label: t('chamado.cliente'), class: 'hidden md:table-cell' },
   { key: 'inicio', label: t('chamado.inicio'), class: 'hidden lg:table-cell' },
   { key: 'priority', label: t('chamado.prioridade') },
   { key: 'status', label: t('chamados.status') },
@@ -48,6 +49,7 @@ const colunas = computed(() => [
             {{ row.title }}
           </RouterLink>
         </template>
+        <template #cell-client="{ row }">{{ row.client?.name ?? '—' }}</template>
         <template #cell-inicio="{ row }">
           <span class="tabular-nums">{{ formatarDataHora(row.started_at) }}</span>
         </template>

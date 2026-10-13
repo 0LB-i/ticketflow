@@ -339,7 +339,13 @@
       "observadorRemovido": "Watcher removed",
       "acompanhando": "You are watching the ticket",
       "deixouDeAcompanhar": "You stopped watching the ticket"
-    }
+    },
+    "cliente": "Client",
+    "contato": "Contact",
+    "contatoDica": "Who asked for the work.",
+    "buscarCliente": "Search by name or tax ID",
+    "nenhumCliente": "No client found.",
+    "tirarCliente": "Remove the client"
   },
   "editarChamado": {
     "titulo": "Edit ticket #{numero}",
@@ -371,7 +377,8 @@
       "category": "category",
       "type": "type",
       "department": "department",
-      "beneficiary_name": "person served",
+      "client": "client",
+      "beneficiary_name": "contact",
       "impact": "impact",
       "urgency": "urgency",
       "priority": "priority",

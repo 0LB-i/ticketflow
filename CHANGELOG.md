@@ -18,6 +18,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Sprint 3 (telas): novo chamado, detalhe do chamado (linha do tempo, comentários com editor Tiptap e @menções, ações de status, atribuição, transferência, observadores, edição de campos e prioridade), lista simples de chamados e administração de categorias. Botão "Novo chamado" no cabeçalho.
 - Configurações (`/admin/configuracoes`): idioma padrão do sistema (português ou inglês) e idioma de cada usuário no menu do usuário; as três cores da identidade, com a paleta derivada e os tons ajustados para manter o contraste; logotipo da empresa. Interface, mensagens de erro da API e e-mails em inglês.
 - Migração `0005`: tabela `settings` e `users.locale`.
+- Cliente e contato no chamado: o registro e a edição escolhem um cliente do cadastro (busca por nome ou CPF/CNPJ) e informam quem pediu; a lista de chamados mostra o cliente. Migração `0011`: `tickets.client_id`.
 - Migração `0004`: categorias, status, códigos de resolução, chamados, grupos que atuaram, observadores, comentários e histórico (só aceita inserção).
 
 ### Variáveis de ambiente

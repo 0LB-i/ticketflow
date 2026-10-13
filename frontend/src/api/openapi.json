@@ -4183,6 +4183,18 @@
             ],
             "title": "Department Id"
           },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
           "beneficiary_name": {
             "anyOf": [
               {
@@ -4193,7 +4205,8 @@
                 "type": "null"
               }
             ],
-            "title": "Beneficiary Name"
+            "title": "Beneficiary Name",
+            "description": "contato: quem pediu (texto livre)"
           },
           "started_at": {
             "anyOf": [
@@ -4327,6 +4340,16 @@
               }
             ]
           },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "beneficiary_name": {
             "anyOf": [
               {
@@ -4336,7 +4359,8 @@
                 "type": "null"
               }
             ],
-            "title": "Beneficiary Name"
+            "title": "Beneficiary Name",
+            "description": "contato: quem pediu (texto livre)"
           },
           "assignee": {
             "anyOf": [
@@ -4435,6 +4459,7 @@
           "team",
           "category",
           "department",
+          "client",
           "beneficiary_name",
           "assignee",
           "started_at",
@@ -4528,6 +4553,16 @@
               }
             ]
           },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "beneficiary_name": {
             "anyOf": [
               {
@@ -4537,7 +4572,8 @@
                 "type": "null"
               }
             ],
-            "title": "Beneficiary Name"
+            "title": "Beneficiary Name",
+            "description": "contato: quem pediu (texto livre)"
           },
           "assignee": {
             "anyOf": [
@@ -4576,6 +4612,7 @@
           "team",
           "category",
           "department",
+          "client",
           "beneficiary_name",
           "assignee",
           "started_at",
@@ -4648,6 +4685,19 @@
             ],
             "title": "Department Id"
           },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id",
+            "description": "nulo tira o cliente"
+          },
           "beneficiary_name": {
             "anyOf": [
               {
@@ -4658,7 +4708,8 @@
                 "type": "null"
               }
             ],
-            "title": "Beneficiary Name"
+            "title": "Beneficiary Name",
+            "description": "contato: quem pediu (texto livre)"
           },
           "started_at": {
             "anyOf": [

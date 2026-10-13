@@ -20,6 +20,7 @@ const CHAMADO: Chamado = {
   team: { id: 't', name: 'TI' },
   category: { id: 'c', name: 'Impressão', path: 'Impressão' },
   department: null,
+  client: null,
   beneficiary_name: null,
   assignee: null,
   started_at: '2026-10-10T11:30:00Z',
@@ -74,6 +75,38 @@ describe('TicketEditPanel', () => {
     document.querySelector<HTMLFormElement>('#form-editar-chamado')!.requestSubmit()
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ priority: null }),
+    )
+  })
+
+  it('troca o contato e tira o cliente: só vai o que mudou', async () => {
+    const feitas = simularApi({ 'PATCH /api/v1/tickets/1000': [200, CHAMADO] })
+    montar(TicketEditPanel, {
+      props: {
+        chamado: {
+          ...CHAMADO,
+          client: { id: 'p', name: 'Padaria Pão Quente' },
+          beneficiary_name: 'Maria',
+          allowed_actions: ['edit'],
+        },
+        open: false,
+      },
+    }).setProps({ open: true })
+    const campo = await vi.waitFor(() => {
+      const label = [...document.querySelectorAll('label')].find((l) => l.textContent === 'Contato')
+      expect(label).toBeTruthy()
+      return document.getElementById(label!.htmlFor) as HTMLInputElement
+    })
+    expect(campo.value).toBe('Maria')
+    campo.value = '  João '
+    campo.dispatchEvent(new Event('input'))
+    document.querySelector<HTMLButtonElement>('[aria-label="Tirar o cliente"]')!.click()
+
+    document.querySelector<HTMLFormElement>('#form-editar-chamado')!.requestSubmit()
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({
+        client_id: null,
+        beneficiary_name: 'João',
+      }),
     )
   })
 })
