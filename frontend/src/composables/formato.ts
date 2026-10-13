@@ -48,3 +48,23 @@ export function instante(data: string, hora: string): Date {
   const noFuso = dataEHora(new Date(comoUtc))
   return new Date(comoUtc - (utc(noFuso.data, noFuso.hora) - comoUtc))
 }
+
+const relativos = new Map<string, Intl.RelativeTimeFormat>()
+const UNIDADES: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['day', 86_400_000],
+  ['hour', 3_600_000],
+  ['minute', 60_000],
+]
+
+/** Há quanto tempo, na maior unidade que couber ("há 3 dias", "há 15 min"). */
+export function formatarHaQuanto(iso: string, agora = Date.now()): string {
+  const idioma = idiomaAtual()
+  let formato = relativos.get(idioma)
+  if (!formato) {
+    formato = new Intl.RelativeTimeFormat(idioma, { numeric: 'auto', style: 'short' })
+    relativos.set(idioma, formato)
+  }
+  const passado = Math.max(0, agora - new Date(iso).getTime())
+  const [unidade, ms] = UNIDADES.find(([, ms]) => passado >= ms) ?? ['minute', 60_000]
+  return formato.format(-Math.floor(passado / ms), unidade)
+}

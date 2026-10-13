@@ -148,7 +148,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 | **Com novidades** | Meus chamados com comentário novo de outra pessoa, recém-aprovados ou reabertos | Todos |
 | **Aguardando** | Chamados dos meus grupos parados em `waiting` | Todos |
 | **Acompanhando** | Chamados em que sou observador | Todos |
-| **Todos do grupo** | Tudo do grupo, com filtro por responsável e status | Todos |
+| **Todos** | Tudo o que vejo, com filtro por grupo, responsável e status | Todos |
 | **Aprovações** | Chamados aguardando a minha aprovação | Supervisores (Fase 2) |
 
 **Ordenação padrão:** primeiro a prioridade, depois a data de registro (mais antigo primeiro).

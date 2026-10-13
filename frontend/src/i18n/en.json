@@ -3,7 +3,8 @@
     "nome": "TicketFlow",
     "abrirMenu": "Open menu",
     "fecharMenu": "Close menu",
-    "pularParaConteudo": "Skip to content"
+    "pularParaConteudo": "Skip to content",
+    "buscar": "Search tickets (number or text)"
   },
   "menu": {
     "titulo": "Main menu",
@@ -238,7 +239,44 @@
     "numero": "Number",
     "tituloColuna": "Title",
     "status": "Status",
-    "carregarMais": "Load more"
+    "carregarMais": "Load more",
+    "filas": "Queues",
+    "abas": {
+      "unassigned": "Unassigned",
+      "mine": "Mine",
+      "news": "With updates",
+      "waiting": "Waiting",
+      "watching": "Watching",
+      "all": "All"
+    },
+    "filtros": {
+      "todosOsGrupos": "All teams",
+      "todas": "All",
+      "todos": "All",
+      "eu": "Me",
+      "ninguem": "Unassigned",
+      "kinds": {
+        "open": "Open",
+        "waiting": "On hold",
+        "closed": "Closed",
+        "canceled": "Canceled"
+      }
+    },
+    "ultimaMovimentacao": "Last activity",
+    "novidade": "New comment from someone else",
+    "pegarProximo": "Take next",
+    "pegou": "You took ticket #{numero}",
+    "resultadosPara": "Search results for “{q}”",
+    "limparBusca": "Clear search",
+    "vazio": {
+      "unassigned": "The queue is empty.",
+      "mine": "No tickets with you. How about taking the next one from the queue?",
+      "news": "No updates on your tickets.",
+      "waiting": "No tickets waiting.",
+      "watching": "You are not watching any open ticket.",
+      "all": "No tickets found.",
+      "busca": "No tickets match this search."
+    }
   },
   "novoChamado": {
     "titulo": "New ticket",

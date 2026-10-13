@@ -6,7 +6,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 - **O que** o sistema faz (regras de negócio): [docs/08](docs/08-organizacao-e-permissoes.md), [docs/10](docs/10-chamados.md) e os demais documentos em [docs/](docs/).
 - **Em que ponto está** cada item do roadmap: [TAREFAS.md](TAREFAS.md).
 
-Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11) e o cadastro de clientes, já ligado aos chamados, prontos. A seção 10 lista o que ainda não existe.
+Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e o "Pegar o próximo" prontos. A seção 10 lista o que ainda não existe.
 
 ---
 
@@ -38,7 +38,7 @@ Ainda **não existem** o worker (fila de tarefas e e-mails assíncronos) nem o a
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0011
+│   ├── migrations/        Alembic: env.py e versions/0001…0012
 │   ├── src/chamados/      código (seção 3)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
@@ -153,7 +153,11 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Histórico:** cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
 - **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids`: o texto guarda só "@Nome".
-- **Lista:** ordenação padrão (prioridade desc., mais antigo primeiro) com paginação por cursor (base64 de prioridade, data e id).
+- **Lista:** ordenação padrão (prioridade desc., mais antigo primeiro) com paginação por cursor (base64 de prioridade, data e id). Filtros: `team`, `assignee`, `status` (kinds), `priority` e `q`.
+- **Filas:** o parâmetro `view` da lista (`service.view_filter`): `unassigned` (meus grupos, sem responsável, `open`), `mine` (sou o responsável, `open`/`waiting`), `news` (sou o responsável e há novidade), `waiting` (meus grupos, `waiting`), `watching` (sou observador, `open`/`waiting`) e `all` (tudo o que vejo). `GET /tickets/counts` conta as cinco primeiras numa consulta só.
+- **Novidade:** comentário de outra pessoa depois da minha última visita (`has_news` em cada item da lista). A visita fica em `ticket_reads` e é gravada pelo `GET /tickets/{id}` (`service.mark_read`). A reabertura exige comentário, por isso também vira novidade.
+- **Busca (`q`):** `search_vector` (colunas geradas, índice GIN) em `tickets` (título peso A, descrição peso B) e em `ticket_comments`, na configuração `pt_br` (português sem acentos). Cada palavra vira prefixo (`impress:*`) e todas precisam aparecer. Também acha pelo número (`1234` ou `#1234`), pelo nome do cliente e pelo contato (`unaccent` + `ILIKE`). Passa pelo filtro de visibilidade como qualquer leitura.
+- **Pegar o próximo:** `POST /tickets/next` (`service.take_next`) trava o primeiro da fila `unassigned` com `FOR UPDATE SKIP LOCKED` (dois cliques ao mesmo tempo pegam chamados diferentes) e o assume pelo `assign` comum; fila vazia responde 404.
 
 ### 3.6 Idiomas (backend)
 
@@ -202,6 +206,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0009` | "Aguardando" passa a "Aguardando cliente" |
 | `0010` | `clients` e as permissões `client.view`/`client.manage` nos papéis |
 | `0011` | `tickets.client_id` (cliente do chamado, opcional) |
+| `0012` | `ticket_reads` (última visita, para as novidades) e `search_vector` em `tickets` e `ticket_comments` |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -259,7 +264,7 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['chamados']`, `['chamado', numero]`, `['chamado', numero, 'comentarios' | 'eventos']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['codigos-resolucao']`, `['clientes', filtro]`, `['cliente', id]`.
+- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios' | 'eventos']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['codigos-resolucao']`, `['clientes', filtro]`, `['cliente', id]`.
 - **Escrita:** `useAlteracao(fn, chaves)` (admin) e `useAcaoNoChamado(numero, fn)` (chamados) fazem a mutação e invalidam as chaves afetadas.
 - **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
 
@@ -269,7 +274,7 @@ src/
 |------|------|--------|
 | `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | `views/auth/` | Público |
 | `/trocar-senha` | Troca obrigatória da senha provisória | Logado |
-| `/chamados` | Lista simples (as abas das filas são da Sprint 4). É a tela inicial: `/` redireciona para cá | Logado |
+| `/chamados` | Filas em abas com contadores (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos), filtros de grupo e prioridade (status e responsável na aba Todos), "Pegar o próximo". Aba e filtros na URL (`?aba=todos&grupo=…&prioridade=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
 | `/chamados/novo` | Registro | `ticket.create` |
 | `/chamados/:numero` | Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
 | `/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail) | `client.view` |
@@ -278,7 +283,7 @@ src/
 | `/admin/configuracoes` | Idioma, cores, logotipo e status dos chamados | `admin.settings` |
 | `/dev/componentes` | Vitrine do design system | Só em desenvolvimento |
 
-Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão)`. O botão "Novo chamado" fica no cabeçalho (`AppLayout.vue`).
+Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão)`. O botão "Novo chamado" e a busca global ficam no cabeçalho (`AppLayout.vue`): `1234` ou `#1234` abre o chamado, texto abre a aba Todos com `q`.
 
 ### 4.4 Componentes
 
@@ -378,7 +383,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 | Worker, fila de tarefas e *outbox* (eventos → notificações) | Comando `chamados worker`; a unit `deploy/sistema-chamados-worker.service` já existe, mas só deve ser instalada quando o comando existir | Sprint 4, [docs/03](docs/03-arquitetura.md#eventos-de-domínio) |
 | Notificações por e-mail dos chamados | Hoje só existem os e-mails de convite, redefinição e bloqueio, enviados na hora | Sprint 4 |
 | Anexos (upload em duas etapas, disco local) | Módulo `attachments`, `FILES_DIR` | Sprint 4, [docs/11](docs/11-anexos-e-arquivos.md) |
-| Filas com abas, "Pegar o próximo", busca textual, `ETag` e aviso de colisão | `tickets` | Sprint 4 |
+| `ETag` e aviso de colisão | `tickets` | Sprint 4 |
 | Status personalizados, ocultar comentário, testes ponta a ponta (Playwright) | — | Sprint 5 |
 | Tela da auditoria | A API `GET /admin/audit-log` já existe | Sprint 5 |
 | MFA, sessões, aprovações, sino de notificações | — | Fase 2 |

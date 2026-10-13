@@ -486,6 +486,40 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/tickets/counts': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Ticket Counts */
+    get: operations['ticket_counts_api_v1_tickets_counts_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/next': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Take Next */
+    post: operations['take_next_api_v1_tickets_next_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/tickets/{ticket_ref}': {
     parameters: {
       query?: never
@@ -1340,6 +1374,14 @@ export interface components {
       /** Is Active */
       is_active: boolean
     }
+    /** NextIn */
+    NextIn: {
+      /**
+       * Team Id
+       * @description sem grupo, a fila de todos os meus grupos
+       */
+      team_id?: string | null
+    }
     /** Ref */
     Ref: {
       /**
@@ -1487,6 +1529,22 @@ export interface components {
       /** Is Active */
       is_active?: boolean | null
     }
+    /**
+     * TicketCounts
+     * @description Quantos chamados há em cada fila (as abas da lista).
+     */
+    TicketCounts: {
+      /** Unassigned */
+      unassigned: number
+      /** Mine */
+      mine: number
+      /** News */
+      news: number
+      /** Waiting */
+      waiting: number
+      /** Watching */
+      watching: number
+    }
     /** TicketCreate */
     TicketCreate: {
       /** Title */
@@ -1553,6 +1611,56 @@ export interface components {
        * @default []
        */
       mention_ids: string[]
+    }
+    /** TicketListItem */
+    TicketListItem: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Number */
+      number: number
+      /** Title */
+      title: string
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: 'incident' | 'request' | 'task'
+      status: components['schemas']['StatusRef']
+      /** Priority */
+      priority: number
+      team: components['schemas']['Ref']
+      category: components['schemas']['CategoryRef'] | null
+      department: components['schemas']['Ref'] | null
+      client: components['schemas']['Ref'] | null
+      /**
+       * Beneficiary Name
+       * @description contato: quem pediu (texto livre)
+       */
+      beneficiary_name: string | null
+      assignee: components['schemas']['UserRef'] | null
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
+      /**
+       * Has News
+       * @description comentário de outra pessoa desde a minha última visita
+       */
+      has_news: boolean
     }
     /** TicketOut */
     TicketOut: {
@@ -1623,54 +1731,9 @@ export interface components {
     /** TicketPage */
     TicketPage: {
       /** Items */
-      items: components['schemas']['TicketSummary'][]
+      items: components['schemas']['TicketListItem'][]
       /** Next Cursor */
       next_cursor: string | null
-    }
-    /** TicketSummary */
-    TicketSummary: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string
-      /** Number */
-      number: number
-      /** Title */
-      title: string
-      /**
-       * Type
-       * @enum {string}
-       */
-      type: 'incident' | 'request' | 'task'
-      status: components['schemas']['StatusRef']
-      /** Priority */
-      priority: number
-      team: components['schemas']['Ref']
-      category: components['schemas']['CategoryRef'] | null
-      department: components['schemas']['Ref'] | null
-      client: components['schemas']['Ref'] | null
-      /**
-       * Beneficiary Name
-       * @description contato: quem pediu (texto livre)
-       */
-      beneficiary_name: string | null
-      assignee: components['schemas']['UserRef'] | null
-      /**
-       * Started At
-       * Format: date-time
-       */
-      started_at: string
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string
-      /**
-       * Updated At
-       * Format: date-time
-       */
-      updated_at: string
     }
     /** TicketUpdate */
     TicketUpdate: {
@@ -2996,12 +3059,17 @@ export interface operations {
   list_tickets_api_v1_tickets_get: {
     parameters: {
       query?: {
+        /** @description fila (aba da lista) */
+        view?: 'unassigned' | 'mine' | 'news' | 'waiting' | 'watching' | 'all'
         /** @description id do grupo atual */
         team?: string | null
         /** @description "me", "none" ou o id do usuário */
         assignee?: string | null
         /** @description kinds de status */
         status?: ('approval' | 'open' | 'waiting' | 'closed' | 'canceled')[] | null
+        priority?: number | null
+        /** @description busca: texto, comentários, número, cliente, contato */
+        q?: string | null
         limit?: number
         cursor?: string | null
       }
@@ -3046,6 +3114,59 @@ export interface operations {
     responses: {
       /** @description Successful Response */
       201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  ticket_counts_api_v1_tickets_counts_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketCounts']
+        }
+      }
+    }
+  }
+  take_next_api_v1_tickets_next_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NextIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
         headers: {
           [name: string]: unknown
         }

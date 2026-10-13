@@ -54,7 +54,7 @@ flowchart LR
 | `/login` | Login | Todos | 1 |
 | `/esqueci-senha` · `/redefinir-senha/:token` · `/convite/:token` | Recuperação de senha e primeiro acesso | Todos | 1 |
 | `/` | **Início** | Todos (conteúdo muda por perfil, 13.4) | 1 |
-| `/chamados` | **Filas** (abas: Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos do grupo). Até a Sprint 4, uma lista simples de todos os chamados visíveis | Agentes, admin, auditor (só leitura) | 1 |
+| `/chamados` | **Filas** (abas: Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos) | Agentes, admin, auditor (só leitura) | 1 |
 | `/chamados/novo` | **Novo chamado** ([10.4](10-chamados.md#formulário)) | Agentes, admin | 1 |
 | `/chamados/:numero` | **Detalhe do chamado**. O que aparece depende das permissões (`allowed_actions`) | Quem pode ver o chamado | 1 |
 | `/aprovacoes` | Aprovações pendentes e decididas | Supervisores, admin | 2 |
@@ -97,7 +97,7 @@ Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **
 
 ```
 Chamados
-[Não atribuídos 7] [Meus 12] [Com novidades 3] [Aguardando 5] [Acompanhando 2] [Todos do grupo]
+[Não atribuídos 7] [Meus 12] [Com novidades 3] [Aguardando 5] [Acompanhando 2] [Todos]
 Grupo: [TI – Suporte ▾]  Prioridade: [Todas ▾]  Categoria: [Todas ▾]  Setor: [Todos ▾]   [Pegar o próximo]
 ┌───┬──────┬────────────────────────────┬──────────────┬──────────┬───────────┬──────────┐
 │ ☐ │ #    │ Título                     │ Para         │ Priorid. │ Responsáv.│ Parado há│

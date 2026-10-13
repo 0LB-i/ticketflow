@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Menu, Plus, X } from 'lucide-vue-next'
+import { Menu, Plus, Search, X } from 'lucide-vue-next'
 import {
   DialogClose,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
 
@@ -20,6 +21,18 @@ import UserMenu from './UserMenu.vue'
 /** Estrutura geral (docs/13 §13.1): menu lateral, cabeçalho e área de conteúdo. */
 const gavetaAberta = ref(false)
 const auth = useAuthStore()
+const router = useRouter()
+
+/** Busca global (docs/13 §13.1): "1234" ou "#1234" abre o chamado; texto vai para a lista. */
+const termo = ref('')
+function buscar() {
+  const q = termo.value.trim()
+  if (!q) return
+  const numero = q.replace(/^#/, '')
+  termo.value = ''
+  if (/^\d+$/.test(numero)) router.push(`/chamados/${numero}`)
+  else router.push({ name: 'chamados', query: { aba: 'todos', q } })
+}
 </script>
 
 <template>
@@ -69,6 +82,25 @@ const auth = useAuthStore()
           </DialogPortal>
         </DialogRoot>
         <span class="md:hidden"><AppLogo /></span>
+        <form
+          role="search"
+          class="hidden max-w-md flex-1 md:mr-auto md:flex"
+          @submit.prevent="buscar"
+        >
+          <label class="relative flex-1">
+            <span class="sr-only">{{ $t('app.buscar') }}</span>
+            <Search
+              class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+              aria-hidden="true"
+            />
+            <input
+              v-model="termo"
+              type="search"
+              :placeholder="$t('app.buscar')"
+              class="h-9 w-full rounded-md border border-border-input bg-surface pr-3 pl-9 text-fg placeholder:text-muted"
+            />
+          </label>
+        </form>
         <div class="ml-auto flex items-center gap-1 md:ml-0">
           <!-- Sempre visível para quem registra chamados (docs/13 §13.1) -->
           <RouterLink

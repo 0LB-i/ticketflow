@@ -3,7 +3,8 @@
     "nome": "TicketFlow",
     "abrirMenu": "Abrir menu",
     "fecharMenu": "Fechar menu",
-    "pularParaConteudo": "Pular para o conteúdo"
+    "pularParaConteudo": "Pular para o conteúdo",
+    "buscar": "Buscar chamado (número ou texto)"
   },
   "menu": {
     "titulo": "Menu principal",
@@ -238,7 +239,44 @@
     "numero": "Número",
     "tituloColuna": "Título",
     "status": "Status",
-    "carregarMais": "Carregar mais"
+    "carregarMais": "Carregar mais",
+    "filas": "Filas",
+    "abas": {
+      "unassigned": "Não atribuídos",
+      "mine": "Meus",
+      "news": "Com novidades",
+      "waiting": "Aguardando",
+      "watching": "Acompanhando",
+      "all": "Todos"
+    },
+    "filtros": {
+      "todosOsGrupos": "Todos os grupos",
+      "todas": "Todas",
+      "todos": "Todos",
+      "eu": "Eu",
+      "ninguem": "Sem responsável",
+      "kinds": {
+        "open": "Em aberto",
+        "waiting": "Em espera",
+        "closed": "Encerrados",
+        "canceled": "Cancelados"
+      }
+    },
+    "ultimaMovimentacao": "Última movimentação",
+    "novidade": "Comentário novo de outra pessoa",
+    "pegarProximo": "Pegar o próximo",
+    "pegou": "Você assumiu o chamado #{numero}",
+    "resultadosPara": "Resultados da busca por “{q}”",
+    "limparBusca": "Limpar a busca",
+    "vazio": {
+      "unassigned": "A fila está vazia.",
+      "mine": "Nenhum chamado com você. Que tal pegar o próximo da fila?",
+      "news": "Nenhuma novidade nos seus chamados.",
+      "waiting": "Nenhum chamado aguardando.",
+      "watching": "Você não acompanha nenhum chamado em aberto.",
+      "all": "Nenhum chamado encontrado.",
+      "busca": "Nenhum chamado encontrado para essa busca."
+    }
   },
   "novoChamado": {
     "titulo": "Novo chamado",

@@ -19,6 +19,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Configurações (`/admin/configuracoes`): idioma padrão do sistema (português ou inglês) e idioma de cada usuário no menu do usuário; as três cores da identidade, com a paleta derivada e os tons ajustados para manter o contraste; logotipo da empresa. Interface, mensagens de erro da API e e-mails em inglês.
 - Migração `0005`: tabela `settings` e `users.locale`.
 - Cliente e contato no chamado: o registro e a edição escolhem um cliente do cadastro (busca por nome ou CPF/CNPJ) e informam quem pediu; a lista de chamados mostra o cliente. Migração `0011`: `tickets.client_id`.
+- Filas na lista de chamados (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos) com contadores e filtros na URL; aviso de comentário novo de outra pessoa desde a última visita; botão "Pegar o próximo"; busca em português, sem acentos, no título, na descrição, nos comentários, no cliente e no contato, a partir do cabeçalho. Migração `0012`: `ticket_reads` e as colunas de busca.
 - Migração `0004`: categorias, status, códigos de resolução, chamados, grupos que atuaram, observadores, comentários e histórico (só aceita inserção).
 
 ### Variáveis de ambiente

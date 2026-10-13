@@ -10,6 +10,8 @@ defineProps<{
   rows: T[]
   rowKey: keyof T & string
   caption?: string
+  /** Texto da tabela vazia; sem ele, "Nenhum registro". */
+  empty?: string
 }>()
 </script>
 
@@ -41,7 +43,7 @@ defineProps<{
         </tr>
         <tr v-if="rows.length === 0">
           <td :colspan="columns.length" class="px-3 py-6 text-center text-muted">
-            {{ $t('comum.nenhumRegistro') }}
+            {{ empty ?? $t('comum.nenhumRegistro') }}
           </td>
         </tr>
       </tbody>

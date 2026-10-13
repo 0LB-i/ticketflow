@@ -21,14 +21,18 @@ from chamados.modules.tickets.schemas import (
     CommentOut,
     EventList,
     EventOut,
+    NextIn,
     ResolutionRef,
     StatusKind,
     StatusRef,
+    TicketCounts,
     TicketCreate,
+    TicketListItem,
     TicketOut,
     TicketPage,
     TicketSummary,
     TicketUpdate,
+    TicketView,
     TransferIn,
     TransitionIn,
     UserRef,
@@ -108,20 +112,46 @@ def _comment_out(c: TicketComment) -> CommentOut:
 async def list_tickets(
     auth: CurrentAuth,
     db: DB,
+    view: Annotated[TicketView, Query(description="fila (aba da lista)")] = "all",
     team: Annotated[uuid.UUID | None, Query(description="id do grupo atual")] = None,
     assignee: Annotated[str | None, Query(description='"me", "none" ou o id do usuário')] = None,
     status: Annotated[list[StatusKind] | None, Query(description="kinds de status")] = None,
+    priority: Annotated[int | None, Query(ge=1, le=4)] = None,
+    q: Annotated[
+        str | None,
+        Query(max_length=200, description="busca: texto, comentários, número, cliente, contato"),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     cursor: str | None = None,
 ) -> TicketPage:
-    tickets, next_cursor = await service.list_tickets(
-        db, auth, team=team, assignee=assignee, kinds=status or [], limit=limit, cursor=cursor
+    rows, next_cursor = await service.list_tickets(
+        db,
+        auth,
+        view=view,
+        team=team,
+        assignee=assignee,
+        kinds=status or [],
+        priority=priority,
+        q=q,
+        limit=limit,
+        cursor=cursor,
     )
     paths = await service.category_paths(db)
     return TicketPage(
-        items=[_summary(t, paths) for t in tickets],
+        items=[TicketListItem(**dict(_summary(t, paths)), has_news=news) for t, news in rows],
         next_cursor=next_cursor,
     )
+
+
+@router.get("/counts", response_model=TicketCounts)
+async def ticket_counts(auth: CurrentAuth, db: DB) -> TicketCounts:
+    return TicketCounts(**await service.counts(db, auth))
+
+
+@router.post("/next", response_model=TicketOut)
+async def take_next(data: NextIn, auth: CurrentAuth, db: DB) -> TicketOut:
+    ticket = await service.take_next(db, auth, data.team_id)
+    return await _detail(db, auth, await service.load(db, auth, str(ticket.public_id)))
 
 
 @router.post("", response_model=TicketOut, status_code=201)
@@ -152,6 +182,7 @@ async def get_ticket(ticket_ref: str, auth: CurrentAuth, db: DB, request: Reques
             target_id=ticket.public_id,
         )
         await db.commit()
+    await service.mark_read(db, auth, ticket)
     return await _detail(db, auth, ticket)
 
 

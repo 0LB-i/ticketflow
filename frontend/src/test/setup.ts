@@ -40,15 +40,23 @@ type Resposta = [status: number, corpo?: unknown]
  * Devolve a lista de requisições feitas, para conferir o que foi enviado.
  */
 export function simularApi(rotas: Record<string, Resposta | (() => Resposta)>) {
-  const feitas: { metodo: string; caminho: string; corpo: unknown; headers: Headers }[] = []
+  const feitas: {
+    metodo: string
+    caminho: string
+    query: URLSearchParams
+    corpo: unknown
+    headers: Headers
+  }[] = []
   vi.stubGlobal(
     'fetch',
     vi.fn(async (req: Request) => {
-      const caminho = new URL(req.url).pathname
+      const url = new URL(req.url)
+      const caminho = url.pathname
       const texto = await req.text()
       feitas.push({
         metodo: req.method,
         caminho,
+        query: url.searchParams,
         corpo: texto ? JSON.parse(texto) : undefined,
         headers: req.headers,
       })

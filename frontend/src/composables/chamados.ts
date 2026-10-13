@@ -2,13 +2,20 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { api, mensagemDeErro, ou, type Schemas } from '@/api/client'
+import type { operations } from '@/api/schema'
 import { compararTexto, i18n } from '@/i18n'
 import type { Pessoa } from '@/components/editor/MentionList.vue'
 
 import { useGrupos } from './admin'
 
 export type Chamado = Schemas['TicketOut']
-export type ResumoChamado = Schemas['TicketSummary']
+export type ItemDaLista = Schemas['TicketListItem']
+/** Fila e filtros da lista, como a API recebe (sem o cursor). */
+export type FiltroChamados = Omit<
+  NonNullable<operations['list_tickets_api_v1_tickets_get']['parameters']['query']>,
+  'cursor' | 'limit'
+>
+export type Fila = NonNullable<FiltroChamados['view']>
 export type Comentario = Schemas['CommentOut']
 export type Evento = Schemas['EventOut']
 export type Acao = Schemas['TransitionIn']['action']
@@ -47,13 +54,27 @@ export function usePessoas() {
   })
 }
 
-export function useChamados() {
+/** Uma fila da lista com os filtros. As chaves começam por 'chamados': toda ação as recarrega. */
+export function useChamados(filtro: MaybeRefOrGetter<FiltroChamados>) {
   return useInfiniteQuery({
-    queryKey: ['chamados'],
+    queryKey: computed(() => ['chamados', toValue(filtro)]),
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) =>
-      ou(await api.GET('/api/v1/tickets', { params: { query: { cursor: pageParam } } }), erro()),
+      ou(
+        await api.GET('/api/v1/tickets', {
+          params: { query: { ...toValue(filtro), cursor: pageParam } },
+        }),
+        erro(),
+      ),
     getNextPageParam: (pagina) => pagina.next_cursor,
+  })
+}
+
+/** Quantos chamados há em cada fila (as abas). */
+export function useContagens() {
+  return useQuery({
+    queryKey: ['chamados', 'contagens'],
+    queryFn: async () => ou(await api.GET('/api/v1/tickets/counts'), erro()),
   })
 }
 
@@ -111,6 +132,8 @@ export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a:
 }
 
 export const chamadosApi = {
+  pegarProximo: async (team_id: string | null) =>
+    ou(await api.POST('/api/v1/tickets/next', { body: { team_id } }), erro()),
   registrar: async (body: Schemas['TicketCreate']) =>
     ou(await api.POST('/api/v1/tickets', { body }), erro()),
   editar: async (numero: string, body: Schemas['TicketUpdate']) =>
