@@ -16,7 +16,7 @@ navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (sist
 
 | Item | Onde |
 |------|------|
-| Código (checkout da `main`) | `/opt/sistema-chamados` |
+| Código (checkout da `main`) | `/opt/ticketflow` |
 | Repositório Git de passagem (recebe o `git push`) | `/srv/git/ticketflow.git` |
 | Configuração e segredos | `/etc/sistema-chamados/env` |
 | Anexos | `/var/lib/sistema-chamados/files` |
@@ -57,7 +57,7 @@ O acesso SSH deve ser só por chave (`PasswordAuthentication no` em `/etc/ssh/ss
 ```bash
 sudo adduser --system --group --home /var/lib/sistema-chamados sistema-chamados
 sudo install -d -o sistema-chamados -g sistema-chamados -m 750 /var/lib/sistema-chamados/files
-sudo install -d -o sistema-chamados -g sistema-chamados -m 755 /opt/sistema-chamados
+sudo install -d -o sistema-chamados -g sistema-chamados -m 755 /opt/ticketflow
 sudo install -d -o root -g sistema-chamados -m 750 /etc/sistema-chamados
 sudo install -d -o sistema-chamados -g sistema-chamados -m 700 /var/backups/sistema-chamados
 ```
@@ -100,7 +100,7 @@ git remote add producao ssh://USUARIO@SERVIDOR/srv/git/ticketflow.git
 git push producao main
 
 # no servidor
-sudo -u sistema-chamados git clone /srv/git/ticketflow.git /opt/sistema-chamados
+sudo -u sistema-chamados git clone /srv/git/ticketflow.git /opt/ticketflow
 ```
 
 Esse repositório de passagem também é uma **cópia do código fora da máquina de desenvolvimento**. Quando houver um remoto no GitHub, o checkout passa a buscar dele.
@@ -127,7 +127,7 @@ Trocar o `SECRET_KEY` encerra todas as sessões e invalida os convites pendentes
 ### 7. Primeira compilação e banco
 
 ```bash
-sudo -u sistema-chamados /opt/sistema-chamados/scripts/deploy.sh
+sudo -u sistema-chamados /opt/ticketflow/scripts/deploy.sh
 ```
 
 O script faz `git pull`, `uv sync --frozen`, `pnpm install --frozen-lockfile && pnpm build` e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
@@ -135,8 +135,8 @@ O script faz `git pull`, `uv sync --frozen`, `pnpm install --frozen-lockfile && 
 ### 8. Serviços systemd
 
 ```bash
-sudo cp /opt/sistema-chamados/deploy/sistema-chamados*.service /etc/systemd/system/
-sudo cp /opt/sistema-chamados/deploy/sistema-chamados-backup.* /etc/systemd/system/
+sudo cp /opt/ticketflow/deploy/sistema-chamados*.service /etc/systemd/system/
+sudo cp /opt/ticketflow/deploy/sistema-chamados-backup.* /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now sistema-chamados sistema-chamados-backup.timer
 sudo systemctl enable --now sistema-chamados-worker     # só a partir da Sprint 4, quando o worker existir
@@ -148,8 +148,8 @@ Pontos principais de `deploy/sistema-chamados.service`:
 [Service]
 User=sistema-chamados
 EnvironmentFile=/etc/sistema-chamados/env
-WorkingDirectory=/opt/sistema-chamados/backend
-ExecStart=/opt/sistema-chamados/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
+WorkingDirectory=/opt/ticketflow/backend
+ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
           --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 NoNewPrivileges=true
@@ -163,7 +163,7 @@ O `sistema-chamados-worker.service` é igual, com `ExecStart=.../.venv/bin/chama
 ### 9. nginx e HTTPS
 
 ```bash
-sudo cp /opt/sistema-chamados/deploy/nginx.conf /etc/nginx/sites-available/ticketflow
+sudo cp /opt/ticketflow/deploy/nginx.conf /etc/nginx/sites-available/ticketflow
 sudo ln -s /etc/nginx/sites-available/ticketflow /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
@@ -187,7 +187,7 @@ curl -fsS https://ticketflow.martiniti.com.br/api/health
 Se todos os administradores perderem a senha, crie outro pela linha de comando:
 
 ```bash
-sudo -u sistema-chamados bash -c 'cd /opt/sistema-chamados/backend && set -a && . /etc/sistema-chamados/env && .venv/bin/chamados admin create --email ti@martiniti.com.br --name "Administrador"'
+sudo -u sistema-chamados bash -c 'cd /opt/ticketflow/backend && set -a && . /etc/sistema-chamados/env && .venv/bin/chamados admin create --email ti@martiniti.com.br --name "Administrador"'
 ```
 
 ## 18.4 Atualização
@@ -197,7 +197,7 @@ sudo -u sistema-chamados bash -c 'cd /opt/sistema-chamados/backend && set -a && 
 git push producao main
 
 # no servidor
-sudo -u sistema-chamados /opt/sistema-chamados/scripts/deploy.sh
+sudo -u sistema-chamados /opt/ticketflow/scripts/deploy.sh
 sudo systemctl restart sistema-chamados sistema-chamados-worker
 curl -fsS https://ticketflow.martiniti.com.br/api/health
 ```

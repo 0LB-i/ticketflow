@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Atualiza a instalação no servidor (docs/18 §18.4). Roda como o usuário sistema-chamados:
-#   sudo -u sistema-chamados /opt/sistema-chamados/scripts/deploy.sh
+#   sudo -u sistema-chamados /opt/ticketflow/scripts/deploy.sh
 # Não reinicia os serviços: quem reinicia é o administrador (ADR 0010).
 set -euo pipefail
 cd "$(dirname "$0")/.."

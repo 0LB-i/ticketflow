@@ -64,7 +64,7 @@ cat >"$DROPIN_DIR/desenvolvimento.conf" <<FIM
 # Só nesta máquina: sem nginx, o uvicorn escuta na rede (a produção usa 127.0.0.1 + nginx).
 [Service]
 ExecStart=
-ExecStart=/opt/sistema-chamados/backend/.venv/bin/uvicorn chamados.main:create_app --factory --host 0.0.0.0 --port $PORTA
+ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory --host 0.0.0.0 --port $PORTA
 FIM
 systemctl daemon-reload
 systemctl enable -q "$SERVICO"

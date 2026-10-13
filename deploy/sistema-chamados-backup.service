@@ -7,6 +7,6 @@ After=postgresql.service
 Type=oneshot
 User=sistema-chamados
 Group=sistema-chamados
-ExecStart=/opt/sistema-chamados/scripts/backup.sh
+ExecStart=/opt/ticketflow/scripts/backup.sh
 NoNewPrivileges=true
 PrivateTmp=true
