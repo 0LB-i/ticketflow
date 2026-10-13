@@ -32,7 +32,7 @@ A validação usa a **extensão e o conteúdo real** do arquivo, identificado pe
 | Executáveis e scripts | exe, msi, bat, cmd, com, scr, ps1, vbs, js, jar, sh, dll, apk, app | **Sempre bloqueado** |
 | Conteúdo web ativo | html, htm, svg, xhtml | **Sempre bloqueado** (risco de XSS) |
 
-O administrador ajusta a lista de permitidos, mas não pode liberar os itens marcados como "sempre bloqueado".
+O administrador ajusta a lista de permitidos, mas não pode liberar os itens marcados como "sempre bloqueado". (Por enquanto a lista é fixa, no código: `attachments/files.py`.)
 
 ## 11.3 Limites (padrões configuráveis)
 
@@ -68,7 +68,7 @@ sequenceDiagram
 ```
 
 - Um upload **só pode ser vinculado por quem o enviou** e **uma única vez**.
-- Uploads não vinculados são apagados após 24 h.
+- Uploads não vinculados são apagados após 24 h (`chamados attachments purge`; o worker vai rodá-lo quando existir).
 - O nome original é saneado (sem caminhos nem caracteres de controle, até 255 caracteres) e guardado **só no banco**. No armazenamento, o arquivo tem um nome aleatório.
 
 ## 11.5 Antivírus (futuro)

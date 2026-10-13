@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import { Placeholder } from '@tiptap/extensions'
 import { Markdown } from '@tiptap/markdown'
@@ -6,8 +7,10 @@ import StarterKit from '@tiptap/starter-kit'
 import type { SuggestionProps } from '@tiptap/suggestion'
 import { EditorContent, useEditor, VueRenderer } from '@tiptap/vue-3'
 import { Bold, Italic, List, ListOrdered } from 'lucide-vue-next'
-import { onBeforeUnmount, useId, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import { enviarArquivo, urlDoAnexo } from '@/composables/anexos'
 
 import MentionList, { type Pessoa } from './MentionList.vue'
 
@@ -15,6 +18,8 @@ import MentionList, { type Pessoa } from './MentionList.vue'
  * Editor da descrição e dos comentários (Tiptap, questão 4): grava Markdown no v-model.
  * Com `pessoas`, o @ abre a lista de colegas; `mencionados()` devolve os ids escolhidos,
  * que a API recebe em `mention_ids` (o texto guarda só "@Nome").
+ * Com `anexar`, imagens coladas ou arrastadas vão para a API e entram no texto como
+ * `![nome](/api/v1/attachments/<id>)`; quem envia o formulário manda esses ids em `attachment_ids`.
  */
 const props = defineProps<{
   label: string
@@ -24,6 +29,8 @@ const props = defineProps<{
   error?: string
   /** Área de texto maior, para a descrição no registro. */
   alto?: boolean
+  /** Aceita imagens coladas ou arrastadas (prints de tela). */
+  anexar?: boolean
 }>()
 const model = defineModel<string>({ default: '' })
 const { t } = useI18n()
@@ -84,6 +91,31 @@ const Mencao = Mention.extend({
   },
 })
 
+// --- imagens coladas ou arrastadas ---
+const enviandoImagens = ref(0)
+const erroImagem = ref<string | null>(null)
+const imagens = (arquivos?: FileList | null) =>
+  [...(arquivos ?? [])].filter((f) => f.type.startsWith('image/'))
+
+async function inserirImagens(arquivos: File[]) {
+  erroImagem.value = null
+  for (const arquivo of arquivos) {
+    enviandoImagens.value++
+    try {
+      const anexo = await enviarArquivo(arquivo)
+      editor.value
+        ?.chain()
+        .focus()
+        .setImage({ src: urlDoAnexo(anexo.id), alt: anexo.filename })
+        .run()
+    } catch (e) {
+      erroImagem.value = (e as Error).message
+    } finally {
+      enviandoImagens.value--
+    }
+  }
+}
+
 let ultimo = model.value
 const editor = useEditor({
   content: model.value,
@@ -93,6 +125,7 @@ const editor = useEditor({
     Markdown,
     Placeholder.configure({ placeholder: () => props.placeholder ?? '' }),
     ...(props.pessoas ? [Mencao] : []),
+    ...(props.anexar ? [Image] : []),
   ],
   editorProps: {
     attributes: {
@@ -102,6 +135,20 @@ const editor = useEditor({
       'aria-multiline': 'true',
       'aria-labelledby': `${id}-rotulo`,
       ...(props.required ? { 'aria-required': 'true' } : {}),
+    },
+    handlePaste: (_view, evento) => {
+      const lista = imagens(evento.clipboardData?.files)
+      if (!props.anexar || !lista.length) return false
+      inserirImagens(lista)
+      return true
+    },
+    handleDrop: (view, evento) => {
+      const lista = imagens(evento.dataTransfer?.files)
+      if (!props.anexar || !lista.length) return false
+      const destino = view.posAtCoords({ left: evento.clientX, top: evento.clientY })
+      if (destino) editor.value?.commands.setTextSelection(destino.pos)
+      inserirImagens(lista)
+      return true
     },
   },
   onUpdate: ({ editor }) => {
@@ -128,7 +175,10 @@ function mencionados(): string[] {
   return [...ids]
 }
 
-defineExpose({ mencionados })
+/** Enquanto houver imagem subindo, o formulário espera. */
+const enviando = computed(() => enviandoImagens.value > 0)
+
+defineExpose({ mencionados, enviando })
 
 const botoes = [
   { acao: 'bold', icone: Bold, rotulo: 'editor.negrito', cmd: 'toggleBold' },
@@ -176,6 +226,8 @@ const botoes = [
       </div>
       <EditorContent :editor="editor" />
     </div>
+    <p v-if="enviando" class="text-muted" role="status">{{ t('anexos.enviandoImagem') }}</p>
+    <p v-if="erroImagem" class="text-danger" role="alert">{{ erroImagem }}</p>
     <p v-if="error" class="text-danger">{{ error }}</p>
   </div>
 </template>

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.db.session import DB
+from chamados.modules.attachments import service as attachments
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, CurrentAuth
 from chamados.modules.identity.models import User
@@ -92,6 +93,7 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
             WatcherOut(id=w.user.public_id, full_name=w.user.full_name, kind=w.kind)
             for w in t.watchers
         ],
+        attachments=await attachments.of_ticket(db, t.id),
         allowed_actions=sorted(service.actions(auth, t)),
     )
 
@@ -245,7 +247,7 @@ async def list_comments(ticket_ref: str, auth: CurrentAuth, db: DB) -> CommentLi
 @router.post("/{ticket_ref}/comments", response_model=CommentOut, status_code=201)
 async def add_comment(ticket_ref: str, data: CommentIn, auth: CurrentAuth, db: DB) -> CommentOut:
     ticket = await service.load(db, auth, ticket_ref)
-    comment = await service.add_comment(db, auth, ticket, data.body, data.mention_ids)
+    comment = await service.add_comment(db, auth, ticket, data)
     await db.refresh(comment)
     return _comment_out(comment)
 
@@ -255,7 +257,7 @@ async def edit_comment(
     ticket_ref: str, comment_id: uuid.UUID, data: CommentIn, auth: CurrentAuth, db: DB
 ) -> CommentOut:
     ticket = await service.load(db, auth, ticket_ref)
-    comment = await service.edit_comment(db, auth, ticket, comment_id, data.body, data.mention_ids)
+    comment = await service.edit_comment(db, auth, ticket, comment_id, data)
     return _comment_out(comment)
 
 

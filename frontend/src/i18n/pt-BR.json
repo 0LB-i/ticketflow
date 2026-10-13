@@ -572,5 +572,15 @@
       "obrigatorio": "Campo obrigatório.",
       "uf": "Escolha a UF."
     }
+  },
+  "anexos": {
+    "titulo": "Anexos",
+    "tituloComTotal": "Anexos ({n})",
+    "anexar": "Anexar",
+    "arraste": "ou arraste os arquivos para cá (até 25 MB cada)",
+    "enviando": "Enviando",
+    "enviandoImagem": "Enviando a imagem…",
+    "remover": "Remover {nome}",
+    "demais": "No máximo {n} arquivos por envio."
   }
 }

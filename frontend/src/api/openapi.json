@@ -2113,6 +2113,84 @@
         }
       }
     },
+    "/api/v1/uploads": {
+      "post": {
+        "tags": ["anexos"],
+        "summary": "Upload",
+        "description": "Guarda o arquivo até ele ser vinculado a um chamado ou comentário (`attachment_ids`).",
+        "operationId": "upload_api_v1_uploads_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_api_v1_uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attachments/{attachment_id}": {
+      "get": {
+        "tags": ["anexos"],
+        "summary": "Download",
+        "description": "Quem vê o chamado baixa; um envio ainda não vinculado, só quem o enviou.",
+        "operationId": "download_api_v1_attachments__attachment_id__get",
+        "parameters": [
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Attachment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/branding": {
       "get": {
         "tags": ["configurações"],
@@ -2343,6 +2421,59 @@
         "required": ["assignee"],
         "title": "AssignIn"
       },
+      "AttachmentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "comment_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment Id",
+            "description": "nulo: anexo do registro (descrição)"
+          },
+          "uploaded_by": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "content_type",
+          "size_bytes",
+          "comment_id",
+          "uploaded_by",
+          "created_at"
+        ],
+        "title": "AttachmentOut"
+      },
       "AuditEntry": {
         "properties": {
           "id": {
@@ -2478,6 +2609,18 @@
         "type": "object",
         "required": ["items", "next_cursor"],
         "title": "AuditPage"
+      },
+      "Body_upload_api_v1_uploads_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": ["file"],
+        "title": "Body_upload_api_v1_uploads_post"
       },
       "Branding": {
         "properties": {
@@ -3334,6 +3477,17 @@
             "type": "array",
             "maxItems": 50,
             "title": "Mention Ids",
+            "default": []
+          },
+          "attachment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Attachment Ids",
+            "description": "envios (POST /uploads) a vincular",
             "default": []
           }
         },
@@ -4439,6 +4593,17 @@
             "title": "Mention Ids",
             "description": "@mencionados na descrição: viram observadores",
             "default": []
+          },
+          "attachment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Attachment Ids",
+            "description": "envios (POST /uploads) a vincular",
+            "default": []
           }
         },
         "type": "object",
@@ -4718,6 +4883,14 @@
             "type": "array",
             "title": "Watchers"
           },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/AttachmentOut"
+            },
+            "type": "array",
+            "title": "Attachments",
+            "description": "do registro e de todos os comentários"
+          },
           "allowed_actions": {
             "items": {
               "type": "string"
@@ -4753,6 +4926,7 @@
           "reopened_count",
           "closed_at",
           "watchers",
+          "attachments",
           "allowed_actions"
         ],
         "title": "TicketOut"
@@ -4947,6 +5121,23 @@
               }
             ],
             "title": "Priority Reason"
+          },
+          "attachment_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Ids",
+            "description": "imagens coladas na descrição (POST /uploads)"
           }
         },
         "type": "object",
@@ -5043,6 +5234,17 @@
               }
             ],
             "title": "Resolution Code Id"
+          },
+          "attachment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Attachment Ids",
+            "description": "envios (POST /uploads) a vincular",
+            "default": []
           }
         },
         "type": "object",

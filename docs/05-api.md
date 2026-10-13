@@ -78,8 +78,8 @@ Um chamado que o usuário não pode ver responde `403` ("Você não tem acesso a
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `POST` | `/uploads` | Envia um arquivo (1ª etapa). Ver [11.4](11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas) |
-| `GET` | `/attachments/{id}` | Baixa (verifica permissão) |
+| `POST` | `/uploads` | Envia um arquivo (1ª etapa, multipart, campo `file`). Ver [11.4](11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas). O vínculo vem depois, em `attachment_ids` no registro, no comentário (e na edição dele), na mudança de status e no `PATCH` do chamado (imagens da descrição) |
+| `GET` | `/attachments/{id}` | Baixa (verifica permissão). O detalhe do chamado lista os anexos em `attachments` |
 | `POST` | `/attachments/{id}/hide` | Oculta (com motivo) |
 
 ### IA (futuro)

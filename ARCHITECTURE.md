@@ -6,7 +6,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 - **O que** o sistema faz (regras de negócio): [docs/08](docs/08-organizacao-e-permissoes.md), [docs/10](docs/10-chamados.md) e os demais documentos em [docs/](docs/).
 - **Em que ponto está** cada item do roadmap: [TAREFAS.md](TAREFAS.md).
 
-Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e o "Pegar o próximo" prontos. A seção 10 lista o que ainda não existe.
+Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca, o "Pegar o próximo" e os anexos prontos. A seção 10 lista o que ainda não existe.
 
 ---
 
@@ -24,7 +24,7 @@ navegador ── HTTPS ──► nginx ──► uvicorn (sistema-chamados.servi
 - **API-first:** a interface só conversa com a API; toda regra de negócio e toda decisão de permissão ficam no backend.
 - **Uma instalação por empresa** ([ADR 0005](docs/adr/0005-instalacao-por-empresa.md)): não existe `tenant_id`.
 
-Ainda **não existem** o worker (fila de tarefas e e-mails assíncronos) nem o armazenamento de anexos em disco; ambos entram na Sprint 4 (seção 10).
+Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker (fila de tarefas e e-mails assíncronos), que entra na Sprint 4 (seção 10).
 
 ## 2. Mapa do repositório
 
@@ -38,7 +38,7 @@ Ainda **não existem** o worker (fila de tarefas e e-mails assíncronos) nem o a
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0012
+│   ├── migrations/        Alembic: env.py e versions/0001…0013
 │   ├── src/chamados/      código (seção 3)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
@@ -104,6 +104,7 @@ Variáveis de ambiente (em produção, `/etc/sistema-chamados/env`; em desenvolv
 | `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS` | `8`, `7` | Expiração das sessões |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | sem `SMTP_HOST` | Sem SMTP, os e-mails vão para o log |
 | `FRONTEND_DIST` | `frontend/dist` | Pasta da SPA compilada |
+| `FILES_DIR` | `/var/lib/sistema-chamados/files` | Anexos (só o usuário do serviço acessa; entra no backup com o banco) |
 
 ### 3.3 Módulos
 
@@ -116,6 +117,7 @@ Variáveis de ambiente (em produção, `/etc/sistema-chamados/env`; em desenvolv
 | `tickets` | `models`, `schemas`, `router`, `service`, `rules`, `visibility` | Chamados, comentários, observadores, atribuição, transferência, transições e histórico | `/tickets/*` |
 | `system` | `models` (SystemSetting), `router`, `service` | Configurações da instalação: idioma padrão, cores, logotipo; idioma efetivo de um usuário | `/branding`, `/admin/settings` |
 | `audit` | `models` (AuditLog), `service` (`record()`), `router` | Auditoria de login e administração | `/admin/audit-log` |
+| `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
 | `notifications` | `email` | Envio por SMTP ou para o log (`Mailer`) | — |
 
 Os módulos podem importar modelos e services uns dos outros (por exemplo, `tickets` usa `catalog`, `organization` e `identity`), mas **a decisão de permissão de um chamado só acontece em `tickets`** e **o registro na auditoria só por `audit.service.record()`**.
@@ -158,6 +160,17 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Novidade:** comentário de outra pessoa depois da minha última visita (`has_news` em cada item da lista). A visita fica em `ticket_reads` e é gravada pelo `GET /tickets/{id}` (`service.mark_read`). A reabertura exige comentário, por isso também vira novidade.
 - **Busca (`q`):** `search_vector` (colunas geradas, índice GIN) em `tickets` (título peso A, descrição peso B) e em `ticket_comments`, na configuração `pt_br` (português sem acentos). Cada palavra vira prefixo (`impress:*`) e todas precisam aparecer. Também acha pelo número (`1234` ou `#1234`), pelo nome do cliente e pelo contato (`unaccent` + `ILIKE`). Passa pelo filtro de visibilidade como qualquer leitura.
 - **Pegar o próximo:** `POST /tickets/next` (`service.take_next`) trava o primeiro da fila `unassigned` com `FOR UPDATE SKIP LOCKED` (dois cliques ao mesmo tempo pegam chamados diferentes) e o assume pelo `assign` comum; fila vazia responde 404.
+
+### 3.5.1 Anexos (`modules/attachments/`)
+
+- **Duas etapas** ([docs/11 §11.4](docs/11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas)): `POST /uploads` (multipart, campo `file`) guarda o arquivo sem dono e devolve o id; o registro, o comentário, a mudança de status e a edição (da descrição ou de um comentário) recebem `attachment_ids` e chamam `attachments.service.link()`. Só quem enviou vincula, e uma vez só; o que já está no mesmo lugar é ignorado (a edição manda de novo as imagens que o texto já tinha).
+- **Enviar** exige `ticket.comment` ou `ticket.create`; o vínculo passa pelo `allowed_actions` da ação (comentar, editar…). **Baixar** (`GET /attachments/{id}`) passa por `tickets.service.load`, ou seja, pela visibilidade do chamado; um envio ainda sem dono só quem enviou baixa. Download de chamado confidencial vai para a auditoria.
+- **Tipos** (`files.py`): lista fechada de extensões, conferidas pelos primeiros bytes (PNG, JPEG, PDF, ZIP dos formatos Office/ODF…; os de texto não podem ter byte nulo). O `content_type` gravado vem da extensão conferida, nunca do navegador. Zip, 7z, Office com macro, executáveis, html e svg são recusados.
+- **Limites:** 25 MB por arquivo (413), 10 por envio, 200 MB por chamado.
+- **Disco** (`storage.py`): `FILES_DIR/attachments/AAAA/MM/<uuid>`, gravado num temporário e renomeado; o nome original (saneado) e o SHA-256 ficam só no banco.
+- **Download:** `inline` para imagens e PDF, `attachment` para o resto, com `X-Content-Type-Options: nosniff` e `Content-Security-Policy: sandbox`.
+- **Limpeza:** `chamados attachments purge` apaga os envios sem dono há mais de 24 h.
+- O detalhe do chamado traz `attachments` (do registro e de todos os comentários, com `comment_id`); a interface mostra cada anexo no seu comentário e todos na lateral.
 
 ### 3.6 Idiomas (backend)
 
@@ -207,6 +220,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0010` | `clients` e as permissões `client.view`/`client.manage` nos papéis |
 | `0011` | `tickets.client_id` (cliente do chamado, opcional) |
 | `0012` | `ticket_reads` (última visita, para as novidades) e `search_vector` em `tickets` e `ticket_comments` |
+| `0013` | `attachments` |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -218,6 +232,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 |---------|-----|
 | `chamados db upgrade [rev]` / `downgrade rev` / `current` | Migrações |
 | `chamados admin create --email … --name …` | Cria um administrador e mostra o link para definir a senha (recuperação de acesso) |
+| `chamados attachments purge` | Apaga os envios não vinculados há mais de 24 h (até o worker existir, rodar pelo cron) |
 | `chamados openapi [-o arquivo]` | Exporta o contrato OpenAPI (usado pelo `pnpm gen:api`) |
 
 ---
@@ -244,8 +259,9 @@ src/
 │   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, DateTimeField, Modal, SidePanel, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
 │   ├── admin/           StatusSettings (status dos chamados, dentro de Configurações)
-│   ├── editor/          RichEditor (Tiptap → Markdown, @menções), MarkdownView, markdown.ts
-│   └── tickets/         TicketTimeline, CommentBox, TicketDetails, TicketEditPanel, ClientPicker, eventos.ts
+│   ├── editor/          RichEditor (Tiptap → Markdown, @menções, imagens coladas), MarkdownView, markdown.ts
+│   └── tickets/         TicketTimeline, CommentBox, TicketDetails, TicketEditPanel, ClientPicker,
+│                        AttachmentUploader (Anexar, arrastar e soltar), AttachmentList, eventos.ts
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
 ├── i18n/                index.ts, pt-BR.json, en.json
 ├── assets/main.css      Tailwind 4 + tokens de cor (--tf-*) dos modos claro e escuro
@@ -295,6 +311,7 @@ Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão
 
 - Descrição e comentários são **Markdown** no banco. `RichEditor.vue` (Tiptap + `@tiptap/markdown`) edita visualmente e grava Markdown. Com `pessoas`, o `@` abre a lista de colegas, e `mencionados()` devolve os ids para `mention_ids`.
 - `MarkdownView.vue` mostra o texto com `markdown-it` em `html: false`: HTML digitado aparece como texto e links `javascript:` são recusados. É o único `v-html` do projeto.
+- **Imagens:** com `anexar`, o `RichEditor` envia a imagem colada ou arrastada (`POST /uploads`) e a insere como `![nome](/api/v1/attachments/<id>)`. Quem envia o formulário junta os ids do texto (`anexosNoTexto`) aos do `AttachmentUploader` em `attachment_ids`. O `MarkdownView` só mostra imagens desse endereço; uma imagem de fora aparece como texto (não é carregada, para não rastrear quem abre o chamado).
 - O Tiptap (~150 kB gzip) fica num pedaço carregado só nas telas de chamado.
 
 ### 4.6 Tema e cores
@@ -382,7 +399,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 |------|------------|------------|
 | Worker, fila de tarefas e *outbox* (eventos → notificações) | Comando `chamados worker`; a unit `deploy/sistema-chamados-worker.service` já existe, mas só deve ser instalada quando o comando existir | Sprint 4, [docs/03](docs/03-arquitetura.md#eventos-de-domínio) |
 | Notificações por e-mail dos chamados | Hoje só existem os e-mails de convite, redefinição e bloqueio, enviados na hora | Sprint 4 |
-| Anexos (upload em duas etapas, disco local) | Módulo `attachments`, `FILES_DIR` | Sprint 4, [docs/11](docs/11-anexos-e-arquivos.md) |
+| Ocultar anexo, lista de tipos configurável pelo admin, miniaturas, antivírus | `attachments` | Sprint 5 e depois, [docs/11](docs/11-anexos-e-arquivos.md) |
 | `ETag` e aviso de colisão | `tickets` | Sprint 4 |
 | Status personalizados, ocultar comentário, testes ponta a ponta (Playwright) | — | Sprint 5 |
 | Tela da auditoria | A API `GET /admin/audit-log` já existe | Sprint 5 |

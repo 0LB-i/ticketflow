@@ -120,6 +120,7 @@ describe('NewTicketView', () => {
       assignee: null,
       watcher_ids: [],
       mention_ids: [],
+      attachment_ids: [],
     })
   })
 
@@ -210,6 +211,7 @@ const CHAMADO = {
   reopened_count: 0,
   closed_at: null,
   watchers: [],
+  attachments: [],
   allowed_actions: ['assign_self', 'comment', 'edit', 'transfer', 'watch_self'],
 }
 const EVENTOS = {

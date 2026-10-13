@@ -7,6 +7,7 @@ import RichEditor from '@/components/editor/RichEditor.vue'
 import Button from '@/components/ui/Button.vue'
 import Modal from '@/components/ui/Modal.vue'
 import SelectField from '@/components/ui/SelectField.vue'
+import { anexosNoTexto } from '@/composables/anexos'
 import {
   type Acao,
   type Chamado,
@@ -16,6 +17,8 @@ import {
 } from '@/composables/chamados'
 import { useToast } from '@/composables/useToast'
 
+import AttachmentUploader from './AttachmentUploader.vue'
+
 /**
  * Comentar e, na mesma ação, mudar o status (docs/10 §10.6). O texto da caixa vai como
  * comentário; em aguardar, concluir, reabrir e cancelar ele é obrigatório (docs/10 §10.5).
@@ -24,7 +27,11 @@ const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
 const { t } = useI18n()
 const toast = useToast()
 const codigos = useCodigosDeResolucao()
-const editor = useTemplateRef('editor')
+const editor = useTemplateRef<InstanceType<typeof RichEditor>>('editor')
+const anexador = useTemplateRef<InstanceType<typeof AttachmentUploader>>('anexador')
+const anexos = ref<string[]>([])
+/** Os arquivos do "Anexar" e as imagens coladas no texto. */
+const anexosDoEnvio = () => [...new Set([...anexos.value, ...anexosNoTexto(texto.value)])]
 
 const texto = ref('')
 const erro = ref<string | null>(null)
@@ -40,21 +47,34 @@ const ACOES: { acao: Acao; exigeTexto: boolean; variante: 'secondary' | 'danger'
 ]
 const disponiveis = computed(() => ACOES.filter((a) => acoes.value.has(a.acao)))
 
-const comentar = useAcaoNoChamado(numero, (body: { body: string; mention_ids: string[] }) =>
-  chamadosApi.comentar(numero(), body),
+const comentar = useAcaoNoChamado(
+  numero,
+  (body: { body: string; mention_ids: string[]; attachment_ids: string[] }) =>
+    chamadosApi.comentar(numero(), body),
 )
 const mudar = useAcaoNoChamado(
   numero,
-  (body: { action: Acao; comment: string; resolution_code_id?: number }) =>
-    chamadosApi.mudarStatus(numero(), body),
+  (body: {
+    action: Acao
+    comment: string
+    resolution_code_id?: number
+    attachment_ids: string[]
+  }) => chamadosApi.mudarStatus(numero(), body),
 )
-const ocupado = computed(() => comentar.isPending.value || mudar.isPending.value)
+const ocupado = computed<boolean>(
+  () =>
+    comentar.isPending.value ||
+    mudar.isPending.value ||
+    !!editor.value?.enviando ||
+    !!anexador.value?.enviando,
+)
 
 async function executar(fn: () => Promise<unknown>, aviso: string) {
   erro.value = null
   try {
     await fn()
     texto.value = ''
+    anexador.value?.limpar()
     toast.show({ title: aviso })
   } catch (e) {
     erro.value = (e as Error).message
@@ -65,7 +85,11 @@ function enviarComentario() {
   if (!texto.value.trim()) return
   return executar(
     () =>
-      comentar.mutateAsync({ body: texto.value, mention_ids: editor.value?.mencionados() ?? [] }),
+      comentar.mutateAsync({
+        body: texto.value,
+        mention_ids: editor.value?.mencionados() ?? [],
+        attachment_ids: anexosDoEnvio(),
+      }),
     t('chamado.comentado'),
   )
 }
@@ -100,6 +124,7 @@ function mudarStatus(acao: Acao) {
       mudar.mutateAsync({
         action: acao,
         comment: texto.value,
+        attachment_ids: anexosDoEnvio(),
         ...(acao === 'close' ? { resolution_code_id: Number(codigo.value) } : {}),
       }),
     t(`chamado.feito.${acao}`),
@@ -119,7 +144,9 @@ function mudarStatus(acao: Acao) {
       :label="t('chamado.novoComentario')"
       :placeholder="t('chamado.comentarioDica')"
       :pessoas="pessoas"
+      anexar
     />
+    <AttachmentUploader ref="anexador" v-model="anexos" />
     <div class="flex flex-wrap gap-2">
       <Button type="submit" :disabled="ocupado || !texto.trim()">{{
         t('chamado.comentar')

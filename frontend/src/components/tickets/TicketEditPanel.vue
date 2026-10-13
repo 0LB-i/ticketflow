@@ -10,6 +10,7 @@ import SidePanel from '@/components/ui/SidePanel.vue'
 import TextField from '@/components/ui/TextField.vue'
 import ClientPicker from '@/components/tickets/ClientPicker.vue'
 import { type Schemas } from '@/api/client'
+import { anexosNoTexto } from '@/composables/anexos'
 import {
   type Chamado,
   chamadosApi,
@@ -80,7 +81,12 @@ function mudancas(): Schemas['TicketUpdate'] {
   const m: Schemas['TicketUpdate'] = {}
   if (pode.value.has('edit')) {
     if (form.title.trim() !== c.title) m.title = form.title
-    if (form.description !== c.description) m.description = form.description
+    if (form.description !== c.description) {
+      m.description = form.description
+      // Imagens coladas agora (as que já estavam a API ignora).
+      const novas = anexosNoTexto(form.description)
+      if (novas.length) m.attachment_ids = novas
+    }
     if (form.type !== c.type) m.type = form.type
     // Agora (nulo) grava a hora do clique.
     if (form.inicio !== c.started_at) m.started_at = form.inicio ?? new Date().toISOString()
@@ -132,7 +138,7 @@ async function enviar() {
       <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
       <template v-if="pode.has('edit')">
         <TextField v-model="form.title" :label="t('novoChamado.tituloCampo')" required />
-        <RichEditor v-model="form.description" :label="t('novoChamado.descricao')" />
+        <RichEditor v-model="form.description" :label="t('novoChamado.descricao')" anexar />
         <SelectField v-model="form.type" :label="t('chamado.tipo')" :options="opcoesTipo" />
         <DateTimeField v-model="form.inicio" :label="t('chamado.inicio')" />
         <ClientPicker v-model="form.cliente" :label="t('chamado.cliente')" />

@@ -15,6 +15,7 @@ from chamados.core.errors import register_error_handlers
 from chamados.core.logging import configure_logging
 from chamados.db.engine import create_engine
 from chamados.db.session import make_sessionmaker
+from chamados.modules.attachments.router import router as attachments_router
 from chamados.modules.audit.router import router as audit_router
 from chamados.modules.catalog.router import router as catalog_router
 from chamados.modules.clients.router import router as clients_router
@@ -61,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         catalog_router,
         clients_router,
         tickets_router,
+        attachments_router,
         system_router,
         audit_router,
     ):

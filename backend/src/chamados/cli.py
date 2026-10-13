@@ -1,4 +1,4 @@
-"""Comando `chamados`: migrações, primeiro administrador e contrato OpenAPI.
+"""Comando `chamados`: migrações, primeiro administrador, anexos e contrato OpenAPI.
 
 O `worker` entra na Sprint 4.
 """
@@ -72,6 +72,21 @@ async def _create_admin(email: str, name: str) -> str:
         await engine.dispose()
 
 
+async def _purge_attachments() -> int:
+    """Até o worker existir, rodar pelo cron ou à mão (docs/11 §11.4)."""
+    from chamados.db.engine import create_engine
+    from chamados.db.session import make_sessionmaker
+    from chamados.modules.attachments.service import purge
+
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        async with make_sessionmaker(engine)() as db:
+            return await purge(db, settings.files_dir)
+    finally:
+        await engine.dispose()
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="chamados", description="TicketFlow")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -92,6 +107,11 @@ def main(argv: list[str] | None = None) -> None:
     create.add_argument("--email", required=True)
     create.add_argument("--name", required=True)
 
+    files = sub.add_parser("attachments", help="anexos").add_subparsers(
+        dest="attachments_cmd", required=True
+    )
+    files.add_parser("purge", help="apaga os envios não vinculados há mais de 24 h")
+
     api = sub.add_parser("openapi", help="exporta o contrato OpenAPI em JSON")
     api.add_argument("-o", "--output", help="arquivo de saída (padrão: stdout)")
 
@@ -107,5 +127,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "admin":
         url = asyncio.run(_create_admin(args.email.strip(), args.name.strip()))
         print(f"Administrador criado. Para definir a senha (link válido por 24 h):\n{url}")
+    elif args.cmd == "attachments":
+        print(f"Envios não vinculados apagados: {asyncio.run(_purge_attachments())}")
     elif args.cmd == "openapi":
         _openapi(args.output)

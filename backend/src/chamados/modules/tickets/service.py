@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager, defer, selectinload
 
 from chamados.core.permissions import P, can
+from chamados.modules.attachments import service as attachments
 from chamados.modules.catalog.models import Category, ResolutionCode, TicketStatus
 from chamados.modules.clients.models import Client
 from chamados.modules.identity.deps import Auth
@@ -31,7 +32,13 @@ from chamados.modules.tickets.models import (
     TicketTeam,
     TicketWatcher,
 )
-from chamados.modules.tickets.schemas import TicketCreate, TicketUpdate, TicketView, TransitionIn
+from chamados.modules.tickets.schemas import (
+    CommentIn,
+    TicketCreate,
+    TicketUpdate,
+    TicketView,
+    TransitionIn,
+)
 from chamados.modules.tickets.visibility import ticket_visibility_filter
 
 COMMENT_EDIT_WINDOW = timedelta(minutes=10)
@@ -406,6 +413,7 @@ async def _comment(
     ticket: Ticket,
     body: str,
     mention_ids: list[uuid.UUID] | None = None,
+    attachment_ids: list[uuid.UUID] | None = None,
     *,
     is_solution: bool = False,
 ) -> TicketComment:
@@ -415,6 +423,7 @@ async def _comment(
     db.add(comment)
     await db.flush()
     await _add_watchers(db, auth, ticket, mention_ids or [], "mentioned")
+    await attachments.link(db, auth, ticket, attachment_ids or [], comment)
     ticket.updated_at = func.now()
     return comment
 
@@ -495,6 +504,7 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     db.add(ticket)
     await db.flush()
     db.add(TicketTeam(ticket_id=ticket.id, team_id=team.id))
+    await attachments.link(db, auth, ticket, data.attachment_ids)
     add_event(db, ticket, "ticket.created", auth, team=ref(team), assignee=ref(assignee))
     await _add_watchers(db, auth, ticket, data.watcher_ids, "watcher")
     await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
@@ -520,8 +530,11 @@ PRIORITY_FIELDS = {"impact", "urgency", "priority", "priority_reason"}
 async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdate) -> None:
     """Campos do chamado (docs/08 §8.5). Forçar outra prioridade exige motivo (docs/10 §10.3)."""
     changes = data.model_dump(exclude_unset=True)
-    if changes.keys() & EDIT_FIELDS:
+    attachment_ids = changes.pop("attachment_ids", None) or []
+    if changes.keys() & EDIT_FIELDS or attachment_ids:
         require(auth, ticket, "edit")
+    # Imagens coladas ao editar a descrição.
+    await attachments.link(db, auth, ticket, attachment_ids)
     if changes.keys() & PRIORITY_FIELDS:
         require(auth, ticket, "set_priority")
     if changes.get("status_id") is not None:
@@ -597,10 +610,17 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
 
 
 async def add_comment(
-    db: AsyncSession, auth: Auth, ticket: Ticket, body: str, mention_ids: list[uuid.UUID]
+    db: AsyncSession, auth: Auth, ticket: Ticket, data: CommentIn
 ) -> TicketComment:
     require(auth, ticket, "comment")
-    comment = await _comment(db, auth, ticket, _text(body, "Escreva o comentário."), mention_ids)
+    comment = await _comment(
+        db,
+        auth,
+        ticket,
+        _text(data.body, "Escreva o comentário."),
+        data.mention_ids,
+        data.attachment_ids,
+    )
     await db.commit()
     return comment
 
@@ -610,8 +630,7 @@ async def edit_comment(
     auth: Auth,
     ticket: Ticket,
     comment_id: uuid.UUID,
-    body: str,
-    mention_ids: list[uuid.UUID],
+    data: CommentIn,
 ) -> TicketComment:
     """Só o autor, por 10 minutos; a versão anterior fica no histórico (docs/10 §10.6)."""
     comment = await db.scalar(
@@ -626,7 +645,7 @@ async def edit_comment(
         raise HTTPException(403, "Só o autor edita o comentário.")
     if await db.scalar(select(func.now() > comment.created_at + COMMENT_EDIT_WINDOW)):
         raise HTTPException(409, "O prazo de 10 minutos para editar este comentário acabou.")
-    body = _text(body, "Escreva o comentário.")
+    body = _text(data.body, "Escreva o comentário.")
     if body != comment.body:
         add_event(
             db,
@@ -638,7 +657,8 @@ async def edit_comment(
         )
         comment.body = body
         comment.edited_at = func.now()
-    await _add_watchers(db, auth, ticket, mention_ids, "mentioned")
+    await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
+    await attachments.link(db, auth, ticket, data.attachment_ids, comment)
     await db.commit()
     await db.refresh(comment)
     return comment
@@ -739,7 +759,14 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
         "to": ref(status),
     }
     if text:
-        comment = await _comment(db, auth, ticket, text, is_solution=data.action == "close")
+        comment = await _comment(
+            db,
+            auth,
+            ticket,
+            text,
+            attachment_ids=data.attachment_ids,
+            is_solution=data.action == "close",
+        )
         payload["comment_id"] = str(comment.public_id)
     if code is not None:
         payload["resolution_code"] = ref(code)

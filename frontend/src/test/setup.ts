@@ -57,7 +57,11 @@ export function simularApi(rotas: Record<string, Resposta | (() => Resposta)>) {
         metodo: req.method,
         caminho,
         query: url.searchParams,
-        corpo: texto ? JSON.parse(texto) : undefined,
+        // JSON vira objeto; um envio de arquivo (multipart) fica como texto.
+        corpo:
+          texto && req.headers.get('content-type')?.includes('json')
+            ? JSON.parse(texto)
+            : texto || undefined,
         headers: req.headers,
       })
       const definida = rotas[`${req.method} ${caminho}`]

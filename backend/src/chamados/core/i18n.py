@@ -103,6 +103,18 @@ EN: dict[str, str] = {
     "Setor não encontrado ou inativo.": "Department not found or inactive.",
     "Cliente não encontrado ou inativo.": "Client not found or inactive.",
     "Não há chamados na fila.": "There are no tickets in the queue.",
+    # Anexos
+    "Tipo de arquivo não permitido.": "File type not allowed.",
+    "O arquivo está vazio.": "The file is empty.",
+    "O arquivo passa do limite de 25 MB.": "The file exceeds the 25 MB limit.",
+    "O conteúdo do arquivo não corresponde à extensão.": (
+        "The file content does not match its extension."
+    ),
+    "Anexo não encontrado.": "Attachment not found.",
+    "Anexo não encontrado ou já usado.": "Attachment not found or already used.",
+    "Os anexos deste chamado passariam do limite de 200 MB.": (
+        "This ticket's attachments would exceed the 200 MB limit."
+    ),
     "O responsável precisa ser um membro ativo do grupo.": (
         "The assignee must be an active member of the team."
     ),
