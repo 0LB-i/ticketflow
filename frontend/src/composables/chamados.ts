@@ -17,7 +17,6 @@ export type FiltroChamados = Omit<
 >
 export type Fila = NonNullable<FiltroChamados['view']>
 export type Comentario = Schemas['CommentOut']
-export type Evento = Schemas['EventOut']
 export type Acao = Schemas['TransitionIn']['action']
 export type TipoChamado = Schemas['TicketCreate']['type'] & string
 
@@ -107,18 +106,7 @@ export function useComentarios(numero: MaybeRefOrGetter<string>) {
   })
 }
 
-export function useEventos(numero: MaybeRefOrGetter<string>) {
-  return useQuery({
-    queryKey: computed(() => ['chamado', toValue(numero), 'eventos']),
-    queryFn: async () =>
-      ou(
-        await api.GET('/api/v1/tickets/{ticket_ref}/events', { params: caminho(toValue(numero)) }),
-        erro(),
-      ).items,
-  })
-}
-
-/** Ação num chamado: ao terminar, recarrega o detalhe, os comentários, o histórico e a lista. */
+/** Ação num chamado: ao terminar, recarrega o detalhe, os comentários e a lista. */
 export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a: A) => Promise<R>) {
   const client = useQueryClient()
   return useMutation({

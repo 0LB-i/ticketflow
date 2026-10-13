@@ -146,13 +146,13 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Identificação:** `id` interno (bigint), `public_id` (UUID, exposto) e `number` (sequência `ticket_number_seq`, começa em 1000). As rotas aceitam o número ou o UUID (`/tickets/1234`).
 - **Status:** a tabela `ticket_statuses` tem um `kind` fixo (`open`, `waiting`, `closed`, `canceled`, `approval`). As regras usam só o `kind`, e cada mudança vai para o status padrão do `kind` de destino.
 - **Transições:** `rules.TRANSITIONS` define, para cada ação (`wait`, `resume`, `close`, `reopen`, `cancel`), de quais `kind` se sai, para qual se vai, quem pode e se exige comentário ou código de resolução. O comentário da transição é gravado como comentário do chamado; o de conclusão leva `is_solution`.
-- **Sem prioridade:** chamados não têm prioridade, impacto nem urgência (removidos na migração 0016). Eventos antigos do histórico com essas mudanças continuam aparecendo na linha do tempo.
+- **Sem prioridade:** chamados não têm prioridade, impacto nem urgência (removidos na migração 0016). Eventos antigos com essas mudanças continuam no histórico.
 - **Status personalizados:** o admin cria (nome + `kind`: open, waiting, closed, canceled), renomeia, ordena (`PUT /statuses/order`) e remove em Configurações (`admin.settings`). O `kind` não muda depois de criado. Cada `kind` precisa de ao menos um status; ao remover, os chamados vão para o padrão do mesmo `kind`, e se o removido era o padrão o próximo da lista assume. O primeiro status criado de um `kind` vira o padrão. Ações em `audit_log` (`ticket_status.*`).
 - **Status no formulário:** além das transições do fluxo, a ação `set_status` (quem tem `ticket.transition` no grupo) escolhe qualquer status no registro (`status_id`, padrão Pendente) e na edição, sem comentário nem código de resolução. `_apply_status` acerta `closed_at` e conta a reabertura ao sair de um `closed`. O evento é `ticket.status_changed` sem `action`.
 - **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
 - **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, `DateTimeField` acompanha a hora atual até ser mudado.
 - **Cliente e contato:** para quem é o trabalho. `client_id` é opcional e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); `null` no PATCH tira o cliente. O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o `ClientPicker` busca na API de clientes (`client.view`, que todos os papéis têm). O setor atendido (`department_id`) continua na API, mas saiu da interface.
-- **Histórico:** cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
+- **Histórico:** fica só no banco e em `GET /tickets/{id}/events`; a linha do tempo da tela mostra só o registro e os comentários (decisão do usuário, 2026-10-13). Cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
 - **Mais de um responsável:** `tickets.assignee_id` é o responsável principal e `ticket_co_assignees` guarda os demais (só no registro, `co_assignee_ids`, membros ativos do grupo; exige o principal). Para regras, visibilidade (regra 3), filas Meus e Com novidades e o filtro por responsável, todos contam igual (`visibility.assigned_to`). Devolver à fila e transferir tiram todos; trocar o principal mantém os demais. A interface envia quem registra como principal, se estiver na lista, senão a primeira pessoa.
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
 - **Tempo gasto:** cada comentário (andamento) pode ter `time_spent_minutes` (opcional, 1 a 60 000), no comentar, na mudança de status (vai no comentário da transição; sem comentário, 422) e na edição (o valor anterior vai em `before_time_spent_minutes` do `comment.edited`). O detalhe traz `time_spent_minutes` (total) e `time_by_person` (soma por autor, `service.time_by_person`), mostrados na lateral.
@@ -267,7 +267,7 @@ src/
 │   ├── admin/           StatusSettings (status dos chamados, dentro de Configurações)
 │   ├── editor/          RichEditor (Tiptap → Markdown, @menções, imagens coladas), MarkdownView, markdown.ts
 │   └── tickets/         TicketTimeline, CommentBox, TicketDetails, ClientPicker,
-│                        AttachmentUploader (Anexar, arrastar e soltar), AttachmentList, eventos.ts
+│                        AttachmentUploader (Anexar, arrastar e soltar), AttachmentList
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
 ├── i18n/                index.ts, pt-BR.json, en.json
 ├── assets/main.css      Tailwind 4 + tokens de cor (--tf-*) dos modos claro e escuro
@@ -286,7 +286,7 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios' | 'eventos']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['codigos-resolucao']`, `['clientes', filtro]`, `['cliente', id]`.
+- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['codigos-resolucao']`, `['clientes', filtro]`, `['cliente', id]`.
 - **Escrita:** `useAlteracao(fn, chaves)` (admin) e `useAcaoNoChamado(numero, fn)` (chamados) fazem a mutação e invalidam as chaves afetadas.
 - **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
 
@@ -429,7 +429,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 **Nova ação num chamado**
 1. Incluir a ação em `rules.allowed_actions` (e em `TRANSITIONS`, se mudar o status).
 2. Linha nova nos testes tabelados de `test_regras_chamados.py`.
-3. Service + rota + evento; frase do evento em `components/tickets/eventos.ts` e nos dois JSON de idioma.
+3. Service + rota + evento (o histórico fica no banco e na API; a tela não mostra eventos).
 
 **Nova tela**
 1. View em `views/<área>/`; rota em `router/index.ts` com `meta.permissao`; item no `SideNav.vue`, se for de menu.

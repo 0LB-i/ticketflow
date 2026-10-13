@@ -28,6 +28,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- A linha do tempo do chamado mostra só o registro e os comentários: as alterações (assumir, devolver, acompanhar, transferir, mudar status…) saem da tela, mas continuam gravadas no histórico (`GET /tickets/{id}/events`).
 - O detalhe do chamado não tem mais o botão "Editar" nem o painel lateral de edição (título, descrição, status, tipo, início, cliente e contato). A alteração continua disponível na API (`PATCH /tickets/{id}`).
 - Os chamados não têm mais prioridade, impacto nem urgência: saem das telas (lista, filtro, detalhe, edição), da API (`priority`, `priority_overridden`, `impact`, `urgency`, filtro `priority`) e a permissão `ticket.set_priority`. As filas e o "Pegar o próximo" seguem a ordem de registro (mais antigo primeiro). A migração `0016` apaga as colunas, sem volta dos valores no downgrade (voltam como prioridade baixa). O histórico antigo continua mostrando essas alterações.
 - O agente passa a atribuir chamados a outros membros do grupo (`ticket.assign_others`), antes só nos grupos que supervisiona; no detalhe do chamado, também pode devolver à fila o chamado de outra pessoa. A migração `0015` atualiza o papel.

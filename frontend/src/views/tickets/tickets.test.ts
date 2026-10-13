@@ -233,31 +233,12 @@ const CHAMADO = {
   time_by_person: [],
   allowed_actions: ['assign_self', 'comment', 'edit', 'transfer', 'watch_self'],
 }
-const EVENTOS = {
-  items: [
-    {
-      id: 1,
-      type: 'ticket.created',
-      actor: { id: BIA, full_name: 'Bia' },
-      payload: {},
-      created_at: '2026-10-10T12:00:00Z',
-    },
-    {
-      id: 2,
-      type: 'ticket.transferred',
-      actor: { id: BIA, full_name: 'Bia' },
-      payload: { from: { id: 'x', name: 'Infra' }, to: { id: TI, name: 'TI' } },
-      created_at: '2026-10-10T12:05:00Z',
-    },
-  ],
-}
 
 describe('TicketView', () => {
   it('mostra o chamado, a linha do tempo e só as ações permitidas', async () => {
     const feitas = simularApi({
       'GET /api/v1/tickets/1000': [200, CHAMADO],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
-      'GET /api/v1/tickets/1000/events': [200, EVENTOS],
       'GET /api/v1/teams': [200, GRUPOS],
       'POST /api/v1/tickets/1000/assign': [
         200,
@@ -269,7 +250,8 @@ describe('TicketView', () => {
 
     await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
     expect(w.find('strong').text()).toBe('offline')
-    expect(w.text()).toContain('Bia transferiu de Infra para TI')
+    // O histórico (assumiu, devolveu, acompanha…) não aparece na tela: nem é buscado
+    expect(feitas.some((r) => r.caminho.endsWith('/events'))).toBe(false)
     expect(w.text()).toContain('10/10/2026, 08:30') // início, no fuso de São Paulo
     expect(w.text()).toContain('Padaria Pão Quente')
     expect(w.text()).toContain('Maria')
@@ -292,7 +274,6 @@ describe('TicketView', () => {
     simularApi({
       'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment', 'wait'] }],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
-      'GET /api/v1/tickets/1000/events': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
     })
     const w = montar(TicketView, { props: { numero: '1000' } })
@@ -335,7 +316,6 @@ describe('TicketView', () => {
           ],
         },
       ],
-      'GET /api/v1/tickets/1000/events': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
     })
     const w = montar(TicketView, { props: { numero: '1000' } })
@@ -368,7 +348,6 @@ describe('TicketView', () => {
         { status: 403, detail: 'Você não tem acesso a este chamado.' },
       ],
       'GET /api/v1/tickets/1000/comments': [403, { status: 403 }],
-      'GET /api/v1/tickets/1000/events': [403, { status: 403 }],
       'GET /api/v1/teams': [200, GRUPOS],
     })
     const w = montar(TicketView, { props: { numero: '1000' } })

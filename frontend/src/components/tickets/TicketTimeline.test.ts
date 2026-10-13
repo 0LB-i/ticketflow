@@ -35,7 +35,6 @@ describe('TicketTimeline', () => {
             editable_until: '2026-10-10T12:10:00Z',
           },
         ],
-        eventos: [],
         pessoas: [],
       },
     })
@@ -85,7 +84,6 @@ describe('TicketTimeline', () => {
             editable_until: '2026-10-10T12:10:00Z',
           },
         ],
-        eventos: [],
         pessoas: [],
       },
     })
