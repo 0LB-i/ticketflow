@@ -8,8 +8,8 @@ Wants=postgresql.service
 User=sistema-chamados
 Group=sistema-chamados
 EnvironmentFile=/etc/sistema-chamados/env
-WorkingDirectory=/opt/sistema-chamados/backend
-ExecStart=/opt/sistema-chamados/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
+WorkingDirectory=/opt/ticketflow/backend
+ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
           --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 RestartSec=3
