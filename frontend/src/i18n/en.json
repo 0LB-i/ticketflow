@@ -481,7 +481,6 @@
     "data": "Date",
     "hora": "Time",
     "agora": "Now",
-    "acompanhando": "Following the current time. Change the date or time if the work started earlier.",
     "ajustado": "Set by hand. Now goes back to the current time."
   },
   "statusConfig": {

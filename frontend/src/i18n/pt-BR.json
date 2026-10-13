@@ -481,7 +481,6 @@
     "data": "Data",
     "hora": "Hora",
     "agora": "Agora",
-    "acompanhando": "Acompanhando a hora atual. Mude a data ou a hora se o trabalho começou antes.",
     "ajustado": "Ajustado à mão. Agora volta para a hora atual."
   },
   "statusConfig": {

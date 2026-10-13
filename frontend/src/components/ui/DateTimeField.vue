@@ -33,7 +33,10 @@ const classeInput = computed(() => [
 </script>
 
 <template>
-  <fieldset class="flex flex-col gap-1" :aria-describedby="`${id}-dica`">
+  <fieldset
+    class="flex flex-col gap-1"
+    :aria-describedby="model === null ? undefined : `${id}-dica`"
+  >
     <legend class="mb-1 font-medium">{{ label }}</legend>
     <div class="flex flex-wrap items-center gap-2">
       <input
@@ -57,8 +60,8 @@ const classeInput = computed(() => [
         {{ $t('dataHora.agora') }}
       </Button>
     </div>
-    <p :id="`${id}-dica`" class="text-muted">
-      {{ model === null ? $t('dataHora.acompanhando') : $t('dataHora.ajustado') }}
+    <p v-if="model !== null" :id="`${id}-dica`" class="text-muted">
+      {{ $t('dataHora.ajustado') }}
     </p>
     <p v-if="error" class="text-danger">{{ error }}</p>
   </fieldset>

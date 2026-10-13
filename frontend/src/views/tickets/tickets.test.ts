@@ -167,7 +167,8 @@ describe('NewTicketView', () => {
     const router = criarRouter()
     const w = montar(NewTicketView, { global: { plugins: [router] } })
     await router.push('/chamados/novo')
-    await vi.waitFor(() => expect(w.text()).toContain('Acompanhando a hora atual'))
+    await vi.waitFor(() => expect(w.find('input[type=date]').exists()).toBe(true))
+    expect(w.text()).not.toContain('Ajustado à mão')
 
     await w.get('input[type=date]').setValue('2026-10-01')
     await w.get('input[type=time]').setValue('07:45')
