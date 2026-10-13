@@ -102,6 +102,10 @@ watch(
   (v) => (form.mobile = formatarTelefone(v)),
 )
 watch(
+  () => form.id_number,
+  (v) => (form.id_number = soDigitos(v).slice(0, 14)),
+)
+watch(
   () => form.postal_code,
   (v) => (form.postal_code = formatarCep(v)),
 )

@@ -4,6 +4,7 @@ Ver exige client.view; cadastrar e alterar, client.manage. Não há exclusão: c
 mais atendido fica inativo. A auditoria guarda só quais campos mudaram, não os dados pessoais.
 """
 
+import re
 import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
@@ -38,7 +39,7 @@ class ClientIn(BaseModel):
     name: Text200 = Field(description="nome completo ou razão social")
     trade_name: Text200 | None = Field(default=None, description="nome fantasia (PJ)")
     document: Short = Field(description="CPF ou CNPJ, com ou sem pontuação")
-    id_number: Short | None = Field(default=None, description="RG (PF)")
+    id_number: Short | None = Field(default=None, description="RG (PF), só números, até 14")
     birth_date: date | None = Field(default=None, description="PF")
     state_registration: Short | None = Field(default=None, description='IE (PJ), ou "ISENTO"')
     municipal_registration: Short | None = Field(default=None, description="IM (PJ)")
@@ -122,6 +123,8 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     if data.kind == "company" and not doc.valid_cnpj(document):
         raise HTTPException(422, "CNPJ inválido.")
     v["document"] = document
+    if v["id_number"] and not re.fullmatch(r"[0-9]{1,14}", v["id_number"]):
+        raise HTTPException(422, "RG inválido: só números, até 14.")
     if data.birth_date and data.birth_date > date.today():
         raise HTTPException(422, "A data de nascimento não pode ficar no futuro.")
     if v["state_registration"]:

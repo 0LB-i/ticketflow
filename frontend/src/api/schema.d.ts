@@ -991,7 +991,7 @@ export interface components {
       document: string
       /**
        * Id Number
-       * @description RG (PF)
+       * @description RG (PF), só números, até 14
        */
       id_number?: string | null
       /**
@@ -1075,7 +1075,7 @@ export interface components {
       document: string
       /**
        * Id Number
-       * @description RG (PF)
+       * @description RG (PF), só números, até 14
        */
       id_number?: string | null
       /**
