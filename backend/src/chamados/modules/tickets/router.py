@@ -89,6 +89,9 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
         else None,
         reopened_count=t.reopened_count,
         closed_at=t.closed_at,
+        co_assignees=[
+            UserRef(id=c.user.public_id, full_name=c.user.full_name) for c in t.co_assignees
+        ],
         watchers=[
             WatcherOut(id=w.user.public_id, full_name=w.user.full_name, kind=w.kind)
             for w in t.watchers

@@ -11,7 +11,7 @@ Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado
 | Tipo | Incidente, requisição ou tarefa (10.2) | Padrão da categoria; ajustável |
 | Categoria | O que é a tarefa | Quem registra |
 | Grupo | Fila responsável | Categoria (padrão) ou quem registra; muda por transferência |
-| Responsável | Membro que está executando | Quem registra (pode ser ele mesmo), quem assume ou o supervisor |
+| Responsável | Membro(s) que estão executando | Quem registra (ele mesmo, outros membros ou o grupo todo), quem assume ou outro membro do grupo |
 | Registrado por | Membro que criou o chamado | Sistema |
 | Setor atendido | Área para a qual a tarefa é feita (opcional) | Quem registra |
 | Pessoa atendida | Nome de quem pediu ou será atendido, em texto livre, sem conta no sistema (opcional) | Quem registra |
@@ -72,7 +72,8 @@ Descrição      [ editor de texto (colar prints)       ]
 Para quem      Setor [Comercial ▾]   Pessoa [Carla Dias      ]   (opcionais)
 Urgência       ( ) Pode esperar  ( ) Nesta semana  ( ) Agora
 Impacto        ( ) Uma pessoa  ( ) Um setor  ( ) A empresa toda
-Responsável    (•) Eu  ( ) Deixar na fila  ( ) Outro membro (supervisor)
+Usuários       [Ana ×] [+ adicionar pessoa ▾]   (começa com quem registra; vazio = fila do grupo;
+                                                 "Todas as pessoas do grupo" marca todos os membros)
 Observadores   [+ adicionar colega]
 📎 Arraste arquivos aqui ou clique para anexar
                                                    [Cancelar] [Registrar]
@@ -159,7 +160,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 - **Para si:** quem registra já pode ficar como responsável, o caso mais comum quando a pessoa vai executar a tarefa.
 - **Puxar:** o membro clica em **"Pegar o próximo"**, e o sistema atribui o primeiro chamado da fila "Não atribuídos" na ordenação padrão. Também é possível assumir um chamado específico.
-- **Empurrar:** o supervisor atribui chamados a membros do grupo, individualmente ou em massa.
+- **Empurrar:** qualquer membro atribui chamados a outros membros do grupo; no registro, a uma ou mais pessoas, ou ao grupo todo. A atribuição em massa é do supervisor.
 - **Automática** (futuro): por rodízio ou menor carga.
 
 ### Tela do chamado

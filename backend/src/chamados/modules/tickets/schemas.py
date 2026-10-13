@@ -78,6 +78,7 @@ class TicketOut(TicketSummary):
     resolution_code: ResolutionRef | None
     reopened_count: int
     closed_at: datetime | None
+    co_assignees: list[UserRef] = Field(description="outros responsáveis, além do assignee")
     watchers: list[WatcherOut]
     attachments: list[AttachmentOut] = Field(description="do registro e de todos os comentários")
     allowed_actions: list[str] = Field(
@@ -132,7 +133,12 @@ class TicketCreate(BaseModel):
     impact: int = Field(default=1, ge=1, le=3)
     urgency: int = Field(default=1, ge=1, le=3)
     assignee: Literal["me"] | uuid.UUID | None = Field(
-        default=None, description='"me", outro membro do grupo (supervisor) ou nulo (fila)'
+        default=None, description='"me", outro membro do grupo ou nulo (fila)'
+    )
+    co_assignee_ids: list[uuid.UUID] = Field(
+        default=[],
+        max_length=200,
+        description="outros responsáveis, membros ativos do grupo; exige o assignee",
     )
     watcher_ids: list[uuid.UUID] = Field(default=[], max_length=50)
     mention_ids: list[uuid.UUID] = Field(

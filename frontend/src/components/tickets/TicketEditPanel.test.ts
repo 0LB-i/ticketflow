@@ -34,6 +34,7 @@ const CHAMADO: Chamado = {
   resolution_code: null,
   reopened_count: 0,
   closed_at: null,
+  co_assignees: [],
   watchers: [],
   attachments: [],
   allowed_actions: ['set_priority'],

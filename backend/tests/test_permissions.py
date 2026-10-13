@@ -31,7 +31,7 @@ MATRIZ = {
     P.TICKET_EDIT: (S, S, S, N),
     P.TICKET_SET_PRIORITY: (S, S, S, N),
     P.TICKET_ASSIGN_SELF: (S, S, S, N),
-    P.TICKET_ASSIGN_OTHERS: (N, S, S, N),
+    P.TICKET_ASSIGN_OTHERS: (S, S, S, N),
     P.TICKET_TRANSFER: (S, S, S, N),
     P.TICKET_TRANSITION: (S, S, S, N),
     P.TICKET_APPROVE: (N, S, S, N),
@@ -89,8 +89,9 @@ def _migracao(numero: str) -> Any:
 
 
 def test_papeis_da_migracao_batem_com_o_catalogo() -> None:
-    # Papéis criados na 0002; permissões acrescentadas depois (0010: clientes).
-    novas = _migracao("0010").NEW_PERMISSIONS
+    # Papéis criados na 0002; permissões acrescentadas depois (0010: clientes; 0015: atribuir
+    # a outro membro).
+    novas = [_migracao(n).NEW_PERMISSIONS for n in ("0010", "0015")]
     for codigo, _, permissoes in _migracao("0002").SYSTEM_ROLES:
-        esperado = set(permissoes) | set(novas.get(codigo, []))
+        esperado = set(permissoes).union(*(n.get(codigo, []) for n in novas))
         assert esperado == {str(p) for p in ROLES[codigo]}, codigo

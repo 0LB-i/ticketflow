@@ -4571,7 +4571,18 @@
               }
             ],
             "title": "Assignee",
-            "description": "\"me\", outro membro do grupo (supervisor) ou nulo (fila)"
+            "description": "\"me\", outro membro do grupo ou nulo (fila)"
+          },
+          "co_assignee_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Co Assignee Ids",
+            "description": "outros responsáveis, membros ativos do grupo; exige o assignee",
+            "default": []
           },
           "watcher_ids": {
             "items": {
@@ -4876,6 +4887,14 @@
             ],
             "title": "Closed At"
           },
+          "co_assignees": {
+            "items": {
+              "$ref": "#/components/schemas/UserRef"
+            },
+            "type": "array",
+            "title": "Co Assignees",
+            "description": "outros responsáveis, além do assignee"
+          },
           "watchers": {
             "items": {
               "$ref": "#/components/schemas/WatcherOut"
@@ -4925,6 +4944,7 @@
           "resolution_code",
           "reopened_count",
           "closed_at",
+          "co_assignees",
           "watchers",
           "attachments",
           "allowed_actions"

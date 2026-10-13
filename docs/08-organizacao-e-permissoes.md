@@ -105,7 +105,7 @@ Futuro: `admin.roles` (papéis personalizados), `admin.integrations` (tokens de 
 | `ticket.edit` | ✅ | ✅ | — |
 | `ticket.set_priority` | ✅ | ✅ | — |
 | `ticket.assign_self` | ✅ | ✅ | — |
-| `ticket.assign_others` | 👤 | ✅ | — |
+| `ticket.assign_others` | ✅ | ✅ | — |
 | `ticket.transfer` | ✅ | ✅ | — |
 | `ticket.transition` | ✅ | ✅ | — |
 | `ticket.approve` | 👤 | ✅ | — |

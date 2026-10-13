@@ -104,6 +104,24 @@ class Ticket(Base):
     watchers: Mapped[list["TicketWatcher"]] = relationship(
         cascade="all, delete-orphan", order_by="TicketWatcher.added_at"
     )
+    co_assignees: Mapped[list["TicketCoAssignee"]] = relationship(
+        cascade="all, delete-orphan", order_by="TicketCoAssignee.added_at"
+    )
+
+
+class TicketCoAssignee(Base):
+    """Outros responsáveis, além do principal (assignee_id): só existem com um principal e saem
+    junto com ele (devolver à fila, transferir)."""
+
+    __tablename__ = "ticket_co_assignees"
+
+    ticket_id: Mapped[int] = mapped_column(
+        ForeignKey("tickets.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, index=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped[User] = relationship(lazy="joined")
 
 
 class TicketTeam(Base):

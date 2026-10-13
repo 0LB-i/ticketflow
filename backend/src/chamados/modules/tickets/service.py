@@ -26,6 +26,7 @@ from chamados.modules.organization.models import Department, Team, TeamMember
 from chamados.modules.tickets import rules
 from chamados.modules.tickets.models import (
     Ticket,
+    TicketCoAssignee,
     TicketComment,
     TicketEvent,
     TicketRead,
@@ -39,7 +40,7 @@ from chamados.modules.tickets.schemas import (
     TicketView,
     TransitionIn,
 )
-from chamados.modules.tickets.visibility import ticket_visibility_filter
+from chamados.modules.tickets.visibility import assigned_to, ticket_visibility_filter
 
 COMMENT_EDIT_WINDOW = timedelta(minutes=10)
 FORBIDDEN = "Você não tem permissão para esta ação."
@@ -87,7 +88,7 @@ async def load(db: AsyncSession, auth: Auth, ticket_ref: str) -> Ticket:
     stmt = (
         select(Ticket, ticket_visibility_filter(auth.actor).label("visible"))
         .where(_by_ref(ticket_ref))
-        .options(selectinload(Ticket.watchers))
+        .options(selectinload(Ticket.watchers), selectinload(Ticket.co_assignees))
         # Depois de uma alteração, relê tudo (a sessão não expira os objetos no commit).
         .execution_options(populate_existing=True)
     )
@@ -107,6 +108,7 @@ def actions(auth: Auth, ticket: Ticket) -> set[str]:
         created_by_id=ticket.created_by_id,
         assignee_id=ticket.assignee_id,
         is_watcher=any(w.user_id == auth.user.id for w in ticket.watchers),
+        co_assignee_ids=frozenset(c.user_id for c in ticket.co_assignees),
     )
     return rules.allowed_actions(auth.actor, state)
 
@@ -165,9 +167,9 @@ def view_filter(auth: Auth, view: TicketView) -> ColumnElement[bool]:
         case "unassigned":
             return and_(my_teams, Ticket.assignee_id.is_(None), TicketStatus.kind == "open")
         case "mine":
-            return and_(Ticket.assignee_id == me, TicketStatus.kind.in_(ACTIVE))
+            return and_(assigned_to(me), TicketStatus.kind.in_(ACTIVE))
         case "news":
-            return and_(Ticket.assignee_id == me, has_news(me))
+            return and_(assigned_to(me), has_news(me))
         case "waiting":
             return and_(my_teams, TicketStatus.kind == "waiting")
         case "watching":
@@ -240,7 +242,7 @@ async def list_tickets(
     if team is not None:
         stmt = stmt.where(Ticket.team.has(Team.public_id == team))
     if assignee == "me":
-        stmt = stmt.where(Ticket.assignee_id == auth.user.id)
+        stmt = stmt.where(assigned_to(auth.user.id))
     elif assignee == "none":
         stmt = stmt.where(Ticket.assignee_id.is_(None))
     elif assignee is not None:
@@ -248,7 +250,12 @@ async def list_tickets(
             assignee_id = uuid.UUID(assignee)
         except ValueError:
             raise HTTPException(422, 'Responsável: use "me", "none" ou o id.') from None
-        stmt = stmt.where(Ticket.assignee.has(User.public_id == assignee_id))
+        stmt = stmt.where(
+            or_(
+                Ticket.assignee.has(User.public_id == assignee_id),
+                Ticket.co_assignees.any(TicketCoAssignee.user.has(User.public_id == assignee_id)),
+            )
+        )
     if kinds:
         stmt = stmt.where(TicketStatus.kind.in_(kinds))
     if cursor:
@@ -376,6 +383,19 @@ async def _team_member(db: AsyncSession, public_id: uuid.UUID, team_id: int) -> 
     return user
 
 
+async def _team_members(db: AsyncSession, public_ids: set[uuid.UUID], team_id: int) -> list[User]:
+    users = (
+        await db.scalars(
+            select(User)
+            .join(TeamMember, TeamMember.user_id == User.id)
+            .where(User.public_id.in_(public_ids), User.is_active, TeamMember.team_id == team_id)
+        )
+    ).all()
+    if len(users) != len(public_ids):
+        raise HTTPException(422, "O responsável precisa ser um membro ativo do grupo.")
+    return list(users)
+
+
 async def _add_watchers(
     db: AsyncSession,
     auth: Auth,
@@ -478,8 +498,17 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         assignee = auth.user
     elif data.assignee is not None:
         if not can(auth.actor, P.TICKET_ASSIGN_OTHERS, team.id):
-            raise HTTPException(403, "Só o supervisor do grupo registra para outro membro.")
+            raise HTTPException(403, FORBIDDEN)
         assignee = await _team_member(db, data.assignee, team.id)
+    co_assignees: list[User] = []
+    if data.co_assignee_ids:
+        if assignee is None:
+            raise HTTPException(422, "Escolha o responsável principal antes dos demais.")
+        if not can(auth.actor, P.TICKET_ASSIGN_OTHERS, team.id):
+            raise HTTPException(403, FORBIDDEN)
+        co_assignees = await _team_members(
+            db, set(data.co_assignee_ids) - {assignee.public_id}, team.id
+        )
 
     ticket = Ticket(
         title=data.title,
@@ -505,7 +534,11 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     await db.flush()
     db.add(TicketTeam(ticket_id=ticket.id, team_id=team.id))
     await attachments.link(db, auth, ticket, data.attachment_ids)
-    add_event(db, ticket, "ticket.created", auth, team=ref(team), assignee=ref(assignee))
+    db.add_all(TicketCoAssignee(ticket_id=ticket.id, user_id=u.id) for u in co_assignees)
+    created: dict[str, Any] = {"team": ref(team), "assignee": ref(assignee)}
+    if co_assignees:
+        created["co_assignees"] = [ref(u) for u in co_assignees]
+    add_event(db, ticket, "ticket.created", auth, **created)
     await _add_watchers(db, auth, ticket, data.watcher_ids, "watcher")
     await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
     await db.commit()
@@ -678,7 +711,15 @@ async def assign(db: AsyncSession, auth: Auth, ticket: Ticket, assignee: Assigne
         new = await _team_member(db, assignee, ticket.team_id)
     if (new.id if new else None) == ticket.assignee_id:
         return
-    add_event(db, ticket, "ticket.assigned", auth, **{"from": ref(ticket.assignee), "to": ref(new)})
+    payload: dict[str, Any] = {"from": ref(ticket.assignee), "to": ref(new)}
+    if new is None:
+        # Devolver à fila tira todos os responsáveis.
+        if ticket.co_assignees:
+            payload["co_unassigned"] = [ref(c.user) for c in ticket.co_assignees]
+        ticket.co_assignees.clear()
+    else:
+        ticket.co_assignees[:] = [c for c in ticket.co_assignees if c.user_id != new.id]
+    add_event(db, ticket, "ticket.assigned", auth, **payload)
     ticket.assignee_id = new.id if new else None
     if new is not None and ticket.first_assigned_at is None:
         ticket.first_assigned_at = func.now()
@@ -723,6 +764,8 @@ async def transfer(
     }
     if ticket.assignee is not None:
         payload["unassigned"] = ref(ticket.assignee)
+    if ticket.co_assignees:
+        payload["co_unassigned"] = [ref(c.user) for c in ticket.co_assignees]
     if ticket.status.kind != "open":
         status = await _default_status(db, "open")
         payload["status"] = {"from": ref(ticket.status), "to": ref(status)}
@@ -730,6 +773,7 @@ async def transfer(
     add_event(db, ticket, "ticket.transferred", auth, **payload)
     ticket.team_id = team.id
     ticket.assignee_id = None
+    ticket.co_assignees.clear()
     known = await db.get(TicketTeam, (ticket.id, team.id))
     if known is None:
         db.add(TicketTeam(ticket_id=ticket.id, team_id=team.id))

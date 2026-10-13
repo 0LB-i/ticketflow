@@ -57,10 +57,10 @@ DONO = {"wait", "close", "cancel"}
 
 # Chamado Pendente, com responsável (docs/08 §8.5)
 PENDENTE = [
-    (membro, DO_GRUPO | {"assign_self"}),
-    (responsavel, DO_GRUPO | DONO | {"unassign"}),
+    (membro, DO_GRUPO | {"assign_self", "assign_others", "unassign"}),
+    (responsavel, DO_GRUPO | DONO | {"assign_others", "unassign"}),
     (supervisor, DO_GRUPO | DONO | {"assign_self", "assign_others", "unassign"}),
-    (registrou, DO_GRUPO | {"assign_self", "cancel"}),
+    (registrou, DO_GRUPO | {"assign_self", "assign_others", "unassign", "cancel"}),
     (observador_de_fora, {"comment", "watch_self"}),
     (grupo_anterior, {"watch_self"}),
     (supervisor_de_outro, {"watch_self"}),

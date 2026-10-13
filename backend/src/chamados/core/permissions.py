@@ -47,7 +47,6 @@ class P(StrEnum):
 # Concedidas a quem é supervisor do grupo do chamado (👤).
 SUPERVISOR = frozenset(
     {
-        P.TICKET_ASSIGN_OTHERS,
         P.TICKET_APPROVE,
         P.TICKET_BULK,
         P.TICKET_HIDE_CONTENT,
@@ -66,6 +65,7 @@ ROLES: dict[str, frozenset[P]] = {
             P.TICKET_EDIT,
             P.TICKET_SET_PRIORITY,
             P.TICKET_ASSIGN_SELF,
+            P.TICKET_ASSIGN_OTHERS,
             P.TICKET_TRANSFER,
             P.TICKET_TRANSITION,
             P.TICKET_WATCH,
