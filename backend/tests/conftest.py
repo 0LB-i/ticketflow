@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from argon2 import PasswordHasher
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, select, text
 from sqlalchemy.orm import Session
@@ -24,6 +25,7 @@ from chamados.modules.catalog.models import Category
 from chamados.modules.identity import passwords
 from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import hash_password
+from chamados.modules.identity.ratelimit import IpLimiter
 from chamados.modules.organization.models import Role, Team, TeamMember
 
 TEST_DATABASE_URL = os.environ.get(
@@ -100,10 +102,21 @@ def mailer() -> FakeMailer:
     return FakeMailer()
 
 
+@pytest.fixture(scope="session")
+def app(database_url: str, tmp_path_factory: pytest.TempPathFactory) -> FastAPI:
+    """Uma aplicação para a sessão toda: montá-la custa ~0,4 s (o FastAPI analisa cada rota)."""
+    dist = tmp_path_factory.mktemp("dist")
+    return create_app(Settings(database_url=database_url, log_format="console", frontend_dist=dist))
+
+
 @pytest.fixture
-def client(settings: Settings, mailer: FakeMailer, db: Session) -> Iterator[TestClient]:
-    app = create_app(settings)
+def client(
+    app: FastAPI, settings: Settings, mailer: FakeMailer, db: Session
+) -> Iterator[TestClient]:
+    # O estado que as rotas leem de app.state começa do zero em cada teste.
+    app.state.settings = settings
     app.state.mailer = mailer
+    app.state.ip_limiter = IpLimiter()
     with TestClient(app) as c:
         yield c
 
