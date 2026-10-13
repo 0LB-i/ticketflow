@@ -129,12 +129,14 @@ describe('TicketsView', () => {
     const w = montar(TicketsView, { global: { plugins: [router] } })
     await router.push(`/chamados?grupo=${TI}`)
     await vi.waitFor(() => expect(w.text()).toContain('Pegar o próximo'))
+    // Confere o pedido de navegação: carregar a tela do chamado (com o editor) é lento no jsdom.
+    const navegar = vi.spyOn(router, 'push').mockResolvedValue(undefined)
 
     await w
       .findAll('button')
       .find((b) => b.text() === 'Pegar o próximo')!
       .trigger('click')
-    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1005'))
+    await vi.waitFor(() => expect(navegar).toHaveBeenCalledWith('/chamados/1005'))
     expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toEqual({ team_id: TI })
   })
 })
@@ -150,17 +152,20 @@ describe('busca no cabeçalho', () => {
     }))
     const router = criarRouter()
     const w = montar(AppLayout, { global: { plugins: [router] } })
-    await router.push('/clientes')
+    await router.push('/chamados')
+    // Confere os pedidos de navegação: carregar as telas (o chamado tem o editor) é lento no jsdom.
+    const navegar = vi.spyOn(router, 'push').mockResolvedValue(undefined)
     const campo = w.get('input[type=search]')
 
     await campo.setValue('#1234')
     await w.get('form[role=search]').trigger('submit')
-    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1234'))
+    expect(navegar).toHaveBeenLastCalledWith('/chamados/1234')
 
     await campo.setValue('impressora')
     await w.get('form[role=search]').trigger('submit')
-    await vi.waitFor(() =>
-      expect(router.currentRoute.value.fullPath).toBe('/chamados?aba=todos&q=impressora'),
-    )
+    expect(navegar).toHaveBeenLastCalledWith({
+      name: 'chamados',
+      query: { aba: 'todos', q: 'impressora' },
+    })
   })
 })
