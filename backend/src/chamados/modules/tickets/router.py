@@ -56,7 +56,6 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
         title=t.title,
         type=t.type,
         status=StatusRef(id=t.status.id, name=t.status.name, kind=t.status.kind),
-        priority=t.priority,
         team=RefOut(id=t.team.public_id, name=t.team.name),
         category=CategoryRef(
             id=t.category.public_id, name=t.category.name, path=paths[t.category.id]
@@ -80,9 +79,6 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
     return TicketOut(
         **dict(_summary(t, paths)),
         description=t.description,
-        impact=t.impact,
-        urgency=t.urgency,
-        priority_overridden=t.priority_overridden,
         created_by=_user(t.created_by),
         resolution_code=ResolutionRef(id=t.resolution_code.id, name=t.resolution_code.name)
         if t.resolution_code
@@ -121,7 +117,6 @@ async def list_tickets(
     team: Annotated[uuid.UUID | None, Query(description="id do grupo atual")] = None,
     assignee: Annotated[str | None, Query(description='"me", "none" ou o id do usuário')] = None,
     status: Annotated[list[StatusKind] | None, Query(description="kinds de status")] = None,
-    priority: Annotated[int | None, Query(ge=1, le=4)] = None,
     q: Annotated[
         str | None,
         Query(max_length=200, description="busca: texto, comentários, número, cliente, contato"),
@@ -136,7 +131,6 @@ async def list_tickets(
         team=team,
         assignee=assignee,
         kinds=status or [],
-        priority=priority,
         q=q,
         limit=limit,
         cursor=cursor,

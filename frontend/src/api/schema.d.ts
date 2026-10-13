@@ -1662,16 +1662,6 @@ export interface components {
        */
       status_id?: number | null
       /**
-       * Impact
-       * @default 1
-       */
-      impact: number
-      /**
-       * Urgency
-       * @default 1
-       */
-      urgency: number
-      /**
        * Assignee
        * @description "me", outro membro do grupo ou nulo (fila)
        */
@@ -1717,8 +1707,6 @@ export interface components {
        */
       type: 'incident' | 'request' | 'task'
       status: components['schemas']['StatusRef']
-      /** Priority */
-      priority: number
       team: components['schemas']['Ref']
       category: components['schemas']['CategoryRef'] | null
       department: components['schemas']['Ref'] | null
@@ -1767,8 +1755,6 @@ export interface components {
        */
       type: 'incident' | 'request' | 'task'
       status: components['schemas']['StatusRef']
-      /** Priority */
-      priority: number
       team: components['schemas']['Ref']
       category: components['schemas']['CategoryRef'] | null
       department: components['schemas']['Ref'] | null
@@ -1796,12 +1782,6 @@ export interface components {
       updated_at: string
       /** Description */
       description: string
-      /** Impact */
-      impact: number
-      /** Urgency */
-      urgency: number
-      /** Priority Overridden */
-      priority_overridden: boolean
       created_by: components['schemas']['UserRef']
       resolution_code: components['schemas']['ResolutionRef'] | null
       /** Reopened Count */
@@ -1865,17 +1845,6 @@ export interface components {
        * @description qualquer status, sem as exigências do fluxo (set_status)
        */
       status_id?: number | null
-      /** Impact */
-      impact?: number | null
-      /** Urgency */
-      urgency?: number | null
-      /**
-       * Priority
-       * @description diferente da matriz exige priority_reason; nula volta ao valor da matriz
-       */
-      priority?: number | null
-      /** Priority Reason */
-      priority_reason?: string | null
       /**
        * Attachment Ids
        * @description imagens coladas na descrição (POST /uploads)
@@ -3176,7 +3145,6 @@ export interface operations {
         assignee?: string | null
         /** @description kinds de status */
         status?: ('approval' | 'open' | 'waiting' | 'closed' | 'canceled')[] | null
-        priority?: number | null
         /** @description busca: texto, comentários, número, cliente, contato */
         q?: string | null
         limit?: number

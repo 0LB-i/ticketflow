@@ -72,7 +72,7 @@ flowchart LR
 |--------|---------|------------|
 | F1-S3-01 | Cadastro de **categorias** (árvore, grupo padrão, tipo padrão, confidencial) | [08](08-organizacao-e-permissoes.md#81-conceitos) |
 | F1-S3-02 | Status padrão e **motor de transições** (quem pode, campos exigidos) | [10.5](10-chamados.md#105-status-e-fluxo) |
-| F1-S3-03 | **Registro** de chamado: formulário, setor e pessoa atendidos, responsável na criação, matriz impacto × urgência | [10.3](10-chamados.md#103-prioridade-impacto--urgência), [10.4](10-chamados.md#104-registro) |
+| F1-S3-03 | **Registro** de chamado: formulário, setor e pessoa atendidos, responsável na criação | [10.4](10-chamados.md#104-registro) |
 | F1-S3-04 | **Observadores** e @menções | [10.7](10-chamados.md#107-observadores) |
 | F1-S3-05 | Roteamento por categoria → grupo | 10.4 |
 | F1-S3-06 | **Comentários**; edição em 10 min | [10.6](10-chamados.md#regras-de-edição) |

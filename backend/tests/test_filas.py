@@ -99,8 +99,8 @@ def test_busca(client: TestClient, cenario: dict[str, Any], db: Session) -> None
 
 
 def test_pegar_o_proximo(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa: F811
-    baixa = registrar(client, cenario, title="Baixa")["number"]
-    alta = registrar(client, cenario, title="Alta", impact=3, urgency=3)["number"]
+    primeiro = registrar(client, cenario, title="Primeiro")["number"]
+    segundo = registrar(client, cenario, title="Segundo")["number"]
 
     entrar(client, "caio@x.com")
     r = client.post(f"{API}/next", json={})
@@ -109,8 +109,8 @@ def test_pegar_o_proximo(client: TestClient, cenario: dict[str, Any]) -> None:  
     entrar(client, "bia@x.com")
     r = client.post(f"{API}/next", json={"team_id": cenario["ti"]})
     assert r.status_code == 200
-    assert r.json()["number"] == alta and r.json()["assignee"]["full_name"] == "Bia"
-    assert client.post(f"{API}/next", json={}).json()["number"] == baixa
+    assert r.json()["number"] == primeiro and r.json()["assignee"]["full_name"] == "Bia"
+    assert client.post(f"{API}/next", json={}).json()["number"] == segundo
     assert client.post(f"{API}/next", json={}).status_code == 404
 
     entrar(client, "auditor@x.com")  # sem grupos, não há fila

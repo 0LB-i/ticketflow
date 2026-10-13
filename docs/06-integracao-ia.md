@@ -24,7 +24,7 @@ A integração acontece em **duas direções**:
 
 | # | Funcionalidade | Gatilho | Entrada | Saída (estruturada) | Bloco |
 |---|----------------|---------|---------|---------------------|------|
-| 1 | **Classificação / triagem** | `ticket.created` (assíncrono) | Título, descrição, árvore de categorias com descrições | `{category_id, priority, team_id, confidence, rationale}` | 1 |
+| 1 | **Classificação / triagem** | `ticket.created` (assíncrono) | Título, descrição, árvore de categorias com descrições | `{category_id, team_id, confidence, rationale}` | 1 |
 | 2 | **Resumo** | Sob demanda; automático em chamados com > N comentários ou em transferências | Chamado + comentários | `{summary, current_state, next_steps}` | 1 |
 | 3 | **Sugestão de resposta** | Botão na tela do agente | Chamado + artigos e chamados resolvidos semelhantes (RAG) | Rascunho de resposta + fontes citadas | 1 |
 | 4 | **Chamados semelhantes / duplicados** | `ticket.created` | Embedding do chamado | Lista de chamados com similaridade | 1 |
@@ -111,7 +111,7 @@ Agentes externos podem reagir a eventos (`ticket.created`, `ticket.comment_added
 
 | Risco | Mitigação |
 |-------|-----------|
-| **Prompt injection** (texto do chamado tenta manipular a IA) | O conteúdo do usuário vai sempre delimitado como *dado*, nunca como instrução; as saídas são estruturadas e validadas; a IA de triagem não tem ferramentas com efeito colateral; ações automáticas são limitadas a um conjunto fechado (categoria, prioridade, fila) |
+| **Prompt injection** (texto do chamado tenta manipular a IA) | O conteúdo do usuário vai sempre delimitado como *dado*, nunca como instrução; as saídas são estruturadas e validadas; a IA de triagem não tem ferramentas com efeito colateral; ações automáticas são limitadas a um conjunto fechado (categoria, fila) |
 | **Vazamento de dados** | Mascaramento, `ai_allowed` por categoria, opção de modelo local, a RAG respeita a visibilidade (o solicitante nunca recebe trechos de notas internas ou de chamados de outras pessoas) |
 | **Agente externo com permissão demais** | Escopos mínimos, sem `admin`, conta de serviço dedicada, revogação imediata, auditoria |
 | **Custo descontrolado** | Cota mensal de tokens por funcionalidade, alerta de consumo, cache de resumos (só regenera se o chamado mudou) |

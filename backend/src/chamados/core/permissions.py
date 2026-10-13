@@ -19,7 +19,6 @@ class P(StrEnum):
     TICKET_VIEW_ALL = "ticket.view_all"
     TICKET_COMMENT = "ticket.comment"
     TICKET_EDIT = "ticket.edit"
-    TICKET_SET_PRIORITY = "ticket.set_priority"
     TICKET_ASSIGN_SELF = "ticket.assign_self"
     TICKET_ASSIGN_OTHERS = "ticket.assign_others"
     TICKET_TRANSFER = "ticket.transfer"
@@ -63,7 +62,6 @@ ROLES: dict[str, frozenset[P]] = {
             P.TICKET_VIEW_TEAM,
             P.TICKET_COMMENT,
             P.TICKET_EDIT,
-            P.TICKET_SET_PRIORITY,
             P.TICKET_ASSIGN_SELF,
             P.TICKET_ASSIGN_OTHERS,
             P.TICKET_TRANSFER,

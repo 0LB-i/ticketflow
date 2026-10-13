@@ -60,12 +60,6 @@
     "closed": "Concluído",
     "canceled": "Cancelado"
   },
-  "prioridade": {
-    "1": "Baixa",
-    "2": "Média",
-    "3": "Alta",
-    "4": "Crítica"
-  },
   "componentes": {
     "titulo": "Componentes do design system",
     "descricao": "Página de referência, visível só em desenvolvimento.",
@@ -87,8 +81,7 @@
     "avisoTexto": "#1234 está na fila do grupo.",
     "colunaNumero": "Número",
     "colunaTitulo": "Título",
-    "colunaStatus": "Status",
-    "colunaPrioridade": "Prioridade"
+    "colunaStatus": "Status"
   },
   "usuario": {
     "menu": "Menu do usuário",
@@ -223,16 +216,6 @@
     "request": "Requisição",
     "task": "Tarefa"
   },
-  "urgencia": {
-    "1": "Pode esperar",
-    "2": "Nesta semana",
-    "3": "Agora"
-  },
-  "impacto": {
-    "1": "Uma pessoa",
-    "2": "Um setor ou equipe",
-    "3": "A empresa toda ou clientes"
-  },
   "chamados": {
     "titulo": "Chamados",
     "novo": "Novo chamado",
@@ -251,7 +234,6 @@
     },
     "filtros": {
       "todosOsGrupos": "Todos os grupos",
-      "todas": "Todas",
       "todos": "Todos",
       "eu": "Eu",
       "ninguem": "Sem responsável",
@@ -309,10 +291,6 @@
     "responsavel": "Responsável",
     "naFila": "Na fila do grupo",
     "tipo": "Tipo",
-    "urgencia": "Urgência: para quando?",
-    "impacto": "Impacto: quem é afetado?",
-    "prioridade": "Prioridade",
-    "forcada": "forçada",
     "resolucao": "Resolução",
     "reaberturas": "Reaberturas",
     "assumir": "Assumir",
@@ -386,11 +364,7 @@
     "tirarCliente": "Tirar o cliente"
   },
   "editarChamado": {
-    "titulo": "Editar chamado #{numero}",
-    "pelaMatriz": "Automática",
-    "motivo": "Motivo da prioridade",
-    "motivoDica": "Fica no histórico do chamado.",
-    "motivoObrigatorio": "Informe o motivo para forçar a prioridade."
+    "titulo": "Editar chamado #{numero}"
   },
   "evento": {
     "sistema": "Sistema",

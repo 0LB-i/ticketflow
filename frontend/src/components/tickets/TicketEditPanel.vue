@@ -20,13 +20,12 @@ import {
 } from '@/composables/chamados'
 import { useToast } from '@/composables/useToast'
 
-/** Alterar campos e prioridade (docs/08 §8.5). Só vai para a API o que mudou. */
+/** Alterar campos (docs/08 §8.5). Só vai para a API o que mudou. */
 const props = defineProps<{ chamado: Chamado }>()
 const open = defineModel<boolean>('open', { default: false })
 const { t } = useI18n()
 const toast = useToast()
 const status = useStatus()
-const MATRIZ = 'matriz'
 
 const pode = computed(() => new Set(props.chamado.allowed_actions))
 const form = reactive({
@@ -37,8 +36,6 @@ const form = reactive({
   inicio: null as string | null,
   cliente: null as { id: string; name: string } | null,
   contato: '',
-  priority: MATRIZ,
-  reason: '',
 })
 const erro = ref<string | null>(null)
 
@@ -53,8 +50,6 @@ watch(open, (aberto) => {
     inicio: c.started_at,
     cliente: c.client,
     contato: c.beneficiary_name ?? '',
-    priority: c.priority_overridden ? String(c.priority) : MATRIZ,
-    reason: '',
   })
   erro.value = null
 })
@@ -64,16 +59,6 @@ const opcoesStatus = computed(() =>
 )
 const opcoesTipo = computed(() =>
   (['incident', 'request', 'task'] as const).map((v) => ({ value: v, label: t(`tipos.${v}`) })),
-)
-const opcoesPrioridade = computed(() => [
-  { value: MATRIZ, label: t('editarChamado.pelaMatriz') },
-  ...[1, 2, 3, 4].map((n) => ({ value: String(n), label: t(`prioridade.${n}`) })),
-])
-/** Forçar uma prioridade (ou trocar a forçada) exige o motivo (docs/10 §10.3). */
-const forcando = computed(
-  () =>
-    form.priority !== MATRIZ &&
-    (!props.chamado.priority_overridden || form.priority !== String(props.chamado.priority)),
 )
 
 function mudancas(): Schemas['TicketUpdate'] {
@@ -97,14 +82,6 @@ function mudancas(): Schemas['TicketUpdate'] {
   }
   if (pode.value.has('set_status') && Number(form.status) !== c.status.id)
     m.status_id = Number(form.status)
-  if (pode.value.has('set_priority')) {
-    if (forcando.value) {
-      m.priority = Number(form.priority)
-      m.priority_reason = form.reason
-    } else if (form.priority === MATRIZ && c.priority_overridden) {
-      m.priority = null
-    }
-  }
   return m
 }
 
@@ -115,10 +92,6 @@ const salvar = useAcaoNoChamado(
 
 async function enviar() {
   erro.value = null
-  if (forcando.value && !form.reason.trim()) {
-    erro.value = t('editarChamado.motivoObrigatorio')
-    return
-  }
   const m = mudancas()
   try {
     if (Object.keys(m).length) {
@@ -154,20 +127,6 @@ async function enviar() {
         :label="t('chamados.status')"
         :options="opcoesStatus"
       />
-      <template v-if="pode.has('set_priority')">
-        <SelectField
-          v-model="form.priority"
-          :label="t('chamado.prioridade')"
-          :options="opcoesPrioridade"
-        />
-        <TextField
-          v-if="forcando"
-          v-model="form.reason"
-          :label="t('editarChamado.motivo')"
-          :hint="t('editarChamado.motivoDica')"
-          required
-        />
-      </template>
     </form>
     <template #actions>
       <Button variant="secondary" @click="open = false">{{ t('comum.cancelar') }}</Button>

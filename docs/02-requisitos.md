@@ -15,7 +15,7 @@ Na revisão de escopo de 2026-10-09, vários itens passaram para **W** (depois d
 | RF-01.1 | Membro da equipe registra chamado com título, descrição, categoria, setor e pessoa atendidos e anexos | M |
 | RF-01.2 | Número sequencial legível (ex.: `#2026-000123`) além do ID interno | M |
 | RF-01.3 | Fluxo de status configurável, com um fluxo padrão (ver abaixo) | M |
-| RF-01.4 | Prioridade (baixa, média, alta, crítica) definida por impacto × urgência | M |
+| RF-01.4 | ~~Prioridade (baixa, média, alta, crítica) definida por impacto × urgência~~ (removida em 2026-10-13) | W |
 | RF-01.5 | Atribuição a equipe (fila) e a agente | M |
 | RF-01.6 | Comentários com @menções (todos visíveis a quem vê o chamado) | M |
 | RF-01.7 | Histórico completo e imutável de alterações | M |
@@ -91,7 +91,7 @@ Detalhes em [Organização e permissões](08-organizacao-e-permissoes.md) e [Log
 
 | ID | Requisito | Prior. |
 |----|-----------|--------|
-| RF-07.1 | Classificação automática (categoria, prioridade, equipe) com sugestão para revisão | W (futuro) |
+| RF-07.1 | Classificação automática (categoria, equipe) com sugestão para revisão | W (futuro) |
 | RF-07.2 | Resumo do chamado (útil em chamados longos e em transferências) | W (futuro) |
 | RF-07.3 | Sugestão de resposta para o agente, com base em histórico e base de conhecimento | W (futuro) |
 | RF-07.4 | Detecção de chamados duplicados ou semelhantes | W (futuro) |

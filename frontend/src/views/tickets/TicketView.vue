@@ -5,7 +5,6 @@ import { useI18n } from 'vue-i18n'
 import CommentBox from '@/components/tickets/CommentBox.vue'
 import TicketDetails from '@/components/tickets/TicketDetails.vue'
 import TicketTimeline from '@/components/tickets/TicketTimeline.vue'
-import PriorityBadge, { type Prioridade } from '@/components/ui/PriorityBadge.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useChamado, useComentarios, useEventos, usePessoas } from '@/composables/chamados'
 import { formatarDataHora } from '@/composables/formato'
@@ -55,7 +54,6 @@ watchEffect(() => {
             :kind="chamado.data.value.status.kind"
             :label="chamado.data.value.status.name"
           />
-          <PriorityBadge :priority="chamado.data.value.priority as Prioridade" />
         </div>
         <p class="text-muted">
           {{

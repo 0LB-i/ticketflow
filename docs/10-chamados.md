@@ -16,7 +16,6 @@ Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado
 | Setor atendido | Área para a qual a tarefa é feita (opcional) | Quem registra |
 | Pessoa atendida | Nome de quem pediu ou será atendido, em texto livre, sem conta no sistema (opcional) | Quem registra |
 | Status | Etapa do ciclo de vida (10.5) | Fluxo |
-| Impacto, urgência e prioridade | 10.3 | Quem registra; ajustável |
 | Observadores | Colegas que acompanham | Qualquer membro do grupo |
 | Tags | Marcadores livres | Membros do grupo |
 | Vínculos | Duplicado de, relacionado a, bloqueado por | Membros do grupo |
@@ -33,22 +32,9 @@ Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado
 
 O tipo vem da categoria e pode ser corrigido. Ele é usado nos relatórios. Os nomes são uma proposta e a equipe pode ajustá-los ([questões em aberto](questoes-em-aberto.md)).
 
-## 10.3 Prioridade: impacto × urgência
+## 10.3 Prioridade (removida)
 
-Quem registra responde duas perguntas, e o sistema calcula a prioridade:
-
-- **Urgência:** "Para quando?" → *Pode esperar* / *Nesta semana* / *Agora*
-- **Impacto:** "Quem é afetado?" → *Uma pessoa* / *Um setor ou equipe* / *A empresa toda ou clientes*
-
-| Impacto \ Urgência | Baixa | Média | Alta |
-|--------------------|-------|-------|------|
-| **Individual** | Baixa | Baixa | Média |
-| **Setor / equipe** | Baixa | Média | Alta |
-| **Empresa / clientes** | Média | Alta | **Crítica** |
-
-- Mudar o impacto ou a urgência recalcula a prioridade.
-- É possível **forçar** outra prioridade, mas é preciso informar o motivo, que fica no histórico.
-- A matriz é configurável pelo administrador.
+Os chamados **não têm prioridade**, nem impacto e urgência (decisão de 2026-10-13). As filas seguem a ordem de registro, do mais antigo para o mais novo (10.6). A numeração das seções foi mantida.
 
 ## 10.4 Registro
 
@@ -70,8 +56,6 @@ Categoria*     [TI › Acessos › Novo acesso ▾]   (filtrada pelo grupo; busc
 Título*        [______________________________________]
 Descrição      [ editor de texto (colar prints)       ]
 Para quem      Setor [Comercial ▾]   Pessoa [Carla Dias      ]   (opcionais)
-Urgência       ( ) Pode esperar  ( ) Nesta semana  ( ) Agora
-Impacto        ( ) Uma pessoa  ( ) Um setor  ( ) A empresa toda
 Usuários       [Ana ×] [+ adicionar pessoa ▾]   (começa com quem registra; vazio = fila do grupo;
                                                  "Todas as pessoas do grupo" marca todos os membros)
 Observadores   [+ adicionar colega]
@@ -81,7 +65,7 @@ Observadores   [+ adicionar colega]
 
 Ao registrar:
 
-1. O sistema calcula a prioridade e grava quem registrou.
+1. O sistema grava quem registrou.
 2. Se a categoria **exige aprovação**, o chamado nasce em "Aguardando aprovação" e os supervisores do grupo são avisados (10.8).
 3. Senão, nasce em **Pendente**, com o responsável escolhido ou na fila do grupo.
 4. O grupo é avisado conforme a configuração dele: só a fila, ou e-mail para todos os membros.
@@ -152,9 +136,9 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 | **Todos** | Tudo o que vejo, com filtro por grupo, responsável e status | Todos |
 | **Aprovações** | Chamados aguardando a minha aprovação | Supervisores (Fase 2) |
 
-**Ordenação padrão:** primeiro a prioridade, depois a data de registro (mais antigo primeiro).
+**Ordenação padrão:** a data de registro (mais antigo primeiro).
 
-**Indicadores na lista:** prioridade (cor e texto), ícone de "novidade", responsável, setor atendido, há quanto tempo está parado.
+**Indicadores na lista:** ícone de "novidade", responsável, setor atendido, há quanto tempo está parado.
 
 ### Distribuição do trabalho
 
@@ -208,7 +192,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 ### Ações em massa (supervisor ou permissão `ticket.bulk`)
 
-Atribuir, transferir, mudar prioridade, adicionar tag, concluir com o mesmo texto (ex.: incidente geral resolvido) e adicionar comentário.
+Atribuir, transferir, adicionar tag, concluir com o mesmo texto (ex.: incidente geral resolvido) e adicionar comentário.
 
 ### Regras de edição
 

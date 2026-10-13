@@ -60,12 +60,6 @@
     "closed": "Done",
     "canceled": "Canceled"
   },
-  "prioridade": {
-    "1": "Low",
-    "2": "Medium",
-    "3": "High",
-    "4": "Critical"
-  },
   "componentes": {
     "titulo": "Design system components",
     "descricao": "Reference page, visible only in development.",
@@ -87,8 +81,7 @@
     "avisoTexto": "#1234 is in the team queue.",
     "colunaNumero": "Number",
     "colunaTitulo": "Title",
-    "colunaStatus": "Status",
-    "colunaPrioridade": "Priority"
+    "colunaStatus": "Status"
   },
   "usuario": {
     "menu": "User menu",
@@ -223,16 +216,6 @@
     "request": "Request",
     "task": "Task"
   },
-  "urgencia": {
-    "1": "Can wait",
-    "2": "This week",
-    "3": "Now"
-  },
-  "impacto": {
-    "1": "One person",
-    "2": "A department or team",
-    "3": "The whole company or customers"
-  },
   "chamados": {
     "titulo": "Tickets",
     "novo": "New ticket",
@@ -251,7 +234,6 @@
     },
     "filtros": {
       "todosOsGrupos": "All teams",
-      "todas": "All",
       "todos": "All",
       "eu": "Me",
       "ninguem": "Unassigned",
@@ -309,10 +291,6 @@
     "responsavel": "Assignee",
     "naFila": "In the team queue",
     "tipo": "Type",
-    "urgencia": "Urgency: by when?",
-    "impacto": "Impact: who is affected?",
-    "prioridade": "Priority",
-    "forcada": "overridden",
     "resolucao": "Resolution",
     "reaberturas": "Reopened",
     "assumir": "Take it",
@@ -386,11 +364,7 @@
     "tirarCliente": "Remove the client"
   },
   "editarChamado": {
-    "titulo": "Edit ticket #{numero}",
-    "pelaMatriz": "Automatic",
-    "motivo": "Reason for the priority",
-    "motivoDica": "Recorded in the ticket history.",
-    "motivoObrigatorio": "Give a reason to override the priority."
+    "titulo": "Edit ticket #{numero}"
   },
   "evento": {
     "sistema": "System",

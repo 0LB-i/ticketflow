@@ -57,7 +57,6 @@ class TicketSummary(BaseModel):
     title: str
     type: TicketType
     status: StatusRef
-    priority: int
     team: Ref
     category: CategoryRef | None
     department: Ref | None
@@ -71,9 +70,6 @@ class TicketSummary(BaseModel):
 
 class TicketOut(TicketSummary):
     description: str
-    impact: int
-    urgency: int
-    priority_overridden: bool
     created_by: UserRef
     resolution_code: ResolutionRef | None
     reopened_count: int
@@ -130,8 +126,6 @@ class TicketCreate(BaseModel):
         default=None, description="início do trabalho; sem valor, a hora do registro"
     )
     status_id: int | None = Field(default=None, description="sem valor, Pendente")
-    impact: int = Field(default=1, ge=1, le=3)
-    urgency: int = Field(default=1, ge=1, le=3)
     assignee: Literal["me"] | uuid.UUID | None = Field(
         default=None, description='"me", outro membro do grupo ou nulo (fila)'
     )
@@ -163,15 +157,6 @@ class TicketUpdate(BaseModel):
     status_id: int | None = Field(
         default=None, description="qualquer status, sem as exigências do fluxo (set_status)"
     )
-    impact: int | None = Field(default=None, ge=1, le=3)
-    urgency: int | None = Field(default=None, ge=1, le=3)
-    priority: int | None = Field(
-        default=None,
-        ge=1,
-        le=4,
-        description="diferente da matriz exige priority_reason; nula volta ao valor da matriz",
-    )
-    priority_reason: str | None = Field(default=None, max_length=1000)
     attachment_ids: list[uuid.UUID] | None = Field(
         default=None, max_length=10, description="imagens coladas na descrição (POST /uploads)"
     )

@@ -22,7 +22,7 @@ ALTER TEXT SEARCH CONFIGURATION pt_br
     ALTER MAPPING FOR hword, hword_part, word WITH unaccent, portuguese_stem;
 
 -- -----------------------------------------------------------------------------
--- Configurações gerais (chave/valor), ex.: matriz de prioridade, prazos de
+-- Configurações gerais (chave/valor), ex.: prazos de
 -- fechamento automático, tipos de arquivo permitidos, configuração de SSO
 -- -----------------------------------------------------------------------------
 
@@ -225,10 +225,6 @@ CREATE TABLE tickets (
     assignee_id     bigint      REFERENCES users(id),
     category_id     bigint      REFERENCES categories(id),
     status_id       smallint    NOT NULL REFERENCES ticket_statuses(id),
-    impact          smallint    NOT NULL DEFAULT 1 CHECK (impact BETWEEN 1 AND 3),   -- 1=individual 2=setor 3=empresa
-    urgency         smallint    NOT NULL DEFAULT 1 CHECK (urgency BETWEEN 1 AND 3),  -- 1=pode esperar 3=parado
-    priority        smallint    NOT NULL CHECK (priority BETWEEN 1 AND 4),           -- 1=baixa … 4=crítica
-    priority_overridden boolean NOT NULL DEFAULT false,
     tags            text[]      NOT NULL DEFAULT '{}',
     resolution_code_id smallint REFERENCES resolution_codes(id),
     reopened_count  smallint    NOT NULL DEFAULT 0,
@@ -246,7 +242,7 @@ CREATE TABLE tickets (
 CREATE INDEX tickets_search_idx      ON tickets USING gin (search_vector);
 CREATE INDEX tickets_title_trgm_idx  ON tickets USING gin (title gin_trgm_ops);
 CREATE INDEX tickets_tags_idx        ON tickets USING gin (tags);
-CREATE INDEX tickets_queue_idx       ON tickets (team_id, status_id, priority DESC, created_at)
+CREATE INDEX tickets_queue_idx       ON tickets (team_id, status_id, created_at)
                                      WHERE deleted_at IS NULL;
 CREATE INDEX tickets_assignee_idx    ON tickets (assignee_id, status_id) WHERE deleted_at IS NULL;
 CREATE INDEX tickets_department_idx  ON tickets (department_id, created_at DESC);

@@ -132,9 +132,6 @@ async function enviar() {
       started_at: form.inicio,
       client_id: form.cliente?.id ?? null,
       beneficiary_name: form.contato.trim() || null,
-      // Impacto e urgência saíram da tela por enquanto: vão no mínimo (prioridade baixa).
-      urgency: 1,
-      impact: 1,
       assignee: principal === eu ? 'me' : (principal ?? null),
       co_assignee_ids: form.responsaveis.filter((id) => id !== principal),
       watcher_ids: form.observadores,

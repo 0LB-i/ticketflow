@@ -66,7 +66,7 @@ flowchart LR
 | `/admin/setores` | Árvore de setores atendidos | Admin | 1 |
 | `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade | Admin | 1 (aprovação: 2) |
 | `/admin/status` | Status (criar com `kind`, renomear, ordenar) e códigos de resolução | Admin | 1 |
-| `/admin/configuracoes` | Idioma padrão (português ou inglês; cada pessoa pode escolher outro no menu do usuário), as três cores da identidade com prévia nos modos claro e escuro ([17.2](17-identidade-visual.md#172-cores)) e logotipo. Depois: nome do sistema, e-mail de envio (SMTP), anexos (tipos, limites), matriz de prioridade | Admin | 1 |
+| `/admin/configuracoes` | Idioma padrão (português ou inglês; cada pessoa pode escolher outro no menu do usuário), as três cores da identidade com prévia nos modos claro e escuro ([17.2](17-identidade-visual.md#172-cores)) e logotipo. Depois: nome do sistema, e-mail de envio (SMTP), anexos (tipos, limites) | Admin | 1 |
 | `/admin/auditoria` | Log de auditoria com filtros | Admin, auditor | 1 |
 
 Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **sessão expirada** (volta ao login e depois à página onde estava).
@@ -86,7 +86,7 @@ Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **
 
 | Perfil | O que aparece |
 |--------|---------------|
-| Agente | Contadores (não atribuídos, meus, com novidades, aguardando), botão "Pegar o próximo", meus chamados de prioridade alta e crítica |
+| Agente | Contadores (não atribuídos, meus, com novidades, aguardando), botão "Pegar o próximo", meus chamados mais antigos |
 | Supervisor | O mesmo do agente + aprovações pendentes (Fase 2) e chamados do grupo parados há mais de 7 dias |
 | Admin | Resumo geral (abertos por grupo) e atalhos da administração |
 | Auditor | Resumo geral, só leitura |
@@ -98,15 +98,15 @@ Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **
 ```
 Chamados
 [Não atribuídos 7] [Meus 12] [Com novidades 3] [Aguardando 5] [Acompanhando 2] [Todos]
-Grupo: [TI – Suporte ▾]  Prioridade: [Todas ▾]  Categoria: [Todas ▾]  Setor: [Todos ▾]   [Pegar o próximo]
-┌───┬──────┬────────────────────────────┬──────────────┬──────────┬───────────┬──────────┐
-│ ☐ │ #    │ Título                     │ Para         │ Priorid. │ Responsáv.│ Parado há│
-├───┼──────┼────────────────────────────┼──────────────┼──────────┼───────────┼──────────┤
-│ ☐ │ 1240 │ ERP fora do ar 💬          │ Financeiro   │ ■ Crítica│ —         │ 15 min   │
-│ ☐ │ 1238 │ VPN do Rui não conecta     │ Comercial    │ ■ Alta   │ —         │ 1 h      │
-│ ☐ │ 1231 │ Renovar certificado do site│ —            │ ■ Média  │ Ana       │ 2 dias   │
-└───┴──────┴────────────────────────────┴──────────────┴──────────┴───────────┴──────────┘
-Selecionados: [Atribuir ▾] [Transferir ▾] [Prioridade ▾]          (ações em massa: supervisor)
+Grupo: [TI – Suporte ▾]  Categoria: [Todas ▾]  Setor: [Todos ▾]   [Pegar o próximo]
+┌───┬──────┬────────────────────────────┬──────────────┬───────────┬──────────┐
+│ ☐ │ #    │ Título                     │ Para         │ Responsáv.│ Parado há│
+├───┼──────┼────────────────────────────┼──────────────┼───────────┼──────────┤
+│ ☐ │ 1231 │ Renovar certificado do site│ —            │ Ana       │ 2 dias   │
+│ ☐ │ 1238 │ VPN do Rui não conecta     │ Comercial    │ —         │ 1 h      │
+│ ☐ │ 1240 │ ERP fora do ar 💬          │ Financeiro   │ —         │ 15 min   │
+└───┴──────┴────────────────────────────┴──────────────┴───────────┴──────────┘
+Selecionados: [Atribuir ▾] [Transferir ▾]          (ações em massa: supervisor)
 ```
 
 💬 = novidade (comentário de outra pessoa desde a última visita). Filtros e aba ativa ficam na URL (`/chamados?aba=nao-atribuidos&grupo=3`), para que o link possa ser compartilhado.
@@ -132,4 +132,4 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 
 Construídos sobre o Reka UI + Tailwind ([ADR 0008](adr/0008-reka-ui.md)), em `frontend/src/components/ui/`, com as cores e a tipografia de [Identidade visual](17-identidade-visual.md):
 
-Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias, setores) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status, prioridade) · Avatar · Tabela (com TanStack Table) · Paginação "carregar mais" · Árvore (setores, categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto
+Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias, setores) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status) · Avatar · Tabela (com TanStack Table) · Paginação "carregar mais" · Árvore (setores, categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto

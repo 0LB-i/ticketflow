@@ -65,7 +65,6 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `ticket.view_all` | Ver todos os chamados (inclusive de outros grupos) |
 | `ticket.comment` | Comentar (todos os comentários são visíveis a quem vê o chamado) |
 | `ticket.edit` | Alterar título, descrição, categoria, tipo, setor e pessoa atendidos e tags |
-| `ticket.set_priority` | Alterar impacto, urgência e prioridade |
 | `ticket.assign_self` | Assumir um chamado ("pegar para mim") |
 | `ticket.assign_others` | Atribuir a outro membro do grupo |
 | `ticket.transfer` | Transferir para outro grupo |
@@ -103,7 +102,6 @@ Futuro: `admin.roles` (papéis personalizados), `admin.integrations` (tokens de 
 | `ticket.view_all` | — | ✅ | ✅ |
 | `ticket.comment` | ✅ | ✅ | — |
 | `ticket.edit` | ✅ | ✅ | — |
-| `ticket.set_priority` | ✅ | ✅ | — |
 | `ticket.assign_self` | ✅ | ✅ | — |
 | `ticket.assign_others` | ✅ | ✅ | — |
 | `ticket.transfer` | ✅ | ✅ | — |
@@ -157,7 +155,6 @@ Todos os comentários e anexos são visíveis a quem vê o chamado: não existe 
 |-------|-----------------|---------------------|---------------------------|
 | Título, descrição, categoria, tipo | Sim | Sim | — |
 | Setor e pessoa atendidos | Sim | Sim | — |
-| Impacto, urgência e prioridade | Sim, com motivo se forçar outra prioridade | Sim | — |
 | Grupo (transferência) | Sim, com motivo | Sim | — |
 | Responsável | Assumir para si; devolver para a fila | Qualquer membro do grupo | — |
 | Status | Conforme o fluxo | Conforme o fluxo + aprovar | — |

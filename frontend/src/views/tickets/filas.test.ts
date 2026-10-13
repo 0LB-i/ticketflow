@@ -24,7 +24,6 @@ const ITEM = {
   title: 'Impressora parada',
   type: 'incident',
   status: { id: 1, name: 'Pendente', kind: 'open' },
-  priority: 3,
   team: { id: TI, name: 'TI' },
   category: null,
   department: null,
@@ -69,7 +68,7 @@ describe('TicketsView', () => {
     const feitas = api()
     const router = criarRouter()
     const w = montar(TicketsView, { global: { plugins: [router] } })
-    await router.push('/chamados?aba=todos&status=waiting&responsavel=ninguem&prioridade=4&q=toner')
+    await router.push(`/chamados?aba=todos&status=waiting&responsavel=ninguem&grupo=${TI}&q=toner`)
 
     await vi.waitFor(() => expect(w.text()).toContain('Resultados da busca por “toner”'))
     const q = await vi.waitFor(() => {
@@ -81,7 +80,7 @@ describe('TicketsView', () => {
       view: 'all',
       status: 'waiting',
       assignee: 'none',
-      priority: '4',
+      team: TI,
       q: 'toner',
     })
 
@@ -93,7 +92,7 @@ describe('TicketsView', () => {
     await vi.waitFor(() => expect(router.currentRoute.value.query.aba).toBe('aguardando'))
     expect(router.currentRoute.value.query).toEqual({
       aba: 'aguardando',
-      prioridade: '4',
+      grupo: TI,
       q: 'toner',
     })
     await vi.waitFor(() => expect(listas(feitas).at(-1)!.get('view')).toBe('waiting'))
@@ -109,7 +108,7 @@ describe('TicketsView', () => {
       .find((a) => a.text().startsWith('Todos'))!
       .trigger('mousedown', { button: 0 })
     await vi.waitFor(() =>
-      expect(router.currentRoute.value.query).toEqual({ aba: 'todos', prioridade: '4' }),
+      expect(router.currentRoute.value.query).toEqual({ aba: 'todos', grupo: TI }),
     )
   })
 

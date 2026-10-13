@@ -7,7 +7,6 @@ import { type LocationQueryRaw, useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ui/Button.vue'
 import DataTable from '@/components/ui/DataTable.vue'
-import PriorityBadge, { type Prioridade } from '@/components/ui/PriorityBadge.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useGrupos } from '@/composables/admin'
@@ -25,8 +24,8 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
 /**
- * Filas (docs/10 §10.6, docs/13 §13.5): uma aba por fila, na ordenação padrão (prioridade,
- * depois o mais antigo). A aba e os filtros ficam na URL, para o link poder ser compartilhado.
+ * Filas (docs/10 §10.6, docs/13 §13.5): uma aba por fila, na ordenação padrão (o mais antigo
+ * primeiro). A aba e os filtros ficam na URL, para o link poder ser compartilhado.
  */
 useHead('chamados.titulo')
 const { t } = useI18n()
@@ -64,11 +63,9 @@ const emTodos = computed(() => aba.value.fila === 'all')
 const filtro = computed<FiltroChamados>(() => {
   const status = texto('status')
   const responsavel = texto('responsavel')
-  const prioridade = Number(texto('prioridade'))
   return {
     view: aba.value.fila,
     team: texto('grupo'),
-    priority: prioridade >= 1 && prioridade <= 4 ? prioridade : null,
     q: texto('q'),
     // Status e responsável só filtram a aba Todos; as outras já os definem.
     status:
@@ -99,7 +96,6 @@ const modelo = (chave: string) =>
     set: (valor: string) => filtrar(chave, valor),
   })
 const grupo = modelo('grupo')
-const prioridade = modelo('prioridade')
 const status = modelo('status')
 const responsavel = modelo('responsavel')
 
@@ -108,10 +104,6 @@ const opcoesGrupo = computed(() => [
   ...(grupos.data.value ?? [])
     .filter((g) => g.is_active)
     .map((g) => ({ value: g.id, label: g.name })),
-])
-const opcoesPrioridade = computed(() => [
-  { value: TODOS, label: t('chamados.filtros.todas') },
-  ...[4, 3, 2, 1].map((n) => ({ value: String(n), label: t(`prioridade.${n}`) })),
 ])
 const opcoesStatus = computed(() => [
   { value: TODOS, label: t('chamados.filtros.todos') },
@@ -130,7 +122,6 @@ const colunas = computed(() => [
   { key: 'title', label: t('chamados.tituloColuna') },
   { key: 'client', label: t('chamado.cliente'), class: 'hidden md:table-cell' },
   { key: 'inicio', label: t('chamado.inicio'), class: 'hidden xl:table-cell' },
-  { key: 'priority', label: t('chamado.prioridade') },
   { key: 'status', label: t('chamados.status') },
   { key: 'assignee', label: t('chamado.responsavel'), class: 'hidden sm:table-cell' },
   { key: 'team', label: t('chamado.grupo'), class: 'hidden lg:table-cell' },
@@ -190,11 +181,6 @@ async function pegarProximo() {
       <TabsContent :value="aba.slug" class="flex flex-col gap-4 pt-4">
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SelectField v-model="grupo" :label="t('chamado.grupo')" :options="opcoesGrupo" />
-          <SelectField
-            v-model="prioridade"
-            :label="t('chamado.prioridade')"
-            :options="opcoesPrioridade"
-          />
           <template v-if="emTodos">
             <SelectField v-model="status" :label="t('chamados.status')" :options="opcoesStatus" />
             <SelectField
@@ -244,9 +230,6 @@ async function pegarProximo() {
             <template #cell-client="{ row }">{{ row.client?.name ?? '—' }}</template>
             <template #cell-inicio="{ row }">
               <span class="tabular-nums">{{ formatarDataHora(row.started_at) }}</span>
-            </template>
-            <template #cell-priority="{ row }">
-              <PriorityBadge :priority="row.priority as Prioridade" />
             </template>
             <template #cell-status="{ row }">
               <StatusBadge :kind="row.status.kind" :label="row.status.name" />

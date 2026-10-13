@@ -1,24 +1,11 @@
-"""Regras puras dos chamados, tabeladas: matriz de prioridade (docs/10 §10.3) e o que cada perfil
-pode fazer em cada situação (docs/08 §8.5, docs/10 §10.5).
+"""Regras puras dos chamados, tabeladas: o que cada perfil pode fazer em cada situação
+(docs/08 §8.5, docs/10 §10.5).
 """
 
 import pytest
 
 from chamados.core.permissions import Actor
-from chamados.modules.tickets.rules import TicketState, allowed_actions, priority_for
-
-# Impacto × urgência (docs/10 §10.3)
-MATRIZ = [
-    (1, 1, 1), (1, 2, 1), (1, 3, 2),
-    (2, 1, 1), (2, 2, 2), (2, 3, 3),
-    (3, 1, 2), (3, 2, 3), (3, 3, 4),
-]  # fmt: skip
-
-
-@pytest.mark.parametrize(("impacto", "urgencia", "prioridade"), MATRIZ)
-def test_matriz_de_prioridade(impacto: int, urgencia: int, prioridade: int) -> None:
-    assert priority_for(impacto, urgencia) == prioridade
-
+from chamados.modules.tickets.rules import TicketState, allowed_actions
 
 GRUPO, OUTRO = 10, 20
 membro = Actor(user_id=1, role="agent", teams=frozenset({GRUPO}))
@@ -48,7 +35,6 @@ DO_GRUPO = {
     "comment",
     "watch_self",
     "edit",
-    "set_priority",
     "set_status",
     "manage_watchers",
     "transfer",
