@@ -6,7 +6,7 @@ import CommentBox from '@/components/tickets/CommentBox.vue'
 import TicketDetails from '@/components/tickets/TicketDetails.vue'
 import TicketTimeline from '@/components/tickets/TicketTimeline.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import { useChamado, useComentarios, useEventos, usePessoas } from '@/composables/chamados'
+import { useChamado, useComentarios, usePessoas } from '@/composables/chamados'
 import { formatarDataHora } from '@/composables/formato'
 
 /** Detalhe do chamado (docs/10 §10.6). O que aparece depende de `allowed_actions`. */
@@ -14,7 +14,6 @@ const props = defineProps<{ numero: string }>()
 const { t } = useI18n()
 const chamado = useChamado(() => props.numero)
 const comentarios = useComentarios(() => props.numero)
-const eventos = useEventos(() => props.numero)
 const pessoas = usePessoas()
 
 const falha = computed(() => (chamado.error.value as { status?: number } | null)?.status)
@@ -70,7 +69,6 @@ watchEffect(() => {
           <TicketTimeline
             :chamado="chamado.data.value"
             :comentarios="comentarios.data.value ?? []"
-            :eventos="eventos.data.value ?? []"
             :pessoas="pessoas"
           />
           <CommentBox

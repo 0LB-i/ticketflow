@@ -367,37 +367,6 @@
     "nenhumCliente": "No client found.",
     "tirarCliente": "Remove the client"
   },
-  "evento": {
-    "sistema": "System",
-    "registrou": "{ator} created the ticket",
-    "assumiu": "{ator} took the ticket",
-    "atribuiu": "{ator} assigned it to {para}",
-    "devolveu": "{ator} returned it to the queue",
-    "transferiu": "{ator} transferred it from {de} to {para}",
-    "mudouStatus": "{ator} changed the status from {de} to {para}",
-    "alterou": "{ator} changed {campos}",
-    "motivo": "reason: {motivo}",
-    "mencionou": "{ator} mentioned {pessoa}",
-    "passouAAcompanhar": "{ator} started watching",
-    "deixouDeAcompanhar": "{ator} stopped watching",
-    "adicionouObservador": "{ator} added {pessoa} as a watcher",
-    "removeuObservador": "{ator} removed {pessoa} from watchers",
-    "editouComentario": "{ator} edited a comment",
-    "outro": "{ator} changed the ticket",
-    "campos": {
-      "title": "title",
-      "description": "description",
-      "category": "category",
-      "type": "type",
-      "department": "department",
-      "client": "client",
-      "beneficiary_name": "contact",
-      "impact": "impact",
-      "urgency": "urgency",
-      "priority": "priority",
-      "started_at": "start"
-    }
-  },
   "idioma": {
     "titulo": "Language",
     "padraoDoSistema": "System default ({idioma})",

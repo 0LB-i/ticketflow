@@ -367,37 +367,6 @@
     "nenhumCliente": "Nenhum cliente encontrado.",
     "tirarCliente": "Tirar o cliente"
   },
-  "evento": {
-    "sistema": "Sistema",
-    "registrou": "{ator} registrou o chamado",
-    "assumiu": "{ator} assumiu o chamado",
-    "atribuiu": "{ator} atribuiu a {para}",
-    "devolveu": "{ator} devolveu para a fila",
-    "transferiu": "{ator} transferiu de {de} para {para}",
-    "mudouStatus": "{ator} mudou o status de {de} para {para}",
-    "alterou": "{ator} alterou {campos}",
-    "motivo": "motivo: {motivo}",
-    "mencionou": "{ator} mencionou {pessoa}",
-    "passouAAcompanhar": "{ator} passou a acompanhar",
-    "deixouDeAcompanhar": "{ator} deixou de acompanhar",
-    "adicionouObservador": "{ator} adicionou {pessoa} como observador",
-    "removeuObservador": "{ator} removeu {pessoa} dos observadores",
-    "editouComentario": "{ator} editou um comentário",
-    "outro": "{ator} alterou o chamado",
-    "campos": {
-      "title": "título",
-      "description": "descrição",
-      "category": "categoria",
-      "type": "tipo",
-      "department": "setor",
-      "client": "cliente",
-      "beneficiary_name": "contato",
-      "impact": "impacto",
-      "urgency": "urgência",
-      "priority": "prioridade",
-      "started_at": "início"
-    }
-  },
   "idioma": {
     "titulo": "Idioma",
     "padraoDoSistema": "Padrão do sistema ({idioma})",
