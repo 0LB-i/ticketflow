@@ -378,10 +378,10 @@ modelos Pydantic (backend) ──chamados openapi──► openapi.json ──op
 | Ambiente | Como |
 |----------|------|
 | **Desenvolvimento, terminais** | PostgreSQL nativo (17 na 5432, 16 na 5433; numa máquina nova, `scripts/preparar-maquina-dev.sh`); `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `pnpm dev` (porta 5173, repassa `/api` para a 8000). Ver o [README](README.md#como-rodar-desenvolvimento) |
-| **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: instala o `ticketflow.service` com a unit da produção (uvicorn em `127.0.0.1:8000`) e o `deploy/nginx.conf` na porta 80, sem HTTPS, compila o frontend e aplica as migrações |
+| **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento em `http://IP:8000`, sem build. `ticketflow-frontend.service` roda o Vite na porta 8000 (repassa `/api` para `TF_API`, com o IP de quem acessa); `ticketflow.service` é a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`. Aplica as migrações |
 | **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`; backup diário por `scripts/backup.sh` (timer). Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 
-Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o Claude Code ([CLAUDE.md](CLAUDE.md)). O frontend compilado é servido direto da pasta e muda na hora; o backend só muda depois do `systemctl restart`.
+Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o Claude Code ([CLAUDE.md](CLAUDE.md)). Na máquina de desenvolvimento não é preciso: o Vite e o `--reload` pegam as mudanças sozinhos. Na produção, o frontend compilado é servido direto da pasta e muda na hora; o backend só muda depois do `systemctl restart`.
 
 ---
 

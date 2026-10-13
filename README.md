@@ -60,7 +60,7 @@ No fim ele mostra a chave pública, para cadastrar no GitHub como *deploy key* c
 
 Requisitos: [uv](https://docs.astral.sh/uv/), Node.js 22 com `corepack enable` (pnpm) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
 
-O PostgreSQL 16 também fica instalado, na porta 5433, para a verificação completa.
+O PostgreSQL 16 também fica instalado, na porta 5433, para a verificação completa. Ele fica desligado no dia a dia (poupa memória): `sudo systemctl start postgresql@16-main` antes do `check.sh --completo`.
 
 ```bash
 # backend: API em http://127.0.0.1:8000 (documentação em /api/docs)
@@ -79,13 +79,13 @@ pnpm dev
 
 Depois de mudar a API no backend: `pnpm gen:api` (no `frontend/`) regenera o cliente TypeScript.
 
-**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala o `ticketflow.service` (a mesma unit da produção, atrás do nginx em `http://IP`, porta 80; o uvicorn escuta só em `127.0.0.1:8000`), compila o frontend e aplica as migrações. Rodar de novo atualiza; depois, `sudo systemctl restart ticketflow`.
+**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala dois serviços em modo de desenvolvimento, em `http://IP:8000`: o `ticketflow-frontend.service` (o Vite, que compila sob demanda e atualiza o navegador sozinho) e o `ticketflow.service` (o uvicorn em `127.0.0.1:8001` com `--reload`, que reinicia sozinho quando um `.py` muda). Não há build nem reinício a cada mudança; só as migrações são aplicadas à mão (`.venv/bin/chamados db upgrade`, com o `/etc/ticketflow/env`). Rodar o script de novo atualiza as dependências e aplica as migrações.
 
 ### Verificação
 
 ```bash
 scripts/install-hooks.sh                # uma vez: verificação rápida antes de cada commit
-scripts/check.sh                        # antes de concluir uma tarefa ou enviar ao servidor
+scripts/check.sh                        # uma vez, antes do commit (durante a tarefa, só os testes do que mudou)
 scripts/check.sh --completo             # antes de uma versão: também PostgreSQL 16 e auditoria
 ```
 
