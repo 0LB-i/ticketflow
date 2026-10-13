@@ -38,7 +38,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0015
+│   ├── migrations/        Alembic: env.py e versions/0001…0016
 │   ├── src/chamados/      código (seção 3)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
@@ -139,14 +139,14 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - `rules.py` é **puro** (sem banco), por isso os testes são tabelados: perfil × situação → ações esperadas.
 - O detalhe responde **403** quando o chamado existe mas não é visível e **404** quando não existe. O acesso de admin ou auditor a um chamado confidencial, fora das regras 1, 3 e 4, vai para a auditoria.
 - A interface **nunca decide**: ela só mostra ou esconde botões conforme `allowed_actions` e `me.permissions`.
-- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, mais as permissões acrescentadas depois em `NEW_PERMISSIONS` das migrações, como a 0010 e a 0015; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
+- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, mais as permissões acrescentadas depois em `NEW_PERMISSIONS` das migrações, como a 0010 e a 0015, menos as retiradas em `REMOVED_PERMISSIONS`, como a 0016; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
 
 ### 3.5 Chamados (`modules/tickets/`)
 
 - **Identificação:** `id` interno (bigint), `public_id` (UUID, exposto) e `number` (sequência `ticket_number_seq`, começa em 1000). As rotas aceitam o número ou o UUID (`/tickets/1234`).
 - **Status:** a tabela `ticket_statuses` tem um `kind` fixo (`open`, `waiting`, `closed`, `canceled`, `approval`). As regras usam só o `kind`, e cada mudança vai para o status padrão do `kind` de destino.
 - **Transições:** `rules.TRANSITIONS` define, para cada ação (`wait`, `resume`, `close`, `reopen`, `cancel`), de quais `kind` se sai, para qual se vai, quem pode e se exige comentário ou código de resolução. O comentário da transição é gravado como comentário do chamado; o de conclusão leva `is_solution`.
-- **Prioridade:** `rules.PRIORITY_MATRIX` (impacto × urgência). Forçar outra prioridade exige motivo; `priority: null` volta ao valor da matriz. Por enquanto a interface não mostra impacto nem urgência (ficam 1 × 1, prioridade baixa).
+- **Sem prioridade:** chamados não têm prioridade, impacto nem urgência (removidos na migração 0016). Eventos antigos do histórico com essas mudanças continuam aparecendo na linha do tempo.
 - **Status personalizados:** o admin cria (nome + `kind`: open, waiting, closed, canceled), renomeia, ordena (`PUT /statuses/order`) e remove em Configurações (`admin.settings`). O `kind` não muda depois de criado. Cada `kind` precisa de ao menos um status; ao remover, os chamados vão para o padrão do mesmo `kind`, e se o removido era o padrão o próximo da lista assume. O primeiro status criado de um `kind` vira o padrão. Ações em `audit_log` (`ticket_status.*`).
 - **Status no formulário:** além das transições do fluxo, a ação `set_status` (quem tem `ticket.transition` no grupo) escolhe qualquer status no registro (`status_id`, padrão Pendente) e na edição, sem comentário nem código de resolução. `_apply_status` acerta `closed_at` e conta a reabertura ao sair de um `closed`. O evento é `ticket.status_changed` sem `action`.
 - **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
@@ -156,7 +156,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Mais de um responsável:** `tickets.assignee_id` é o responsável principal e `ticket_co_assignees` guarda os demais (só no registro, `co_assignee_ids`, membros ativos do grupo; exige o principal). Para regras, visibilidade (regra 3), filas Meus e Com novidades e o filtro por responsável, todos contam igual (`visibility.assigned_to`). Devolver à fila e transferir tiram todos; trocar o principal mantém os demais. A interface envia quem registra como principal, se estiver na lista, senão a primeira pessoa.
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
 - **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids`: o texto guarda só "@Nome".
-- **Lista:** ordenação padrão (prioridade desc., mais antigo primeiro) com paginação por cursor (base64 de prioridade, data e id). Filtros: `team`, `assignee`, `status` (kinds), `priority` e `q`.
+- **Lista:** ordenação padrão (mais antigo primeiro) com paginação por cursor (base64 de data e id). Filtros: `team`, `assignee`, `status` (kinds) e `q`.
 - **Filas:** o parâmetro `view` da lista (`service.view_filter`): `unassigned` (meus grupos, sem responsável, `open`), `mine` (sou o responsável, `open`/`waiting`), `news` (sou o responsável e há novidade), `waiting` (meus grupos, `waiting`), `watching` (sou observador, `open`/`waiting`) e `all` (tudo o que vejo). `GET /tickets/counts` conta as cinco primeiras numa consulta só.
 - **Novidade:** comentário de outra pessoa depois da minha última visita (`has_news` em cada item da lista). A visita fica em `ticket_reads` e é gravada pelo `GET /tickets/{id}` (`service.mark_read`). A reabertura exige comentário, por isso também vira novidade.
 - **Busca (`q`):** `search_vector` (colunas geradas, índice GIN) em `tickets` (título peso A, descrição peso B) e em `ticket_comments`, na configuração `pt_br` (português sem acentos). Cada palavra vira prefixo (`impress:*`) e todas precisam aparecer. Também acha pelo número (`1234` ou `#1234`), pelo nome do cliente e pelo contato (`unaccent` + `ILIKE`). Passa pelo filtro de visibilidade como qualquer leitura.
@@ -293,7 +293,7 @@ src/
 |------|------|--------|
 | `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | `views/auth/` | Público |
 | `/trocar-senha` | Troca obrigatória da senha provisória | Logado |
-| `/chamados` | Filas em abas com contadores (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos), filtros de grupo e prioridade (status e responsável na aba Todos), "Pegar o próximo". Aba e filtros na URL (`?aba=todos&grupo=…&prioridade=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
+| `/chamados` | Filas em abas com contadores (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), "Pegar o próximo". Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
 | `/chamados/novo` | Registro | `ticket.create` |
 | `/chamados/:numero` | Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
 | `/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail) | `client.view` |
@@ -322,7 +322,7 @@ Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão
 - `assets/main.css` define os tokens `--tf-*` em `:root` (claro) e `.dark` (escuro); o Tailwind os expõe como cores (`@theme inline`). O modo escuro é a classe `dark` no `<html>` (`stores/theme.ts`; escolha do usuário no `ThemeMenu`).
 - **Cores personalizadas:** `tema/paleta.ts` deriva os 13 tokens que dependem da identidade a partir das 3 cores das Configurações, em OKLCH, mantendo o matiz e ajustando o tom até cumprir os contrastes da WCAG AA ([docs/17 §17.3](docs/17-identidade-visual.md#173-contraste-wcag-21-aa)). Com as cores padrão, usa a paleta original escolhida à mão (`PALETA_PADRAO`).
 - `stores/branding.ts` injeta a folha `<style id="tf-cores">` (`html:root{…}` e `html.dark{…}`, mais específicos que os do `main.css`) e guarda uma cópia no navegador para o `tema.js`.
-- Cores de status, prioridade e do botão destrutivo **não** dependem das 3 cores.
+- Cores de status e do botão destrutivo **não** dependem das 3 cores.
 
 ### 4.7 Idiomas (frontend)
 
@@ -386,7 +386,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 1. **Toda leitura de chamados passa por `ticket_visibility_filter`**: nas buscas, nos relatórios, nos anexos, em tudo o que vier.
 2. **Toda ação em chamado passa por `allowed_actions`** (`service.require`). Rota nova de chamado sem essa checagem é defeito.
-3. **Toda alteração de chamado** (campos, prioridade, status, responsável, grupo, observadores, edição de comentário) **gera um evento** em `ticket_events`, na mesma transação. O histórico nunca é alterado. Os comentários novos já são o próprio registro.
+3. **Toda alteração de chamado** (campos, status, responsável, grupo, observadores, edição de comentário) **gera um evento** em `ticket_events`, na mesma transação. O histórico nunca é alterado. Os comentários novos já são o próprio registro.
 4. **Administração e login vão para o `audit_log`** com antes e depois.
 5. **Cadastros não são apagados**, só desativados.
 6. **A interface não decide permissões**; usa `allowed_actions` e `me.permissions` só para mostrar botões.

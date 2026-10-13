@@ -10,8 +10,8 @@ A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a
 | Formato | JSON, `snake_case`, datas ISO 8601 com fuso (`2026-10-09T14:30:00-03:00`) |
 | Identificadores | `public_id` (UUID) em todas as respostas; o número do chamado também é aceito: `/tickets/1234` ou `/tickets/{uuid}` |
 | Paginação | Por cursor: `?limit=50&cursor=...` → `{"items": [...], "next_cursor": "..."}` |
-| Filtros | Query string: `?status=open&team=ti&priority_gte=3&q=impressora` |
-| Ordenação | `?sort=-created_at,priority` |
+| Filtros | Query string: `?status=open&team=ti&q=impressora` |
+| Ordenação | `?sort=-created_at` |
 | Erros | RFC 9457 (Problem Details): `{"type", "title", "status", "detail", "errors": [...]}` |
 | Idioma | Mensagens (`title`, `detail`) em português ou inglês, conforme o header `Accept-Language` que a interface envia com o idioma escolhido. As mensagens são escritas em português e traduzidas pelo catálogo em `core/i18n.py` |
 | Idempotência | Header `Idempotency-Key` em `POST` (futuro, junto com os tokens de API: essencial para agentes de IA que repetem chamadas) |
@@ -49,11 +49,11 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `unassigned`, `mine`, `news`, `waiting`, `watching`, `all`), `team`, `assignee`, `status`, `priority` e a busca textual `q` |
+| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `unassigned`, `mine`, `news`, `waiting`, `watching`, `all`), `team`, `assignee`, `status` e a busca textual `q` |
 | `GET` | `/tickets/counts` | Quantos chamados há em cada fila (os contadores das abas) |
 | `POST` | `/tickets` | Registrar chamado |
 | `GET` | `/tickets/{id}` | Detalhe |
-| `PATCH` | `/tickets/{id}` | Alterar campos (título, prioridade, categoria, setor e pessoa atendidos, tags) |
+| `PATCH` | `/tickets/{id}` | Alterar campos (título, categoria, setor e pessoa atendidos, tags) |
 | `POST` | `/tickets/{id}/transitions` | Mudar status pelo fluxo: `{"action": "close", "comment": "...", "resolution_code_id": ...}`. Ações: `wait`, `resume`, `close`, `reopen`, `cancel` ([10.5](10-chamados.md#105-status-e-fluxo)); o comentário vira comentário do chamado |
 | `GET` | `/tickets/{id}/comments` | Listar comentários |
 | `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "mention_ids": [...], "attachment_ids": [...]}`. Os `@mencionados` vão em `mention_ids` (o editor os escolhe numa lista) e viram observadores |
@@ -149,9 +149,7 @@ Content-Type: application/json
   "category_id": "b6f1...",
   "department_id": "9e3d...",
   "beneficiary_name": "João Silva",
-  "assignee": "me",
-  "urgency": 2,
-  "impact": 1
+  "assignee": "me"
 }
 ```
 

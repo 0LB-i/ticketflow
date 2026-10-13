@@ -129,14 +129,14 @@ async def category_paths(db: AsyncSession) -> dict[int, str]:
 
 
 def _encode_cursor(t: Ticket) -> str:
-    raw = json.dumps([t.priority, t.created_at.isoformat(), t.id])
+    raw = json.dumps([t.created_at.isoformat(), t.id])
     return base64.urlsafe_b64encode(raw.encode()).decode()
 
 
-def _decode_cursor(cursor: str) -> tuple[int, datetime, int]:
+def _decode_cursor(cursor: str) -> tuple[datetime, int]:
     try:
-        priority, created_at, ticket_id = json.loads(base64.urlsafe_b64decode(cursor))
-        return int(priority), datetime.fromisoformat(created_at), int(ticket_id)
+        created_at, ticket_id = json.loads(base64.urlsafe_b64decode(cursor))
+        return datetime.fromisoformat(created_at), int(ticket_id)
     except (ValueError, TypeError):
         raise HTTPException(422, "Cursor inválido.") from None
 
@@ -209,8 +209,8 @@ def search_filter(q: str) -> ColumnElement[bool] | None:
 
 
 def _ordered(stmt: Any) -> Any:
-    """Ordenação padrão: prioridade, depois o mais antigo (docs/10 §10.6)."""
-    return stmt.order_by(Ticket.priority.desc(), Ticket.created_at, Ticket.id)
+    """Ordenação padrão: o mais antigo primeiro (docs/10 §10.6)."""
+    return stmt.order_by(Ticket.created_at, Ticket.id)
 
 
 async def list_tickets(
@@ -221,7 +221,6 @@ async def list_tickets(
     team: uuid.UUID | None,
     assignee: str | None,
     kinds: Sequence[str],
-    priority: int | None,
     q: str | None,
     limit: int,
     cursor: str | None,
@@ -235,8 +234,6 @@ async def list_tickets(
         .where(ticket_visibility_filter(auth.actor), view_filter(auth, view))
         .limit(limit + 1)
     )
-    if priority is not None:
-        stmt = stmt.where(Ticket.priority == priority)
     if q and (search := search_filter(q)) is not None:
         stmt = stmt.where(search)
     if team is not None:
@@ -259,17 +256,11 @@ async def list_tickets(
     if kinds:
         stmt = stmt.where(TicketStatus.kind.in_(kinds))
     if cursor:
-        priority, created_at, ticket_id = _decode_cursor(cursor)
+        created_at, ticket_id = _decode_cursor(cursor)
         stmt = stmt.where(
             or_(
-                Ticket.priority < priority,
-                and_(
-                    Ticket.priority == priority,
-                    or_(
-                        Ticket.created_at > created_at,
-                        and_(Ticket.created_at == created_at, Ticket.id > ticket_id),
-                    ),
-                ),
+                Ticket.created_at > created_at,
+                and_(Ticket.created_at == created_at, Ticket.id > ticket_id),
             )
         )
     rows = [(t, news) for t, news in (await db.execute(stmt)).all()]
@@ -522,9 +513,6 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         assignee_id=assignee.id if assignee else None,
         category_id=category.id if category else None,
         status_id=status.id,
-        impact=data.impact,
-        urgency=data.urgency,
-        priority=rules.priority_for(data.impact, data.urgency),
         first_assigned_at=func.now() if assignee else None,
     )
     _apply_status(ticket, None, status)
@@ -557,19 +545,16 @@ EDIT_FIELDS = {
     "beneficiary_name",
     "started_at",
 }
-PRIORITY_FIELDS = {"impact", "urgency", "priority", "priority_reason"}
 
 
 async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdate) -> None:
-    """Campos do chamado (docs/08 §8.5). Forçar outra prioridade exige motivo (docs/10 §10.3)."""
+    """Campos do chamado (docs/08 §8.5)."""
     changes = data.model_dump(exclude_unset=True)
     attachment_ids = changes.pop("attachment_ids", None) or []
     if changes.keys() & EDIT_FIELDS or attachment_ids:
         require(auth, ticket, "edit")
     # Imagens coladas ao editar a descrição.
     await attachments.link(db, auth, ticket, attachment_ids)
-    if changes.keys() & PRIORITY_FIELDS:
-        require(auth, ticket, "set_priority")
     if changes.get("status_id") is not None:
         require(auth, ticket, "set_status")
         status = await _status(db, changes["status_id"])
@@ -617,28 +602,8 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
         new = _started_at(changes["started_at"])
         put("started_at", new, ticket.started_at.isoformat(), new.isoformat())
 
-    reason = None
-    if changes.get("impact") is not None:
-        put("impact", changes["impact"])
-    if changes.get("urgency") is not None:
-        put("urgency", changes["urgency"])
-    computed = rules.priority_for(ticket.impact, ticket.urgency)
-    forced = changes.get("priority")
-    if forced is not None and forced != computed:
-        reason = _text(changes.get("priority_reason"), "Informe o motivo para forçar a prioridade.")
-        put("priority", forced)
-        put("priority_overridden", True)
-    elif "priority" in changes or diff.keys() & {"impact", "urgency"}:
-        # Mudar impacto ou urgência recalcula; priority nula (ou o valor da matriz) desfaz o
-        # "forçado".
-        put("priority", computed)
-        put("priority_overridden", False)
-
     if diff:
-        payload: dict[str, Any] = {"changes": diff}
-        if reason:
-            payload["reason"] = reason
-        add_event(db, ticket, "ticket.updated", auth, **payload)
+        add_event(db, ticket, "ticket.updated", auth, changes=diff)
     await db.commit()
 
 

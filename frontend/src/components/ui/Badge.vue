@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export type BadgeCor = 'blue' | 'violet' | 'teal' | 'green' | 'gray' | 'red' | 'critical'
+export type BadgeCor = 'blue' | 'violet' | 'teal' | 'green' | 'gray' | 'red'
 
 defineProps<{ color: BadgeCor }>()
 
@@ -11,7 +11,6 @@ const cores: Record<BadgeCor, string> = {
   green: 'bg-green-bg text-green-fg',
   gray: 'bg-gray-bg text-gray-fg',
   red: 'bg-red-bg text-red-fg',
-  critical: 'bg-critical-bg text-critical-fg',
 }
 </script>
 

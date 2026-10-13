@@ -1,23 +1,12 @@
-"""Regras puras dos chamados: matriz de prioridade e o que cada pessoa pode fazer (docs/08 §8.5,
-docs/10 §10.3 e §10.5). Sem banco: os services consultam estas funções antes de agir.
+"""Regras puras dos chamados: o que cada pessoa pode fazer (docs/08 §8.5 e docs/10 §10.5).
+Sem banco: os services consultam estas funções antes de agir.
 """
 
 from dataclasses import dataclass
 
 from chamados.core.permissions import Actor, P, can
 
-# Impacto (linha) × urgência (coluna) → prioridade 1 baixa … 4 crítica (docs/10 §10.3).
-PRIORITY_MATRIX = (
-    (1, 1, 2),  # uma pessoa
-    (1, 2, 3),  # um setor ou equipe
-    (2, 3, 4),  # a empresa toda ou clientes
-)
-
 FINAL_KINDS = frozenset({"closed", "canceled"})
-
-
-def priority_for(impact: int, urgency: int) -> int:
-    return PRIORITY_MATRIX[impact - 1][urgency - 1]
 
 
 @dataclass(frozen=True)
@@ -76,7 +65,6 @@ def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
 
     for permission, action in (
         (P.TICKET_EDIT, "edit"),
-        (P.TICKET_SET_PRIORITY, "set_priority"),
         (P.TICKET_WATCH, "manage_watchers"),
         # Escolher qualquer status no formulário, sem as exigências do fluxo.
         (P.TICKET_TRANSITION, "set_status"),

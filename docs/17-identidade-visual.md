@@ -12,7 +12,7 @@ Nome, cores, tipografia e logotipo do **TicketFlow**. Estas definições viram o
 
 As cores da empresa são **laranja, cinza e branco**. A interface é majoritariamente **branca e cinza**, e o **laranja marca a identidade e as ações principais**.
 
-> **Personalização (2026-10-10):** o administrador troca as três cores em **Administração › Configurações** ([13](13-telas-e-navegacao.md#133-lista-de-telas)): cor da **marca** (laranja), cor **neutra** (cinza) e cor de **fundo** do modo claro (branco). Com as cores padrão (`#F97316`, `#737373`, `#FFFFFF`) vale a paleta abaixo, escolhida à mão. Com outras cores, a interface deriva a paleta inteira delas (`frontend/src/tema/paleta.ts`), no espaço de cor OKLCH: mantém o matiz e escurece ou clareia o tom até cumprir os contrastes da seção 17.3, nos dois modos. Assim o laranja oficial da empresa, quando chegar, é só digitado na tela. A tela também oferece **combinações prontas** (padrão laranja, azul, verde, azul-petróleo, roxo, âmbar e grafite, em `PREDEFINIDAS`), testadas quanto ao contraste; vermelho e rosa ficam de fora porque se confundiriam com o botão destrutivo e a prioridade alta. O modo escuro usa a cor neutra como base dos fundos; a cor de fundo escolhida vale só no modo claro. As cores de status, prioridade e do botão destrutivo não mudam.
+> **Personalização (2026-10-10):** o administrador troca as três cores em **Administração › Configurações** ([13](13-telas-e-navegacao.md#133-lista-de-telas)): cor da **marca** (laranja), cor **neutra** (cinza) e cor de **fundo** do modo claro (branco). Com as cores padrão (`#F97316`, `#737373`, `#FFFFFF`) vale a paleta abaixo, escolhida à mão. Com outras cores, a interface deriva a paleta inteira delas (`frontend/src/tema/paleta.ts`), no espaço de cor OKLCH: mantém o matiz e escurece ou clareia o tom até cumprir os contrastes da seção 17.3, nos dois modos. Assim o laranja oficial da empresa, quando chegar, é só digitado na tela. A tela também oferece **combinações prontas** (padrão laranja, azul, verde, azul-petróleo, roxo, âmbar e grafite, em `PREDEFINIDAS`), testadas quanto ao contraste; vermelho e rosa ficam de fora porque se confundiriam com o botão destrutivo. O modo escuro usa a cor neutra como base dos fundos; a cor de fundo escolhida vale só no modo claro. As cores de status e do botão destrutivo não mudam.
 
 ### Paleta base
 
@@ -34,9 +34,9 @@ As cores da empresa são **laranja, cinza e branco**. A interface é majoritaria
 
 O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro).
 
-### Cores de status e prioridade
+### Cores de status
 
-O laranja fica **reservado para a marca e as ações**: nenhum status ou prioridade usa laranja, para não confundir. A cor nunca é a única pista: todo badge tem texto, e a prioridade também tem um ícone.
+O laranja fica **reservado para a marca e as ações**: nenhum status usa laranja, para não confundir. A cor nunca é a única pista: todo badge tem texto.
 
 | Badge | Claro (texto / fundo) | Escuro (texto / fundo) |
 |-------|-----------------------|------------------------|
@@ -45,10 +45,6 @@ O laranja fica **reservado para a marca e as ações**: nenhum status ou priorid
 | Aguardando aprovação | `#0F766E` / `#F0FDFA` (verde-azulado) | `#5EEAD4` / `#262626` |
 | Concluído | `#15803D` / `#F0FDF4` (verde) | `#86EFAC` / `#262626` |
 | Cancelado | `#404040` / `#F5F5F5` (cinza) | `#D4D4D4` / `#262626` |
-| Prioridade baixa | `#404040` / `#F5F5F5` · ícone ▽ | `#D4D4D4` / `#262626` |
-| Prioridade média | `#1D4ED8` / `#EFF6FF` · ícone ◇ | `#93C5FD` / `#262626` |
-| Prioridade alta | `#B91C1C` / `#FEF2F2` · ícone △ | `#FCA5A5` / `#262626` |
-| Prioridade crítica | `#FFFFFF` / `#B91C1C` · ícone ▲ | `#FFFFFF` / `#DC2626` |
 
 Status criados pelo administrador herdam a cor do `kind` deles.
 
@@ -66,8 +62,8 @@ Mínimos: **4,5:1** para texto e **3:1** para bordas de campos e contorno de foc
 | `text` sobre `surface` | 17,93 / 16,44 | ✅ claro / escuro |
 | `text-muted` sobre `surface` | 7,81 / 7,11 | ✅ claro / escuro |
 | `border-input` sobre `surface` | 4,74 / 3,78 | ✅ claro / escuro |
-| Badges de status e prioridade (claro) | 4,79 a 9,51 | ✅ |
-| Badges de status e prioridade (escuro) | 4,83 a 10,78 | ✅ |
+| Badges de status (claro) | 4,79 a 9,51 | ✅ |
+| Badges de status (escuro) | 4,83 a 10,78 | ✅ |
 
 Os contrastes são conferidos de novo no CI do frontend sempre que um token de cor mudar (teste com `axe` no Playwright).
 

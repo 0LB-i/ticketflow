@@ -6,7 +6,6 @@ import { useI18n } from 'vue-i18n'
 import type { Pessoa } from '@/components/editor/MentionList.vue'
 import Button from '@/components/ui/Button.vue'
 import Modal from '@/components/ui/Modal.vue'
-import PriorityBadge, { type Prioridade } from '@/components/ui/PriorityBadge.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import TextAreaField from '@/components/ui/TextAreaField.vue'
 import { useGrupos } from '@/composables/admin'
@@ -135,13 +134,6 @@ const editando = ref(false)
       <dd>{{ t(`tipos.${chamado.type}`) }}</dd>
       <dt class="text-muted">{{ t('chamado.inicio') }}</dt>
       <dd class="tabular-nums">{{ formatarDataHora(chamado.started_at) }}</dd>
-      <dt class="text-muted">{{ t('chamado.prioridade') }}</dt>
-      <dd class="flex flex-col items-start gap-1">
-        <PriorityBadge :priority="chamado.priority as Prioridade" />
-        <span v-if="chamado.priority_overridden" class="text-muted">{{
-          t('chamado.forcada')
-        }}</span>
-      </dd>
       <template v-if="chamado.resolution_code">
         <dt class="text-muted">{{ t('chamado.resolucao') }}</dt>
         <dd>{{ chamado.resolution_code.name }} · {{ formatarDataHora(chamado.closed_at) }}</dd>
@@ -174,7 +166,7 @@ const editando = ref(false)
         {{ t('chamado.transferir') }}
       </Button>
       <Button
-        v-if="pode.has('edit') || pode.has('set_priority') || pode.has('set_status')"
+        v-if="pode.has('edit') || pode.has('set_status')"
         size="sm"
         variant="secondary"
         @click="editando = true"

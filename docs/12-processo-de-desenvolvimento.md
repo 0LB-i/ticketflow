@@ -81,7 +81,7 @@ Não há homologação separada: com um único desenvolvedor, mais um servidor s
 
 | Nível | Ferramenta | Cobre |
 |-------|------------|-------|
-| Unitário (backend) | pytest | Regras puras: matriz de prioridade, transições |
+| Unitário (backend) | pytest | Regras puras: transições |
 | Integração (backend) | pytest + PostgreSQL real (banco `chamados_test`) | Services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
 | Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |

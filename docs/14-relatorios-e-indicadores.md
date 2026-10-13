@@ -10,7 +10,7 @@
 
 ## 14.2 Filtros comuns
 
-Período (padrão: últimos 30 dias) · Grupo · Responsável · Setor atendido · Categoria · Tipo · Prioridade
+Período (padrão: últimos 30 dias) · Grupo · Responsável · Setor atendido · Categoria · Tipo
 
 ## 14.3 Indicadores
 
@@ -43,7 +43,7 @@ O cálculo do tempo líquido usa os eventos `ticket.status_changed` para somar o
 
 | Relatório | Colunas principais |
 |-----------|--------------------|
-| **Chamados** | Número, título, tipo, categoria, status, prioridade, grupo, responsável, registrado por, setor atendido, pessoa atendida, registrado em, assumido em, concluído em, tempos, reaberturas |
+| **Chamados** | Número, título, tipo, categoria, status, grupo, responsável, registrado por, setor atendido, pessoa atendida, registrado em, assumido em, concluído em, tempos, reaberturas |
 | **Transferências** | Número, de qual grupo, para qual grupo, motivo, quem, quando |
 
 A exportação respeita os mesmos filtros e a visibilidade, e fica registrada na auditoria (`ticket.export`).

@@ -16,7 +16,7 @@ As equipes internas (começando pela TI) recebem pedidos e acumulam tarefas pró
 
 Construir uma ferramenta de trabalho para as equipes que:
 
-1. centralize as tarefas em **filas por equipe**, cada chamado com responsável, prioridade e histórico;
+1. centralize as tarefas em **filas por equipe**, cada chamado com responsável e histórico;
 2. dê à equipe e ao supervisor **visibilidade** do que está em aberto, parado ou concluído;
 3. gere indicadores (volume, tempos, demanda por setor atendido);
 4. seja **API-first**, preparado para integrar depois com outros sistemas e com **IAs**, tanto consumindo serviços de IA (triagem, resumo, sugestão de resposta) quanto sendo operado por agentes de IA. Essas integrações ficam para depois da versão 1.0;
@@ -38,7 +38,7 @@ Construir uma ferramenta de trabalho para as equipes que:
 ### Dentro do escopo (versão 1.0)
 
 - Registro de chamados pela própria equipe, com setor e pessoa atendidos
-- Filas, atribuição, transferência, status, prioridades e categorias
+- Filas, atribuição, transferência, status e categorias
 - Comentários com @menções, observadores e anexos
 - Aprovação do supervisor para categorias selecionadas
 - Notificações por e-mail e no sistema

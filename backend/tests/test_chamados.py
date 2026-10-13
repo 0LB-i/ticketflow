@@ -49,7 +49,7 @@ def eventos(client: TestClient, numero: int) -> list[dict[str, Any]]:
 # --- registro -----------------------------------------------------------------------------------
 
 
-def test_registro_com_roteamento_e_prioridade(client: TestClient, cenario: dict[str, Any]) -> None:
+def test_registro_com_roteamento(client: TestClient, cenario: dict[str, Any]) -> None:
     r = client.post(
         API,
         json={
@@ -57,8 +57,6 @@ def test_registro_com_roteamento_e_prioridade(client: TestClient, cenario: dict[
             "description": "O Financeiro avisou por telefone.",
             "category_id": cenario["impressao"],
             "beneficiary_name": "João Silva",
-            "impact": 3,
-            "urgency": 3,
             "assignee": "me",
         },
     )
@@ -69,7 +67,6 @@ def test_registro_com_roteamento_e_prioridade(client: TestClient, cenario: dict[
     assert t["title"] == "ERP fora do ar"
     assert t["team"]["name"] == "TI"  # grupo padrão da categoria
     assert t["type"] == "incident"
-    assert t["priority"] == 4 and t["priority_overridden"] is False
     assert t["status"] == {"id": 1, "name": "Pendente", "kind": "open"}
     assert t["assignee"]["full_name"] == "Ana"
     assert t["created_by"]["full_name"] == "Ana"
@@ -211,30 +208,7 @@ def test_status_escolhido_no_formulario(client: TestClient, cenario: dict[str, A
     assert client.patch(url, json={"status_id": status["Cancelado"]}).status_code == 403
 
 
-# --- edição e prioridade ------------------------------------------------------------------------
-
-
-def test_prioridade_forcada_exige_motivo(client: TestClient, cenario: dict[str, Any]) -> None:
-    t = registrar(client, cenario, impact=2, urgency=2)
-    url = f"{API}/{t['number']}"
-    assert t["priority"] == 2
-
-    assert client.patch(url, json={"priority": 4}).status_code == 422
-    r = client.patch(url, json={"priority": 4, "priority_reason": "Diretoria parada"})
-    assert r.json()["priority"] == 4 and r.json()["priority_overridden"] is True
-    ultimo = eventos(client, t["number"])[-1]
-    assert ultimo["type"] == "ticket.updated"
-    assert ultimo["payload"]["reason"] == "Diretoria parada"
-    assert ultimo["payload"]["changes"]["priority"] == {"from": 2, "to": 4}
-
-    # Mudar o impacto recalcula pela matriz e desfaz o "forçado"
-    r = client.patch(url, json={"impact": 3})
-    assert r.json()["priority"] == 3 and r.json()["priority_overridden"] is False
-
-    # priority nula volta ao valor da matriz
-    client.patch(url, json={"priority": 1, "priority_reason": "Pode esperar"})
-    r = client.patch(url, json={"priority": None})
-    assert r.json()["priority"] == 3 and r.json()["priority_overridden"] is False
+# --- edição ------------------------------------------------------------------------------------
 
 
 def test_edicao_de_campos_vai_para_o_historico(
@@ -560,25 +534,25 @@ def test_cancelar_pelo_registrante(client: TestClient, cenario: dict[str, Any]) 
 
 def test_lista_filtra_e_pagina_na_ordem_padrao(client: TestClient, cenario: dict[str, Any]) -> None:
     baixa = registrar(client, cenario, title="Baixa")
-    critica = registrar(client, cenario, title="Crítica", impact=3, urgency=3, assignee="me")
-    media = registrar(client, cenario, title="Média", impact=2, urgency=2)
+    critica = registrar(client, cenario, title="Crítica", assignee="me")
+    media = registrar(client, cenario, title="Média")
     baixa2 = registrar(client, cenario, title="Baixa 2")
 
     pagina = client.get(API, params={"limit": 2}).json()
-    assert [t["title"] for t in pagina["items"]] == ["Crítica", "Média"]
+    assert [t["title"] for t in pagina["items"]] == ["Baixa", "Crítica"]
     resto = client.get(API, params={"limit": 2, "cursor": pagina["next_cursor"]}).json()
-    assert [t["title"] for t in resto["items"]] == ["Baixa", "Baixa 2"]
+    assert [t["title"] for t in resto["items"]] == ["Média", "Baixa 2"]
     assert resto["next_cursor"] is None
 
     def titulos(**params: Any) -> list[str]:
         return [t["title"] for t in client.get(API, params=params).json()["items"]]
 
     assert titulos(assignee="me") == ["Crítica"]
-    assert titulos(assignee="none") == ["Média", "Baixa", "Baixa 2"]
+    assert titulos(assignee="none") == ["Baixa", "Média", "Baixa 2"]
     assert titulos(team=cenario["infra"]) == []
     client.post(f"{API}/{critica['number']}/transitions", json={"action": "wait", "comment": "x"})
     assert titulos(status=["waiting"]) == ["Crítica"]
-    assert titulos(status=["open", "closed"]) == ["Média", "Baixa", "Baixa 2"]
+    assert titulos(status=["open", "closed"]) == ["Baixa", "Média", "Baixa 2"]
     assert client.get(API, params={"cursor": "lixo"}).status_code == 422
     assert client.get(API, params={"assignee": "lixo"}).status_code == 422
     assert {baixa["number"], media["number"], baixa2["number"]}

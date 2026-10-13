@@ -1419,24 +1419,6 @@
             "description": "kinds de status"
           },
           {
-            "name": "priority",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "maximum": 4,
-                  "minimum": 1
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Priority"
-            }
-          },
-          {
             "name": "q",
             "in": "query",
             "required": false,
@@ -4542,20 +4524,6 @@
             "title": "Status Id",
             "description": "sem valor, Pendente"
           },
-          "impact": {
-            "type": "integer",
-            "maximum": 3.0,
-            "minimum": 1.0,
-            "title": "Impact",
-            "default": 1
-          },
-          "urgency": {
-            "type": "integer",
-            "maximum": 3.0,
-            "minimum": 1.0,
-            "title": "Urgency",
-            "default": 1
-          },
           "assignee": {
             "anyOf": [
               {
@@ -4644,10 +4612,6 @@
           "status": {
             "$ref": "#/components/schemas/StatusRef"
           },
-          "priority": {
-            "type": "integer",
-            "title": "Priority"
-          },
           "team": {
             "$ref": "#/components/schemas/Ref"
           },
@@ -4731,7 +4695,6 @@
           "title",
           "type",
           "status",
-          "priority",
           "team",
           "category",
           "department",
@@ -4767,10 +4730,6 @@
           },
           "status": {
             "$ref": "#/components/schemas/StatusRef"
-          },
-          "priority": {
-            "type": "integer",
-            "title": "Priority"
           },
           "team": {
             "$ref": "#/components/schemas/Ref"
@@ -4846,18 +4805,6 @@
             "type": "string",
             "title": "Description"
           },
-          "impact": {
-            "type": "integer",
-            "title": "Impact"
-          },
-          "urgency": {
-            "type": "integer",
-            "title": "Urgency"
-          },
-          "priority_overridden": {
-            "type": "boolean",
-            "title": "Priority Overridden"
-          },
           "created_by": {
             "$ref": "#/components/schemas/UserRef"
           },
@@ -4926,7 +4873,6 @@
           "title",
           "type",
           "status",
-          "priority",
           "team",
           "category",
           "department",
@@ -4937,9 +4883,6 @@
           "created_at",
           "updated_at",
           "description",
-          "impact",
-          "urgency",
-          "priority_overridden",
           "created_by",
           "resolution_code",
           "reopened_count",
@@ -5089,58 +5032,6 @@
             ],
             "title": "Status Id",
             "description": "qualquer status, sem as exigências do fluxo (set_status)"
-          },
-          "impact": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 3.0,
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Impact"
-          },
-          "urgency": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 3.0,
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Urgency"
-          },
-          "priority": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 4.0,
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Priority",
-            "description": "diferente da matriz exige priority_reason; nula volta ao valor da matriz"
-          },
-          "priority_reason": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Priority Reason"
           },
           "attachment_ids": {
             "anyOf": [

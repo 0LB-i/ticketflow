@@ -48,10 +48,7 @@ class Ticket(Base):
     __table_args__ = (
         CheckConstraint("length(title) BETWEEN 3 AND 300", name="title"),
         CheckConstraint(f"type IN {TICKET_TYPES}", name="type"),
-        CheckConstraint("impact BETWEEN 1 AND 3", name="impact"),
-        CheckConstraint("urgency BETWEEN 1 AND 3", name="urgency"),
-        CheckConstraint("priority BETWEEN 1 AND 4", name="priority"),
-        Index("tickets_queue_idx", "team_id", "status_id", text("priority DESC"), "created_at"),
+        Index("tickets_queue_idx", "team_id", "status_id", "created_at"),
         Index("tickets_assignee_idx", "assignee_id", "status_id"),
         Index("tickets_search_idx", "search_vector", postgresql_using="gin"),
     )
@@ -75,10 +72,6 @@ class Ticket(Base):
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
     status_id: Mapped[int] = mapped_column(ForeignKey("ticket_statuses.id"))
-    impact: Mapped[int] = mapped_column(SmallInteger)  # 1 uma pessoa · 2 setor · 3 empresa
-    urgency: Mapped[int] = mapped_column(SmallInteger)  # 1 pode esperar · 2 semana · 3 agora
-    priority: Mapped[int] = mapped_column(SmallInteger)  # 1 baixa … 4 crítica
-    priority_overridden: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     resolution_code_id: Mapped[int | None] = mapped_column(ForeignKey("resolution_codes.id"))
     reopened_count: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     # Quando o trabalho começou: o registro sugere a hora atual, e a pessoa pode ajustar.

@@ -4,7 +4,6 @@ import { ref } from 'vue'
 import Button from '@/components/ui/Button.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import Modal from '@/components/ui/Modal.vue'
-import PriorityBadge, { type Prioridade } from '@/components/ui/PriorityBadge.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import StatusBadge, { type StatusKind } from '@/components/ui/StatusBadge.vue'
 import TextField from '@/components/ui/TextField.vue'
@@ -19,11 +18,10 @@ const grupo = ref<string>()
 const modalAberto = ref(false)
 
 const kinds: StatusKind[] = ['open', 'waiting', 'approval', 'closed', 'canceled']
-const prioridades: Prioridade[] = [1, 2, 3, 4]
-const linhas: { numero: number; titulo: string; kind: StatusKind; prioridade: Prioridade }[] = [
-  { numero: 1240, titulo: 'ERP fora do ar', kind: 'open', prioridade: 4 },
-  { numero: 1238, titulo: 'VPN do Rui não conecta', kind: 'waiting', prioridade: 3 },
-  { numero: 1231, titulo: 'Renovar certificado do site', kind: 'closed', prioridade: 2 },
+const linhas: { numero: number; titulo: string; kind: StatusKind }[] = [
+  { numero: 1240, titulo: 'ERP fora do ar', kind: 'open' },
+  { numero: 1238, titulo: 'VPN do Rui não conecta', kind: 'waiting' },
+  { numero: 1231, titulo: 'Renovar certificado do site', kind: 'closed' },
 ]
 </script>
 
@@ -74,9 +72,6 @@ const linhas: { numero: number; titulo: string; kind: StatusKind; prioridade: Pr
       <div class="flex flex-wrap gap-2">
         <StatusBadge v-for="k in kinds" :key="k" :kind="k" />
       </div>
-      <div class="flex flex-wrap gap-2">
-        <PriorityBadge v-for="p in prioridades" :key="p" :priority="p" />
-      </div>
     </section>
 
     <section class="flex flex-col gap-3">
@@ -89,12 +84,10 @@ const linhas: { numero: number; titulo: string; kind: StatusKind; prioridade: Pr
           { key: 'numero', label: $t('componentes.colunaNumero') },
           { key: 'titulo', label: $t('componentes.colunaTitulo') },
           { key: 'kind', label: $t('componentes.colunaStatus') },
-          { key: 'prioridade', label: $t('componentes.colunaPrioridade') },
         ]"
       >
         <template #cell-numero="{ row }">#{{ row.numero }}</template>
         <template #cell-kind="{ row }"><StatusBadge :kind="row.kind" /></template>
-        <template #cell-prioridade="{ row }"><PriorityBadge :priority="row.prioridade" /></template>
       </DataTable>
     </section>
 

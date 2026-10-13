@@ -38,7 +38,7 @@ export const CORES_PADRAO: Cores = { brand: '#F97316', neutral: '#737373', backg
 
 /**
  * Combinações prontas da tela de Configurações; a primeira é o padrão. Sem vermelho nem rosa
- * na marca: confundiriam com o botão destrutivo e a prioridade alta (docs/17 §17.2).
+ * na marca: confundiriam com o botão destrutivo (docs/17 §17.2).
  */
 export const PREDEFINIDAS: { id: string; cores: Cores }[] = [
   { id: 'padrao', cores: CORES_PADRAO },

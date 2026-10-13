@@ -158,7 +158,6 @@ EN: dict[str, str] = {
     "Você só registra chamados nos grupos de que é membro.": (
         "You can only create tickets in teams you are a member of."
     ),
-    "Informe o motivo para forçar a prioridade.": "Give a reason to override the priority.",
     "Escreva o comentário.": "Write the comment.",
     "Comentário não encontrado.": "Comment not found.",
     "Só o autor edita o comentário.": "Only the author can edit the comment.",

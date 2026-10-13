@@ -57,9 +57,6 @@ def _cenario(db: Session) -> dict[str, User]:
             team_id=team_atual,
             category_id=categoria,
             status_id=pendente.id,
-            impact=1,
-            urgency=1,
-            priority=1,
             **extra,
         )
         db.add(t)

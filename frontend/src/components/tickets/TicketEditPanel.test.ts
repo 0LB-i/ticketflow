@@ -16,7 +16,6 @@ const CHAMADO: Chamado = {
   title: 'Impressora parada',
   type: 'incident',
   status: { id: 1, name: 'Pendente', kind: 'open' },
-  priority: 4,
   team: { id: 't', name: 'TI' },
   category: { id: 'c', name: 'Impressão', path: 'Impressão' },
   department: null,
@@ -27,9 +26,6 @@ const CHAMADO: Chamado = {
   created_at: '2026-10-10T12:00:00Z',
   updated_at: '2026-10-10T12:00:00Z',
   description: '',
-  impact: 2,
-  urgency: 3,
-  priority_overridden: true,
   created_by: { id: 'b', full_name: 'Bia' },
   resolution_code: null,
   reopened_count: 0,
@@ -37,7 +33,7 @@ const CHAMADO: Chamado = {
   co_assignees: [],
   watchers: [],
   attachments: [],
-  allowed_actions: ['set_priority'],
+  allowed_actions: ['edit'],
 }
 
 describe('TicketEditPanel', () => {
@@ -63,20 +59,6 @@ describe('TicketEditPanel', () => {
     document.querySelector<HTMLFormElement>('#form-editar-chamado')!.requestSubmit()
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ status_id: 5 }),
-    )
-  })
-
-  it('prioridade forçada pode voltar a ser automática', async () => {
-    const feitas = simularApi({ 'PATCH /api/v1/tickets/1000': [200, CHAMADO] })
-    montar(TicketEditPanel, { props: { chamado: CHAMADO, open: false } }).setProps({
-      open: true,
-    })
-    await vi.waitFor(() => expect(document.querySelector('#form-editar-chamado')).toBeTruthy())
-
-    await escolher('Prioridade', 'Automática')
-    document.querySelector<HTMLFormElement>('#form-editar-chamado')!.requestSubmit()
-    await vi.waitFor(() =>
-      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ priority: null }),
     )
   })
 

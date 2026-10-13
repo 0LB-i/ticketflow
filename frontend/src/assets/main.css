@@ -39,8 +39,6 @@
   --tf-gray-bg: #f5f5f5;
   --tf-red-fg: #b91c1c;
   --tf-red-bg: #fef2f2;
-  --tf-critical-fg: #ffffff;
-  --tf-critical-bg: #b91c1c;
 }
 
 .dark {
@@ -70,7 +68,6 @@
   --tf-green-bg: #262626;
   --tf-gray-bg: #262626;
   --tf-red-bg: #262626;
-  --tf-critical-bg: #dc2626;
 }
 
 @theme inline {
@@ -104,8 +101,6 @@
   --color-gray-bg: var(--tf-gray-bg);
   --color-red-fg: var(--tf-red-fg);
   --color-red-bg: var(--tf-red-bg);
-  --color-critical-fg: var(--tf-critical-fg);
-  --color-critical-bg: var(--tf-critical-bg);
 }
 
 @layer base {
