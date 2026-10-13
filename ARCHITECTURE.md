@@ -44,7 +44,8 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
 │   ├── public/tema.js     aplica tema, idioma e cores antes da primeira pintura
 │   └── src/               código (seção 4)
-├── scripts/               check.sh, install-hooks.sh, deploy.sh, backup.sh, instalar-servico-dev.sh
+├── scripts/               check.sh, install-hooks.sh, deploy.sh, backup.sh, instalar-servico-dev.sh,
+│                          preparar-maquina-dev.sh (Ubuntu 24.04 novo pronto para desenvolver)
 ├── deploy/                units do systemd (app, worker, backup) e nginx.conf
 └── docker-compose.yml     só desenvolvimento: PostgreSQL 17 e Mailpit
 ```

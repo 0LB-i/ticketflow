@@ -48,6 +48,16 @@ A estrutura do código está no [ARCHITECTURE.md](ARCHITECTURE.md); as justifica
 
 ## Como rodar (desenvolvimento)
 
+**Máquina nova (Ubuntu 24.04):** um script instala tudo o que está abaixo (uv, Node.js 22 + pnpm, PostgreSQL 17 e 16, usuário e bancos de desenvolvimento), clona o código em `/opt/ticketflow`, instala as dependências e o hook de pre-commit e cria uma chave para enviar commits ao GitHub:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/0LB-i/ticketflow/main/scripts/preparar-maquina-dev.sh
+sudo bash preparar-maquina-dev.sh              # com --servico, instala também o ticketflow.service
+```
+
+No fim ele mostra a chave pública, para cadastrar no GitHub como *deploy key* com escrita (Settings → Deploy keys).
+
+
 Requisitos: [uv](https://docs.astral.sh/uv/), Node.js 22 com `corepack enable` (pnpm) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
 
 O PostgreSQL pode ser nativo (como nesta máquina de desenvolvimento, com o 16 também na porta 5433 para a verificação completa) ou do Docker:

@@ -19,6 +19,15 @@ SERVICO=ticketflow
 DROPIN_DIR="/etc/systemd/system/$SERVICO.service.d"
 
 etapa() { printf '\n== %s\n' "$*"; }
+# Dependências e compilação como o dono do código, para não deixar arquivos de root nele.
+DONO="$(stat -c %U .)"
+como_dono() {
+  if [[ "$DONO" == root ]]; then
+    bash -c "$1"
+  else
+    sudo -u "$DONO" -H env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 bash -c "$1"
+  fi
+}
 
 etapa "usuário e diretórios (docs/18 §18.3, passo 2)"
 id "$SERVICO" >/dev/null 2>&1 ||
@@ -47,7 +56,7 @@ fi
 
 etapa "backend e migrações"
 # Sem --no-dev: o mesmo ambiente roda os testes do scripts/check.sh.
-(cd backend && uv sync -q --frozen)
+como_dono "cd backend && uv sync -q --frozen"
 set -a
 # shellcheck disable=SC1090
 . "$ENV_FILE"
@@ -55,7 +64,7 @@ set +a
 (cd backend && .venv/bin/chamados db upgrade)
 
 etapa "frontend (servido pelo próprio backend, ADR 0010)"
-(cd frontend && pnpm install -s --frozen-lockfile && pnpm -s build)
+como_dono "cd frontend && pnpm install -s --frozen-lockfile && pnpm -s build"
 
 etapa "serviço systemd"
 cp deploy/ticketflow.service /etc/systemd/system/
