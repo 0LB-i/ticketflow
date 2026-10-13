@@ -229,6 +229,8 @@ const CHAMADO = {
   co_assignees: [],
   watchers: [],
   attachments: [],
+  time_spent_minutes: 0,
+  time_by_person: [],
   allowed_actions: ['assign_self', 'comment', 'edit', 'transfer', 'watch_self'],
 }
 const EVENTOS = {
@@ -300,6 +302,62 @@ describe('TicketView', () => {
       .find((b) => b.text() === 'Comentar e aguardar')!
       .trigger('click')
     expect(w.get('[role=alert]').text()).toBe('Escreva no comentário o que se está aguardando.')
+  })
+
+  it('mostra o tempo de cada andamento e a soma por pessoa na lateral', async () => {
+    simularApi({
+      'GET /api/v1/tickets/1000': [
+        200,
+        {
+          ...CHAMADO,
+          allowed_actions: ['comment', 'resume'],
+          time_spent_minutes: 135,
+          time_by_person: [
+            { id: ANA, full_name: 'Ana', minutes: 90 },
+            { id: BIA, full_name: 'Bia', minutes: 45 },
+          ],
+        },
+      ],
+      'GET /api/v1/tickets/1000/comments': [
+        200,
+        {
+          items: [
+            {
+              id: 'c1',
+              author: { id: ANA, full_name: 'Ana' },
+              body: 'Troquei o toner.',
+              is_solution: false,
+              time_spent_minutes: 90,
+              created_at: '2026-10-10T12:10:00Z',
+              edited_at: null,
+              editable_until: '2026-10-10T12:20:00Z',
+            },
+          ],
+        },
+      ],
+      'GET /api/v1/tickets/1000/events': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Troquei o toner.'))
+    expect(w.get('ol > li:nth-child(2)').text()).toContain('Tempo gasto:1h30')
+    const lateral = w.get('section[aria-labelledby=tempo-titulo]').text()
+    expect(lateral).toContain('Total: 2h15')
+    expect(lateral).toContain('Ana1h30')
+    expect(lateral).toContain('Bia45min')
+
+    // Número solto é ambíguo; e tempo sem comentário não tem onde ficar
+    const tempo = w
+      .findAll('input')
+      .find((i) => i.element.labels?.[0]?.textContent === 'Tempo gasto')!
+    await tempo.setValue('30')
+    expect(w.text()).toContain('Use horas e minutos, como 1:30, 1h30 ou 45min.')
+    await tempo.setValue('30min')
+    await w
+      .findAll('button')
+      .find((b) => b.text() === 'Retomar')!
+      .trigger('click')
+    expect(w.get('[role=alert]').text()).toBe('Escreva no comentário o que foi feito nesse tempo.')
   })
 
   it('sem acesso mostra a mensagem do 403', async () => {

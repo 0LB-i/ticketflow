@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Clock } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -7,6 +8,7 @@ import MarkdownView from '@/components/editor/MarkdownView.vue'
 import RichEditor from '@/components/editor/RichEditor.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
+import TextField from '@/components/ui/TextField.vue'
 import {
   type Chamado,
   chamadosApi,
@@ -15,7 +17,7 @@ import {
   useAcaoNoChamado,
 } from '@/composables/chamados'
 import { type Anexo, anexosNoTexto } from '@/composables/anexos'
-import { formatarDataHora } from '@/composables/formato'
+import { formatarDataHora, formatarDuracao, lerDuracao } from '@/composables/formato'
 import { useAuthStore } from '@/stores/auth'
 
 import AttachmentList from './AttachmentList.vue'
@@ -57,6 +59,8 @@ function anexosDe(comentario: string | null, texto: string): Anexo[] {
 
 const editando = ref<string | null>(null)
 const texto = ref('')
+const tempo = ref('')
+const minutos = computed(() => lerDuracao(tempo.value))
 const erro = ref<string | null>(null)
 const editor = useTemplateRef('editor')
 const agora = ref(Date.now())
@@ -72,14 +76,16 @@ function editar(c: Comentario) {
   agora.value = Date.now()
   editando.value = c.id
   texto.value = c.body
+  tempo.value = c.time_spent_minutes ? formatarDuracao(c.time_spent_minutes) : ''
   erro.value = null
 }
 
 const salvar = useAcaoNoChamado(
   () => String(props.chamado.number),
-  (a: { id: string; body: string; mention_ids: string[] }) =>
+  (a: { id: string; body: string; time_spent_minutes: number | null; mention_ids: string[] }) =>
     chamadosApi.editarComentario(String(props.chamado.number), a.id, {
       body: a.body,
+      time_spent_minutes: a.time_spent_minutes,
       mention_ids: a.mention_ids,
       attachment_ids: anexosNoTexto(a.body),
     }),
@@ -91,6 +97,7 @@ async function salvarEdicao(id: string) {
     await salvar.mutateAsync({
       id,
       body: texto.value,
+      time_spent_minutes: minutos.value ?? null,
       mention_ids: editor.value?.[0]?.mencionados() ?? [],
     })
     editando.value = null
@@ -131,6 +138,13 @@ async function salvarEdicao(id: string) {
           <span>· {{ formatarDataHora(item.comentario.created_at) }}</span>
           <span v-if="item.comentario.edited_at">· {{ t('chamado.editado') }}</span>
           <Badge v-if="item.comentario.is_solution" color="green">{{ t('chamado.solucao') }}</Badge>
+          <Badge v-if="item.comentario.time_spent_minutes" color="gray">
+            <Clock class="size-3.5" aria-hidden="true" />
+            <span class="sr-only">{{ t('chamado.tempoGasto') }}:</span>
+            <span class="tabular-nums">{{
+              formatarDuracao(item.comentario.time_spent_minutes)
+            }}</span>
+          </Badge>
           <Button
             v-if="podeEditar(item.comentario) && editando !== item.comentario.id"
             variant="ghost"
@@ -150,13 +164,25 @@ async function salvarEdicao(id: string) {
             :pessoas="pessoas"
             anexar
           />
+          <TextField
+            v-model="tempo"
+            class="max-w-56"
+            :label="t('chamado.tempoGasto')"
+            :hint="minutos === undefined ? undefined : t('chamado.tempoDica')"
+            :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
+          />
           <div class="flex justify-end gap-2">
             <Button variant="secondary" size="sm" @click="editando = null">
               {{ t('comum.cancelar') }}
             </Button>
             <Button
               size="sm"
-              :disabled="salvar.isPending.value || !texto.trim() || editor?.[0]?.enviando"
+              :disabled="
+                salvar.isPending.value ||
+                !texto.trim() ||
+                minutos === undefined ||
+                editor?.[0]?.enviando
+              "
               @click="salvarEdicao(item.comentario.id)"
             >
               {{ t('comum.salvar') }}

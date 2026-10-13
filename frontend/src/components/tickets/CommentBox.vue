@@ -7,6 +7,7 @@ import RichEditor from '@/components/editor/RichEditor.vue'
 import Button from '@/components/ui/Button.vue'
 import Modal from '@/components/ui/Modal.vue'
 import SelectField from '@/components/ui/SelectField.vue'
+import TextField from '@/components/ui/TextField.vue'
 import { anexosNoTexto } from '@/composables/anexos'
 import {
   type Acao,
@@ -15,6 +16,7 @@ import {
   useAcaoNoChamado,
   useCodigosDeResolucao,
 } from '@/composables/chamados'
+import { lerDuracao } from '@/composables/formato'
 import { useToast } from '@/composables/useToast'
 
 import AttachmentUploader from './AttachmentUploader.vue'
@@ -22,6 +24,7 @@ import AttachmentUploader from './AttachmentUploader.vue'
 /**
  * Comentar e, na mesma ação, mudar o status (docs/10 §10.6). O texto da caixa vai como
  * comentário; em aguardar, concluir, reabrir e cancelar ele é obrigatório (docs/10 §10.5).
+ * Cada comentário é um andamento e pode levar o tempo gasto nele.
  */
 const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
 const { t } = useI18n()
@@ -34,6 +37,8 @@ const anexos = ref<string[]>([])
 const anexosDoEnvio = () => [...new Set([...anexos.value, ...anexosNoTexto(texto.value)])]
 
 const texto = ref('')
+const tempo = ref('')
+const minutos = computed(() => lerDuracao(tempo.value))
 const erro = ref<string | null>(null)
 const numero = () => String(props.chamado.number)
 const acoes = computed(() => new Set(props.chamado.allowed_actions))
@@ -49,14 +54,19 @@ const disponiveis = computed(() => ACOES.filter((a) => acoes.value.has(a.acao)))
 
 const comentar = useAcaoNoChamado(
   numero,
-  (body: { body: string; mention_ids: string[]; attachment_ids: string[] }) =>
-    chamadosApi.comentar(numero(), body),
+  (body: {
+    body: string
+    time_spent_minutes: number | null
+    mention_ids: string[]
+    attachment_ids: string[]
+  }) => chamadosApi.comentar(numero(), body),
 )
 const mudar = useAcaoNoChamado(
   numero,
   (body: {
     action: Acao
     comment: string
+    time_spent_minutes: number | null
     resolution_code_id?: number
     attachment_ids: string[]
   }) => chamadosApi.mudarStatus(numero(), body),
@@ -66,7 +76,8 @@ const ocupado = computed<boolean>(
     comentar.isPending.value ||
     mudar.isPending.value ||
     !!editor.value?.enviando ||
-    !!anexador.value?.enviando,
+    !!anexador.value?.enviando ||
+    minutos.value === undefined,
 )
 
 async function executar(fn: () => Promise<unknown>, aviso: string) {
@@ -74,6 +85,7 @@ async function executar(fn: () => Promise<unknown>, aviso: string) {
   try {
     await fn()
     texto.value = ''
+    tempo.value = ''
     anexador.value?.limpar()
     toast.show({ title: aviso })
   } catch (e) {
@@ -82,11 +94,12 @@ async function executar(fn: () => Promise<unknown>, aviso: string) {
 }
 
 function enviarComentario() {
-  if (!texto.value.trim()) return
+  if (!texto.value.trim() || minutos.value === undefined) return
   return executar(
     () =>
       comentar.mutateAsync({
         body: texto.value,
+        time_spent_minutes: minutos.value ?? null,
         mention_ids: editor.value?.mencionados() ?? [],
         attachment_ids: anexosDoEnvio(),
       }),
@@ -109,6 +122,10 @@ function pedir(acao: Acao, exigeTexto: boolean) {
     erro.value = t(`chamado.textoObrigatorio.${acao}`)
     return
   }
+  if (minutos.value && !texto.value.trim()) {
+    erro.value = t('chamado.tempoSemTexto')
+    return
+  }
   if (acao === 'close' || acao === 'cancel') {
     codigo.value = ''
     confirmando.value = acao
@@ -124,6 +141,7 @@ function mudarStatus(acao: Acao) {
       mudar.mutateAsync({
         action: acao,
         comment: texto.value,
+        time_spent_minutes: minutos.value ?? null,
         attachment_ids: anexosDoEnvio(),
         ...(acao === 'close' ? { resolution_code_id: Number(codigo.value) } : {}),
       }),
@@ -147,6 +165,13 @@ function mudarStatus(acao: Acao) {
       anexar
     />
     <AttachmentUploader ref="anexador" v-model="anexos" />
+    <TextField
+      v-model="tempo"
+      class="max-w-56"
+      :label="t('chamado.tempoGasto')"
+      :hint="minutos === undefined ? undefined : t('chamado.tempoDica')"
+      :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
+    />
     <div class="flex flex-wrap gap-2">
       <Button type="submit" :disabled="ocupado || !texto.trim()">{{
         t('chamado.comentar')

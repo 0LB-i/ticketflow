@@ -366,6 +366,56 @@ def test_edicao_de_comentario_por_10_minutos(
     assert client.patch(f"{url}/{c['id']}", json={"body": "Tarde"}).status_code == 409
 
 
+def test_tempo_gasto_nos_andamentos(client: TestClient, cenario: dict[str, Any]) -> None:
+    t = registrar(client, cenario, assignee="me")
+    assert t["time_spent_minutes"] == 0 and t["time_by_person"] == []
+    url = f"{API}/{t['number']}"
+    c = client.post(
+        f"{url}/comments", json={"body": "Troquei o toner", "time_spent_minutes": 45}
+    ).json()
+    assert c["time_spent_minutes"] == 45
+    client.post(f"{url}/comments", json={"body": "Pergunta sem tempo"})
+    for invalido in (0, -5, 60_001):
+        r = client.post(f"{url}/comments", json={"body": "x", "time_spent_minutes": invalido})
+        assert r.status_code == 422
+
+    entrar(client, "bia@x.com")
+    client.post(f"{url}/comments", json={"body": "Testei a rede", "time_spent_minutes": 90})
+    r = client.post(
+        f"{url}/transitions",
+        json={
+            "action": "close",
+            "comment": "Resolvido",
+            "time_spent_minutes": 15,
+            "resolution_code_id": 1,
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    detalhe = client.get(url).json()
+    assert detalhe["time_spent_minutes"] == 150
+    assert detalhe["time_by_person"] == [
+        {"id": cenario["bia"], "full_name": "Bia", "minutes": 105},
+        {"id": cenario["ana"], "full_name": "Ana", "minutes": 45},
+    ]
+    tempos = [x["time_spent_minutes"] for x in client.get(f"{url}/comments").json()["items"]]
+    assert tempos == [45, None, 90, 15]
+
+    # A edição muda o tempo (ou o tira), e o tempo anterior fica no histórico
+    entrar(client, "ana@x.com")
+    r = client.patch(
+        f"{url}/comments/{c['id']}", json={"body": "Troquei o toner", "time_spent_minutes": 60}
+    )
+    assert r.json()["time_spent_minutes"] == 60
+    assert eventos(client, t["number"])[-1]["payload"] == {
+        "comment_id": c["id"],
+        "before": "Troquei o toner",
+        "before_time_spent_minutes": 45,
+    }
+    client.patch(f"{url}/comments/{c['id']}", json={"body": "Troquei o toner"})
+    assert client.get(url).json()["time_spent_minutes"] == 105
+
+
 # --- atribuição e transferência -----------------------------------------------------------------
 
 
@@ -490,6 +540,9 @@ def test_ciclo_aguardar_concluir_reabrir(client: TestClient, cenario: dict[str, 
         == 403
     )
 
+    # O tempo gasto vai no comentário: sem comentário, não há onde lançá-lo
+    r = client.post(url, json={"action": "resume", "time_spent_minutes": 5})
+    assert r.status_code == 422 and r.json()["detail"] == "Escreva o comentário do tempo gasto."
     assert client.post(url, json={"action": "resume"}).json()["status"]["name"] == "Pendente"
     assert (
         client.post(url, json={"action": "close", "comment": "Troquei o toner"}).status_code == 422

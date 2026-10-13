@@ -1209,6 +1209,11 @@ export interface components {
       /** Body */
       body: string
       /**
+       * Time Spent Minutes
+       * @description tempo gasto, em minutos
+       */
+      time_spent_minutes?: number | null
+      /**
        * Mention Ids
        * @default []
        */
@@ -1237,6 +1242,8 @@ export interface components {
       body: string
       /** Is Solution */
       is_solution: boolean
+      /** Time Spent Minutes */
+      time_spent_minutes: number | null
       /**
        * Created At
        * Format: date-time
@@ -1457,6 +1464,18 @@ export interface components {
        * @description sem grupo, a fila de todos os meus grupos
        */
       team_id?: string | null
+    }
+    /** PersonTime */
+    PersonTime: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Full Name */
+      full_name: string
+      /** Minutes */
+      minutes: number
     }
     /** Ref */
     Ref: {
@@ -1801,6 +1820,16 @@ export interface components {
        */
       attachments: components['schemas']['AttachmentOut'][]
       /**
+       * Time Spent Minutes
+       * @description soma do tempo gasto nos comentários
+       */
+      time_spent_minutes: number
+      /**
+       * Time By Person
+       * @description a mesma soma, por autor (maior primeiro)
+       */
+      time_by_person: components['schemas']['PersonTime'][]
+      /**
        * Allowed Actions
        * @description o que o usuário pode fazer no chamado (a interface mostra os botões)
        */
@@ -1889,6 +1918,11 @@ export interface components {
       action: 'wait' | 'resume' | 'close' | 'reopen' | 'cancel'
       /** Comment */
       comment?: string | null
+      /**
+       * Time Spent Minutes
+       * @description tempo gasto, em minutos
+       */
+      time_spent_minutes?: number | null
       /** Resolution Code Id */
       resolution_code_id?: number | null
       /**

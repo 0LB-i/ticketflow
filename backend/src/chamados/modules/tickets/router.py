@@ -23,6 +23,7 @@ from chamados.modules.tickets.schemas import (
     EventList,
     EventOut,
     NextIn,
+    PersonTime,
     ResolutionRef,
     StatusKind,
     StatusRef,
@@ -76,6 +77,10 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
 
 async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
     paths = await service.category_paths(db)
+    times = [
+        PersonTime(id=u.public_id, full_name=u.full_name, minutes=m)
+        for u, m in await service.time_by_person(db, t)
+    ]
     return TicketOut(
         **dict(_summary(t, paths)),
         description=t.description,
@@ -93,6 +98,8 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
             for w in t.watchers
         ],
         attachments=await attachments.of_ticket(db, t.id),
+        time_spent_minutes=sum(p.minutes for p in times),
+        time_by_person=times,
         allowed_actions=sorted(service.actions(auth, t)),
     )
 
@@ -103,6 +110,7 @@ def _comment_out(c: TicketComment) -> CommentOut:
         author=_user(c.author),
         body=c.body,
         is_solution=c.is_solution,
+        time_spent_minutes=c.time_spent_minutes,
         created_at=c.created_at,
         edited_at=c.edited_at,
         editable_until=c.created_at + service.COMMENT_EDIT_WINDOW,

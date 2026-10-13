@@ -169,6 +169,7 @@ EN: dict[str, str] = {
     "Escreva o comentário: ele é obrigatório nesta mudança.": (
         "Write the comment: it is required for this change."
     ),
+    "Escreva o comentário do tempo gasto.": "Write a comment for the time spent.",
     "Escolha o código de resolução.": "Choose the resolution code.",
     "Este usuário não acompanha o chamado.": "This user is not watching the ticket.",
     # Configurações
