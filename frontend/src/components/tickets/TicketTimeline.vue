@@ -8,7 +8,7 @@ import MarkdownView from '@/components/editor/MarkdownView.vue'
 import RichEditor from '@/components/editor/RichEditor.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
-import TextField from '@/components/ui/TextField.vue'
+import DurationField from '@/components/ui/DurationField.vue'
 import {
   type Chamado,
   chamadosApi,
@@ -17,7 +17,12 @@ import {
   useAcaoNoChamado,
 } from '@/composables/chamados'
 import { type Anexo, anexosNoTexto } from '@/composables/anexos'
-import { formatarDataHora, formatarDuracao, lerDuracao } from '@/composables/formato'
+import {
+  formatarDataHora,
+  formatarDuracao,
+  formatarHoraMinuto,
+  lerDuracao,
+} from '@/composables/formato'
 import { useAuthStore } from '@/stores/auth'
 
 import AttachmentList from './AttachmentList.vue'
@@ -76,7 +81,7 @@ function editar(c: Comentario) {
   agora.value = Date.now()
   editando.value = c.id
   texto.value = c.body
-  tempo.value = c.time_spent_minutes ? formatarDuracao(c.time_spent_minutes) : ''
+  tempo.value = c.time_spent_minutes ? formatarHoraMinuto(c.time_spent_minutes) : ''
   erro.value = null
 }
 
@@ -164,11 +169,10 @@ async function salvarEdicao(id: string) {
             :pessoas="pessoas"
             anexar
           />
-          <TextField
+          <DurationField
             v-model="tempo"
-            class="max-w-56"
+            class="max-w-40"
             :label="t('chamado.tempoGasto')"
-            :hint="minutos === undefined ? undefined : t('chamado.tempoDica')"
             :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
           />
           <div class="flex justify-end gap-2">

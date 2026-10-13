@@ -346,13 +346,14 @@ describe('TicketView', () => {
     expect(lateral).toContain('Ana1h30')
     expect(lateral).toContain('Bia45min')
 
-    // Número solto é ambíguo; e tempo sem comentário não tem onde ficar
+    // Minutos acima de 59 não valem; e tempo sem comentário não tem onde ficar
     const tempo = w
       .findAll('input')
       .find((i) => i.element.labels?.[0]?.textContent === 'Tempo gasto')!
+    await tempo.setValue('75')
+    expect(w.text()).toContain('Informe horas e minutos válidos, como 01:30.')
     await tempo.setValue('30')
-    expect(w.text()).toContain('Use horas e minutos, como 1:30, 1h30 ou 45min.')
-    await tempo.setValue('30min')
+    expect((tempo.element as HTMLInputElement).value).toBe('00:30')
     await w
       .findAll('button')
       .find((b) => b.text() === 'Retomar')!
