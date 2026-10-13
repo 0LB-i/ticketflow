@@ -15,7 +15,6 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
 import AttachmentList from './AttachmentList.vue'
-import TicketEditPanel from './TicketEditPanel.vue'
 
 /** Dados do chamado e as ações sobre eles, conforme `allowed_actions` (docs/08 §8.5). */
 const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
@@ -100,8 +99,6 @@ watch(novoObservador, (id) => {
 })
 const podeRemover = (id: string) =>
   pode.value.has('manage_watchers') || (id === auth.me?.id && pode.value.has('watch_self'))
-
-const editando = ref(false)
 </script>
 
 <template>
@@ -164,14 +161,6 @@ const editando = ref(false)
       </Button>
       <Button v-if="pode.has('transfer')" size="sm" variant="secondary" @click="abrirTransferencia">
         {{ t('chamado.transferir') }}
-      </Button>
-      <Button
-        v-if="pode.has('edit') || pode.has('set_status')"
-        size="sm"
-        variant="secondary"
-        @click="editando = true"
-      >
-        {{ t('chamado.editar') }}
       </Button>
     </div>
     <SelectField
@@ -288,6 +277,5 @@ const editando = ref(false)
         </Button>
       </template>
     </Modal>
-    <TicketEditPanel v-model:open="editando" :chamado="chamado" />
   </aside>
 </template>

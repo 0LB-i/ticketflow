@@ -296,7 +296,6 @@
     "assumir": "Assumir",
     "devolver": "Devolver para a fila",
     "transferir": "Transferir",
-    "editar": "Editar",
     "atribuirA": "Atribuir a",
     "escolhaMembro": "Escolha um membro do grupo",
     "observadores": "Observadores",
@@ -367,9 +366,6 @@
     "buscarCliente": "Buscar por nome ou CPF/CNPJ",
     "nenhumCliente": "Nenhum cliente encontrado.",
     "tirarCliente": "Tirar o cliente"
-  },
-  "editarChamado": {
-    "titulo": "Editar chamado #{numero}"
   },
   "evento": {
     "sistema": "Sistema",

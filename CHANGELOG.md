@@ -28,6 +28,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- O detalhe do chamado não tem mais o botão "Editar" nem o painel lateral de edição (título, descrição, status, tipo, início, cliente e contato). A alteração continua disponível na API (`PATCH /tickets/{id}`).
 - Os chamados não têm mais prioridade, impacto nem urgência: saem das telas (lista, filtro, detalhe, edição), da API (`priority`, `priority_overridden`, `impact`, `urgency`, filtro `priority`) e a permissão `ticket.set_priority`. As filas e o "Pegar o próximo" seguem a ordem de registro (mais antigo primeiro). A migração `0016` apaga as colunas, sem volta dos valores no downgrade (voltam como prioridade baixa). O histórico antigo continua mostrando essas alterações.
 - O agente passa a atribuir chamados a outros membros do grupo (`ticket.assign_others`), antes só nos grupos que supervisiona; no detalhe do chamado, também pode devolver à fila o chamado de outra pessoa. A migração `0015` atualiza o papel.
 - Identificadores da instalação passam a ser `ticketflow`: código em `/opt/ticketflow`, serviços `ticketflow`, `ticketflow-worker` e `ticketflow-backup` (units em `deploy/ticketflow*.service`), usuário do sistema e papel no PostgreSQL `ticketflow`, configuração em `/etc/ticketflow/env`, anexos em `/var/lib/ticketflow/files` e backups em `/var/backups/ticketflow`. O banco (`chamados`) e o comando `chamados` não mudam.
