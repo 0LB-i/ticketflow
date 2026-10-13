@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Backup diário do banco e dos anexos (docs/18 §18.5). Rodado pelo sistema-chamados-backup.timer.
+# Backup diário do banco e dos anexos (docs/18 §18.5). Rodado pelo ticketflow-backup.timer.
 set -euo pipefail
 
-ENV_FILE="${ENV_FILE:-/etc/sistema-chamados/env}"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/sistema-chamados}"
+ENV_FILE="${ENV_FILE:-/etc/ticketflow/env}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/ticketflow}"
 RETENCAO_DIAS="${RETENCAO_DIAS:-14}"
 set -a
 # shellcheck disable=SC1090

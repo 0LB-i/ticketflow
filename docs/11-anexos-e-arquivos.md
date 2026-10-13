@@ -86,7 +86,7 @@ Interface `Storage` (`put`, `get`, `delete`, `presigned_url`) com dois adaptador
 
 | Adaptador | Quando usar |
 |-----------|-------------|
-| **Local** (usado na Martiniti) | Diretório `/var/lib/sistema-chamados/files`, só acessível pelo usuário do serviço |
+| **Local** (usado na Martiniti) | Diretório `/var/lib/ticketflow/files`, só acessível pelo usuário do serviço |
 | **S3-compatível** (futuro) | AWS S3, MinIO etc. Só faz sentido com vários servidores |
 
 - **Chave do arquivo:** `attachments/AAAA/MM/<uuid>`, sem o nome original.

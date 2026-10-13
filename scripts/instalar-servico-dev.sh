@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Instala o TicketFlow como serviço systemd na máquina de desenvolvimento, sem nginx.
-# Usa a mesma unit da produção (deploy/sistema-chamados.service) com um ajuste local
+# Usa a mesma unit da produção (deploy/ticketflow.service) com um ajuste local
 # (drop-in) para escutar na rede, em http://IP:PORTA. Roda como root:
 #   sudo scripts/instalar-servico-dev.sh            # porta 8000
 #   sudo PORTA=8080 scripts/instalar-servico-dev.sh
 # Pode ser rodado de novo para recompilar e aplicar migrações. Na primeira vez o serviço é
-# iniciado; depois disso, quem reinicia é você: sudo systemctl restart sistema-chamados
+# iniciado; depois disso, quem reinicia é você: sudo systemctl restart ticketflow
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
@@ -14,17 +14,17 @@ export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 PORTA="${PORTA:-8000}"
 IP="$(hostname -I | awk '{print $1}')"
-ENV_FILE=/etc/sistema-chamados/env
-SERVICO=sistema-chamados
+ENV_FILE=/etc/ticketflow/env
+SERVICO=ticketflow
 DROPIN_DIR="/etc/systemd/system/$SERVICO.service.d"
 
 etapa() { printf '\n== %s\n' "$*"; }
 
 etapa "usuário e diretórios (docs/18 §18.3, passo 2)"
 id "$SERVICO" >/dev/null 2>&1 ||
-  adduser --system --group --home /var/lib/sistema-chamados "$SERVICO"
-install -d -o "$SERVICO" -g "$SERVICO" -m 750 /var/lib/sistema-chamados /var/lib/sistema-chamados/files
-install -d -o root -g "$SERVICO" -m 750 /etc/sistema-chamados
+  adduser --system --group --home /var/lib/ticketflow "$SERVICO"
+install -d -o "$SERVICO" -g "$SERVICO" -m 750 /var/lib/ticketflow /var/lib/ticketflow/files
+install -d -o root -g "$SERVICO" -m 750 /etc/ticketflow
 
 etapa "configuração ($ENV_FILE)"
 if [[ -f "$ENV_FILE" ]]; then
@@ -58,7 +58,7 @@ etapa "frontend (servido pelo próprio backend, ADR 0010)"
 (cd frontend && pnpm install -s --frozen-lockfile && pnpm -s build)
 
 etapa "serviço systemd"
-cp deploy/sistema-chamados.service /etc/systemd/system/
+cp deploy/ticketflow.service /etc/systemd/system/
 install -d "$DROPIN_DIR"
 cat >"$DROPIN_DIR/desenvolvimento.conf" <<FIM
 # Só nesta máquina: sem nginx, o uvicorn escuta na rede (a produção usa 127.0.0.1 + nginx).

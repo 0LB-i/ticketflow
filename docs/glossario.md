@@ -4,7 +4,7 @@ Termos do domínio em português e o nome usado no código (ver [ADR 0001](adr/0
 
 | Termo | Código | Definição |
 |-------|--------|-----------|
-| TicketFlow | `app.nome` (i18n) | Nome do sistema exibido aos usuários (configurável no futuro, em `settings`). Os identificadores técnicos (pacote `chamados`, serviço `sistema-chamados`) não mudam |
+| TicketFlow | `app.nome` (i18n) | Nome do sistema exibido aos usuários (configurável no futuro, em `settings`). Os identificadores técnicos (pacote `chamados`, serviço `ticketflow`) não mudam |
 | Chamado | `ticket` | Tarefa registrada e executada por uma equipe |
 | Agente | `agent` | Membro de uma equipe; único tipo de usuário que trabalha nos chamados |
 | Registrado por | `created_by` | Membro que criou o chamado |

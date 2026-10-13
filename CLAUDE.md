@@ -9,7 +9,7 @@ Se já houver commits em branches separadas, fazer cherry-pick para `main` antes
 
 ## 0.1 Serviço web — Regra de ouro
 
-**Não reiniciar o `sistema-chamados.service` e não subir instâncias extras do uvicorn em portas alternativas para validar mudanças.** Quem reinicia o serviço e confere o resultado no navegador é o usuário. Uma instância de teste numa porta alternativa pode colidir com recursos compartilhados do serviço real (ex: arquivo de log com rotação do loguru) e derrubar o ambiente.
+**Não reiniciar o `ticketflow.service` e não subir instâncias extras do uvicorn em portas alternativas para validar mudanças.** Quem reinicia o serviço e confere o resultado no navegador é o usuário. Uma instância de teste numa porta alternativa pode colidir com recursos compartilhados do serviço real (ex: arquivo de log com rotação do loguru) e derrubar o ambiente.
 
 ## 0.2 Estrutura do código
 
