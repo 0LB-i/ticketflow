@@ -25,7 +25,7 @@ Quando o SSO existir, o administrador poderá ligar **"SSO obrigatório"**: o lo
 Detalhes do administrador padrão:
 
 - É criado pela migração `0003`, só se ainda não existir um usuário `admin`. Não tem e-mail, então entra pelo nome de usuário: o campo do login aceita **e-mail ou usuário**.
-- Tem o papel Administrador, como qualquer outro. A regra "sempre um administrador ativo" vale para ele também.
+- Tem o papel Administrador, como qualquer outro, e é membro do grupo padrão **Administradores**, criado pela migração `0014`. A regra "sempre um administrador ativo" vale para ele também.
 - **Enquanto a senha não for trocada, a instalação está exposta:** `admin`/`admin` é a primeira combinação que qualquer pessoa tenta. A troca deve ser feita antes de liberar o acesso ao servidor pela rede ([18.3](18-manual-do-servidor.md#10-primeiro-acesso-e-verificação)).
 - Alternativa por linha de comando, que também serve para recuperar o acesso se todos os administradores perderem a senha: `chamados admin create --email ... --name ...` cria outro administrador e mostra um link para definir a senha (válido por 24 h).
 
