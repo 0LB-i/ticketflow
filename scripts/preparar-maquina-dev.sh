@@ -87,6 +87,8 @@ criar_banco() {
 criar_banco 5432 chamados
 criar_banco 5432 chamados_test
 criar_banco 5433 chamados_test
+# O 16 só serve à verificação completa (check.sh --completo): desligado, poupa memória.
+systemctl disable -q --now postgresql@16-main
 
 etapa "Node.js 22 e pnpm"
 if ! command -v node >/dev/null || [[ "$(node --version)" != v22.* ]]; then

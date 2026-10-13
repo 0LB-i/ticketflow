@@ -59,8 +59,9 @@ etapa "backend: testes no PostgreSQL 17"
 banco_no_ar 5432
 (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q --cov)
 
+# O build é só o do Vite: o `pnpm build` repetiria o vue-tsc da etapa de tipos.
 etapa "frontend: eslint, prettier, vue-tsc, vitest, build"
-(cd frontend && pnpm install -s --frozen-lockfile && pnpm -s lint && pnpm -s format:check && pnpm -s typecheck && pnpm -s test && pnpm -s build)
+(cd frontend && pnpm install -s --frozen-lockfile && pnpm -s lint && pnpm -s format:check && pnpm -s typecheck && pnpm -s test && pnpm exec vite build --logLevel warn)
 
 etapa "contrato: OpenAPI e cliente TypeScript"
 (cd frontend && pnpm -s gen:api >/dev/null)
@@ -73,6 +74,8 @@ fi
 
 if [[ "$modo" == --completo ]]; then
   etapa "backend: testes no PostgreSQL 16"
+  # Fica desligado no dia a dia, para poupar memória.
+  pg_isready -q -h localhost -p 5433 || echo "Ligue o PostgreSQL 16: sudo systemctl start postgresql@16-main" >&2
   banco_no_ar 5433
   (cd backend && TEST_DATABASE_URL="$PG16_URL" uv run pytest -q)
 

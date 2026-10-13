@@ -11,10 +11,14 @@ export default defineConfig({
   },
   server: {
     // Em desenvolvimento a API roda no uvicorn; em produção, na mesma origem (ADR 0010).
-    proxy: { '/api': 'http://127.0.0.1:8000' },
+    // TF_API: o serviço de desenvolvimento (scripts/instalar-servico-dev.sh) usa outra porta.
+    // xfwd: o IP de quem acessa chega à API (limite de tentativas de login por IP).
+    proxy: { '/api': { target: process.env.TF_API ?? 'http://127.0.0.1:8000', xfwd: true } },
   },
   test: {
     environment: 'jsdom',
+    // Um jsdom por processo, com cada arquivo ainda isolado: os testes levam um terço do tempo.
+    pool: 'vmThreads',
     include: ['src/**/*.test.ts'],
   },
 })
