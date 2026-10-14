@@ -321,13 +321,10 @@
     "semTempo": "Nenhum tempo lançado.",
     "tempoTotal": "Total",
     "tempoSemTexto": "Descreva a tarefa feita nesse tempo.",
-    "oQueFoiFeito": "O que foi feito",
     "comentar": "Adicionar tarefa",
     "comentado": "Tarefa adicionada",
-    "codigoResolucao": "Código de resolução",
     "acoes": {
       "resume": "Retomar",
-      "close": "Concluir chamado",
       "reopen": "Reabrir",
       "cancel": "Cancelar chamado"
     },
@@ -336,16 +333,13 @@
       "cancel": "Escreva na tarefa o motivo do cancelamento."
     },
     "confirmar": {
-      "close": "Concluir o chamado",
       "cancel": "Cancelar o chamado?"
     },
     "confirmarTexto": {
-      "close": "Descreva o que foi feito e escolha o código de resolução. Isso vira a última tarefa do chamado.",
       "cancel": "A tarefa vai como o motivo. Um chamado cancelado não volta a ser aberto."
     },
     "feito": {
       "resume": "Chamado retomado",
-      "close": "Chamado concluído",
       "reopen": "Chamado reaberto",
       "cancel": "Chamado cancelado",
       "assumido": "Você assumiu o chamado",
@@ -362,7 +356,13 @@
     "contatoDica": "Quem pediu o atendimento.",
     "buscarCliente": "Buscar por nome ou CPF/CNPJ",
     "nenhumCliente": "Nenhum cliente encontrado.",
-    "tirarCliente": "Tirar o cliente"
+    "tirarCliente": "Tirar o cliente",
+    "entregue": {
+      "marcar": "Marcar como entregue",
+      "titulo": "Marcar como entregue?",
+      "texto": "O status do chamado muda para Entregue.",
+      "feito": "Chamado entregue"
+    }
   },
   "idioma": {
     "titulo": "Idioma",
