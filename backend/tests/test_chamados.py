@@ -174,9 +174,38 @@ def test_inicio_do_chamado(client: TestClient, cenario: dict[str, Any]) -> None:
     assert client.patch(url, json={"started_at": futuro}).status_code == 422
 
 
+def test_em_revisao_so_o_supervisor_entrega(client: TestClient, cenario: dict[str, Any]) -> None:
+    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
+    t = registrar(client, cenario, assignee="me")
+    url = f"{API}/{t['number']}"
+    assert "set_status_closed" in t["allowed_actions"]
+
+    # Ana (responsável) manda para revisão: o chamado fica em espera (kind waiting)
+    r = client.patch(url, json={"status_id": status["Em espera de revisão"]})
+    assert r.json()["status"]["kind"] == "waiting"
+    assert "set_status_closed" not in r.json()["allowed_actions"]
+    # Em revisão, ela não entrega nem conclui; outros status, sim
+    for nome in ("Entregue", "Concluído"):
+        assert client.patch(url, json={"status_id": status[nome]}).status_code == 403
+    assert client.get(url).json()["status"]["name"] == "Em espera de revisão"
+
+    # Bia, supervisora do TI, verifica e entrega
+    entrar(client, "bia@x.com")
+    assert "set_status_closed" in client.get(url).json()["allowed_actions"]
+    r = client.patch(url, json={"status_id": status["Entregue"]})
+    assert r.status_code == 200 and r.json()["status"]["name"] == "Entregue"
+
+
 def test_status_escolhido_no_formulario(client: TestClient, cenario: dict[str, Any]) -> None:
     status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
-    assert list(status) == ["Pendente", "Aguardando cliente", "Entregue", "Concluído", "Cancelado"]
+    assert list(status) == [
+        "Pendente",
+        "Aguardando cliente",
+        "Em espera de revisão",
+        "Entregue",
+        "Concluído",
+        "Cancelado",
+    ]
 
     # Sem status, Pendente; com status, qualquer um, sem comentário nem código de resolução
     assert registrar(client, cenario)["status"]["name"] == "Pendente"

@@ -28,6 +28,7 @@ def test_status_e_codigos_padrao(client: TestClient, db: Session) -> None:
     assert [(s["name"], s["kind"]) for s in status] == [
         ("Pendente", "open"),
         ("Aguardando cliente", "waiting"),
+        ("Em espera de revisão", "waiting"),
         ("Entregue", "closed"),
         ("Concluído", "closed"),
         ("Cancelado", "canceled"),

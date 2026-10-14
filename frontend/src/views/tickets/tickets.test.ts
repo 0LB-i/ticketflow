@@ -278,7 +278,10 @@ describe('TicketView', () => {
       ],
     }
     const feitas = simularApi({
-      'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment', 'set_status'] }],
+      'GET /api/v1/tickets/1000': [
+        200,
+        { ...CHAMADO, allowed_actions: ['comment', 'set_status', 'set_status_closed'] },
+      ],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS_LISTA],
@@ -296,6 +299,50 @@ describe('TicketView', () => {
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ status_id: 5 }),
     )
+  })
+
+  it('em revisão, o seletor de status não oferece os concluídos a quem não supervisiona', async () => {
+    const REVISAO = { id: 3, name: 'Em espera de revisão', kind: 'waiting' }
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': [
+        200,
+        { ...CHAMADO, status: REVISAO, allowed_actions: ['comment', 'set_status'] },
+      ],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/statuses': [
+        200,
+        {
+          items: [
+            { id: 1, name: 'Pendente', kind: 'open' },
+            REVISAO,
+            { id: 5, name: 'Entregue', kind: 'closed' },
+            { id: 4, name: 'Concluído', kind: 'closed' },
+          ],
+        },
+      ],
+      'PATCH /api/v1/tickets/1000': [200, CHAMADO],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.find('aside').exists()).toBe(true))
+    expect(w.text()).not.toContain('Marcar como entregue')
+    await escolher('Status', 'Pendente')
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ status_id: 1 }),
+    )
+    // Entregue e Concluído não estão na lista
+    const label = [...document.querySelectorAll('label')].find((l) => l.textContent === 'Status')!
+    document
+      .getElementById(label.htmlFor)!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    const opcoes = await vi.waitFor(() => {
+      const lista = [...document.querySelectorAll('[role=option]')].map((o) =>
+        o.textContent?.trim(),
+      )
+      expect(lista.length).toBeGreaterThan(0)
+      return lista
+    })
+    expect(opcoes).toEqual(['Pendente', 'Em espera de revisão'])
   })
 
   it('mostra o tempo de cada andamento e a soma por pessoa na lateral', async () => {
