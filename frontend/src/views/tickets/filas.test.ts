@@ -60,7 +60,7 @@ describe('TicketsView', () => {
     expect(listas(feitas).at(-1)!.get('view')).toBe('mine')
     expect(w.get('[role=tab][data-state=active]').text()).toContain('Meus')
     expect(w.findAll('[role=tab]').map((a) => a.text())).toContain('Não atribuídos 7')
-    expect(w.find('[aria-label="Comentário novo de outra pessoa"]').exists()).toBe(true)
+    expect(w.find('[aria-label="Tarefa nova de outra pessoa"]').exists()).toBe(true)
     expect(w.text()).toContain('Padaria Pão Quente')
   })
 

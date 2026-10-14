@@ -165,15 +165,16 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 │                                               │ Anexos (2)                   │
 ├───────────────────────────────────────────────┤                              │
 │ ┌───────────────────────────────────────────┐ │                              │
-│ │ Escreva um comentário…                    │ │                              │
+│ │ Descreva a tarefa feita…                  │ │                              │
 │ └───────────────────────────────────────────┘ │                              │
-│ 📎 Anexar                                     │                              │
-│ [Comentar]  [Comentar e concluir ▾]           │                              │
+│ Tempo gasto [01:30 ▾]  📎 Anexar              │                              │
+│ [Adicionar tarefa]        [Concluir chamado]  │                              │
 └───────────────────────────────────────────────┴──────────────────────────────┘
 ```
 
 - **Linha do tempo:** mostra só o registro e os comentários (andamentos), cada um com a sua data. As alterações (assumir, devolver, acompanhar, transferir, mudar status…) continuam gravadas no histórico, mas não aparecem na tela.
-- **Comentar e mudar status:** o comentário e a mudança de status saem numa única ação (ex.: "Comentar e concluir", "Comentar e aguardar").
+- **Tarefas:** na tela, os comentários se chamam **tarefas** (o andamento do chamado); na API continuam `comments`. O botão é **Adicionar tarefa**.
+- **Tarefa e mudança de status:** a tarefa e a mudança de status saem numa única ação. **Concluir chamado** fica à direita, em dourado, e usa o texto da caixa como o que foi feito. "Aguardar" não aparece na tela (decisão de 2026-10-14); quem já está aguardando pode ser retomado.
 - **Tempo gasto (andamentos):** cada comentário é um andamento do chamado e pode levar o **tempo gasto** nele (opcional), num campo **hh:mm**: digitado (os números entram pela direita: "130" vira 01:30) ou escolhido na lista de horários (00:20, 00:30, de 15 em 15 minutos até 03:00 e de hora em hora até 24:00). A cobrança dos funcionários é feita por esse tempo. A lateral mostra o **total** do chamado e a **soma de cada pessoa** (quem gastou mais primeiro); cada comentário mostra o seu tempo. Tempo sem comentário não é aceito (ex.: "Retomar" sem texto). O tempo se corrige na edição do comentário (10 minutos), e o valor anterior fica no histórico.
 - **Menções:** `@nome` notifica o colega, que vira observador do chamado.
 - **Colisão:** o sistema mostra quem mais está com o chamado aberto. Se chegou um comentário novo depois que a tela foi carregada, aparece um aviso antes de enviar. Alterações de campos usam `ETag` para não sobrescrever a mudança de outra pessoa.

@@ -22,9 +22,9 @@ import { useToast } from '@/composables/useToast'
 import AttachmentUploader from './AttachmentUploader.vue'
 
 /**
- * Comentar e, na mesma ação, mudar o status (docs/10 §10.6). O texto da caixa vai como
- * comentário; em aguardar, concluir, reabrir e cancelar ele é obrigatório (docs/10 §10.5).
- * Cada comentário é um andamento e pode levar o tempo gasto nele.
+ * Adicionar uma tarefa (o andamento do chamado, um comentário na API) e, na mesma ação, mudar o
+ * status (docs/10 §10.6). Em concluir, reabrir e cancelar o texto é obrigatório (docs/10 §10.5).
+ * Cada tarefa pode levar o tempo gasto nela.
  */
 const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
 const { t } = useI18n()
@@ -43,12 +43,12 @@ const erro = ref<string | null>(null)
 const numero = () => String(props.chamado.number)
 const acoes = computed(() => new Set(props.chamado.allowed_actions))
 
-const ACOES: { acao: Acao; exigeTexto: boolean; variante: 'secondary' | 'danger' }[] = [
-  { acao: 'wait', exigeTexto: true, variante: 'secondary' },
+// Concluir fica por último, à direita. Aguardar não aparece na tela (decisão de 2026-10-14).
+const ACOES: { acao: Acao; exigeTexto: boolean; variante: 'secondary' | 'danger' | 'gold' }[] = [
   { acao: 'resume', exigeTexto: false, variante: 'secondary' },
-  { acao: 'close', exigeTexto: true, variante: 'secondary' },
   { acao: 'reopen', exigeTexto: true, variante: 'secondary' },
   { acao: 'cancel', exigeTexto: true, variante: 'danger' },
+  { acao: 'close', exigeTexto: true, variante: 'gold' },
 ]
 const disponiveis = computed(() => ACOES.filter((a) => acoes.value.has(a.acao)))
 
@@ -164,13 +164,16 @@ function mudarStatus(acao: Acao) {
       :pessoas="pessoas"
       anexar
     />
-    <AttachmentUploader ref="anexador" v-model="anexos" />
-    <DurationField
-      v-model="tempo"
-      class="max-w-40"
-      :label="t('chamado.tempoGasto')"
-      :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
-    />
+    <div class="flex flex-wrap items-start gap-3">
+      <DurationField
+        v-model="tempo"
+        class="w-40"
+        :label="t('chamado.tempoGasto')"
+        :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
+      />
+      <!-- mt-7: alinhado ao campo de tempo, abaixo do rótulo -->
+      <AttachmentUploader ref="anexador" v-model="anexos" class="mt-7 min-w-64 flex-1" />
+    </div>
     <div class="flex flex-wrap gap-2">
       <Button type="submit" :disabled="ocupado || !texto.trim()">{{
         t('chamado.comentar')
@@ -179,6 +182,7 @@ function mudarStatus(acao: Acao) {
         v-for="a in disponiveis"
         :key="a.acao"
         :variant="a.variante"
+        :class="a.acao === 'close' ? 'ml-auto' : undefined"
         :disabled="ocupado"
         @click="pedir(a.acao, a.exigeTexto)"
       >
@@ -202,7 +206,7 @@ function mudarStatus(acao: Acao) {
       <template #actions>
         <Button variant="secondary" @click="confirmando = null">{{ t('comum.cancelar') }}</Button>
         <Button
-          :variant="confirmando === 'cancel' ? 'danger' : 'primary'"
+          :variant="confirmando === 'cancel' ? 'danger' : 'gold'"
           :disabled="ocupado || (confirmando === 'close' && !codigo)"
           @click="confirmando && mudarStatus(confirmando)"
         >

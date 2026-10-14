@@ -258,7 +258,7 @@ describe('TicketView', () => {
     const botoes = w.findAll('button').map((b) => b.text())
     expect(botoes).toContain('Assumir')
     expect(botoes).toContain('Transferir')
-    expect(botoes).not.toContain('Comentar e concluir')
+    expect(botoes).not.toContain('Concluir chamado')
     expect(botoes).not.toContain('Devolver para a fila')
 
     await w
@@ -270,19 +270,24 @@ describe('TicketView', () => {
     )
   })
 
-  it('aguardar exige o comentário', async () => {
+  it('concluir exige a tarefa e fica à direita, em dourado; aguardar não aparece', async () => {
     simularApi({
-      'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment', 'wait'] }],
+      'GET /api/v1/tickets/1000': [
+        200,
+        { ...CHAMADO, allowed_actions: ['comment', 'wait', 'close'] },
+      ],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
     })
     const w = montar(TicketView, { props: { numero: '1000' } })
-    await vi.waitFor(() => expect(w.text()).toContain('Comentar e aguardar'))
-    await w
-      .findAll('button')
-      .find((b) => b.text() === 'Comentar e aguardar')!
-      .trigger('click')
-    expect(w.get('[role=alert]').text()).toBe('Escreva no comentário o que se está aguardando.')
+    await vi.waitFor(() => expect(w.text()).toContain('Concluir chamado'))
+    const botoes = w.findAll('form button').map((b) => b.text())
+    expect(botoes).toContain('Adicionar tarefa')
+    expect(botoes.some((b) => b.includes('aguardar'))).toBe(false)
+    const concluir = w.findAll('button').find((b) => b.text() === 'Concluir chamado')!
+    expect(concluir.classes()).toEqual(expect.arrayContaining(['bg-gold', 'ml-auto']))
+    await concluir.trigger('click')
+    expect(w.get('[role=alert]').text()).toBe('Descreva na tarefa o que foi feito.')
   })
 
   it('mostra o tempo de cada andamento e a soma por pessoa na lateral', async () => {
@@ -338,7 +343,7 @@ describe('TicketView', () => {
       .findAll('button')
       .find((b) => b.text() === 'Retomar')!
       .trigger('click')
-    expect(w.get('[role=alert]').text()).toBe('Escreva no comentário o que foi feito nesse tempo.')
+    expect(w.get('[role=alert]').text()).toBe('Descreva a tarefa feita nesse tempo.')
   })
 
   it('sem acesso mostra a mensagem do 403', async () => {
