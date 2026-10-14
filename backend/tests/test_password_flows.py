@@ -63,8 +63,9 @@ def test_token_de_convite_nao_serve_para_redefinir(
 ) -> None:
     criar_usuario(db, "admin@exemplo.com", "admin")
     entrar(client, "admin@exemplo.com")
-    r = client.post("/api/v1/users", json={"email": "bruno@exemplo.com", "full_name": "Bruno Lima"})
-    token = _token(r.json()["link"]["url"])
+    bruno = criar_usuario(db, "bruno@exemplo.com", nome="Bruno Lima", senha=None)
+    r = client.post(f"/api/v1/users/{bruno.public_id}/link")
+    token = _token(r.json()["url"])
     body = {"token": token, "password": "senha do bruno longa"}
     assert client.post("/api/v1/auth/password/reset", json=body).status_code == 404
     assert client.post("/api/v1/auth/invite/accept", json=body).status_code == 204

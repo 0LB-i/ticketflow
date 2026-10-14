@@ -112,7 +112,8 @@ def test_erros_em_ingles(client: TestClient, db: Session) -> None:
 def test_emails_no_idioma_da_pessoa(client: TestClient, db: Session, mailer: FakeMailer) -> None:
     _admin(client, db)
     client.patch("/api/v1/admin/settings", json={"default_locale": "en"})
-    client.post("/api/v1/users", json={"email": "bia@x.com", "full_name": "Bia Lima"})
+    bia = criar_usuario(db, "bia@x.com", nome="Bia Lima", senha=None)
+    client.post(f"/api/v1/users/{bia.public_id}/link")
     assert mailer.sent[-1][1] == "Your TicketFlow access"
     assert mailer.sent[-1][2].startswith("Hello, Bia.")
 

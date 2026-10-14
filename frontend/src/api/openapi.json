@@ -324,6 +324,7 @@
       "post": {
         "tags": ["usuários"],
         "summary": "Create User",
+        "description": "Cria com a senha inicial definida pelo admin; a pessoa troca no primeiro acesso.",
         "operationId": "create_user_api_v1_users_post",
         "requestBody": {
           "content": {
@@ -341,7 +342,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserCreated"
+                  "$ref": "#/components/schemas/UserOut"
                 }
               }
             }
@@ -5413,97 +5414,27 @@
             "enum": ["agent", "admin", "auditor"],
             "title": "Role",
             "default": "agent"
-          }
-        },
-        "type": "object",
-        "required": ["email", "full_name"],
-        "title": "UserCreate"
-      },
-      "UserCreated": {
-        "properties": {
-          "id": {
+          },
+          "password": {
             "type": "string",
-            "format": "uuid",
-            "title": "Id"
+            "maxLength": 256,
+            "title": "Password",
+            "description": "senha inicial, trocada no 1º acesso"
           },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "username": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Username"
-          },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
-          },
-          "role": {
-            "type": "string",
-            "enum": ["agent", "admin", "auditor"],
-            "title": "Role"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["ativo", "convite_pendente", "inativo"],
-            "title": "Status"
-          },
-          "teams": {
+          "team_ids": {
             "items": {
-              "$ref": "#/components/schemas/UserTeam"
+              "type": "string",
+              "format": "uuid"
             },
             "type": "array",
-            "title": "Teams"
-          },
-          "last_login_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Login At"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "link": {
-            "$ref": "#/components/schemas/LinkOut"
+            "title": "Team Ids",
+            "description": "grupos em que entra como membro",
+            "default": []
           }
         },
         "type": "object",
-        "required": [
-          "id",
-          "email",
-          "username",
-          "full_name",
-          "role",
-          "status",
-          "teams",
-          "last_login_at",
-          "created_at",
-          "link"
-        ],
-        "title": "UserCreated"
+        "required": ["email", "full_name", "password"],
+        "title": "UserCreate"
       },
       "UserList": {
         "properties": {

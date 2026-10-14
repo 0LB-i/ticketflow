@@ -5,9 +5,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
-from tests.conftest import FakeMailer, criar_usuario, entrar
+from chamados.modules.identity.models import User
+from tests.conftest import criar_usuario, entrar, grupo
 
-NOVO = {"email": "bruno@exemplo.com", "full_name": "Bruno Lima", "role": "agent"}
+NOVO = {
+    "email": "bruno@exemplo.com",
+    "full_name": "Bruno Lima",
+    "role": "agent",
+    "password": "Provisoria#2026",
+}
 
 
 def _admin(client: TestClient, db: Session) -> None:
@@ -22,29 +28,51 @@ def test_so_admin_administra_usuarios(client: TestClient, db: Session) -> None:
     assert client.post("/api/v1/users", json=NOVO).status_code == 403
 
 
-def test_criar_usuario_sem_smtp_devolve_o_link(
-    client: TestClient, db: Session, mailer: FakeMailer
+def test_criar_usuario_com_senha_inicial_e_troca_no_primeiro_acesso(
+    client: TestClient, db: Session
 ) -> None:
     _admin(client, db)
     r = client.post("/api/v1/users", json=NOVO)
     assert r.status_code == 201
-    body = r.json()
-    assert body["status"] == "convite_pendente"
-    assert body["link"]["purpose"] == "invite"
-    assert body["link"]["sent_by_email"] is False
-    assert body["link"]["url"].startswith("http://teste/convite/")
-    assert mailer.sent[-1][0] == "bruno@exemplo.com"
+    assert r.json()["status"] == "ativo"
+    with TestClient(client.app) as sessao_bruno:
+        entrar(sessao_bruno, "bruno@exemplo.com", "Provisoria#2026")
+        assert sessao_bruno.get("/api/v1/me").json()["must_change_password"] is True
     acoes = set(db.scalars(select(AuditLog.action)))
-    assert {"user.created", "user.invite_sent"} <= acoes
+    assert "user.created" in acoes
 
 
-def test_criar_usuario_com_smtp_nao_expoe_o_link(
-    client: TestClient, db: Session, mailer: FakeMailer
-) -> None:
-    mailer.configured = True
+def test_senha_inicial_fraca_e_recusada(client: TestClient, db: Session) -> None:
     _admin(client, db)
-    link = client.post("/api/v1/users", json=NOVO).json()["link"]
-    assert link == {"purpose": "invite", "sent_by_email": True, "url": None}
+    for senha in ("curta", "12345678", "bruno@exemplo.com"):
+        r = client.post("/api/v1/users", json={**NOVO, "password": senha})
+        assert r.status_code == 422, senha
+    assert db.scalar(select(User.id).where(User.email == "bruno@exemplo.com")) is None
+
+
+def test_criar_usuario_ja_como_membro_dos_grupos(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    ti, rh = grupo(db, "TI"), grupo(db, "RH")
+    r = client.post(
+        "/api/v1/users", json={**NOVO, "team_ids": [str(ti.public_id), str(rh.public_id)]}
+    )
+    assert r.status_code == 201
+    assert [(g["name"], g["role"]) for g in r.json()["teams"]] == [
+        ("RH", "member"),
+        ("TI", "member"),
+    ]
+    acoes = list(db.scalars(select(AuditLog.action).where(AuditLog.target_type == "team")))
+    assert acoes == ["team.member_set", "team.member_set"]
+
+
+def test_criar_usuario_em_grupo_inativo_e_recusado(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    ti = grupo(db, "TI")
+    ti.is_active = False
+    db.commit()
+    r = client.post("/api/v1/users", json={**NOVO, "team_ids": [str(ti.public_id)]})
+    assert r.status_code == 422
+    assert db.scalar(select(User.id).where(User.email == "bruno@exemplo.com")) is None
 
 
 def test_email_duplicado(client: TestClient, db: Session) -> None:
@@ -82,8 +110,8 @@ def test_nao_remove_o_ultimo_admin(client: TestClient, db: Session) -> None:
 def test_link_de_acesso_reenvia_convite_ou_redefinicao(client: TestClient, db: Session) -> None:
     _admin(client, db)
     ana = criar_usuario(db)
-    convidado = client.post("/api/v1/users", json=NOVO).json()
-    assert client.post(f"/api/v1/users/{convidado['id']}/link").json()["purpose"] == "invite"
+    convidado = criar_usuario(db, "bruno@exemplo.com", nome="Bruno Lima", senha=None)
+    assert client.post(f"/api/v1/users/{convidado.public_id}/link").json()["purpose"] == "invite"
     r = client.post(f"/api/v1/users/{ana.public_id}/link").json()
     assert r["purpose"] == "password_reset"
     assert r["url"].startswith("http://teste/redefinir-senha/")

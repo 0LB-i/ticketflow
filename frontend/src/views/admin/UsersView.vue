@@ -14,6 +14,7 @@ import {
   type LinkDeAcesso,
   type Usuario,
   useAlteracao,
+  useGrupos,
   useUsuarios,
   usuariosApi,
 } from '@/composables/admin'
@@ -27,6 +28,8 @@ const { t } = useI18n()
 const toast = useToast()
 const auth = useAuthStore()
 const usuarios = useUsuarios()
+const grupos = useGrupos()
+const gruposAtivos = computed(() => (grupos.data.value ?? []).filter((g) => g.is_active))
 
 const busca = ref('')
 const mostrarInativos = ref(false)
@@ -51,19 +54,25 @@ const corStatus = { ativo: 'green', convite_pendente: 'teal', inativo: 'gray' } 
 // Painel de criação/edição
 const painel = ref(false)
 const editando = ref<Usuario | null>(null)
-const form = reactive({ full_name: '', email: '', role: 'agent' as 'agent' | 'admin' | 'auditor' })
+const form = reactive({
+  full_name: '',
+  email: '',
+  role: 'agent' as 'agent' | 'admin' | 'auditor',
+  password: '',
+  team_ids: [] as string[],
+})
 const erro = ref<string | null>(null)
 
 function abrirNovo() {
   editando.value = null
-  Object.assign(form, { full_name: '', email: '', role: 'agent' })
+  Object.assign(form, { full_name: '', email: '', role: 'agent', password: '', team_ids: [] })
   erro.value = null
   painel.value = true
 }
 
 function abrirEdicao(u: Usuario) {
   editando.value = u
-  Object.assign(form, { full_name: u.full_name, email: u.email ?? '', role: u.role })
+  Object.assign(form, { full_name: u.full_name, email: u.email ?? '', role: u.role, password: '' })
   erro.value = null
   painel.value = true
 }
@@ -75,6 +84,10 @@ const link = ref<{ aberto: boolean; nome: string; dados: LinkDeAcesso | null }>(
   dados: null,
 })
 
+function noGrupo(id: string, marcado: boolean) {
+  form.team_ids = marcado ? [...form.team_ids, id] : form.team_ids.filter((g) => g !== id)
+}
+
 function mostrarLink(nome: string, email: string, dados: LinkDeAcesso) {
   if (dados.url) {
     link.value = { aberto: true, nome, dados }
@@ -83,7 +96,7 @@ function mostrarLink(nome: string, email: string, dados: LinkDeAcesso) {
   }
 }
 
-const criar = useAlteracao(usuariosApi.criar, ['usuarios'])
+const criar = useAlteracao(usuariosApi.criar, ['usuarios', 'grupos'])
 const editar = useAlteracao(usuariosApi.editar, ['usuarios', 'grupos'])
 const enviarLink = useAlteracao(usuariosApi.enviarLink, ['usuarios'])
 
@@ -100,9 +113,8 @@ async function salvar() {
       })
       toast.show({ title: t('comum.salvo') })
     } else {
-      const criado = await criar.mutateAsync({ ...form })
+      await criar.mutateAsync({ ...form })
       toast.show({ title: t('usuarios.criado') })
-      mostrarLink(criado.full_name, criado.email ?? '', criado.link)
     }
     painel.value = false
   } catch (e) {
@@ -212,8 +224,27 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
           type="email"
           :required="!editando"
         />
+        <TextField
+          v-if="!editando"
+          v-model="form.password"
+          :label="$t('usuarios.senhaInicial')"
+          :hint="$t('usuarios.senhaInicialDica')"
+          autocomplete="off"
+          required
+        />
         <SelectField v-model="form.role" :label="$t('usuarios.papel')" :options="papeis" />
-        <p class="text-muted">{{ $t('usuarios.gruposAviso') }}</p>
+        <fieldset v-if="!editando" class="flex flex-col gap-2">
+          <legend class="mb-1 font-medium">{{ $t('usuarios.membroDosGrupos') }}</legend>
+          <Checkbox
+            v-for="g in gruposAtivos"
+            :key="g.id"
+            :model-value="form.team_ids.includes(g.id)"
+            :label="g.name"
+            @update:model-value="noGrupo(g.id, $event)"
+          />
+          <p v-if="!gruposAtivos.length" class="text-muted">{{ $t('usuarios.semGrupos') }}</p>
+        </fieldset>
+        <p v-else class="text-muted">{{ $t('usuarios.gruposAviso') }}</p>
 
         <div v-if="editando" class="flex flex-col gap-3 border-t border-border pt-4">
           <p>
