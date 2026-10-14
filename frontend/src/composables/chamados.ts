@@ -152,6 +152,12 @@ export const chamadosApi = {
       }),
       erro(),
     ),
+  removerComentario: async (numero: string, id: string) => {
+    const r = await api.DELETE('/api/v1/tickets/{ticket_ref}/comments/{comment_id}', {
+      params: { path: { ticket_ref: numero, comment_id: id } },
+    })
+    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error, erro()))
+  },
   mudarStatus: async (numero: string, body: Schemas['TransitionIn']) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/transitions', { params: caminho(numero), body }),

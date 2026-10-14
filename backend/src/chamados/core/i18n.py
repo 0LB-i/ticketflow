@@ -160,10 +160,8 @@ EN: dict[str, str] = {
     ),
     "Escreva o comentário.": "Write the comment.",
     "Comentário não encontrado.": "Comment not found.",
-    "Só o autor edita o comentário.": "Only the author can edit the comment.",
-    "O prazo de 10 minutos para editar este comentário acabou.": (
-        "The 10-minute window to edit this comment has ended."
-    ),
+    "A data da tarefa não pode ficar no futuro.": "The task date cannot be in the future.",
+    "Só o autor altera a tarefa.": "Only the author can change the task.",
     "O chamado já está neste grupo.": "The ticket is already in this team.",
     "Informe o motivo da transferência.": "Give a reason for the transfer.",
     "Escreva o comentário: ele é obrigatório nesta mudança.": (

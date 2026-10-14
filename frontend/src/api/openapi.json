@@ -2053,6 +2053,47 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": ["chamados"],
+        "summary": "Delete Comment",
+        "operationId": "delete_comment_api_v1_tickets__ticket_ref__comments__comment_id__delete",
+        "parameters": [
+          {
+            "name": "ticket_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Ref"
+            }
+          },
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Comment Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/tickets/{ticket_ref}/events": {
@@ -3465,6 +3506,19 @@
             "title": "Time Spent Minutes",
             "description": "tempo gasto, em minutos"
           },
+          "done_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done At",
+            "description": "quando a tarefa foi feita; sem valor, agora (na edição, mantém)"
+          },
           "mention_ids": {
             "items": {
               "type": "string",
@@ -3534,6 +3588,12 @@
             ],
             "title": "Time Spent Minutes"
           },
+          "done_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Done At",
+            "description": "quando a tarefa foi feita (o autor pode mudar)"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3550,12 +3610,6 @@
               }
             ],
             "title": "Edited At"
-          },
-          "editable_until": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Editable Until",
-            "description": "o autor pode editar até este momento"
           }
         },
         "type": "object",
@@ -3565,9 +3619,9 @@
           "body",
           "is_solution",
           "time_spent_minutes",
+          "done_at",
           "created_at",
-          "edited_at",
-          "editable_until"
+          "edited_at"
         ],
         "title": "CommentOut"
       },

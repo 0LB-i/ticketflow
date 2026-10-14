@@ -270,7 +270,7 @@ describe('TicketView', () => {
     )
   })
 
-  it('marcar como entregue fica no fim da lateral, em dourado, e só muda o status', async () => {
+  it('marcar como entregue fica no fim da lateral, em dourado, e muda o status num clique', async () => {
     const STATUS_LISTA = {
       items: [
         { id: 1, name: 'Pendente', kind: 'open' },
@@ -292,12 +292,7 @@ describe('TicketView', () => {
     expect(entregar.text()).toBe('Marcar como entregue') // o último da lateral
     expect(entregar.classes()).toContain('bg-gold')
 
-    await entregar.trigger('click')
-    const dialogo = await vi.waitFor(() => document.querySelector('[role=dialog]') as HTMLElement)
-    expect(dialogo.textContent).toContain('O status do chamado muda para Entregue.')
-    ;[...dialogo.querySelectorAll('button')]
-      .find((b) => b.textContent?.trim() === 'Marcar como entregue')!
-      .click()
+    await entregar.trigger('click') // sem janela de confirmação
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ status_id: 5 }),
     )
@@ -329,7 +324,7 @@ describe('TicketView', () => {
               time_spent_minutes: 90,
               created_at: '2026-10-10T12:10:00Z',
               edited_at: null,
-              editable_until: '2026-10-10T12:20:00Z',
+              done_at: '2026-10-10T12:10:00Z',
             },
           ],
         },

@@ -342,13 +342,14 @@ def test_observadores(client: TestClient, cenario: dict[str, Any]) -> None:
     assert client.put(f"{url}/watchers/{cenario['caio']}").status_code == 403
 
 
-def test_edicao_de_comentario_por_10_minutos(
+def test_edicao_de_tarefa_pelo_autor_sem_prazo(
     client: TestClient, cenario: dict[str, Any], db: Session
 ) -> None:
     t = registrar(client, cenario)
     url = f"{API}/{t['number']}/comments"
     c = client.post(url, json={"body": "Primeira versão"}).json()
     assert c["author"]["full_name"] == "Ana"
+    assert c["done_at"] == c["created_at"]  # sem data, foi feita agora
 
     r = client.patch(f"{url}/{c['id']}", json={"body": "Segunda versão"})
     assert r.json()["body"] == "Segunda versão" and r.json()["edited_at"]
@@ -358,12 +359,72 @@ def test_edicao_de_comentario_por_10_minutos(
 
     assert client.post(url, json={"body": "   "}).status_code == 422
     entrar(client, "bia@x.com")
-    assert client.patch(f"{url}/{c['id']}", json={"body": "Da Bia"}).status_code == 403
+    r = client.patch(f"{url}/{c['id']}", json={"body": "Da Bia"})
+    assert r.status_code == 403 and r.json()["detail"] == "Só o autor altera a tarefa."
 
+    # Sem prazo: dias depois o autor ainda edita
     entrar(client, "ana@x.com")
-    db.execute(text("UPDATE ticket_comments SET created_at = now() - interval '11 minutes'"))
+    db.execute(text("UPDATE ticket_comments SET created_at = now() - interval '3 days'"))
     db.commit()
-    assert client.patch(f"{url}/{c['id']}", json={"body": "Tarde"}).status_code == 409
+    assert client.patch(f"{url}/{c['id']}", json={"body": "Tarde"}).status_code == 200
+
+
+def test_data_da_tarefa_ordena_e_se_corrige(client: TestClient, cenario: dict[str, Any]) -> None:
+    t = registrar(client, cenario)
+    url = f"{API}/{t['number']}/comments"
+    ontem = (datetime.now(UTC) - timedelta(days=1)).replace(microsecond=0)
+    hoje = client.post(url, json={"body": "Hoje"}).json()
+    antes = client.post(url, json={"body": "Ontem", "done_at": ontem.isoformat()}).json()
+    assert datetime.fromisoformat(antes["done_at"]) == ontem
+    # A lista segue a data em que a tarefa foi feita, não a do registro
+    assert [c["body"] for c in client.get(url).json()["items"]] == ["Ontem", "Hoje"]
+
+    futuro = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+    r = client.post(url, json={"body": "Amanhã", "done_at": futuro})
+    assert (
+        r.status_code == 422 and r.json()["detail"] == "A data da tarefa não pode ficar no futuro."
+    )
+
+    dois_dias = ontem - timedelta(days=1)
+    r = client.patch(f"{url}/{hoje['id']}", json={"body": "Hoje", "done_at": dois_dias.isoformat()})
+    assert datetime.fromisoformat(r.json()["done_at"]) == dois_dias
+    anterior = eventos(client, t["number"])[-1]["payload"]["before_done_at"]
+    assert datetime.fromisoformat(anterior) == datetime.fromisoformat(hoje["done_at"])
+    # Sem done_at, a edição mantém a data
+    r = client.patch(f"{url}/{hoje['id']}", json={"body": "Hoje, corrigido"})
+    assert datetime.fromisoformat(r.json()["done_at"]) == dois_dias
+    assert [c["body"] for c in client.get(url).json()["items"]] == ["Hoje, corrigido", "Ontem"]
+
+
+def test_remover_tarefa(client: TestClient, cenario: dict[str, Any]) -> None:
+    t = registrar(client, cenario, assignee="me")
+    url = f"{API}/{t['number']}"
+    c = client.post(
+        f"{url}/comments", json={"body": "Toner trocado", "time_spent_minutes": 30}
+    ).json()
+    client.post(f"{url}/comments", json={"body": "Testado", "time_spent_minutes": 15})
+    assert client.get(url).json()["time_spent_minutes"] == 45
+
+    entrar(client, "bia@x.com")
+    assert client.delete(f"{url}/comments/{c['id']}").status_code == 403  # só o autor
+    entrar(client, "ana@x.com")
+    assert client.delete(f"{url}/comments/{c['id']}").status_code == 204
+
+    # Sai da lista, do tempo gasto e da busca; o texto fica no histórico
+    assert [x["body"] for x in client.get(f"{url}/comments").json()["items"]] == ["Testado"]
+    assert client.get(url).json()["time_spent_minutes"] == 15
+    assert client.get(API, params={"q": "toner"}).json()["items"] == []
+    removido = eventos(client, t["number"])[-1]
+    assert removido["type"] == "comment.deleted"
+    assert removido["payload"] == {
+        "comment_id": c["id"],
+        "body": "Toner trocado",
+        "time_spent_minutes": 30,
+    }
+    # Removida não se edita nem se remove de novo
+    assert client.delete(f"{url}/comments/{c['id']}").status_code == 404
+    r = client.patch(f"{url}/comments/{c['id']}", json={"body": "Volta"})
+    assert r.status_code == 404
 
 
 def test_tempo_gasto_nos_andamentos(client: TestClient, cenario: dict[str, Any]) -> None:

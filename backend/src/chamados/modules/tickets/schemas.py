@@ -173,6 +173,9 @@ class TicketUpdate(BaseModel):
 class CommentIn(BaseModel):
     body: Body
     time_spent_minutes: TimeSpent = None
+    done_at: AwareDatetime | None = Field(
+        default=None, description="quando a tarefa foi feita; sem valor, agora (na edição, mantém)"
+    )
     mention_ids: list[uuid.UUID] = Field(default=[], max_length=50)
     attachment_ids: list[uuid.UUID] = Field(
         default=[], max_length=10, description="envios (POST /uploads) a vincular"
@@ -185,9 +188,9 @@ class CommentOut(BaseModel):
     body: str
     is_solution: bool
     time_spent_minutes: int | None
+    done_at: datetime = Field(description="quando a tarefa foi feita (o autor pode mudar)")
     created_at: datetime
     edited_at: datetime | None
-    editable_until: datetime = Field(description="o autor pode editar até este momento")
 
 
 class CommentList(BaseModel):

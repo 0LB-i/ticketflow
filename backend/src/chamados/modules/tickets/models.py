@@ -149,7 +149,8 @@ class TicketWatcher(Base):
 
 
 class TicketComment(Base):
-    """Comentários não se apagam; a versão anterior de uma edição fica em ticket_events."""
+    """As tarefas (andamentos) do chamado. Remover só marca `deleted_at`; a versão anterior de uma
+    edição e a remoção ficam em ticket_events."""
 
     __tablename__ = "ticket_comments"
     __table_args__ = (
@@ -170,7 +171,10 @@ class TicketComment(Base):
     # Tempo gasto neste andamento: a soma por pessoa é a base da cobrança.
     time_spent_minutes: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Quando a tarefa foi feita: começa como a hora do registro e o autor pode mudar.
+    done_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     search_vector: Mapped[Any] = mapped_column(
         TSVECTOR, Computed(COMMENT_SEARCH, persisted=True), deferred=True
     )
