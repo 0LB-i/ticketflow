@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from chamados.core.permissions import P
+from chamados.core.text import optional_text
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, CurrentAuth, require
@@ -315,7 +316,7 @@ async def create_department(
     data: DepartmentCreate, auth: Admin, request: Request, db: DB
 ) -> DepartmentOut:
     parent = await _dept(db, data.parent_id) if data.parent_id else None
-    name, code = data.name.strip(), (data.code or "").strip() or None
+    name, code = data.name.strip(), optional_text(data.code)
     await _check_unique(db, name, parent.id if parent else None, code, None)
     dept = Department(name=name, code=code, parent_id=parent.id if parent else None)
     db.add(dept)
@@ -352,7 +353,7 @@ async def update_department(
     if changes.get("name") is not None:
         dept.name = changes["name"].strip()
     if "code" in changes:
-        dept.code = (changes["code"] or "").strip() or None
+        dept.code = optional_text(changes["code"])
     if changes.get("is_active") is not None:
         dept.is_active = changes["is_active"]
     await _check_unique(db, dept.name, dept.parent_id, dept.code, dept.id)

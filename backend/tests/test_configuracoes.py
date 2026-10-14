@@ -143,8 +143,16 @@ def _mensagens() -> set[str]:
             for alvo in no.targets
             if isinstance(alvo, ast.Name)
         }
+        # Mensagens num dicionário do módulo (ex.: INACTIVE em tickets/service.py).
+        dicionarios = {
+            alvo.id: [str(v.value) for v in no.value.values if isinstance(v, ast.Constant)]
+            for no in arvore.body
+            if isinstance(no, ast.Assign) and isinstance(no.value, ast.Dict)
+            for alvo in no.targets
+            if isinstance(alvo, ast.Name)
+        }
         for no in ast.walk(arvore):
-            if isinstance(no, ast.Call) and getattr(no.func, "id", None) == "_text":
+            if isinstance(no, ast.Call) and getattr(no.func, "id", None) == "required_text":
                 achadas.add(ast.literal_eval(no.args[1]))
             if not (isinstance(no, ast.Call) and getattr(no.func, "id", None) == "HTTPException"):
                 continue
@@ -155,6 +163,8 @@ def _mensagens() -> set[str]:
                 achadas.add(str(arg.value))
             elif isinstance(arg, ast.Name) and arg.id in constantes:
                 achadas.add(str(constantes[arg.id]))
+            elif isinstance(arg, ast.Subscript) and getattr(arg.value, "id", None) in dicionarios:
+                achadas.update(dicionarios[arg.value.id])  # type: ignore[attr-defined]
             elif isinstance(arg, ast.JoinedStr):
                 # f-string: monta com as constantes do módulo; variáveis ficam como {nome}.
                 valores = _Constantes(constantes)

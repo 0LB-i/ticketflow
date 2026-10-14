@@ -1,5 +1,5 @@
 import { api, ou, type Schemas } from '@/api/client'
-import { i18n, idiomaAtual } from '@/i18n'
+import { idiomaAtual } from '@/i18n'
 
 export type Anexo = Schemas['AttachmentOut']
 
@@ -55,7 +55,6 @@ export async function enviarArquivo(arquivo: File): Promise<Anexo> {
         return dados
       },
     }),
-    i18n.global.t('comum.erroInesperado'),
   )
 }
 

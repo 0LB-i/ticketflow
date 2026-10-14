@@ -40,11 +40,19 @@ const props = defineProps<{
 const { t } = useI18n()
 const auth = useAuthStore()
 
-/** Anexos do registro (comentario = null) ou de um comentário, menos as imagens já no texto. */
-function anexosDe(comentario: string | null, texto: string): Anexo[] {
-  const noTexto = new Set(anexosNoTexto(texto))
-  return props.chamado.attachments.filter((a) => a.comment_id === comentario && !noTexto.has(a.id))
-}
+/** Anexos do registro (chave null) e de cada comentário, menos as imagens já no texto. */
+const anexos = computed(() => {
+  const de = (comentario: string | null, texto: string): Anexo[] => {
+    const noTexto = new Set(anexosNoTexto(texto))
+    return props.chamado.attachments.filter(
+      (a) => a.comment_id === comentario && !noTexto.has(a.id),
+    )
+  }
+  return new Map<string | null, Anexo[]>([
+    [null, de(null, props.chamado.description)],
+    ...props.comentarios.map((c) => [c.id, de(c.id, c.body)] as const),
+  ])
+})
 
 const numero = () => String(props.chamado.number)
 const editando = ref<string | null>(null)
@@ -119,11 +127,7 @@ async function confirmarRemocao(id: string) {
       </p>
       <MarkdownView v-if="chamado.description" class="mt-2" :source="chamado.description" />
       <p v-else class="mt-2 text-muted italic">{{ t('chamado.semDescricao') }}</p>
-      <AttachmentList
-        v-if="anexosDe(null, chamado.description).length"
-        class="mt-3"
-        :anexos="anexosDe(null, chamado.description)"
-      />
+      <AttachmentList v-if="anexos.get(null)?.length" class="mt-3" :anexos="anexos.get(null)!" />
     </li>
 
     <li v-for="c in comentarios" :key="c.id" class="rounded-lg border border-border bg-surface p-4">
@@ -206,11 +210,7 @@ async function confirmarRemocao(id: string) {
       </div>
       <template v-else>
         <MarkdownView class="mt-2" :source="c.body" />
-        <AttachmentList
-          v-if="anexosDe(c.id, c.body).length"
-          class="mt-3"
-          :anexos="anexosDe(c.id, c.body)"
-        />
+        <AttachmentList v-if="anexos.get(c.id)?.length" class="mt-3" :anexos="anexos.get(c.id)!" />
       </template>
     </li>
   </ol>

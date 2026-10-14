@@ -15,6 +15,7 @@ from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.permissions import P
+from chamados.core.text import optional_text, required_text
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.clients import documents as doc
@@ -86,35 +87,24 @@ class ClientPage(BaseModel):
 FIELDS = tuple(ClientIn.model_fields)
 
 
-def _required(value: str | None, message: str) -> str:
-    text = (value or "").strip()
-    if not text:
-        raise HTTPException(422, message)
-    return text
-
-
-def _optional(value: str | None) -> str | None:
-    return (value or "").strip() or None
-
-
 def _clean(data: ClientIn) -> dict[str, Any]:
     """Valida e normaliza. Devolve os valores como vão para o banco."""
     v: dict[str, Any] = {
         "kind": data.kind,
-        "name": _required(data.name, "Informe o nome do cliente."),
-        "trade_name": _optional(data.trade_name),
-        "id_number": _optional(data.id_number),
+        "name": required_text(data.name, "Informe o nome do cliente."),
+        "trade_name": optional_text(data.trade_name),
+        "id_number": optional_text(data.id_number),
         "birth_date": data.birth_date,
-        "state_registration": _optional(data.state_registration),
-        "municipal_registration": _optional(data.municipal_registration),
-        "contact_name": _optional(data.contact_name),
+        "state_registration": optional_text(data.state_registration),
+        "municipal_registration": optional_text(data.municipal_registration),
+        "contact_name": optional_text(data.contact_name),
         "email": str(data.email).strip().lower(),
-        "street": _required(data.street, "Informe o endereço."),
-        "number": _required(data.number, "Informe o número do endereço."),
-        "complement": _optional(data.complement),
-        "district": _required(data.district, "Informe o bairro."),
-        "city": _required(data.city, "Informe a cidade."),
-        "notes": _optional(data.notes),
+        "street": required_text(data.street, "Informe o endereço."),
+        "number": required_text(data.number, "Informe o número do endereço."),
+        "complement": optional_text(data.complement),
+        "district": required_text(data.district, "Informe o bairro."),
+        "city": required_text(data.city, "Informe a cidade."),
+        "notes": optional_text(data.notes),
         "is_active": data.is_active,
     }
     document = doc.normalize_document(data.document)
@@ -133,7 +123,7 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     v["phone"] = doc.normalize_phone(data.phone)
     if not doc.valid_phone(v["phone"]):
         raise HTTPException(422, "Telefone inválido: informe o DDD e o número.")
-    mobile = _optional(data.mobile)
+    mobile = optional_text(data.mobile)
     v["mobile"] = doc.normalize_phone(mobile) if mobile else None
     if v["mobile"] is not None and not doc.valid_phone(v["mobile"]):
         raise HTTPException(422, "Celular inválido: informe o DDD e o número.")
