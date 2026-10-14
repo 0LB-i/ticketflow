@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
+import { useToast } from '@/composables/useToast'
 import { criarRouter } from '@/router'
-import { ME_AGENTE, montar, simularApi } from '@/test/setup'
+import { escolher, ME_AGENTE, montar, simularApi } from '@/test/setup'
 
 import TicketsView from './TicketsView.vue'
 
@@ -62,6 +63,66 @@ describe('TicketsView', () => {
     expect(w.findAll('[role=tab]').map((a) => a.text())).toContain('Não atribuídos 7')
     expect(w.find('[aria-label="Tarefa nova de outra pessoa"]').exists()).toBe(true)
     expect(w.text()).toContain('Padaria Pão Quente')
+  })
+
+  it('cada linha tem o botão de abrir o chamado; quem não supervisiona não seleciona', async () => {
+    api()
+    const router = criarRouter()
+    const w = montar(TicketsView, { global: { plugins: [router] } })
+    await router.push('/chamados')
+    await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
+    const abrir = w.get('a[aria-label="Abrir o chamado #1000"]')
+    expect(abrir.attributes('href')).toBe('/chamados/1000')
+    expect(w.findAll('tbody tr')[0]!.findAll('td').at(-1)!.find('a').exists()).toBe(true) // último
+    expect(w.find('input[type=checkbox]').exists()).toBe(false)
+  })
+
+  it('o supervisor seleciona vários chamados e muda o status deles', async () => {
+    const OUTRO = { ...ITEM, id: 'd2', number: 1001, title: 'Sem rede' }
+    const feitas = api({
+      'GET /api/v1/me': [200, { ...ME, teams: [{ id: TI, name: 'TI', role: 'supervisor' }] }],
+      'GET /api/v1/tickets': [200, { items: [ITEM, OUTRO], next_cursor: null }],
+      'GET /api/v1/statuses': [
+        200,
+        {
+          items: [
+            { id: 1, name: 'Pendente', kind: 'open' },
+            { id: 5, name: 'Entregue', kind: 'closed' },
+          ],
+        },
+      ],
+      'POST /api/v1/tickets/bulk/status': [
+        200,
+        { updated: [1000], failed: [{ number: 1001, detail: 'Você não pode fazer isso.' }] },
+      ],
+    })
+    const router = criarRouter()
+    const w = montar(TicketsView, { global: { plugins: [router] } })
+    await router.push('/chamados')
+    await vi.waitFor(() => expect(w.text()).toContain('Sem rede'))
+    expect(w.text()).not.toContain('Mudar status') // a barra só aparece com seleção
+
+    await w.get('th input[type=checkbox]').setValue(true)
+    await vi.waitFor(() => expect(w.text()).toContain('Selecionados: 2'))
+    await escolher('Novo status', 'Entregue')
+    await w
+      .findAll('button')
+      .find((b) => b.text() === 'Mudar status')!
+      .trigger('click')
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.caminho.endsWith('/bulk/status'))?.corpo).toEqual({
+        numbers: [1000, 1001],
+        status_id: 5,
+      }),
+    )
+    // O que não mudou continua selecionado, e o motivo aparece
+    await vi.waitFor(() => expect(w.text()).toContain('Selecionados: 1'))
+    expect(useToast().avisos.value.map((a) => a.title)).toEqual(
+      expect.arrayContaining([
+        'Chamados alterados: 1',
+        'Não mudaram: #1001 (Você não pode fazer isso.)',
+      ]),
+    )
   })
 
   it('a aba e os filtros vão para a URL e para a API', async () => {

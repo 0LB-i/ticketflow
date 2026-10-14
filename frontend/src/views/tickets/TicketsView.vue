@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { MessageCircle } from 'lucide-vue-next'
+import { ChevronRight, MessageCircle } from 'lucide-vue-next'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type LocationQueryRaw, useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ui/Button.vue'
+import Checkbox from '@/components/ui/Checkbox.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -17,6 +18,8 @@ import {
   useAcaoNoChamado,
   useChamados,
   useContagens,
+  useStatus,
+  useStatusEmMassa,
 } from '@/composables/chamados'
 import { formatarDataHora, formatarHaQuanto } from '@/composables/formato'
 import { useHead } from '@/composables/useHead'
@@ -118,6 +121,9 @@ const opcoesResponsavel = computed(() => [
 const contagem = (fila: Fila) => (fila === 'all' ? null : (contagens.data.value?.[fila] ?? null))
 
 const colunas = computed(() => [
+  ...(podeEmMassa.value
+    ? [{ key: 'sel', label: t('chamados.selecionarTodos'), class: 'w-px' }]
+    : []),
   { key: 'number', label: t('chamados.numero') },
   { key: 'title', label: t('chamados.tituloColuna') },
   { key: 'client', label: t('chamado.cliente'), class: 'hidden md:table-cell' },
@@ -126,10 +132,58 @@ const colunas = computed(() => [
   { key: 'assignee', label: t('chamado.responsavel'), class: 'hidden sm:table-cell' },
   { key: 'team', label: t('chamado.grupo'), class: 'hidden lg:table-cell' },
   { key: 'movimento', label: t('chamados.ultimaMovimentacao'), class: 'hidden md:table-cell' },
+  { key: 'abrir', label: t('chamados.abrirColuna'), class: 'w-px text-right' },
 ])
 const vazio = computed(() =>
   filtro.value.q ? t('chamados.vazio.busca') : t(`chamados.vazio.${aba.value.fila}`),
 )
+
+// Status em massa (docs/10 §10.6): supervisor (nos grupos que supervisiona) ou admin. A API
+// confere cada chamado e devolve os que não mudaram, com o motivo.
+const podeEmMassa = computed(
+  () => auth.pode('ticket.bulk') || !!auth.me?.teams.some((g) => g.role === 'supervisor'),
+)
+const selecionados = ref(new Set<number>())
+watch(filtro, () => (selecionados.value = new Set()))
+function marcar(numero: number, sim: boolean) {
+  const novo = new Set(selecionados.value)
+  if (sim) novo.add(numero)
+  else novo.delete(numero)
+  selecionados.value = novo
+}
+const todosMarcados = computed({
+  get: () => linhas.value.length > 0 && linhas.value.every((c) => selecionados.value.has(c.number)),
+  set: (sim: boolean) => {
+    selecionados.value = new Set(sim ? linhas.value.map((c) => c.number) : [])
+  },
+})
+const statusLista = useStatus()
+const opcoesNovoStatus = computed(() =>
+  (statusLista.data.value ?? []).map((s) => ({ value: String(s.id), label: s.name })),
+)
+const novoStatus = ref('')
+const emMassa = useStatusEmMassa()
+async function mudarStatusEmMassa() {
+  try {
+    const r = await emMassa.mutateAsync({
+      numeros: [...selecionados.value],
+      status: Number(novoStatus.value),
+    })
+    if (r.updated.length)
+      toast.show({ title: t('chamados.alteradosEmMassa', { n: r.updated.length }) })
+    if (r.failed.length)
+      toast.show({
+        title: t('chamados.naoMudaram', {
+          lista: r.failed.map((f) => `#${f.number} (${f.detail})`).join('; '),
+        }),
+        variant: 'error',
+      })
+    selecionados.value = new Set(r.failed.map((f) => f.number))
+    novoStatus.value = ''
+  } catch (e) {
+    toast.show({ title: (e as Error).message, variant: 'error' })
+  }
+}
 
 // "Pegar o próximo" (docs/10 §10.6): da fila Não atribuídos, no grupo do filtro ou em todos.
 const podePegar = computed(() => auth.pode('ticket.assign_self') && !!auth.me?.teams.length)
@@ -197,6 +251,29 @@ async function pegarProximo() {
           </Button>
         </div>
 
+        <div
+          v-if="selecionados.size"
+          class="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-3"
+          role="region"
+          :aria-label="t('chamados.mudarStatus')"
+        >
+          <span class="self-center font-medium">
+            {{ t('chamados.selecionados', { n: selecionados.size }) }}
+          </span>
+          <SelectField
+            v-model="novoStatus"
+            class="w-56"
+            :label="t('chamados.novoStatus')"
+            :options="opcoesNovoStatus"
+          />
+          <Button :disabled="!novoStatus || emMassa.isPending.value" @click="mudarStatusEmMassa">
+            {{ t('chamados.mudarStatus') }}
+          </Button>
+          <Button variant="ghost" @click="selecionados = new Set()">
+            {{ t('chamados.limparSelecao') }}
+          </Button>
+        </div>
+
         <p v-if="chamados.isPending.value" class="text-muted">{{ t('comum.carregando') }}</p>
         <p v-else-if="chamados.isError.value" class="text-danger">
           {{ t('comum.erroInesperado') }}
@@ -209,6 +286,33 @@ async function pegarProximo() {
             :caption="t(`chamados.abas.${aba.fila}`)"
             :empty="vazio"
           >
+            <template #head-sel>
+              <Checkbox
+                v-model="todosMarcados"
+                :label="t('chamados.selecionarTodos')"
+                ocultar-rotulo
+              />
+            </template>
+            <template #cell-sel="{ row }">
+              <Checkbox
+                :model-value="selecionados.has(row.number)"
+                :label="t('chamados.selecionar', { numero: row.number })"
+                ocultar-rotulo
+                @update:model-value="(sim) => marcar(row.number, sim)"
+              />
+            </template>
+            <template #head-abrir>
+              <span class="sr-only">{{ t('chamados.abrirColuna') }}</span>
+            </template>
+            <template #cell-abrir="{ row }">
+              <RouterLink
+                :to="`/chamados/${row.number}`"
+                class="inline-flex size-8 items-center justify-center rounded-md border border-border-input text-fg hover:bg-surface-raised"
+                :aria-label="t('chamados.abrir', { numero: row.number })"
+              >
+                <ChevronRight class="size-4" aria-hidden="true" />
+              </RouterLink>
+            </template>
             <template #cell-number="{ row }">
               <RouterLink :to="`/chamados/${row.number}`" class="text-primary underline">
                 {{ row.number }}

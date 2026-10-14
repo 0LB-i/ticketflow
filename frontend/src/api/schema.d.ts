@@ -503,6 +503,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/tickets/bulk/status': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Bulk Status
+     * @description Muda o status de vários chamados (supervisor do grupo ou admin).
+     */
+    post: operations['bulk_status_api_v1_tickets_bulk_status_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/tickets/next': {
     parameters: {
       query?: never
@@ -876,6 +896,33 @@ export interface components {
       colors: components['schemas']['Colors'] | null
       /** Logo Url */
       logo_url: string | null
+    }
+    /** BulkFailure */
+    BulkFailure: {
+      /** Number */
+      number: number
+      /** Detail */
+      detail: string
+    }
+    /** BulkResult */
+    BulkResult: {
+      /** Updated */
+      updated: number[]
+      /**
+       * Failed
+       * @description os que não mudaram, com o motivo
+       */
+      failed: components['schemas']['BulkFailure'][]
+    }
+    /** BulkStatusIn */
+    BulkStatusIn: {
+      /**
+       * Numbers
+       * @description números dos chamados
+       */
+      numbers: number[]
+      /** Status Id */
+      status_id: number
     }
     /** CategoryCreate */
     CategoryCreate: {
@@ -3265,6 +3312,39 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['TicketCounts']
+        }
+      }
+    }
+  }
+  bulk_status_api_v1_tickets_bulk_status_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BulkStatusIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BulkResult']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

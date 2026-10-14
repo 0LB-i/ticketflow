@@ -99,6 +99,20 @@ export function useComentarios(numero: MaybeRefOrGetter<string>) {
   })
 }
 
+/** Mesmo status em vários chamados (supervisor ou admin): recarrega as listas e os detalhes. */
+export function useStatusEmMassa() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (a: { numeros: number[]; status: number }) =>
+      chamadosApi.statusEmMassa(a.numeros, a.status),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ['chamados'] }),
+        client.invalidateQueries({ queryKey: ['chamado'] }),
+      ]),
+  })
+}
+
 /** Ação num chamado: ao terminar, recarrega o detalhe, os comentários e a lista. */
 export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a: A) => Promise<R>) {
   const client = useQueryClient()
@@ -113,6 +127,8 @@ export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a:
 }
 
 export const chamadosApi = {
+  statusEmMassa: async (numbers: number[], status_id: number) =>
+    ou(await api.POST('/api/v1/tickets/bulk/status', { body: { numbers, status_id } }), erro()),
   pegarProximo: async (team_id: string | null) =>
     ou(await api.POST('/api/v1/tickets/next', { body: { team_id } }), erro()),
   registrar: async (body: Schemas['TicketCreate']) =>

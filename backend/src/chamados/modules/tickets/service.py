@@ -579,6 +579,40 @@ EDIT_FIELDS = {
 }
 
 
+def _change_status(db: AsyncSession, auth: Auth, ticket: Ticket, status: TicketStatus) -> None:
+    """Status escolhido livremente (set_status); um concluído pede set_status_closed."""
+    require(auth, ticket, "set_status")
+    if status.kind == "closed":
+        require(auth, ticket, "set_status_closed")
+    if status.id != ticket.status_id:
+        before = ticket.status
+        add_event(
+            db, ticket, "ticket.status_changed", auth, **{"from": ref(before), "to": ref(status)}
+        )
+        _apply_status(ticket, before, status)
+
+
+async def bulk_status(
+    db: AsyncSession, auth: Auth, numbers: list[int], status_id: int
+) -> tuple[list[int], list[tuple[int, str]]]:
+    """Mesmo status em vários chamados (ação bulk). Cada chamado passa pelas próprias regras; os
+    que não podem mudar ficam de fora, com o motivo, e os demais mudam juntos."""
+    status = await _status(db, status_id)
+    updated: list[int] = []
+    failed: list[tuple[int, str]] = []
+    for number in dict.fromkeys(numbers):
+        try:
+            ticket = await load(db, auth, str(number))
+            require(auth, ticket, "bulk")
+            _change_status(db, auth, ticket, status)
+        except HTTPException as e:
+            failed.append((number, str(e.detail)))
+        else:
+            updated.append(number)
+    await db.commit()
+    return updated, failed
+
+
 async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdate) -> None:
     """Campos do chamado (docs/08 §8.5)."""
     changes = data.model_dump(exclude_unset=True)
@@ -588,20 +622,7 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
     # Imagens coladas ao editar a descrição.
     await attachments.link(db, auth, ticket, attachment_ids)
     if changes.get("status_id") is not None:
-        require(auth, ticket, "set_status")
-        status = await _status(db, changes["status_id"])
-        if status.kind == "closed":
-            require(auth, ticket, "set_status_closed")
-        if status.id != ticket.status_id:
-            before = ticket.status
-            add_event(
-                db,
-                ticket,
-                "ticket.status_changed",
-                auth,
-                **{"from": ref(before), "to": ref(status)},
-            )
-            _apply_status(ticket, before, status)
+        _change_status(db, auth, ticket, await _status(db, changes["status_id"]))
     diff: dict[str, dict[str, Any]] = {}
 
     def put(field: str, new: Any, before: Any = None, after: Any = None) -> None:

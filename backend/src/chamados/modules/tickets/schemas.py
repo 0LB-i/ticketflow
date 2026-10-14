@@ -109,6 +109,21 @@ class TicketCounts(BaseModel):
     watching: int
 
 
+class BulkStatusIn(BaseModel):
+    numbers: list[int] = Field(min_length=1, max_length=200, description="números dos chamados")
+    status_id: int
+
+
+class BulkFailure(BaseModel):
+    number: int
+    detail: str
+
+
+class BulkResult(BaseModel):
+    updated: list[int]
+    failed: list[BulkFailure] = Field(description="os que não mudaram, com o motivo")
+
+
 class NextIn(BaseModel):
     team_id: uuid.UUID | None = Field(
         default=None, description="sem grupo, a fila de todos os meus grupos"

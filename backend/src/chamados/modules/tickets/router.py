@@ -7,6 +7,7 @@ from fastapi import APIRouter, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from chamados.core.i18n import request_locale, translate
 from chamados.db.session import DB
 from chamados.modules.attachments import service as attachments
 from chamados.modules.audit.service import record
@@ -16,6 +17,9 @@ from chamados.modules.tickets import service
 from chamados.modules.tickets.models import Ticket, TicketComment, TicketEvent
 from chamados.modules.tickets.schemas import (
     AssignIn,
+    BulkFailure,
+    BulkResult,
+    BulkStatusIn,
     CategoryRef,
     CommentIn,
     CommentList,
@@ -153,6 +157,19 @@ async def list_tickets(
 @router.get("/counts", response_model=TicketCounts)
 async def ticket_counts(auth: CurrentAuth, db: DB) -> TicketCounts:
     return TicketCounts(**await service.counts(db, auth))
+
+
+@router.post("/bulk/status", response_model=BulkResult)
+async def bulk_status(
+    data: BulkStatusIn, auth: CurrentAuth, db: DB, request: Request
+) -> BulkResult:
+    """Muda o status de vários chamados (supervisor do grupo ou admin)."""
+    updated, failed = await service.bulk_status(db, auth, data.numbers, data.status_id)
+    locale = request_locale(request)
+    return BulkResult(
+        updated=updated,
+        failed=[BulkFailure(number=n, detail=translate(d, locale)) for n, d in failed],
+    )
 
 
 @router.post("/next", response_model=TicketOut)

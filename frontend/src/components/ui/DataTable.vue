@@ -1,6 +1,6 @@
 <script setup lang="ts" generic="T extends Record<string, unknown>">
 /**
- * Tabela simples com cabeçalho e células por slot (`#cell-<chave>`). A chave pode ser um campo
+ * Tabela simples com cabeçalho e células por slot (`#head-<chave>` e `#cell-<chave>`). A chave pode ser um campo
  * da linha (mostrado direto) ou uma coluna calculada, preenchida só pelo slot. `class` vai no
  * cabeçalho e nas células da coluna (ex.: "hidden md:table-cell" esconde a coluna no celular).
  * Ordenação e paginação entram com o TanStack Table quando as filas existirem (Sprint 4).
@@ -31,7 +31,7 @@ defineProps<{
             scope="col"
             :class="['px-3 py-2 font-medium', col.class]"
           >
-            {{ col.label }}
+            <slot :name="`head-${col.key}`">{{ col.label }}</slot>
           </th>
         </tr>
       </thead>

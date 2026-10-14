@@ -76,6 +76,9 @@ def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
     # Escolher um status concluído (Entregue, Concluído): em revisão, só o supervisor ou o admin.
     if "set_status" in actions and (not t.in_review or is_supervisor(actor, t.team_id)):
         actions.add("set_status_closed")
+    # Ações em massa (a lista de chamados): supervisor do grupo ou admin.
+    if can(actor, P.TICKET_BULK, t.team_id):
+        actions.add("bulk")
     if t.kind not in FINAL_KINDS:
         if can(actor, P.TICKET_ASSIGN_SELF) and not mine and t.team_id in actor.teams:
             actions.add("assign_self")
