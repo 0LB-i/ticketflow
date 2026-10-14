@@ -321,13 +321,10 @@
     "semTempo": "No time logged.",
     "tempoTotal": "Total",
     "tempoSemTexto": "Describe the task done in that time.",
-    "oQueFoiFeito": "What was done",
     "comentar": "Add task",
     "comentado": "Task added",
-    "codigoResolucao": "Resolution code",
     "acoes": {
       "resume": "Resume",
-      "close": "Close ticket",
       "reopen": "Reopen",
       "cancel": "Cancel ticket"
     },
@@ -336,16 +333,13 @@
       "cancel": "Write in the task why it is being canceled."
     },
     "confirmar": {
-      "close": "Close the ticket",
       "cancel": "Cancel the ticket?"
     },
     "confirmarTexto": {
-      "close": "Describe what was done and choose the resolution code. It becomes the ticket's last task.",
       "cancel": "The task is recorded as the reason. A canceled ticket cannot be reopened."
     },
     "feito": {
       "resume": "Ticket resumed",
-      "close": "Ticket closed",
       "reopen": "Ticket reopened",
       "cancel": "Ticket canceled",
       "assumido": "You took the ticket",
@@ -362,7 +356,13 @@
     "contatoDica": "Who asked for the work.",
     "buscarCliente": "Search by name or tax ID",
     "nenhumCliente": "No client found.",
-    "tirarCliente": "Remove the client"
+    "tirarCliente": "Remove the client",
+    "entregue": {
+      "marcar": "Mark as delivered",
+      "titulo": "Mark as delivered?",
+      "texto": "The ticket status changes to Delivered.",
+      "feito": "Ticket delivered"
+    }
   },
   "idioma": {
     "titulo": "Language",

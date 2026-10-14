@@ -32,13 +32,6 @@ export function useStatus() {
   })
 }
 
-export function useCodigosDeResolucao() {
-  return useQuery({
-    queryKey: ['codigos-resolucao'],
-    queryFn: async () => ou(await api.GET('/api/v1/resolution-codes'), erro()).items,
-  })
-}
-
 /** Colegas ativos de todos os grupos, para menções, observadores e responsável. */
 export function usePessoas() {
   const grupos = useGrupos()
@@ -148,6 +141,15 @@ export const chamadosApi = {
   transferir: async (numero: string, body: Schemas['TransferIn']) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/transfer', { params: caminho(numero), body }),
+      erro(),
+    ),
+  /** Qualquer status, sem as exigências do fluxo (ação set_status). */
+  mudarStatusPara: async (numero: string, status_id: number) =>
+    ou(
+      await api.PATCH('/api/v1/tickets/{ticket_ref}', {
+        params: caminho(numero),
+        body: { status_id },
+      }),
       erro(),
     ),
   mudarStatus: async (numero: string, body: Schemas['TransitionIn']) =>

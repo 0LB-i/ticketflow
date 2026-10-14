@@ -28,7 +28,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
-- No chamado, os comentários passam a se chamar **tarefas**: "Adicionar tarefa" no lugar de "Comentar", e "Anexar" (só o botão) fica à direita do tempo gasto. "Comentar e aguardar" sai da tela, e "Comentar e concluir" vira **Concluir chamado**, em dourado no alto da lateral, numa janela com o que foi feito, o tempo gasto e o código de resolução.
+- No chamado, os comentários passam a se chamar **tarefas**: "Adicionar tarefa" no lugar de "Comentar", e "Anexar" (só o botão) fica à direita do tempo gasto. "Comentar e aguardar" sai da tela, e "Comentar e concluir" sai: no fim da lateral, o botão amarelo-ouro **Marcar como entregue** muda o status para "Entregue" (com confirmação).
 - A linha do tempo do chamado mostra só o registro e os comentários: as alterações (assumir, devolver, acompanhar, transferir, mudar status…) saem da tela, mas continuam gravadas no histórico (`GET /tickets/{id}/events`).
 - O detalhe do chamado não tem mais o botão "Editar" nem o painel lateral de edição (título, descrição, status, tipo, início, cliente e contato). A alteração continua disponível na API (`PATCH /tickets/{id}`).
 - Os chamados não têm mais prioridade, impacto nem urgência: saem das telas (lista, filtro, detalhe, edição), da API (`priority`, `priority_overridden`, `impact`, `urgency`, filtro `priority`) e a permissão `ticket.set_priority`. As filas e o "Pegar o próximo" seguem a ordem de registro (mais antigo primeiro). A migração `0016` apaga as colunas, sem volta dos valores no downgrade (voltam como prioridade baixa). O histórico antigo continua mostrando essas alterações.

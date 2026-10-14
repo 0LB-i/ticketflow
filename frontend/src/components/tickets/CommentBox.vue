@@ -17,7 +17,7 @@ import AttachmentUploader from './AttachmentUploader.vue'
 /**
  * Adicionar uma tarefa (o andamento do chamado, um comentário na API) e, na mesma ação, mudar o
  * status (docs/10 §10.6). Em reabrir e cancelar o texto é obrigatório (docs/10 §10.5). Cada
- * tarefa pode levar o tempo gasto nela. Concluir fica na lateral (CloseTicket).
+ * tarefa pode levar o tempo gasto nela. "Marcar como entregue" fica na lateral (DeliverTicket).
  */
 const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
 const { t } = useI18n()

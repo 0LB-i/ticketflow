@@ -270,48 +270,36 @@ describe('TicketView', () => {
     )
   })
 
-  it('concluir fica na lateral, em dourado, e pede o que foi feito e o código', async () => {
-    const feitas = simularApi({
-      'GET /api/v1/tickets/1000': [
-        200,
-        { ...CHAMADO, allowed_actions: ['comment', 'wait', 'close'] },
+  it('marcar como entregue fica no fim da lateral, em dourado, e só muda o status', async () => {
+    const STATUS_LISTA = {
+      items: [
+        { id: 1, name: 'Pendente', kind: 'open' },
+        { id: 5, name: 'Entregue', kind: 'closed' },
       ],
+    }
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment', 'set_status'] }],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
-      'GET /api/v1/resolution-codes': [200, { items: [{ id: 1, name: 'Feito', is_active: true }] }],
-      'POST /api/v1/tickets/1000/transitions': [200, CHAMADO],
+      'GET /api/v1/statuses': [200, STATUS_LISTA],
+      'PATCH /api/v1/tickets/1000': [200, CHAMADO],
     })
-    const w = montar(TicketView, { props: { numero: '1000' }, attachTo: document.body })
-    await vi.waitFor(() => expect(w.text()).toContain('Concluir chamado'))
-    const tarefa = w.findAll('form button').map((b) => b.text())
-    expect(tarefa).toContain('Adicionar tarefa')
-    expect(tarefa.some((b) => b.includes('aguardar') || b.includes('Concluir'))).toBe(false)
-    const concluir = w
-      .get('aside')
-      .findAll('button')
-      .find((b) => b.text() === 'Concluir chamado')!
-    expect(concluir.classes()).toContain('bg-gold')
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Marcar como entregue'))
+    expect(w.findAll('form button').map((b) => b.text())).not.toContain('Marcar como entregue')
+    const botoes = w.get('aside').findAll(':scope > button')
+    const entregar = botoes.at(-1)!
+    expect(entregar.text()).toBe('Marcar como entregue') // o último da lateral
+    expect(entregar.classes()).toContain('bg-gold')
 
-    await concluir.trigger('click')
+    await entregar.trigger('click')
     const dialogo = await vi.waitFor(() => document.querySelector('[role=dialog]') as HTMLElement)
-    const confirmar = [...dialogo.querySelectorAll('button')].find(
-      (b) => b.textContent?.trim() === 'Concluir chamado',
-    )!
-    expect(confirmar.disabled).toBe(true) // sem o que foi feito e sem o código
-    const texto = dialogo.querySelector('textarea')!
-    texto.value = 'Troquei o toner.'
-    texto.dispatchEvent(new Event('input'))
-    await escolher('Código de resolução', 'Feito')
-    await vi.waitFor(() => expect(confirmar.disabled).toBe(false))
-    confirmar.click()
+    expect(dialogo.textContent).toContain('O status do chamado muda para Entregue.')
+    ;[...dialogo.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Marcar como entregue')!
+      .click()
     await vi.waitFor(() =>
-      expect(feitas.find((r) => r.caminho.endsWith('/transitions'))?.corpo).toEqual({
-        action: 'close',
-        comment: 'Troquei o toner.',
-        time_spent_minutes: null,
-        resolution_code_id: 1,
-        attachment_ids: [],
-      }),
+      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ status_id: 5 }),
     )
   })
 
