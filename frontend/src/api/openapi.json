@@ -4396,13 +4396,18 @@
             "title": "Is Default",
             "description": "usado quando o fluxo leva a este kind"
           },
+          "is_review": {
+            "type": "boolean",
+            "title": "Is Review",
+            "description": "revisão do supervisor (\"Entregue\")"
+          },
           "ticket_count": {
             "type": "integer",
             "title": "Ticket Count"
           }
         },
         "type": "object",
-        "required": ["id", "name", "kind", "is_default", "ticket_count"],
+        "required": ["id", "name", "kind", "is_default", "is_review", "ticket_count"],
         "title": "StatusOut"
       },
       "StatusRef": {

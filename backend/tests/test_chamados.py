@@ -174,26 +174,27 @@ def test_inicio_do_chamado(client: TestClient, cenario: dict[str, Any]) -> None:
     assert client.patch(url, json={"started_at": futuro}).status_code == 422
 
 
-def test_em_revisao_so_o_supervisor_entrega(client: TestClient, cenario: dict[str, Any]) -> None:
+def test_entregue_e_a_revisao_so_o_supervisor_conclui(
+    client: TestClient, cenario: dict[str, Any]
+) -> None:
     status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
     t = registrar(client, cenario, assignee="me")
     url = f"{API}/{t['number']}"
     assert "set_status_closed" in t["allowed_actions"]
 
-    # Ana (responsável) manda para revisão: o chamado fica em espera (kind waiting)
-    r = client.patch(url, json={"status_id": status["Em espera de revisão"]})
+    # Ana (responsável) entrega: o chamado fica em revisão, em espera (kind waiting)
+    r = client.patch(url, json={"status_id": status["Entregue"]})
     assert r.json()["status"]["kind"] == "waiting"
     assert "set_status_closed" not in r.json()["allowed_actions"]
-    # Em revisão, ela não entrega nem conclui; outros status, sim
-    for nome in ("Entregue", "Concluído"):
-        assert client.patch(url, json={"status_id": status[nome]}).status_code == 403
-    assert client.get(url).json()["status"]["name"] == "Em espera de revisão"
+    # Entregue, ela não conclui
+    assert client.patch(url, json={"status_id": status["Concluído"]}).status_code == 403
+    assert client.get(url).json()["status"]["name"] == "Entregue"
 
-    # Bia, supervisora do TI, verifica e entrega
+    # Bia, supervisora do TI, verifica e conclui
     entrar(client, "bia@x.com")
     assert "set_status_closed" in client.get(url).json()["allowed_actions"]
-    r = client.patch(url, json={"status_id": status["Entregue"]})
-    assert r.status_code == 200 and r.json()["status"]["name"] == "Entregue"
+    r = client.patch(url, json={"status_id": status["Concluído"]})
+    assert r.status_code == 200 and r.json()["status"]["name"] == "Concluído"
 
 
 def test_status_em_massa_so_supervisor_e_admin(client: TestClient, cenario: dict[str, Any]) -> None:
@@ -206,18 +207,18 @@ def test_status_em_massa_so_supervisor_e_admin(client: TestClient, cenario: dict
 
     # Membro sem supervisão: nada muda
     entrar(client, "ana@x.com")
-    r = client.post(url, json={"numbers": [a, b], "status_id": status["Entregue"]})
+    r = client.post(url, json={"numbers": [a, b], "status_id": status["Concluído"]})
     assert r.json()["updated"] == [] and len(r.json()["failed"]) == 2
 
     # Bia supervisiona o TI: muda os dois; o da Infra (que ela nem vê) fica de fora, com o motivo
     entrar(client, "bia@x.com")
-    r = client.post(url, json={"numbers": [a, b, infra, 9999, a], "status_id": status["Entregue"]})
+    r = client.post(url, json={"numbers": [a, b, infra, 9999, a], "status_id": status["Concluído"]})
     assert r.json()["updated"] == [a, b]
     assert r.json()["failed"] == [
         {"number": infra, "detail": "Você não tem acesso a este chamado."},
         {"number": 9999, "detail": "Chamado não encontrado."},
     ]
-    assert client.get(f"{API}/{a}").json()["status"]["name"] == "Entregue"
+    assert client.get(f"{API}/{a}").json()["status"]["name"] == "Concluído"
     assert eventos(client, a)[-1]["type"] == "ticket.status_changed"
     # Motivo no idioma de quem pediu
     r = client.post(
@@ -229,21 +230,30 @@ def test_status_em_massa_so_supervisor_e_admin(client: TestClient, cenario: dict
     assert client.post(url, json={"numbers": [a], "status_id": 99}).status_code == 422
 
 
-def test_status_escolhido_no_formulario(client: TestClient, cenario: dict[str, Any]) -> None:
-    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
-    assert list(status) == [
-        "Pendente",
-        "Aguardando cliente",
-        "Em espera de revisão",
-        "Entregue",
-        "Concluído",
-        "Cancelado",
+def test_status_escolhido_no_formulario(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    lista = client.get("/api/v1/statuses").json()["items"]
+    assert [(s["name"], s["kind"], s["is_review"]) for s in lista] == [
+        ("Pendente", "open", False),
+        ("Aguardando cliente", "waiting", False),
+        ("Entregue", "waiting", True),  # a revisão do supervisor (migração 0020)
+        ("Concluído", "closed", False),
+        ("Cancelado", "canceled", False),
     ]
+    # Um segundo status de conclusão, para conferir a troca entre dois deles
+    db.execute(
+        text(
+            "INSERT INTO ticket_statuses (name, kind, sort_order) VALUES ('Arquivado', 'closed', 9)"
+        )
+    )
+    db.commit()
+    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
 
     # Sem status, Pendente; com status, qualquer um, sem comentário nem código de resolução
     assert registrar(client, cenario)["status"]["name"] == "Pendente"
-    t = registrar(client, cenario, status_id=status["Entregue"])
-    assert t["status"] == {"id": status["Entregue"], "name": "Entregue", "kind": "closed"}
+    t = registrar(client, cenario, status_id=status["Arquivado"])
+    assert t["status"] == {"id": status["Arquivado"], "name": "Arquivado", "kind": "closed"}
     assert t["closed_at"] is not None
     r = client.post(
         API, json={"title": "Status?", "category_id": cenario["impressao"], "status_id": 99}
@@ -258,7 +268,7 @@ def test_status_escolhido_no_formulario(client: TestClient, cenario: dict[str, A
     assert r.json()["status"]["name"] == "Concluído" and r.json()["closed_at"] == t["closed_at"]
     ultimo = eventos(client, t["number"])[-1]
     assert ultimo["type"] == "ticket.status_changed"
-    assert ultimo["payload"]["from"]["name"] == "Entregue"
+    assert ultimo["payload"]["from"]["name"] == "Arquivado"
     assert ultimo["payload"]["to"]["name"] == "Concluído"
 
     # Voltar para Pendente reabre

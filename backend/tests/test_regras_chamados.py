@@ -92,8 +92,8 @@ def test_finalizado_nao_se_atribui_nem_transfere(kind: str) -> None:
     assert {"comment", "edit", "set_status"} <= acoes  # reabrir pelo formulário
 
 
-# Em revisão ("Em espera de revisão"): só o supervisor do grupo ou o admin escolhe um status
-# concluído (Entregue, Concluído); os demais continuam escolhendo os outros status.
+# Em revisão ("Entregue"): só o supervisor do grupo ou o admin escolhe um status concluído
+# (Concluído); os demais continuam escolhendo os outros status.
 EM_REVISAO = [
     (membro, False),
     (responsavel, False),

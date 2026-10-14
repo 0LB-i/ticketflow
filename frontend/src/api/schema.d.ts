@@ -1607,6 +1607,11 @@ export interface components {
        * @description usado quando o fluxo leva a este kind
        */
       is_default: boolean
+      /**
+       * Is Review
+       * @description revisão do supervisor ("Entregue")
+       */
+      is_review: boolean
       /** Ticket Count */
       ticket_count: number
     }

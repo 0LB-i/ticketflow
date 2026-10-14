@@ -44,7 +44,7 @@ class TicketState:
     assignee_id: int | None
     is_watcher: bool
     co_assignee_ids: frozenset[int] = frozenset()
-    # Status de revisão do supervisor ("Em espera de revisão").
+    # Status de revisão do supervisor ("Entregue").
     in_review: bool = False
 
 
