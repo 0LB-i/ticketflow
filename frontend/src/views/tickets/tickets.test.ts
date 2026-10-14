@@ -26,7 +26,7 @@ const STATUS = {
   items: [
     { id: 1, name: 'Pendente', kind: 'open' },
     { id: 2, name: 'Aguardando cliente', kind: 'waiting' },
-    { id: 5, name: 'Entregue', kind: 'waiting', is_review: true },
+    { id: 5, name: 'Entregue', kind: 'delivered', is_default: true },
     { id: 3, name: 'Concluído', kind: 'closed' },
     { id: 4, name: 'Cancelado', kind: 'canceled' },
   ],
@@ -273,8 +273,8 @@ describe('TicketView', () => {
   it('marcar como entregue (fim da lateral, dourado) leva à revisão num clique', async () => {
     const STATUS_LISTA = {
       items: [
-        { id: 1, name: 'Pendente', kind: 'open', is_review: false },
-        { id: 5, name: 'Entregue', kind: 'waiting', is_review: true },
+        { id: 1, name: 'Pendente', kind: 'open', is_default: true },
+        { id: 5, name: 'Entregue', kind: 'delivered', is_default: true },
       ],
     }
     const feitas = simularApi({
@@ -299,7 +299,7 @@ describe('TicketView', () => {
   })
 
   it('em revisão, o seletor de status não oferece os concluídos a quem não supervisiona', async () => {
-    const REVISAO = { id: 3, name: 'Entregue', kind: 'waiting', is_review: true }
+    const REVISAO = { id: 3, name: 'Entregue', kind: 'delivered', is_default: true }
     const feitas = simularApi({
       'GET /api/v1/tickets/1000': [
         200,

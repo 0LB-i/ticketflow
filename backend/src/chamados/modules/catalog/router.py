@@ -25,9 +25,9 @@ router = APIRouter(tags=["catálogo"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_CATALOG))]
 SettingsAdmin = Annotated[Auth, Depends(require(P.ADMIN_SETTINGS))]
 TicketType = Literal["incident", "request", "task"]
-StatusKind = Literal["approval", "open", "waiting", "closed", "canceled"]
+StatusKind = Literal["approval", "open", "waiting", "delivered", "closed", "canceled"]
 # Aprovação entra na Fase 2: o administrador escolhe entre estes.
-EditableKind = Literal["open", "waiting", "closed", "canceled"]
+EditableKind = Literal["open", "waiting", "delivered", "closed", "canceled"]
 MAX_DEPTH = 3  # docs/08 §8.1
 
 
@@ -237,7 +237,6 @@ class StatusOut(BaseModel):
     name: str
     kind: StatusKind
     is_default: bool = Field(description="usado quando o fluxo leva a este kind")
-    is_review: bool = Field(description='revisão do supervisor ("Entregue")')
     ticket_count: int
 
 
@@ -283,7 +282,6 @@ async def _statuses(db: AsyncSession) -> StatusList:
                 name=s.name,
                 kind=s.kind,
                 is_default=s.is_default_for_kind,
-                is_review=s.is_review,
                 ticket_count=counts.get(s.id, 0),
             )
             for s in rows

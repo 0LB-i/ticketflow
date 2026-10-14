@@ -108,7 +108,6 @@ def actions(auth: Auth, ticket: Ticket) -> set[str]:
         assignee_id=ticket.assignee_id,
         is_watcher=any(w.user_id == auth.user.id for w in ticket.watchers),
         co_assignee_ids=frozenset(c.user_id for c in ticket.co_assignees),
-        in_review=ticket.status.is_review,
     )
     return rules.allowed_actions(auth.actor, state)
 
@@ -156,7 +155,9 @@ def has_news(user_id: int) -> ColumnElement[bool]:
     )
 
 
-ACTIVE = ("open", "waiting")
+ACTIVE = ("open", "waiting", "delivered")
+# A aba Aguardando também mostra os entregues (à espera da revisão do supervisor).
+WAITING = ("waiting", "delivered")
 PT_BR: ColumnElement[Any] = literal_column("'pt_br'::regconfig")
 
 
@@ -172,7 +173,7 @@ def view_filter(auth: Auth, view: TicketView) -> ColumnElement[bool]:
         case "news":
             return and_(assigned_to(me), has_news(me))
         case "waiting":
-            return and_(my_teams, TicketStatus.kind == "waiting")
+            return and_(my_teams, TicketStatus.kind.in_(WAITING))
         case "watching":
             return and_(
                 exists().where(TicketWatcher.ticket_id == Ticket.id, TicketWatcher.user_id == me),
@@ -326,7 +327,7 @@ def _apply_status(ticket: Ticket, before: TicketStatus | None, status: TicketSta
     elif status.kind != "closed" and was_closed:
         ticket.closed_at = None
         ticket.resolution_code_id = None
-        if status.kind in ("open", "waiting"):
+        if status.kind in ACTIVE:
             ticket.reopened_count += 1
 
 

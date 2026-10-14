@@ -57,6 +57,7 @@
     "open": "Pending",
     "waiting": "Waiting for customer",
     "approval": "Awaiting approval",
+    "delivered": "Delivered",
     "closed": "Done",
     "canceled": "Canceled"
   },
@@ -240,6 +241,7 @@
       "kinds": {
         "open": "Open",
         "waiting": "On hold",
+        "delivered": "Delivered",
         "closed": "Closed",
         "canceled": "Canceled"
       }
@@ -445,12 +447,14 @@
     "comportamentos": {
       "open": "Open",
       "waiting": "On hold",
+      "delivered": "Delivered",
       "closed": "Closed",
       "canceled": "Canceled"
     },
     "explicacoes": {
       "open": "Open: the ticket is in the team queue and the work is to do or in progress.",
       "waiting": "On hold: the work is paused waiting for someone, such as the customer or a supplier.",
+      "delivered": "Delivered: the work was delivered and awaits the supervisor review. Only the team supervisor or an admin can move the ticket to a closed status.",
       "closed": "Closed: the work is finished. Records the completion date and the ticket can be reopened.",
       "canceled": "Canceled: the ticket left the queues without the work being done."
     },

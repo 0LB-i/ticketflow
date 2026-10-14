@@ -1576,7 +1576,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: 'open' | 'waiting' | 'closed' | 'canceled'
+      kind: 'open' | 'waiting' | 'delivered' | 'closed' | 'canceled'
     }
     /** StatusList */
     StatusList: {
@@ -1601,17 +1601,12 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: 'approval' | 'open' | 'waiting' | 'closed' | 'canceled'
+      kind: 'approval' | 'open' | 'waiting' | 'delivered' | 'closed' | 'canceled'
       /**
        * Is Default
        * @description usado quando o fluxo leva a este kind
        */
       is_default: boolean
-      /**
-       * Is Review
-       * @description revisão do supervisor ("Entregue")
-       */
-      is_review: boolean
       /** Ticket Count */
       ticket_count: number
     }
@@ -1625,7 +1620,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: 'approval' | 'open' | 'waiting' | 'closed' | 'canceled'
+      kind: 'approval' | 'open' | 'waiting' | 'delivered' | 'closed' | 'canceled'
     }
     /** StatusUpdate */
     StatusUpdate: {
@@ -3236,7 +3231,7 @@ export interface operations {
         /** @description "me", "none" ou o id do usuário */
         assignee?: string | null
         /** @description kinds de status */
-        status?: ('approval' | 'open' | 'waiting' | 'closed' | 'canceled')[] | null
+        status?: ('approval' | 'open' | 'waiting' | 'delivered' | 'closed' | 'canceled')[] | null
         /** @description busca: texto, comentários, número, cliente, contato */
         q?: string | null
         limit?: number

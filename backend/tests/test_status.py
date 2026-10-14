@@ -53,7 +53,7 @@ def test_padrao_e_permissao(client: TestClient, db: Session) -> None:
         "Concluído",
         "Cancelado",
     ]
-    assert [s["is_default"] for s in r.json()["items"]] == [True, True, False, True, True]
+    assert [s["is_default"] for s in r.json()["items"]] == [True, True, True, True, True]
     # Agente lista, mas não altera
     assert client.post(API, json={"name": "Em teste", "kind": "open"}).status_code == 403
 
@@ -94,19 +94,21 @@ def test_remover_move_os_chamados(client: TestClient, db: Session) -> None:
     r = client.delete(f"{API}/{status['Cancelado']['id']}")
     assert r.status_code == 422
 
-    # Entregue não é o padrão: os chamados vão para o padrão do kind (Aguardando cliente)
+    # Entregue é o único do seu comportamento: também não sai
+    assert client.delete(f"{API}/{status['Entregue']['id']}").status_code == 422
+
+    # Um status que não é o padrão: os chamados vão para o padrão do kind (Entregue)
+    revisao = client.post(API, json={"name": "Em revisão", "kind": "delivered"}).json()
+    revisao_id = next(s["id"] for s in revisao["items"] if s["name"] == "Em revisão")
     t = client.post(
         "/api/v1/tickets",
-        json={"title": "Entregue", "team_id": ti, "status_id": status["Entregue"]["id"]},
+        json={"title": "Revisar", "team_id": ti, "status_id": revisao_id},
     ).json()
+    assert por_nome(client)["Em revisão"]["ticket_count"] == 1
+    r = client.delete(f"{API}/{revisao_id}")
+    assert r.status_code == 200 and "Em revisão" not in nomes(r)
+    assert client.get(f"/api/v1/tickets/{t['number']}").json()["status"]["name"] == "Entregue"
     assert por_nome(client)["Entregue"]["ticket_count"] == 1
-    r = client.delete(f"{API}/{status['Entregue']['id']}")
-    assert r.status_code == 200 and "Entregue" not in nomes(r)
-    assert (
-        client.get(f"/api/v1/tickets/{t['number']}").json()["status"]["name"]
-        == "Aguardando cliente"
-    )
-    assert por_nome(client)["Aguardando cliente"]["ticket_count"] == 1
 
     # Removendo o padrão, o próximo do mesmo kind assume (e recebe os chamados)
     client.post(API, json={"name": "Em andamento", "kind": "open"})

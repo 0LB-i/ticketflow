@@ -28,7 +28,7 @@ const status = useStatus()
 const alterar = useAlteracao(async (fn: () => Promise<unknown>) => fn(), ['status', 'chamados'])
 const erro = ref<string | null>(null)
 
-const COMPORTAMENTOS: Comportamento[] = ['open', 'waiting', 'closed', 'canceled']
+const COMPORTAMENTOS: Comportamento[] = ['open', 'waiting', 'delivered', 'closed', 'canceled']
 const opcoesComportamento = computed(() =>
   COMPORTAMENTOS.map((k) => ({ value: k, label: t(`statusConfig.comportamentos.${k}`) })),
 )
