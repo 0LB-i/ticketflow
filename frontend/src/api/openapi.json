@@ -1405,7 +1405,7 @@
                 {
                   "type": "array",
                   "items": {
-                    "enum": ["approval", "open", "waiting", "closed", "canceled"],
+                    "enum": ["approval", "open", "waiting", "delivered", "closed", "canceled"],
                     "type": "string"
                   }
                 },
@@ -4339,7 +4339,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["open", "waiting", "closed", "canceled"],
+            "enum": ["open", "waiting", "delivered", "closed", "canceled"],
             "title": "Kind"
           }
         },
@@ -4388,7 +4388,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["approval", "open", "waiting", "closed", "canceled"],
+            "enum": ["approval", "open", "waiting", "delivered", "closed", "canceled"],
             "title": "Kind"
           },
           "is_default": {
@@ -4396,18 +4396,13 @@
             "title": "Is Default",
             "description": "usado quando o fluxo leva a este kind"
           },
-          "is_review": {
-            "type": "boolean",
-            "title": "Is Review",
-            "description": "revisão do supervisor (\"Entregue\")"
-          },
           "ticket_count": {
             "type": "integer",
             "title": "Ticket Count"
           }
         },
         "type": "object",
-        "required": ["id", "name", "kind", "is_default", "is_review", "ticket_count"],
+        "required": ["id", "name", "kind", "is_default", "ticket_count"],
         "title": "StatusOut"
       },
       "StatusRef": {
@@ -4422,7 +4417,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["approval", "open", "waiting", "closed", "canceled"],
+            "enum": ["approval", "open", "waiting", "delivered", "closed", "canceled"],
             "title": "Kind"
           }
         },

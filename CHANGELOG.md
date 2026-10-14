@@ -28,6 +28,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- "Entregue" ganha comportamento próprio (`delivered`), ao lado de Em aberto, Em espera, Encerrado e Cancelado, e é o padrão dele; o admin pode criar outros status com esse comportamento. Chamados entregues continuam em Meus, Acompanhando e Aguardando. Migração `0021`: novo `kind` e sai `ticket_statuses.is_review` (e o campo `is_review` de `GET /statuses`).
 - "Entregue" passa a ser o status de revisão do supervisor (em espera): "Marcar como entregue" manda o chamado para a revisão, e só o supervisor do grupo ou o admin o leva a "Concluído". A migração `0020` remove o "Entregue" de conclusão (os chamados nele vão para "Concluído") e renomeia "Em espera de revisão" para "Entregue"; onde isso já foi feito pelas Configurações, não muda nada. `GET /statuses` passa a informar `is_review`.
 - Lista de chamados: botão no fim de cada linha que abre o chamado; o supervisor (nos grupos que supervisiona) e o admin selecionam vários chamados e mudam o status deles de uma vez (`POST /tickets/bulk/status`).
 - Status "Em espera de revisão" (em espera, na aba Aguardando) para os chamados que o supervisor verifica antes de concluir: enquanto o chamado está nele, só o supervisor do grupo ou o admin o leva a Entregue ou Concluído. Seletor de status na lateral do chamado. Migração `0019`: `ticket_statuses.is_review` e o status novo, logo depois de "Aguardando cliente".

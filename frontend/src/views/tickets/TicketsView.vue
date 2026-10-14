@@ -49,7 +49,7 @@ const ABAS: { slug: string; fila: Fila }[] = [
 ]
 // Opção "todos" dos filtros (não vai para a URL).
 const TODOS = '*'
-const KINDS = ['open', 'waiting', 'closed', 'canceled'] as const
+const KINDS = ['open', 'waiting', 'delivered', 'closed', 'canceled'] as const
 const RESPONSAVEL = { eu: 'me', ninguem: 'none' } as const
 
 const texto = (chave: string) => {

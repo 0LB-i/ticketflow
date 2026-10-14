@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 
 TicketType = Literal["incident", "request", "task"]
-StatusKind = Literal["approval", "open", "waiting", "closed", "canceled"]
+StatusKind = Literal["approval", "open", "waiting", "delivered", "closed", "canceled"]
 TransitionAction = Literal["wait", "resume", "close", "reopen", "cancel"]
 TicketView = Literal["unassigned", "mine", "news", "waiting", "watching", "all"]
 Body = Annotated[str, Field(min_length=1, max_length=50_000)]

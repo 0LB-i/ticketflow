@@ -182,13 +182,17 @@ def test_entregue_e_a_revisao_so_o_supervisor_conclui(
     url = f"{API}/{t['number']}"
     assert "set_status_closed" in t["allowed_actions"]
 
-    # Ana (responsável) entrega: o chamado fica em revisão, em espera (kind waiting)
+    # Ana (responsável) entrega: o chamado fica em revisão (kind delivered)
     r = client.patch(url, json={"status_id": status["Entregue"]})
-    assert r.json()["status"]["kind"] == "waiting"
+    assert r.json()["status"]["kind"] == "delivered"
     assert "set_status_closed" not in r.json()["allowed_actions"]
     # Entregue, ela não conclui
     assert client.patch(url, json={"status_id": status["Concluído"]}).status_code == 403
     assert client.get(url).json()["status"]["name"] == "Entregue"
+    # Continua nas filas de quem trabalha: Meus (Ana) e Aguardando (o grupo)
+    meus = client.get(API, params={"view": "mine"}).json()["items"]
+    aguardando = client.get(API, params={"view": "waiting"}).json()["items"]
+    assert [c["number"] for c in meus] == [t["number"]] == [c["number"] for c in aguardando]
 
     # Bia, supervisora do TI, verifica e conclui
     entrar(client, "bia@x.com")
@@ -234,12 +238,12 @@ def test_status_escolhido_no_formulario(
     client: TestClient, cenario: dict[str, Any], db: Session
 ) -> None:
     lista = client.get("/api/v1/statuses").json()["items"]
-    assert [(s["name"], s["kind"], s["is_review"]) for s in lista] == [
-        ("Pendente", "open", False),
-        ("Aguardando cliente", "waiting", False),
-        ("Entregue", "waiting", True),  # a revisão do supervisor (migração 0020)
-        ("Concluído", "closed", False),
-        ("Cancelado", "canceled", False),
+    assert [(s["name"], s["kind"], s["is_default"]) for s in lista] == [
+        ("Pendente", "open", True),
+        ("Aguardando cliente", "waiting", True),
+        ("Entregue", "delivered", True),  # a revisão do supervisor, comportamento próprio (0021)
+        ("Concluído", "closed", True),
+        ("Cancelado", "canceled", True),
     ]
     # Um segundo status de conclusão, para conferir a troca entre dois deles
     db.execute(

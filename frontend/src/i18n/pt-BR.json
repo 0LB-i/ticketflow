@@ -57,6 +57,7 @@
     "open": "Pendente",
     "waiting": "Aguardando cliente",
     "approval": "Aguardando aprovação",
+    "delivered": "Entregue",
     "closed": "Concluído",
     "canceled": "Cancelado"
   },
@@ -240,6 +241,7 @@
       "kinds": {
         "open": "Em aberto",
         "waiting": "Em espera",
+        "delivered": "Entregues",
         "closed": "Encerrados",
         "canceled": "Cancelados"
       }
@@ -445,12 +447,14 @@
     "comportamentos": {
       "open": "Em aberto",
       "waiting": "Em espera",
+      "delivered": "Entregue",
       "closed": "Encerrado",
       "canceled": "Cancelado"
     },
     "explicacoes": {
       "open": "Em aberto: o chamado está na fila do grupo e o trabalho está por fazer ou em andamento.",
       "waiting": "Em espera: o trabalho está parado esperando alguém, como o cliente ou um fornecedor.",
+      "delivered": "Entregue: o trabalho foi entregue e espera a revisão do supervisor. Só o supervisor do grupo ou o admin leva o chamado a um status encerrado.",
       "closed": "Encerrado: o trabalho terminou. Registra a data de conclusão e o chamado pode ser reaberto.",
       "canceled": "Cancelado: o chamado saiu das filas sem que o trabalho fosse feito."
     },

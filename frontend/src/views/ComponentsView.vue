@@ -17,7 +17,7 @@ const titulo = ref('')
 const grupo = ref<string>()
 const modalAberto = ref(false)
 
-const kinds: StatusKind[] = ['open', 'waiting', 'approval', 'closed', 'canceled']
+const kinds: StatusKind[] = ['open', 'waiting', 'approval', 'delivered', 'closed', 'canceled']
 const linhas: { numero: number; titulo: string; kind: StatusKind }[] = [
   { numero: 1240, titulo: 'ERP fora do ar', kind: 'open' },
   { numero: 1238, titulo: 'VPN do Rui não conecta', kind: 'waiting' },

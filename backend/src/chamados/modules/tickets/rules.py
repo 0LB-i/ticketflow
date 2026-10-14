@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from chamados.core.permissions import Actor, P, can
 
 FINAL_KINDS = frozenset({"closed", "canceled"})
+# Entregue: à espera da revisão do supervisor.
+REVIEW_KIND = "delivered"
 
 
 @dataclass(frozen=True)
@@ -23,13 +25,18 @@ class Transition:
 # Fluxo padrão (docs/10 §10.5). Aprovação entra na Fase 2.
 TRANSITIONS: dict[str, Transition] = {
     "wait": Transition(frozenset({"open"}), "waiting", "owner", comment_required=True),
-    "resume": Transition(frozenset({"waiting"}), "open", "member", comment_required=False),
+    "resume": Transition(
+        frozenset({"waiting", "delivered"}), "open", "member", comment_required=False
+    ),
     "close": Transition(
         frozenset({"open"}), "closed", "owner", comment_required=True, resolution_required=True
     ),
     "reopen": Transition(frozenset({"closed"}), "open", "member", comment_required=True),
     "cancel": Transition(
-        frozenset({"open", "waiting"}), "canceled", "owner_or_creator", comment_required=True
+        frozenset({"open", "waiting", "delivered"}),
+        "canceled",
+        "owner_or_creator",
+        comment_required=True,
     ),
 }
 
@@ -44,8 +51,6 @@ class TicketState:
     assignee_id: int | None
     is_watcher: bool
     co_assignee_ids: frozenset[int] = frozenset()
-    # Status de revisão do supervisor ("Entregue").
-    in_review: bool = False
 
 
 def is_supervisor(actor: Actor, team_id: int) -> bool:
@@ -74,7 +79,7 @@ def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
         if can(actor, permission):
             actions.add(action)
     # Escolher um status concluído (Entregue, Concluído): em revisão, só o supervisor ou o admin.
-    if "set_status" in actions and (not t.in_review or is_supervisor(actor, t.team_id)):
+    if "set_status" in actions and (t.kind != REVIEW_KIND or is_supervisor(actor, t.team_id)):
         actions.add("set_status_closed")
     # Ações em massa (a lista de chamados): supervisor do grupo ou admin.
     if can(actor, P.TICKET_BULK, t.team_id):
