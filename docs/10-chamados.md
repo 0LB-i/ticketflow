@@ -197,7 +197,9 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 ### Ações em massa (supervisor ou permissão `ticket.bulk`)
 
-Atribuir, transferir, adicionar tag, concluir com o mesmo texto (ex.: incidente geral resolvido) e adicionar comentário.
+**Feito:** na lista de chamados, o supervisor (nos chamados dos grupos que supervisiona) e o admin marcam vários chamados (ou todos da página) e escolhem o **novo status**. Cada chamado passa pelas próprias regras (a da revisão inclusive); os que não podem mudar ficam selecionados e o motivo aparece num aviso. Cada linha da lista também tem, no fim, um botão que abre o chamado.
+
+Planejado: atribuir, transferir, adicionar tag, concluir com o mesmo texto (ex.: incidente geral resolvido) e adicionar comentário.
 
 ### Regras de edição
 

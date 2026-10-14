@@ -196,6 +196,39 @@ def test_em_revisao_so_o_supervisor_entrega(client: TestClient, cenario: dict[st
     assert r.status_code == 200 and r.json()["status"]["name"] == "Entregue"
 
 
+def test_status_em_massa_so_supervisor_e_admin(client: TestClient, cenario: dict[str, Any]) -> None:
+    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
+    a = registrar(client, cenario)["number"]
+    b = registrar(client, cenario)["number"]
+    entrar(client, "caio@x.com")
+    infra = client.post(API, json={"title": "Switch", "team_id": cenario["infra"]}).json()["number"]
+    url = f"{API}/bulk/status"
+
+    # Membro sem supervisão: nada muda
+    entrar(client, "ana@x.com")
+    r = client.post(url, json={"numbers": [a, b], "status_id": status["Entregue"]})
+    assert r.json()["updated"] == [] and len(r.json()["failed"]) == 2
+
+    # Bia supervisiona o TI: muda os dois; o da Infra (que ela nem vê) fica de fora, com o motivo
+    entrar(client, "bia@x.com")
+    r = client.post(url, json={"numbers": [a, b, infra, 9999, a], "status_id": status["Entregue"]})
+    assert r.json()["updated"] == [a, b]
+    assert r.json()["failed"] == [
+        {"number": infra, "detail": "Você não tem acesso a este chamado."},
+        {"number": 9999, "detail": "Chamado não encontrado."},
+    ]
+    assert client.get(f"{API}/{a}").json()["status"]["name"] == "Entregue"
+    assert eventos(client, a)[-1]["type"] == "ticket.status_changed"
+    # Motivo no idioma de quem pediu
+    r = client.post(
+        url,
+        json={"numbers": [9999], "status_id": status["Pendente"]},
+        headers={"Accept-Language": "en"},
+    )
+    assert r.json()["failed"] == [{"number": 9999, "detail": "Ticket not found."}]
+    assert client.post(url, json={"numbers": [a], "status_id": 99}).status_code == 422
+
+
 def test_status_escolhido_no_formulario(client: TestClient, cenario: dict[str, Any]) -> None:
     status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
     assert list(status) == [

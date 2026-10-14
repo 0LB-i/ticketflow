@@ -258,7 +258,17 @@
       "watching": "Você não acompanha nenhum chamado em aberto.",
       "all": "Nenhum chamado encontrado.",
       "busca": "Nenhum chamado encontrado para essa busca."
-    }
+    },
+    "abrir": "Abrir o chamado #{numero}",
+    "abrirColuna": "Abrir",
+    "selecionar": "Selecionar o chamado #{numero}",
+    "selecionarTodos": "Selecionar todos",
+    "selecionados": "Selecionados: {n}",
+    "novoStatus": "Novo status",
+    "mudarStatus": "Mudar status",
+    "limparSelecao": "Limpar seleção",
+    "alteradosEmMassa": "Chamados alterados: {n}",
+    "naoMudaram": "Não mudaram: {lista}"
   },
   "novoChamado": {
     "titulo": "Novo chamado",

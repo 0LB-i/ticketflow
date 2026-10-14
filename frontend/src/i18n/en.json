@@ -258,7 +258,17 @@
       "watching": "You are not watching any open ticket.",
       "all": "No tickets found.",
       "busca": "No tickets match this search."
-    }
+    },
+    "abrir": "Open ticket #{numero}",
+    "abrirColuna": "Open",
+    "selecionar": "Select ticket #{numero}",
+    "selecionarTodos": "Select all",
+    "selecionados": "Selected: {n}",
+    "novoStatus": "New status",
+    "mudarStatus": "Change status",
+    "limparSelecao": "Clear selection",
+    "alteradosEmMassa": "Tickets changed: {n}",
+    "naoMudaram": "Not changed: {lista}"
   },
   "novoChamado": {
     "titulo": "New ticket",

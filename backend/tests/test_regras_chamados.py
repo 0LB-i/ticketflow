@@ -46,12 +46,12 @@ DONO = {"wait", "close", "cancel"}
 PENDENTE = [
     (membro, DO_GRUPO | {"assign_self", "assign_others", "unassign"}),
     (responsavel, DO_GRUPO | DONO | {"assign_others", "unassign"}),
-    (supervisor, DO_GRUPO | DONO | {"assign_self", "assign_others", "unassign"}),
+    (supervisor, DO_GRUPO | DONO | {"assign_self", "assign_others", "unassign", "bulk"}),
     (registrou, DO_GRUPO | {"assign_self", "assign_others", "unassign", "cancel"}),
     (observador_de_fora, {"comment", "watch_self"}),
     (grupo_anterior, {"watch_self"}),
     (supervisor_de_outro, {"watch_self"}),
-    (admin, DO_GRUPO | DONO | {"assign_others", "unassign"}),
+    (admin, DO_GRUPO | DONO | {"assign_others", "unassign", "bulk"}),
     (auditor, set()),
 ]
 

@@ -1546,6 +1546,46 @@
         }
       }
     },
+    "/api/v1/tickets/bulk/status": {
+      "post": {
+        "tags": ["chamados"],
+        "summary": "Bulk Status",
+        "description": "Muda o status de vários chamados (supervisor do grupo ou admin).",
+        "operationId": "bulk_status_api_v1_tickets_bulk_status_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkStatusIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tickets/next": {
       "post": {
         "tags": ["chamados"],
@@ -2678,6 +2718,64 @@
         "type": "object",
         "required": ["default_locale", "colors", "logo_url"],
         "title": "Branding"
+      },
+      "BulkFailure": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": ["number", "detail"],
+        "title": "BulkFailure"
+      },
+      "BulkResult": {
+        "properties": {
+          "updated": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Updated"
+          },
+          "failed": {
+            "items": {
+              "$ref": "#/components/schemas/BulkFailure"
+            },
+            "type": "array",
+            "title": "Failed",
+            "description": "os que não mudaram, com o motivo"
+          }
+        },
+        "type": "object",
+        "required": ["updated", "failed"],
+        "title": "BulkResult"
+      },
+      "BulkStatusIn": {
+        "properties": {
+          "numbers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Numbers",
+            "description": "números dos chamados"
+          },
+          "status_id": {
+            "type": "integer",
+            "title": "Status Id"
+          }
+        },
+        "type": "object",
+        "required": ["numbers", "status_id"],
+        "title": "BulkStatusIn"
       },
       "CategoryCreate": {
         "properties": {
