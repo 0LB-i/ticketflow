@@ -28,6 +28,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Desempenho: o `deploy/nginx.conf` passa a comprimir (gzip) JavaScript, CSS, JSON e SVG. **Em instalações existentes, copie o bloco `gzip` para o site do nginx e recarregue (`systemctl reload nginx`).** Os arquivos de `/assets` (com hash no nome) vão com cache de um ano (`immutable`), e o `index.html` com `no-cache`, para o navegador pegar a versão nova depois de uma atualização. A autenticação faz uma consulta a menos por requisição.
 - Lista de chamados: coluna "Total de horas" (soma do tempo das tarefas, ao lado da última movimentação; a API traz `time_spent_minutes` em cada item) e um lápis no lugar da setinha para abrir o chamado.
 - "Entregue" ganha comportamento próprio (`delivered`), ao lado de Em aberto, Em espera, Encerrado e Cancelado, e é o padrão dele; o admin pode criar outros status com esse comportamento. Chamados entregues continuam em Meus, Acompanhando e Aguardando. Migração `0021`: novo `kind` e sai `ticket_statuses.is_review` (e o campo `is_review` de `GET /statuses`).
 - "Entregue" passa a ser o status de revisão do supervisor (em espera): "Marcar como entregue" manda o chamado para a revisão, e só o supervisor do grupo ou o admin o leva a "Concluído". A migração `0020` remove o "Entregue" de conclusão (os chamados nele vão para "Concluído") e renomeia "Em espera de revisão" para "Entregue"; onde isso já foi feito pelas Configurações, não muda nada. `GET /statuses` passa a informar `is_review`.

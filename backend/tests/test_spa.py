@@ -22,6 +22,8 @@ def test_spa_e_rotas_do_frontend(settings: Settings, tmp_path: Path) -> None:
         assert c.get("/").text == "<div id=app></div>"
         assert c.get("/chamados/1234").text == "<div id=app></div>"
         assert c.get("/assets/app.js").text == "console.log(1)"
+        assert "immutable" in c.get("/assets/app.js").headers["cache-control"]
+        assert c.get("/chamados").headers["cache-control"] == "no-cache"
         assert c.get("/favicon.svg").text == "<svg/>"
         assert c.get("/../../etc/passwd").text == "<div id=app></div>"
         assert c.get("/api/nao-existe").status_code == 404
