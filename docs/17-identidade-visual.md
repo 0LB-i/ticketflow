@@ -32,7 +32,7 @@ As cores da empresa são **laranja, cinza e branco**. A interface é majoritaria
 | `border` | `#E5E5E5` (neutral-200) | `#262626` (neutral-800) | Divisórias decorativas |
 | `border-input` | `#737373` (neutral-500) | `#737373` (neutral-500) | Borda de campos de formulário |
 
-O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro).
+O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro); o **dourado** (`gold`, só para "Concluir chamado") é `#D4AF37` com texto `#171717` nos dois modos, `#C9A227` no hover.
 
 ### Cores de status
 
@@ -59,6 +59,7 @@ Mínimos: **4,5:1** para texto e **3:1** para bordas de campos e contorno de foc
 | Branco sobre `primary` `#C2410C` | 5,18 | ✅ Botão principal (claro) |
 | `primary` `#C2410C` como texto de link sobre branco | 5,18 | ✅ |
 | Escuro `#0A0A0A` sobre `primary` `#FB923C` | 8,75 | ✅ Botão principal (escuro) |
+| `#171717` sobre `gold` `#D4AF37` / hover `#C9A227` | 8,53 / 7,41 | ✅ Concluir chamado |
 | `text` sobre `surface` | 17,93 / 16,44 | ✅ claro / escuro |
 | `text-muted` sobre `surface` | 7,81 / 7,11 | ✅ claro / escuro |
 | `border-input` sobre `surface` | 4,74 / 3,78 | ✅ claro / escuro |

@@ -25,6 +25,10 @@
   --tf-border-input: #737373;
   --tf-danger: #b91c1c;
   --tf-on-danger: #ffffff;
+  /* Concluir o chamado: dourado com texto escuro (8,5:1), igual nos dois modos */
+  --tf-gold: #d4af37;
+  --tf-gold-hover: #c9a227;
+  --tf-on-gold: #171717;
 
   /* Status e prioridade: texto / fundo (docs/17, tabela de badges) */
   --tf-blue-fg: #1d4ed8;
@@ -88,6 +92,9 @@
   --color-border-input: var(--tf-border-input);
   --color-danger: var(--tf-danger);
   --color-on-danger: var(--tf-on-danger);
+  --color-gold: var(--tf-gold);
+  --color-gold-hover: var(--tf-gold-hover);
+  --color-on-gold: var(--tf-on-gold);
 
   --color-blue-fg: var(--tf-blue-fg);
   --color-blue-bg: var(--tf-blue-bg);

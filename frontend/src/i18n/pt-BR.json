@@ -245,7 +245,7 @@
       }
     },
     "ultimaMovimentacao": "Última movimentação",
-    "novidade": "Comentário novo de outra pessoa",
+    "novidade": "Tarefa nova de outra pessoa",
     "pegarProximo": "Pegar o próximo",
     "pegou": "Você assumiu o chamado #{numero}",
     "resultadosPara": "Resultados da busca por “{q}”",
@@ -314,39 +314,36 @@
     "editado": "editado",
     "solucao": "Solução",
     "editarComentario": "Editar",
-    "novoComentario": "Comentário",
-    "comentarioDica": "Escreva um comentário. Digite arroba e o nome para mencionar um colega.",
+    "novoComentario": "Tarefa",
+    "comentarioDica": "Descreva a tarefa feita. Digite arroba e o nome para mencionar um colega.",
     "tempoGasto": "Tempo gasto",
     "tempoInvalido": "Informe horas e minutos válidos, como 01:30.",
     "semTempo": "Nenhum tempo lançado.",
     "tempoTotal": "Total",
-    "tempoSemTexto": "Escreva no comentário o que foi feito nesse tempo.",
-    "comentar": "Comentar",
-    "comentado": "Comentário enviado",
+    "tempoSemTexto": "Descreva a tarefa feita nesse tempo.",
+    "comentar": "Adicionar tarefa",
+    "comentado": "Tarefa adicionada",
     "codigoResolucao": "Código de resolução",
     "acoes": {
-      "wait": "Comentar e aguardar",
       "resume": "Retomar",
-      "close": "Comentar e concluir",
+      "close": "Concluir chamado",
       "reopen": "Reabrir",
       "cancel": "Cancelar chamado"
     },
     "textoObrigatorio": {
-      "wait": "Escreva no comentário o que se está aguardando.",
-      "close": "Escreva no comentário o que foi feito.",
-      "reopen": "Escreva no comentário o motivo da reabertura.",
-      "cancel": "Escreva no comentário o motivo do cancelamento."
+      "close": "Descreva na tarefa o que foi feito.",
+      "reopen": "Escreva na tarefa o motivo da reabertura.",
+      "cancel": "Escreva na tarefa o motivo do cancelamento."
     },
     "confirmar": {
       "close": "Concluir o chamado",
       "cancel": "Cancelar o chamado?"
     },
     "confirmarTexto": {
-      "close": "O comentário vai como o texto do que foi feito. Escolha o código de resolução.",
-      "cancel": "O comentário vai como o motivo. Um chamado cancelado não volta a ser aberto."
+      "close": "A tarefa vai como o texto do que foi feito. Escolha o código de resolução.",
+      "cancel": "A tarefa vai como o motivo. Um chamado cancelado não volta a ser aberto."
     },
     "feito": {
-      "wait": "Chamado aguardando",
       "resume": "Chamado retomado",
       "close": "Chamado concluído",
       "reopen": "Chamado reaberto",

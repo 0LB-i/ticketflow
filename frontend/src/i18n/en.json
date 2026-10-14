@@ -245,7 +245,7 @@
       }
     },
     "ultimaMovimentacao": "Last activity",
-    "novidade": "New comment from someone else",
+    "novidade": "New task from someone else",
     "pegarProximo": "Take next",
     "pegou": "You took ticket #{numero}",
     "resultadosPara": "Search results for “{q}”",
@@ -314,39 +314,36 @@
     "editado": "edited",
     "solucao": "Solution",
     "editarComentario": "Edit",
-    "novoComentario": "Comment",
-    "comentarioDica": "Write a comment. Type the at sign and a name to mention a colleague.",
+    "novoComentario": "Task",
+    "comentarioDica": "Describe the task done. Type the at sign and a name to mention a colleague.",
     "tempoGasto": "Time spent",
     "tempoInvalido": "Enter valid hours and minutes, such as 01:30.",
     "semTempo": "No time logged.",
     "tempoTotal": "Total",
-    "tempoSemTexto": "Write in the comment what was done in that time.",
-    "comentar": "Comment",
-    "comentado": "Comment sent",
+    "tempoSemTexto": "Describe the task done in that time.",
+    "comentar": "Add task",
+    "comentado": "Task added",
     "codigoResolucao": "Resolution code",
     "acoes": {
-      "wait": "Comment and wait",
       "resume": "Resume",
-      "close": "Comment and close",
+      "close": "Close ticket",
       "reopen": "Reopen",
       "cancel": "Cancel ticket"
     },
     "textoObrigatorio": {
-      "wait": "Write in the comment what you are waiting for.",
-      "close": "Write in the comment what was done.",
-      "reopen": "Write in the comment why it is being reopened.",
-      "cancel": "Write in the comment why it is being canceled."
+      "close": "Describe in the task what was done.",
+      "reopen": "Write in the task why it is being reopened.",
+      "cancel": "Write in the task why it is being canceled."
     },
     "confirmar": {
       "close": "Close the ticket",
       "cancel": "Cancel the ticket?"
     },
     "confirmarTexto": {
-      "close": "The comment is recorded as what was done. Choose the resolution code.",
-      "cancel": "The comment is recorded as the reason. A canceled ticket cannot be reopened."
+      "close": "The task is recorded as what was done. Choose the resolution code.",
+      "cancel": "The task is recorded as the reason. A canceled ticket cannot be reopened."
     },
     "feito": {
-      "wait": "Ticket waiting",
       "resume": "Ticket resumed",
       "close": "Ticket closed",
       "reopen": "Ticket reopened",
