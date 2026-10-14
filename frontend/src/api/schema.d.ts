@@ -177,7 +177,10 @@ export interface paths {
     /** List Users */
     get: operations['list_users_api_v1_users_get']
     put?: never
-    /** Create User */
+    /**
+     * Create User
+     * @description Cria com a senha inicial definida pelo admin; a pessoa troca no primeiro acesso.
+     */
     post: operations['create_user_api_v1_users_post']
     delete?: never
     options?: never
@@ -2005,40 +2008,17 @@ export interface components {
        * @enum {string}
        */
       role: 'agent' | 'admin' | 'auditor'
-    }
-    /** UserCreated */
-    UserCreated: {
       /**
-       * Id
-       * Format: uuid
+       * Password
+       * @description senha inicial, trocada no 1º acesso
        */
-      id: string
-      /** Email */
-      email: string | null
-      /** Username */
-      username: string | null
-      /** Full Name */
-      full_name: string
+      password: string
       /**
-       * Role
-       * @enum {string}
+       * Team Ids
+       * @description grupos em que entra como membro
+       * @default []
        */
-      role: 'agent' | 'admin' | 'auditor'
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: 'ativo' | 'convite_pendente' | 'inativo'
-      /** Teams */
-      teams: components['schemas']['UserTeam'][]
-      /** Last Login At */
-      last_login_at: string | null
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string
-      link: components['schemas']['LinkOut']
+      team_ids: string[]
     }
     /** UserList */
     UserList: {
@@ -2476,7 +2456,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['UserCreated']
+          'application/json': components['schemas']['UserOut']
         }
       }
       /** @description Validation Error */

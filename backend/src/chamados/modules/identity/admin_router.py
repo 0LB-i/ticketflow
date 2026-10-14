@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,9 +16,10 @@ from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, SettingsDep, require
 from chamados.modules.identity.models import User
+from chamados.modules.identity.passwords import MAX_LENGTH, hash_password, password_problem
 from chamados.modules.identity.service import issue_token, link, send_link_email
-from chamados.modules.identity.sessions import revoke_sessions
-from chamados.modules.organization.models import Role, TeamMember
+from chamados.modules.identity.sessions import now, revoke_sessions
+from chamados.modules.organization.models import Role, Team, TeamMember
 from chamados.modules.system.service import user_locale
 
 router = APIRouter(prefix="/users", tags=["usuários"])
@@ -51,6 +53,8 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=200)
     role: RoleCode = "agent"
+    password: str = Field(max_length=MAX_LENGTH, description="senha inicial, trocada no 1º acesso")
+    team_ids: list[uuid.UUID] = Field(default=[], description="grupos em que entra como membro")
 
 
 class UserUpdate(BaseModel):
@@ -66,10 +70,6 @@ class LinkOut(BaseModel):
     purpose: Literal["invite", "password_reset"]
     sent_by_email: bool
     url: str | None = None
-
-
-class UserCreated(UserOut):
-    link: LinkOut
 
 
 def _out(user: User) -> UserOut:
@@ -151,26 +151,29 @@ async def get_user(user_id: uuid.UUID, _: Admin, db: DB) -> UserOut:
     return _out(await _get(db, user_id))
 
 
-@router.post("", response_model=UserCreated, status_code=201)
-async def create_user(
-    data: UserCreate,
-    auth: Admin,
-    request: Request,
-    db: DB,
-    settings: SettingsDep,
-    tasks: BackgroundTasks,
-) -> UserCreated:
+@router.post("", response_model=UserOut, status_code=201)
+async def create_user(data: UserCreate, auth: Admin, request: Request, db: DB) -> UserOut:
+    """Cria com a senha inicial definida pelo admin; a pessoa troca no primeiro acesso."""
     if await db.scalar(select(User.id).where(User.email == data.email)):
         raise HTTPException(409, "Já existe um usuário com este e-mail.")
+    if problem := password_problem(data.password, data.email):
+        raise HTTPException(422, problem)
+    teams = (
+        await db.scalars(select(Team).where(Team.public_id.in_(data.team_ids), Team.is_active))
+    ).all()
+    if len(teams) != len(set(data.team_ids)):
+        raise HTTPException(422, "Grupo não encontrado ou inativo.")
     user = User(
         email=data.email,
         full_name=data.full_name.strip(),
         role=await _role(db, data.role),
-        memberships=[],
+        password_hash=await run_in_threadpool(hash_password, data.password),
+        password_changed_at=now(),
+        must_change_password=True,
+        memberships=[TeamMember(team=t, role="member") for t in teams],
     )
     db.add(user)
     await db.flush()
-    sent = await _send_link(request, db, settings, tasks, user)
     record(
         db,
         "user.created",
@@ -180,17 +183,19 @@ async def create_user(
         target_id=user.public_id,
         after=_snapshot(user),
     )
-    record(
-        db,
-        "user.invite_sent",
-        request=request,
-        actor_user_id=auth.user.id,
-        target_type="user",
-        target_id=user.public_id,
-    )
+    for team in teams:
+        record(
+            db,
+            "team.member_set",
+            request=request,
+            actor_user_id=auth.user.id,
+            target_type="team",
+            target_id=team.public_id,
+            before=None,
+            after={"user": str(user.public_id), "role": "member"},
+        )
     await db.commit()
-    user = await _get(db, user.public_id)
-    return UserCreated(**_out(user).model_dump(), link=sent)
+    return _out(await _get(db, user.public_id))
 
 
 @router.patch("/{user_id}", response_model=UserOut)
