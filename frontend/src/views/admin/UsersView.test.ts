@@ -73,4 +73,32 @@ describe('UsersView', () => {
     })
     expect(criacao.headers.get('X-CSRF-Token')).toBe('token-csrf')
   })
+
+  it('exclui depois de confirmar', async () => {
+    document.cookie = 'tf_csrf=token-csrf'
+    const feitas = simularApi({
+      'GET /api/v1/users': [200, { items: [{ ...USUARIO, status: 'ativo' }] }],
+      'GET /api/v1/teams': [200, { items: [] }],
+      [`DELETE /api/v1/users/${USUARIO.id}`]: [204, undefined],
+    })
+    const w = montar(UsersView)
+    useAuthStore().me = ME_ADMIN
+    await vi.waitFor(() => expect(w.text()).toContain('Bruno Lima'))
+    expect(w.text()).not.toContain('Mostrar inativos')
+
+    await w
+      .findAll('button')
+      .find((b) => b.text() === 'Bruno Lima')!
+      .trigger('click')
+    const botao = (texto: string, onde: ParentNode = document.body) =>
+      [...onde.querySelectorAll('button')].filter((b) => b.textContent?.trim() === texto)
+    await vi.waitFor(() => expect(botao('Excluir usuário')).toHaveLength(1))
+    expect(botao('Desativar')).toHaveLength(0)
+    botao('Excluir usuário')[0]!.click()
+
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Excluir Bruno Lima?'))
+    expect(feitas.some((r) => r.metodo === 'DELETE')).toBe(false)
+    botao('Excluir usuário').at(-1)!.click()
+    await vi.waitFor(() => expect(feitas.some((r) => r.metodo === 'DELETE')).toBe(true))
+  })
 })

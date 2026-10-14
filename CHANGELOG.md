@@ -28,6 +28,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Usuários: "Desativar" vira **Excluir** (com confirmação). A pessoa sai da lista e dos grupos, não entra mais e o e-mail fica livre para outro cadastro; chamados, tarefas, horas e auditoria continuam com o nome dela. Não se exclui o próprio usuário. Quem já estava desativado continua na lista, com "Reativar". Migração `0022`: `users.deleted_at`; na API, `DELETE /users/{id}`.
 - Novo usuário: o admin define a **senha inicial** (mesmas regras de qualquer senha), que a pessoa troca no primeiro acesso, e pode marcar os grupos ativos em que ela já entra como membro. A criação não manda mais convite; "Reenviar convite" e "Enviar link para nova senha" continuam na edição. Na API, `POST /users` passa a exigir `password`, aceita `team_ids` e não devolve mais `link`.
 - Desempenho: o `deploy/nginx.conf` passa a comprimir (gzip) JavaScript, CSS, JSON e SVG. **Em instalações existentes, copie o bloco `gzip` para o site do nginx e recarregue (`systemctl reload nginx`).** Os arquivos de `/assets` (com hash no nome) vão com cache de um ano (`immutable`), e o `index.html` com `no-cache`, para o navegador pegar a versão nova depois de uma atualização. A autenticação faz uma consulta a menos por requisição.
 - Lista de chamados: coluna "Total de horas" (soma do tempo das tarefas, ao lado da última movimentação; a API traz `time_spent_minutes` em cada item) e um lápis no lugar da setinha para abrir o chamado.

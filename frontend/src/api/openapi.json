@@ -448,6 +448,39 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": ["usuários"],
+        "summary": "Delete User",
+        "description": "Tira a pessoa do sistema e libera o e-mail; a linha fica para o histórico dos chamados.",
+        "operationId": "delete_user_api_v1_users__user_id__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/users/{user_id}/link": {

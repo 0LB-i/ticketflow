@@ -235,6 +235,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0019` | `ticket_statuses.is_review` e o status "Em espera de revisão" (`waiting`) |
 | `0020` | "Entregue" passa a ser a revisão: sai o "Entregue" de conclusão (chamados vão para "Concluído") e o de revisão é renomeado |
 | `0021` | Comportamento `delivered` (Entregue), com o status de revisão como padrão dele; sai `is_review` |
+| `0022` | `users.deleted_at` (exclusão de usuário: a linha fica para o histórico, sem e-mail nem login) |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).

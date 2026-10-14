@@ -61,7 +61,7 @@ flowchart LR
 | `/conhecimento` | Base de conhecimento da equipe | Todos | 2 |
 | `/relatorios` | Painéis e relatórios ([14](14-relatorios-e-indicadores.md)) | Todos (cada um vê o seu painel; supervisores, admin e auditor veem os demais) | 2 |
 | `/perfil` | Dados pessoais, senha, sessões ativas, notificações, tema, MFA | Todos | 1 (MFA e notificações: 2) |
-| `/admin/usuarios` | Usuários: criar (senha inicial, grupos como membro), desativar, papel | Admin | 1 |
+| `/admin/usuarios` | Usuários: criar (senha inicial, grupos como membro), excluir, papel | Admin | 1 |
 | `/admin/grupos` | Grupos, membros e supervisores | Admin | 1 |
 | `/admin/setores` | Árvore de setores atendidos | Admin | 1 |
 | `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade | Admin | 1 (aprovação: 2) |

@@ -64,6 +64,7 @@ EN: dict[str, str] = {
     ),
     # Usuários, grupos e setores
     "Usuário não encontrado.": "User not found.",
+    "Você não pode excluir o próprio usuário.": "You cannot delete your own user.",
     "Já existe um usuário com este e-mail.": "A user with this email already exists.",
     "Papel inválido.": "Invalid role.",
     "O sistema precisa de pelo menos um administrador ativo.": (

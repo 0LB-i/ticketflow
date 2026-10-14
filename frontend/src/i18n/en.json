@@ -148,7 +148,10 @@
     "enviarConvite": "Resend invitation",
     "enviarRedefinicao": "Send new password link",
     "linkEnviado": "Link sent by email.",
-    "desativarAviso": "Deactivated users can no longer sign in, and their open sessions end immediately.",
+    "excluir": "Delete user",
+    "excluirTitulo": "Delete {nome}?",
+    "excluirAviso": "The person can no longer sign in, leaves the list and the teams, and the email becomes free for a new user. Tickets and hours keep showing their name. This cannot be undone.",
+    "excluido": "User deleted",
     "gruposAviso": "Each person's teams are set on the Teams screen.",
     "papeis": {
       "agent": "Agent",
