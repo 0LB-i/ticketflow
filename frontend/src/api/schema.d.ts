@@ -1809,6 +1809,11 @@ export interface components {
        * @description comentário de outra pessoa desde a minha última visita
        */
       has_news: boolean
+      /**
+       * Time Spent Minutes
+       * @description soma do tempo gasto nas tarefas
+       */
+      time_spent_minutes: number
     }
     /** TicketOut */
     TicketOut: {

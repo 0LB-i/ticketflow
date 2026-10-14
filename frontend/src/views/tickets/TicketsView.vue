@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRight, MessageCircle } from 'lucide-vue-next'
+import { MessageCircle, Pencil } from 'lucide-vue-next'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -21,7 +21,7 @@ import {
   useStatus,
   useStatusEmMassa,
 } from '@/composables/chamados'
-import { formatarDataHora, formatarHaQuanto } from '@/composables/formato'
+import { formatarDataHora, formatarDuracao, formatarHaQuanto } from '@/composables/formato'
 import { useHead } from '@/composables/useHead'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
@@ -132,7 +132,8 @@ const colunas = computed(() => [
   { key: 'assignee', label: t('chamado.responsavel'), class: 'hidden sm:table-cell' },
   { key: 'team', label: t('chamado.grupo'), class: 'hidden lg:table-cell' },
   { key: 'movimento', label: t('chamados.ultimaMovimentacao'), class: 'hidden md:table-cell' },
-  { key: 'abrir', label: t('chamados.abrirColuna'), class: 'w-px text-right' },
+  { key: 'horas', label: t('chamados.totalHoras'), class: 'hidden md:table-cell text-right' },
+  { key: 'editar', label: t('chamados.editarColuna'), class: 'w-px text-right' },
 ])
 const vazio = computed(() =>
   filtro.value.q ? t('chamados.vazio.busca') : t(`chamados.vazio.${aba.value.fila}`),
@@ -278,16 +279,19 @@ async function pegarProximo() {
                 @update:model-value="(sim) => marcar(row.number, sim)"
               />
             </template>
-            <template #head-abrir>
-              <span class="sr-only">{{ t('chamados.abrirColuna') }}</span>
+            <template #cell-horas="{ row }">
+              {{ row.time_spent_minutes ? formatarDuracao(row.time_spent_minutes) : '—' }}
             </template>
-            <template #cell-abrir="{ row }">
+            <template #head-editar>
+              <span class="sr-only">{{ t('chamados.editarColuna') }}</span>
+            </template>
+            <template #cell-editar="{ row }">
               <RouterLink
                 :to="`/chamados/${row.number}`"
                 class="inline-flex size-8 items-center justify-center rounded-md border border-border-input text-fg hover:bg-surface-raised"
-                :aria-label="t('chamados.abrir', { numero: row.number })"
+                :aria-label="t('chamados.editar', { numero: row.number })"
               >
-                <ChevronRight class="size-4" aria-hidden="true" />
+                <Pencil class="size-4" aria-hidden="true" />
               </RouterLink>
             </template>
             <template #cell-number="{ row }">

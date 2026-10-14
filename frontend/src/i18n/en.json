@@ -247,6 +247,7 @@
       }
     },
     "ultimaMovimentacao": "Last activity",
+    "totalHoras": "Total hours",
     "novidade": "New task from someone else",
     "pegarProximo": "Take next",
     "pegou": "You took ticket #{numero}",
@@ -261,8 +262,8 @@
       "all": "No tickets found.",
       "busca": "No tickets match this search."
     },
-    "abrir": "Open ticket #{numero}",
-    "abrirColuna": "Open",
+    "editar": "Edit ticket #{numero}",
+    "editarColuna": "Edit",
     "selecionar": "Select ticket #{numero}",
     "selecionarTodos": "Select all",
     "selecionados": "Selected: {n}",

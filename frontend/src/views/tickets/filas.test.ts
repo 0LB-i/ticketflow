@@ -35,6 +35,7 @@ const ITEM = {
   created_at: '2026-10-10T12:00:00Z',
   updated_at: '2026-10-10T12:00:00Z',
   has_news: true,
+  time_spent_minutes: 135,
 }
 const CONTAGENS = { unassigned: 7, mine: 1, news: 1, waiting: 0, watching: 2 }
 
@@ -65,14 +66,17 @@ describe('TicketsView', () => {
     expect(w.text()).toContain('Padaria Pão Quente')
   })
 
-  it('cada linha tem o botão de abrir o chamado; quem não supervisiona não seleciona', async () => {
+  it('cada linha tem o total de horas e o lápis que abre o chamado; quem não supervisiona não seleciona', async () => {
     api()
     const router = criarRouter()
     const w = montar(TicketsView, { global: { plugins: [router] } })
     await router.push('/chamados')
     await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
-    const abrir = w.get('a[aria-label="Abrir o chamado #1000"]')
-    expect(abrir.attributes('href')).toBe('/chamados/1000')
+    const editar = w.get('a[aria-label="Editar o chamado #1000"]')
+    expect(editar.attributes('href')).toBe('/chamados/1000')
+    const celulas = w.findAll('tbody tr')[0]!.findAll('td')
+    expect(celulas.at(-2)!.text()).toBe('2h15') // total de horas, ao lado da última movimentação
+    expect(w.findAll('th').map((th) => th.text())).toContain('Total de horas')
     expect(w.findAll('tbody tr')[0]!.findAll('td').at(-1)!.find('a').exists()).toBe(true) // último
     expect(w.find('input[type=checkbox]').exists()).toBe(false)
   })

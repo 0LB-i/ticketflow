@@ -155,6 +155,16 @@ def has_news(user_id: int) -> ColumnElement[bool]:
     )
 
 
+def time_spent() -> Any:
+    """Soma do tempo gasto nas tarefas (não removidas) do chamado, em minutos."""
+    return (
+        select(func.coalesce(func.sum(TicketComment.time_spent_minutes), 0))
+        .where(TicketComment.ticket_id == Ticket.id, TicketComment.deleted_at.is_(None))
+        .correlate(Ticket)
+        .scalar_subquery()
+    )
+
+
 ACTIVE = ("open", "waiting", "delivered")
 # A aba Aguardando também mostra os entregues (à espera da revisão do supervisor).
 WAITING = ("waiting", "delivered")
@@ -228,10 +238,10 @@ async def list_tickets(
     q: str | None,
     limit: int,
     cursor: str | None,
-) -> tuple[list[tuple[Ticket, bool]], str | None]:
-    """Chamados visíveis de uma fila, com o aviso de novidade de cada um."""
+) -> tuple[list[tuple[Ticket, bool, int]], str | None]:
+    """Chamados visíveis de uma fila, com o aviso de novidade e o tempo gasto de cada um."""
     stmt = _ordered(
-        select(Ticket, has_news(auth.user.id).label("has_news"))
+        select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
         # A lista não mostra a descrição, que pode ter até 50 mil caracteres por chamado.
         .options(contains_eager(Ticket.status), defer(Ticket.description))
@@ -267,7 +277,7 @@ async def list_tickets(
                 and_(Ticket.created_at == created_at, Ticket.id > ticket_id),
             )
         )
-    rows = [(t, news) for t, news in (await db.execute(stmt)).all()]
+    rows = [(t, news, minutes) for t, news, minutes in (await db.execute(stmt)).all()]
     next_cursor = _encode_cursor(rows[limit - 1][0]) if len(rows) > limit else None
     return rows[:limit], next_cursor
 

@@ -247,6 +247,7 @@
       }
     },
     "ultimaMovimentacao": "Última movimentação",
+    "totalHoras": "Total de horas",
     "novidade": "Tarefa nova de outra pessoa",
     "pegarProximo": "Pegar o próximo",
     "pegou": "Você assumiu o chamado #{numero}",
@@ -261,8 +262,8 @@
       "all": "Nenhum chamado encontrado.",
       "busca": "Nenhum chamado encontrado para essa busca."
     },
-    "abrir": "Abrir o chamado #{numero}",
-    "abrirColuna": "Abrir",
+    "editar": "Editar o chamado #{numero}",
+    "editarColuna": "Editar",
     "selecionar": "Selecionar o chamado #{numero}",
     "selecionarTodos": "Selecionar todos",
     "selecionados": "Selecionados: {n}",
