@@ -19,6 +19,9 @@ export default defineConfig({
     environment: 'jsdom',
     // Um jsdom por processo, com cada arquivo ainda isolado: os testes levam um terço do tempo.
     pool: 'vmThreads',
+    // afterEach na ordem de registro: o do test/setup.ts (desmonta) antes do de cada arquivo
+    // (limpa o document.body).
+    sequence: { hooks: 'list' },
     include: ['src/**/*.test.ts'],
   },
 })

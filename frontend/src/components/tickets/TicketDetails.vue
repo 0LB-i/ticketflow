@@ -15,6 +15,7 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
 import AttachmentList from './AttachmentList.vue'
+import CloseTicket from './CloseTicket.vue'
 
 /** Dados do chamado e as ações sobre eles, conforme `allowed_actions` (docs/08 §8.5). */
 const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
@@ -107,6 +108,7 @@ const podeRemover = (id: string) =>
     :aria-label="t('chamado.dados')"
   >
     <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
+    <CloseTicket v-if="pode.has('close')" :chamado="chamado" />
 
     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
       <template v-if="chamado.client">

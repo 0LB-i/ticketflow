@@ -5,9 +5,7 @@ import { montar } from '@/test/setup'
 
 import DurationField from './DurationField.vue'
 
-const montados: { unmount: () => void }[] = []
 afterEach(() => {
-  montados.splice(0).forEach((w) => w.unmount())
   document.body.innerHTML = ''
 })
 
@@ -24,7 +22,6 @@ function montarCampo(inicial = '') {
     },
     attachTo: document.body,
   })
-  montados.push(w)
   return { w, valor }
 }
 
