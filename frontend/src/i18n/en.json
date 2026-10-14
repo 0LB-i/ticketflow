@@ -321,6 +321,7 @@
     "semTempo": "No time logged.",
     "tempoTotal": "Total",
     "tempoSemTexto": "Describe the task done in that time.",
+    "oQueFoiFeito": "What was done",
     "comentar": "Add task",
     "comentado": "Task added",
     "codigoResolucao": "Resolution code",
@@ -331,7 +332,6 @@
       "cancel": "Cancel ticket"
     },
     "textoObrigatorio": {
-      "close": "Describe in the task what was done.",
       "reopen": "Write in the task why it is being reopened.",
       "cancel": "Write in the task why it is being canceled."
     },
@@ -340,7 +340,7 @@
       "cancel": "Cancel the ticket?"
     },
     "confirmarTexto": {
-      "close": "The task is recorded as what was done. Choose the resolution code.",
+      "close": "Describe what was done and choose the resolution code. It becomes the ticket's last task.",
       "cancel": "The task is recorded as the reason. A canceled ticket cannot be reopened."
     },
     "feito": {

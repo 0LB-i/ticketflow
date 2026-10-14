@@ -14,7 +14,9 @@ import {
 /**
  * "Anexar" com arrastar e soltar (docs/11 §11.4): cada arquivo vai para a API na hora, e o
  * v-model recebe os ids dos que chegaram, para o formulário mandar em `attachment_ids`.
+ * `simples`: só o botão (e a lista), sem a área pontilhada de soltar.
  */
+const props = defineProps<{ simples?: boolean }>()
 const model = defineModel<string[]>({ default: () => [] })
 const { t } = useI18n()
 const seletor = useTemplateRef('seletor')
@@ -80,10 +82,14 @@ defineExpose({ enviando, limpar })
 
 <template>
   <div
-    :class="[
-      'flex flex-col gap-2 rounded-md border border-dashed p-2',
-      arrastando ? 'border-primary bg-primary-subtle' : 'border-border-input',
-    ]"
+    :class="
+      props.simples
+        ? 'flex flex-col items-end gap-2'
+        : [
+            'flex flex-col gap-2 rounded-md border border-dashed p-2',
+            arrastando ? 'border-primary bg-primary-subtle' : 'border-border-input',
+          ]
+    "
     @dragover.prevent="arrastando = true"
     @dragleave="arrastando = false"
     @drop.prevent="soltar"
@@ -93,7 +99,7 @@ defineExpose({ enviando, limpar })
         <Paperclip class="size-4" aria-hidden="true" />
         {{ t('anexos.anexar') }}
       </Button>
-      <span class="text-muted">{{ t('anexos.arraste') }}</span>
+      <span v-if="!props.simples" class="text-muted">{{ t('anexos.arraste') }}</span>
       <input
         ref="seletor"
         type="file"

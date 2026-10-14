@@ -266,7 +266,7 @@ src/
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
 │   ├── admin/           StatusSettings (status dos chamados, dentro de Configurações)
 │   ├── editor/          RichEditor (Tiptap → Markdown, @menções, imagens coladas), MarkdownView, markdown.ts
-│   └── tickets/         TicketTimeline, CommentBox, TicketDetails, ClientPicker,
+│   └── tickets/         TicketTimeline, CommentBox, TicketDetails, CloseTicket, ClientPicker,
 │                        AttachmentUploader (Anexar, arrastar e soltar), AttachmentList
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
 ├── i18n/                index.ts, pt-BR.json, en.json

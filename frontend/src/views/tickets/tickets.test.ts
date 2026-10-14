@@ -270,24 +270,49 @@ describe('TicketView', () => {
     )
   })
 
-  it('concluir exige a tarefa e fica à direita, em dourado; aguardar não aparece', async () => {
-    simularApi({
+  it('concluir fica na lateral, em dourado, e pede o que foi feito e o código', async () => {
+    const feitas = simularApi({
       'GET /api/v1/tickets/1000': [
         200,
         { ...CHAMADO, allowed_actions: ['comment', 'wait', 'close'] },
       ],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/resolution-codes': [200, { items: [{ id: 1, name: 'Feito', is_active: true }] }],
+      'POST /api/v1/tickets/1000/transitions': [200, CHAMADO],
     })
-    const w = montar(TicketView, { props: { numero: '1000' } })
+    const w = montar(TicketView, { props: { numero: '1000' }, attachTo: document.body })
     await vi.waitFor(() => expect(w.text()).toContain('Concluir chamado'))
-    const botoes = w.findAll('form button').map((b) => b.text())
-    expect(botoes).toContain('Adicionar tarefa')
-    expect(botoes.some((b) => b.includes('aguardar'))).toBe(false)
-    const concluir = w.findAll('button').find((b) => b.text() === 'Concluir chamado')!
-    expect(concluir.classes()).toEqual(expect.arrayContaining(['bg-gold', 'ml-auto']))
+    const tarefa = w.findAll('form button').map((b) => b.text())
+    expect(tarefa).toContain('Adicionar tarefa')
+    expect(tarefa.some((b) => b.includes('aguardar') || b.includes('Concluir'))).toBe(false)
+    const concluir = w
+      .get('aside')
+      .findAll('button')
+      .find((b) => b.text() === 'Concluir chamado')!
+    expect(concluir.classes()).toContain('bg-gold')
+
     await concluir.trigger('click')
-    expect(w.get('[role=alert]').text()).toBe('Descreva na tarefa o que foi feito.')
+    const dialogo = await vi.waitFor(() => document.querySelector('[role=dialog]') as HTMLElement)
+    const confirmar = [...dialogo.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'Concluir chamado',
+    )!
+    expect(confirmar.disabled).toBe(true) // sem o que foi feito e sem o código
+    const texto = dialogo.querySelector('textarea')!
+    texto.value = 'Troquei o toner.'
+    texto.dispatchEvent(new Event('input'))
+    await escolher('Código de resolução', 'Feito')
+    await vi.waitFor(() => expect(confirmar.disabled).toBe(false))
+    confirmar.click()
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.caminho.endsWith('/transitions'))?.corpo).toEqual({
+        action: 'close',
+        comment: 'Troquei o toner.',
+        time_spent_minutes: null,
+        resolution_code_id: 1,
+        attachment_ids: [],
+      }),
+    )
   })
 
   it('mostra o tempo de cada andamento e a soma por pessoa na lateral', async () => {

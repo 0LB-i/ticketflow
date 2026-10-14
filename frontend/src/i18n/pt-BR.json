@@ -321,6 +321,7 @@
     "semTempo": "Nenhum tempo lançado.",
     "tempoTotal": "Total",
     "tempoSemTexto": "Descreva a tarefa feita nesse tempo.",
+    "oQueFoiFeito": "O que foi feito",
     "comentar": "Adicionar tarefa",
     "comentado": "Tarefa adicionada",
     "codigoResolucao": "Código de resolução",
@@ -331,7 +332,6 @@
       "cancel": "Cancelar chamado"
     },
     "textoObrigatorio": {
-      "close": "Descreva na tarefa o que foi feito.",
       "reopen": "Escreva na tarefa o motivo da reabertura.",
       "cancel": "Escreva na tarefa o motivo do cancelamento."
     },
@@ -340,7 +340,7 @@
       "cancel": "Cancelar o chamado?"
     },
     "confirmarTexto": {
-      "close": "A tarefa vai como o texto do que foi feito. Escolha o código de resolução.",
+      "close": "Descreva o que foi feito e escolha o código de resolução. Isso vira a última tarefa do chamado.",
       "cancel": "A tarefa vai como o motivo. Um chamado cancelado não volta a ser aberto."
     },
     "feito": {

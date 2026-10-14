@@ -1,13 +1,23 @@
 import { mount, type ComponentMountingOptions } from '@vue/test-utils'
 import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query'
 import { createPinia, setActivePinia } from 'pinia'
-import { expect, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
 import type { Component } from 'vue'
 
 import { i18n } from '@/i18n'
 
 // O jsdom não tem scrollIntoView, que a lista do Combobox (Reka UI) chama ao abrir.
 Element.prototype.scrollIntoView ??= () => {}
+
+// Ao fim de cada teste, desmonta o que foi montado e descarta as consultas: uma resposta que
+// chegasse depois renderizaria fora do ambiente do arquivo, já desfeito (pool vmThreads).
+const montados: { unmount: () => void; queryClient: QueryClient }[] = []
+afterEach(() => {
+  for (const w of montados.splice(0)) {
+    w.queryClient.clear()
+    w.unmount()
+  }
+})
 
 /**
  * Monta um componente com os mesmos plugins da aplicação (router só se for passado).
@@ -30,7 +40,9 @@ export function montar<C extends Component>(
       stubs: extras.length ? {} : { RouterLink: true },
     },
   } as ComponentMountingOptions<C>)
-  return Object.assign(wrapper, { queryClient })
+  const montado = Object.assign(wrapper, { queryClient })
+  montados.push(montado)
+  return montado
 }
 
 type Resposta = [status: number, corpo?: unknown]

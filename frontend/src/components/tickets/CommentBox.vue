@@ -7,15 +7,8 @@ import RichEditor from '@/components/editor/RichEditor.vue'
 import Button from '@/components/ui/Button.vue'
 import DurationField from '@/components/ui/DurationField.vue'
 import Modal from '@/components/ui/Modal.vue'
-import SelectField from '@/components/ui/SelectField.vue'
 import { anexosNoTexto } from '@/composables/anexos'
-import {
-  type Acao,
-  type Chamado,
-  chamadosApi,
-  useAcaoNoChamado,
-  useCodigosDeResolucao,
-} from '@/composables/chamados'
+import { type Acao, type Chamado, chamadosApi, useAcaoNoChamado } from '@/composables/chamados'
 import { lerDuracao } from '@/composables/formato'
 import { useToast } from '@/composables/useToast'
 
@@ -23,13 +16,12 @@ import AttachmentUploader from './AttachmentUploader.vue'
 
 /**
  * Adicionar uma tarefa (o andamento do chamado, um comentário na API) e, na mesma ação, mudar o
- * status (docs/10 §10.6). Em concluir, reabrir e cancelar o texto é obrigatório (docs/10 §10.5).
- * Cada tarefa pode levar o tempo gasto nela.
+ * status (docs/10 §10.6). Em reabrir e cancelar o texto é obrigatório (docs/10 §10.5). Cada
+ * tarefa pode levar o tempo gasto nela. Concluir fica na lateral (CloseTicket).
  */
 const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
 const { t } = useI18n()
 const toast = useToast()
-const codigos = useCodigosDeResolucao()
 const editor = useTemplateRef<InstanceType<typeof RichEditor>>('editor')
 const anexador = useTemplateRef<InstanceType<typeof AttachmentUploader>>('anexador')
 const anexos = ref<string[]>([])
@@ -43,12 +35,11 @@ const erro = ref<string | null>(null)
 const numero = () => String(props.chamado.number)
 const acoes = computed(() => new Set(props.chamado.allowed_actions))
 
-// Concluir fica por último, à direita. Aguardar não aparece na tela (decisão de 2026-10-14).
-const ACOES: { acao: Acao; exigeTexto: boolean; variante: 'secondary' | 'danger' | 'gold' }[] = [
+// Aguardar não aparece na tela (decisão de 2026-10-14); concluir fica na lateral.
+const ACOES: { acao: Acao; exigeTexto: boolean; variante: 'secondary' | 'danger' }[] = [
   { acao: 'resume', exigeTexto: false, variante: 'secondary' },
   { acao: 'reopen', exigeTexto: true, variante: 'secondary' },
   { acao: 'cancel', exigeTexto: true, variante: 'danger' },
-  { acao: 'close', exigeTexto: true, variante: 'gold' },
 ]
 const disponiveis = computed(() => ACOES.filter((a) => acoes.value.has(a.acao)))
 
@@ -67,7 +58,6 @@ const mudar = useAcaoNoChamado(
     action: Acao
     comment: string
     time_spent_minutes: number | null
-    resolution_code_id?: number
     attachment_ids: string[]
   }) => chamadosApi.mudarStatus(numero(), body),
 )
@@ -107,14 +97,8 @@ function enviarComentario() {
   )
 }
 
-// Concluir e cancelar passam por uma confirmação (concluir pede o código de resolução).
+// Cancelar passa por uma confirmação.
 const confirmando = ref<Acao | null>(null)
-const codigo = ref('')
-const opcoesCodigo = computed(() =>
-  (codigos.data.value ?? [])
-    .filter((c) => c.is_active)
-    .map((c) => ({ value: String(c.id), label: c.name })),
-)
 
 function pedir(acao: Acao, exigeTexto: boolean) {
   erro.value = null
@@ -126,8 +110,7 @@ function pedir(acao: Acao, exigeTexto: boolean) {
     erro.value = t('chamado.tempoSemTexto')
     return
   }
-  if (acao === 'close' || acao === 'cancel') {
-    codigo.value = ''
+  if (acao === 'cancel') {
     confirmando.value = acao
     return
   }
@@ -143,7 +126,6 @@ function mudarStatus(acao: Acao) {
         comment: texto.value,
         time_spent_minutes: minutos.value ?? null,
         attachment_ids: anexosDoEnvio(),
-        ...(acao === 'close' ? { resolution_code_id: Number(codigo.value) } : {}),
       }),
     t(`chamado.feito.${acao}`),
   )
@@ -164,15 +146,15 @@ function mudarStatus(acao: Acao) {
       :pessoas="pessoas"
       anexar
     />
-    <div class="flex flex-wrap items-start gap-3">
+    <div class="flex items-start justify-between gap-3">
       <DurationField
         v-model="tempo"
         class="w-40"
         :label="t('chamado.tempoGasto')"
         :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
       />
-      <!-- mt-7: alinhado ao campo de tempo, abaixo do rótulo -->
-      <AttachmentUploader ref="anexador" v-model="anexos" class="mt-7 min-w-64 flex-1" />
+      <!-- mt-8: na altura do campo de tempo, abaixo do rótulo -->
+      <AttachmentUploader ref="anexador" v-model="anexos" simples class="mt-8 min-w-0" />
     </div>
     <div class="flex flex-wrap gap-2">
       <Button type="submit" :disabled="ocupado || !texto.trim()">{{
@@ -182,7 +164,6 @@ function mudarStatus(acao: Acao) {
         v-for="a in disponiveis"
         :key="a.acao"
         :variant="a.variante"
-        :class="a.acao === 'close' ? 'ml-auto' : undefined"
         :disabled="ocupado"
         @click="pedir(a.acao, a.exigeTexto)"
       >
@@ -196,18 +177,11 @@ function mudarStatus(acao: Acao) {
       :description="confirmando ? t(`chamado.confirmarTexto.${confirmando}`) : ''"
       @update:open="(aberto) => !aberto && (confirmando = null)"
     >
-      <SelectField
-        v-if="confirmando === 'close'"
-        v-model="codigo"
-        :label="t('chamado.codigoResolucao')"
-        :options="opcoesCodigo"
-        required
-      />
       <template #actions>
         <Button variant="secondary" @click="confirmando = null">{{ t('comum.cancelar') }}</Button>
         <Button
-          :variant="confirmando === 'cancel' ? 'danger' : 'gold'"
-          :disabled="ocupado || (confirmando === 'close' && !codigo)"
+          variant="danger"
+          :disabled="ocupado"
           @click="confirmando && mudarStatus(confirmando)"
         >
           {{ confirmando ? t(`chamado.acoes.${confirmando}`) : '' }}
