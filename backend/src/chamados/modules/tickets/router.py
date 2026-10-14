@@ -111,9 +111,9 @@ def _comment_out(c: TicketComment) -> CommentOut:
         body=c.body,
         is_solution=c.is_solution,
         time_spent_minutes=c.time_spent_minutes,
+        done_at=c.done_at,
         created_at=c.created_at,
         edited_at=c.edited_at,
-        editable_until=c.created_at + service.COMMENT_EDIT_WINDOW,
     )
 
 
@@ -243,8 +243,8 @@ async def list_comments(ticket_ref: str, auth: CurrentAuth, db: DB) -> CommentLi
     ticket = await service.load(db, auth, ticket_ref)
     rows = await db.scalars(
         select(TicketComment)
-        .where(TicketComment.ticket_id == ticket.id)
-        .order_by(TicketComment.created_at, TicketComment.id)
+        .where(TicketComment.ticket_id == ticket.id, TicketComment.deleted_at.is_(None))
+        .order_by(TicketComment.done_at, TicketComment.id)
     )
     return CommentList(items=[_comment_out(c) for c in rows])
 
@@ -264,6 +264,12 @@ async def edit_comment(
     ticket = await service.load(db, auth, ticket_ref)
     comment = await service.edit_comment(db, auth, ticket, comment_id, data)
     return _comment_out(comment)
+
+
+@router.delete("/{ticket_ref}/comments/{comment_id}", status_code=204)
+async def delete_comment(ticket_ref: str, comment_id: uuid.UUID, auth: CurrentAuth, db: DB) -> None:
+    ticket = await service.load(db, auth, ticket_ref)
+    await service.delete_comment(db, auth, ticket, comment_id)
 
 
 @router.get("/{ticket_ref}/events", response_model=EventList)

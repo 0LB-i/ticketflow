@@ -635,7 +635,8 @@ export interface paths {
     get?: never
     put?: never
     post?: never
-    delete?: never
+    /** Delete Comment */
+    delete: operations['delete_comment_api_v1_tickets__ticket_ref__comments__comment_id__delete']
     options?: never
     head?: never
     /** Edit Comment */
@@ -1214,6 +1215,11 @@ export interface components {
        */
       time_spent_minutes?: number | null
       /**
+       * Done At
+       * @description quando a tarefa foi feita; sem valor, agora (na edição, mantém)
+       */
+      done_at?: string | null
+      /**
        * Mention Ids
        * @default []
        */
@@ -1245,18 +1251,18 @@ export interface components {
       /** Time Spent Minutes */
       time_spent_minutes: number | null
       /**
+       * Done At
+       * Format: date-time
+       * @description quando a tarefa foi feita (o autor pode mudar)
+       */
+      done_at: string
+      /**
        * Created At
        * Format: date-time
        */
       created_at: string
       /** Edited At */
       edited_at: string | null
-      /**
-       * Editable Until
-       * Format: date-time
-       * @description o autor pode editar até este momento
-       */
-      editable_until: string
     }
     /** DepartmentCreate */
     DepartmentCreate: {
@@ -3581,6 +3587,36 @@ export interface operations {
         content: {
           'application/json': components['schemas']['CommentOut']
         }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  delete_comment_api_v1_tickets__ticket_ref__comments__comment_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+        comment_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description Validation Error */
       422: {

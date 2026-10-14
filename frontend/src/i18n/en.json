@@ -314,6 +314,9 @@
     "editado": "edited",
     "solucao": "Solution",
     "editarComentario": "Edit",
+    "removerTarefa": "Remove",
+    "removerTarefaPergunta": "Remove this task?",
+    "feitaEm": "Task date and time",
     "novoComentario": "Task",
     "comentarioDica": "Describe the task done. Type the at sign and a name to mention a colleague.",
     "tempoGasto": "Time spent",
@@ -359,8 +362,6 @@
     "tirarCliente": "Remove the client",
     "entregue": {
       "marcar": "Mark as delivered",
-      "titulo": "Mark as delivered?",
-      "texto": "The ticket status changes to Delivered.",
       "feito": "Ticket delivered"
     }
   },

@@ -38,7 +38,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0017
+│   ├── migrations/        Alembic: env.py e versions/0001…0018
 │   ├── src/chamados/      código (seção 3)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
@@ -155,6 +155,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Histórico:** fica só no banco e em `GET /tickets/{id}/events`; a linha do tempo da tela mostra só o registro e os comentários (decisão do usuário, 2026-10-13). Cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
 - **Mais de um responsável:** `tickets.assignee_id` é o responsável principal e `ticket_co_assignees` guarda os demais (só no registro, `co_assignee_ids`, membros ativos do grupo; exige o principal). Para regras, visibilidade (regra 3), filas Meus e Com novidades e o filtro por responsável, todos contam igual (`visibility.assigned_to`). Devolver à fila e transferir tiram todos; trocar o principal mantém os demais. A interface envia quem registra como principal, se estiver na lista, senão a primeira pessoa.
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
+- **Tarefas (comentários):** o autor edita (texto, tempo, `done_at`) e remove (`DELETE`, só marca `deleted_at`; evento `comment.deleted` com o texto e o tempo) a qualquer momento. Toda leitura de comentários (lista, tempo gasto, busca, novidades, anexos do detalhe) ignora os removidos; a lista ordena por `done_at`.
 - **Tempo gasto:** cada comentário (andamento) pode ter `time_spent_minutes` (opcional, 1 a 60 000), no comentar, na mudança de status (vai no comentário da transição; sem comentário, 422) e na edição (o valor anterior vai em `before_time_spent_minutes` do `comment.edited`). O detalhe traz `time_spent_minutes` (total) e `time_by_person` (soma por autor, `service.time_by_person`), mostrados na lateral.
 - **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids`: o texto guarda só "@Nome".
 - **Lista:** ordenação padrão (mais antigo primeiro) com paginação por cursor (base64 de data e id). Filtros: `team`, `assignee`, `status` (kinds) e `q`.
@@ -227,6 +228,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0015` | `ticket_co_assignees` (outros responsáveis) e `ticket.assign_others` para o agente |
 | `0016` | Sem prioridade: saem `priority`, `priority_overridden`, `impact`, `urgency` e `ticket.set_priority` |
 | `0017` | `ticket_comments.time_spent_minutes` (tempo gasto em cada andamento) |
+| `0018` | `ticket_comments.done_at` (quando a tarefa foi feita) e `deleted_at` (tarefa removida) |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -389,7 +391,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 1. **Toda leitura de chamados passa por `ticket_visibility_filter`**: nas buscas, nos relatórios, nos anexos, em tudo o que vier.
 2. **Toda ação em chamado passa por `allowed_actions`** (`service.require`). Rota nova de chamado sem essa checagem é defeito.
-3. **Toda alteração de chamado** (campos, status, responsável, grupo, observadores, edição de comentário) **gera um evento** em `ticket_events`, na mesma transação. O histórico nunca é alterado. Os comentários novos já são o próprio registro.
+3. **Toda alteração de chamado** (campos, status, responsável, grupo, observadores, edição e remoção de tarefa) **gera um evento** em `ticket_events`, na mesma transação. O histórico nunca é alterado. Os comentários novos já são o próprio registro.
 4. **Administração e login vão para o `audit_log`** com antes e depois.
 5. **Cadastros não são apagados**, só desativados.
 6. **A interface não decide permissões**; usa `allowed_actions` e `me.permissions` só para mostrar botões.

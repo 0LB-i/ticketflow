@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Clock } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Pessoa } from '@/components/editor/MentionList.vue'
@@ -8,6 +8,7 @@ import MarkdownView from '@/components/editor/MarkdownView.vue'
 import RichEditor from '@/components/editor/RichEditor.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
 import DurationField from '@/components/ui/DurationField.vue'
 import {
   type Chamado,
@@ -22,11 +23,15 @@ import {
   formatarHoraMinuto,
   lerDuracao,
 } from '@/composables/formato'
+import type { Schemas } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
 import AttachmentList from './AttachmentList.vue'
 
-/** Linha do tempo do chamado (docs/10 §10.6): o registro e os comentários (andamentos) em ordem. */
+/**
+ * Linha do tempo do chamado (docs/10 §10.6): o registro e as tarefas, pela data em que foram
+ * feitas. O autor edita (texto, tempo gasto, data e hora) e remove a tarefa a qualquer momento.
+ */
 const props = defineProps<{
   chamado: Chamado
   comentarios: Comentario[]
@@ -41,38 +46,33 @@ function anexosDe(comentario: string | null, texto: string): Anexo[] {
   return props.chamado.attachments.filter((a) => a.comment_id === comentario && !noTexto.has(a.id))
 }
 
+const numero = () => String(props.chamado.number)
 const editando = ref<string | null>(null)
+const removendo = ref<string | null>(null)
 const texto = ref('')
 const tempo = ref('')
 const minutos = computed(() => lerDuracao(tempo.value))
+/** Data e hora da tarefa; `null` (botão Agora) é a hora atual. */
+const feitaEm = ref<string | null>(null)
 const erro = ref<string | null>(null)
 const editor = useTemplateRef('editor')
-const agora = ref(Date.now())
-// O botão "Editar" some quando acaba o prazo de edição, sem precisar recarregar a página.
-const relogio = setInterval(() => (agora.value = Date.now()), 30_000)
-onBeforeUnmount(() => clearInterval(relogio))
 
-function podeEditar(c: Comentario) {
-  return c.author.id === auth.me?.id && new Date(c.editable_until).getTime() > agora.value
-}
+const ehAutor = (c: Comentario) => c.author.id === auth.me?.id
 
 function editar(c: Comentario) {
-  agora.value = Date.now()
   editando.value = c.id
+  removendo.value = null
   texto.value = c.body
   tempo.value = c.time_spent_minutes ? formatarHoraMinuto(c.time_spent_minutes) : ''
+  feitaEm.value = c.done_at
   erro.value = null
 }
 
-const salvar = useAcaoNoChamado(
-  () => String(props.chamado.number),
-  (a: { id: string; body: string; time_spent_minutes: number | null; mention_ids: string[] }) =>
-    chamadosApi.editarComentario(String(props.chamado.number), a.id, {
-      body: a.body,
-      time_spent_minutes: a.time_spent_minutes,
-      mention_ids: a.mention_ids,
-      attachment_ids: anexosNoTexto(a.body),
-    }),
+const salvar = useAcaoNoChamado(numero, (a: { id: string; body: Schemas['CommentIn'] }) =>
+  chamadosApi.editarComentario(numero(), a.id, a.body),
+)
+const remover = useAcaoNoChamado(numero, (id: string) =>
+  chamadosApi.removerComentario(numero(), id),
 )
 
 async function salvarEdicao(id: string) {
@@ -80,11 +80,30 @@ async function salvarEdicao(id: string) {
   try {
     await salvar.mutateAsync({
       id,
-      body: texto.value,
-      time_spent_minutes: minutos.value ?? null,
-      mention_ids: editor.value?.[0]?.mencionados() ?? [],
+      body: {
+        body: texto.value,
+        time_spent_minutes: minutos.value ?? null,
+        done_at: feitaEm.value ?? new Date().toISOString(),
+        mention_ids: editor.value?.[0]?.mencionados() ?? [],
+        attachment_ids: anexosNoTexto(texto.value),
+      },
     })
     editando.value = null
+  } catch (e) {
+    erro.value = (e as Error).message
+  }
+}
+
+function pedirRemocao(id: string) {
+  removendo.value = id
+  erro.value = null
+}
+
+async function confirmarRemocao(id: string) {
+  erro.value = null
+  try {
+    await remover.mutateAsync(id)
+    removendo.value = null
   } catch (e) {
     erro.value = (e as Error).message
   }
@@ -110,7 +129,7 @@ async function salvarEdicao(id: string) {
     <li v-for="c in comentarios" :key="c.id" class="rounded-lg border border-border bg-surface p-4">
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted">
         <span class="font-medium text-fg">{{ c.author.full_name }}</span>
-        <span>· {{ formatarDataHora(c.created_at) }}</span>
+        <span>· {{ formatarDataHora(c.done_at) }}</span>
         <span v-if="c.edited_at">· {{ t('chamado.editado') }}</span>
         <Badge v-if="c.is_solution" color="green">{{ t('chamado.solucao') }}</Badge>
         <Badge v-if="c.time_spent_minutes" color="gray">
@@ -118,16 +137,37 @@ async function salvarEdicao(id: string) {
           <span class="sr-only">{{ t('chamado.tempoGasto') }}:</span>
           <span class="tabular-nums">{{ formatarDuracao(c.time_spent_minutes) }}</span>
         </Badge>
-        <Button
-          v-if="podeEditar(c) && editando !== c.id"
-          variant="ghost"
-          size="sm"
-          class="ml-auto"
-          @click="editar(c)"
+        <div
+          v-if="ehAutor(c) && editando !== c.id"
+          class="ml-auto flex items-center gap-1"
+          :role="removendo === c.id ? 'group' : undefined"
+          :aria-label="removendo === c.id ? t('chamado.removerTarefaPergunta') : undefined"
         >
-          {{ t('chamado.editarComentario') }}
-        </Button>
+          <template v-if="removendo === c.id">
+            <span class="text-fg">{{ t('chamado.removerTarefaPergunta') }}</span>
+            <Button variant="secondary" size="sm" @click="removendo = null">
+              {{ t('comum.cancelar') }}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              :disabled="remover.isPending.value"
+              @click="confirmarRemocao(c.id)"
+            >
+              {{ t('chamado.removerTarefa') }}
+            </Button>
+          </template>
+          <template v-else>
+            <Button variant="ghost" size="sm" @click="editar(c)">
+              {{ t('chamado.editarComentario') }}
+            </Button>
+            <Button variant="ghost" size="sm" @click="pedirRemocao(c.id)">
+              {{ t('chamado.removerTarefa') }}
+            </Button>
+          </template>
+        </div>
       </div>
+      <p v-if="erro && removendo === c.id" class="mt-2 text-danger" role="alert">{{ erro }}</p>
       <div v-if="editando === c.id" class="mt-2 flex flex-col gap-2">
         <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
         <RichEditor
@@ -137,12 +177,15 @@ async function salvarEdicao(id: string) {
           :pessoas="pessoas"
           anexar
         />
-        <DurationField
-          v-model="tempo"
-          class="max-w-40"
-          :label="t('chamado.tempoGasto')"
-          :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
-        />
+        <div class="flex flex-wrap items-start gap-4">
+          <DurationField
+            v-model="tempo"
+            class="w-40"
+            :label="t('chamado.tempoGasto')"
+            :error="minutos === undefined ? t('chamado.tempoInvalido') : undefined"
+          />
+          <DateTimeField v-model="feitaEm" :label="t('chamado.feitaEm')" />
+        </div>
         <div class="flex justify-end gap-2">
           <Button variant="secondary" size="sm" @click="editando = null">
             {{ t('comum.cancelar') }}

@@ -42,7 +42,6 @@ from chamados.modules.tickets.schemas import (
 )
 from chamados.modules.tickets.visibility import assigned_to, ticket_visibility_filter
 
-COMMENT_EDIT_WINDOW = timedelta(minutes=10)
 FORBIDDEN = "Você não tem permissão para esta ação."
 Assignee = Literal["me"] | uuid.UUID | None
 
@@ -151,6 +150,7 @@ def has_news(user_id: int) -> ColumnElement[bool]:
     return exists().where(
         TicketComment.ticket_id == Ticket.id,
         TicketComment.author_id != user_id,
+        TicketComment.deleted_at.is_(None),
         or_(read_at.is_(None), TicketComment.created_at > read_at),
     )
 
@@ -192,7 +192,9 @@ def search_filter(q: str) -> ColumnElement[bool] | None:
     rules: list[ColumnElement[bool]] = [
         Ticket.search_vector.op("@@")(query),
         exists().where(
-            TicketComment.ticket_id == Ticket.id, TicketComment.search_vector.op("@@")(query)
+            TicketComment.ticket_id == Ticket.id,
+            TicketComment.deleted_at.is_(None),
+            TicketComment.search_vector.op("@@")(query),
         ),
         func.unaccent(Ticket.beneficiary_name).ilike(like),
         exists().where(
@@ -427,6 +429,7 @@ async def _comment(
     attachment_ids: list[uuid.UUID] | None = None,
     *,
     time_spent_minutes: int | None = None,
+    done_at: datetime | None = None,
     is_solution: bool = False,
 ) -> TicketComment:
     comment = TicketComment(
@@ -436,6 +439,8 @@ async def _comment(
         time_spent_minutes=time_spent_minutes,
         is_solution=is_solution,
     )
+    if done_at is not None:
+        comment.done_at = _not_future(done_at, "A data da tarefa não pode ficar no futuro.")
     db.add(comment)
     await db.flush()
     await _add_watchers(db, auth, ticket, mention_ids or [], "mentioned")
@@ -450,7 +455,11 @@ async def time_by_person(db: AsyncSession, ticket: Ticket) -> list[tuple[User, i
     rows = await db.execute(
         select(User, total)
         .join(TicketComment, TicketComment.author_id == User.id)
-        .where(TicketComment.ticket_id == ticket.id, TicketComment.time_spent_minutes.is_not(None))
+        .where(
+            TicketComment.ticket_id == ticket.id,
+            TicketComment.time_spent_minutes.is_not(None),
+            TicketComment.deleted_at.is_(None),
+        )
         .group_by(User.id)
         .order_by(total.desc(), User.full_name)
     )
@@ -461,10 +470,14 @@ async def time_by_person(db: AsyncSession, ticket: Ticket) -> list[tuple[User, i
 CLOCK_SKEW = timedelta(minutes=5)
 
 
-def _started_at(value: datetime) -> datetime:
+def _not_future(value: datetime, message: str) -> datetime:
     if value > datetime.now(UTC) + CLOCK_SKEW:
-        raise HTTPException(422, "O início não pode ficar no futuro.")
+        raise HTTPException(422, message)
     return value.astimezone(UTC)
+
+
+def _started_at(value: datetime) -> datetime:
+    return _not_future(value, "O início não pode ficar no futuro.")
 
 
 def _text(value: str | None, message: str) -> str:
@@ -637,8 +650,28 @@ async def add_comment(
         data.mention_ids,
         data.attachment_ids,
         time_spent_minutes=data.time_spent_minutes,
+        done_at=data.done_at,
     )
     await db.commit()
+    return comment
+
+
+async def _own_comment(
+    db: AsyncSession, auth: Auth, ticket: Ticket, comment_id: uuid.UUID
+) -> TicketComment:
+    """Tarefa (não removida) do chamado que o autor pode alterar."""
+    comment = await db.scalar(
+        select(TicketComment).where(
+            TicketComment.public_id == comment_id,
+            TicketComment.ticket_id == ticket.id,
+            TicketComment.deleted_at.is_(None),
+        )
+    )
+    if comment is None:
+        raise HTTPException(404, "Comentário não encontrado.")
+    require(auth, ticket, "comment")
+    if comment.author_id != auth.user.id:
+        raise HTTPException(403, "Só o autor altera a tarefa.")
     return comment
 
 
@@ -649,34 +682,52 @@ async def edit_comment(
     comment_id: uuid.UUID,
     data: CommentIn,
 ) -> TicketComment:
-    """Só o autor, por 10 minutos; a versão anterior fica no histórico (docs/10 §10.6)."""
-    comment = await db.scalar(
-        select(TicketComment).where(
-            TicketComment.public_id == comment_id, TicketComment.ticket_id == ticket.id
-        )
-    )
-    if comment is None:
-        raise HTTPException(404, "Comentário não encontrado.")
-    require(auth, ticket, "comment")
-    if comment.author_id != auth.user.id:
-        raise HTTPException(403, "Só o autor edita o comentário.")
-    if await db.scalar(select(func.now() > comment.created_at + COMMENT_EDIT_WINDOW)):
-        raise HTTPException(409, "O prazo de 10 minutos para editar este comentário acabou.")
+    """Só o autor, a qualquer momento; a versão anterior fica no histórico (docs/10 §10.6)."""
+    comment = await _own_comment(db, auth, ticket, comment_id)
     body = _text(data.body, "Escreva o comentário.")
     minutes = data.time_spent_minutes
-    if body != comment.body or minutes != comment.time_spent_minutes:
+    done_at = (
+        _not_future(data.done_at, "A data da tarefa não pode ficar no futuro.")
+        if data.done_at is not None
+        else comment.done_at
+    )
+    changed_time = minutes != comment.time_spent_minutes
+    changed_date = done_at != comment.done_at
+    if body != comment.body or changed_time or changed_date:
         before: dict[str, Any] = {"before": comment.body}
-        if minutes != comment.time_spent_minutes:
+        if changed_time:
             before["before_time_spent_minutes"] = comment.time_spent_minutes
+        if changed_date:
+            before["before_done_at"] = comment.done_at.isoformat()
         add_event(db, ticket, "comment.edited", auth, comment_id=str(comment.public_id), **before)
         comment.body = body
         comment.time_spent_minutes = minutes
+        comment.done_at = done_at
         comment.edited_at = func.now()
     await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
     await attachments.link(db, auth, ticket, data.attachment_ids, comment)
     await db.commit()
     await db.refresh(comment)
     return comment
+
+
+async def delete_comment(
+    db: AsyncSession, auth: Auth, ticket: Ticket, comment_id: uuid.UUID
+) -> None:
+    """Só o autor. A tarefa sai da tela e do tempo gasto; o texto fica no histórico."""
+    comment = await _own_comment(db, auth, ticket, comment_id)
+    add_event(
+        db,
+        ticket,
+        "comment.deleted",
+        auth,
+        comment_id=str(comment.public_id),
+        body=comment.body,
+        time_spent_minutes=comment.time_spent_minutes,
+    )
+    comment.deleted_at = func.now()
+    ticket.updated_at = func.now()
+    await db.commit()
 
 
 async def assign(db: AsyncSession, auth: Auth, ticket: Ticket, assignee: Assignee) -> None:

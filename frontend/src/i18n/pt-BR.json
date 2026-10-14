@@ -314,6 +314,9 @@
     "editado": "editado",
     "solucao": "Solução",
     "editarComentario": "Editar",
+    "removerTarefa": "Remover",
+    "removerTarefaPergunta": "Remover esta tarefa?",
+    "feitaEm": "Data e hora da tarefa",
     "novoComentario": "Tarefa",
     "comentarioDica": "Descreva a tarefa feita. Digite arroba e o nome para mencionar um colega.",
     "tempoGasto": "Tempo gasto",
@@ -359,8 +362,6 @@
     "tirarCliente": "Tirar o cliente",
     "entregue": {
       "marcar": "Marcar como entregue",
-      "titulo": "Marcar como entregue?",
-      "texto": "O status do chamado muda para Entregue.",
       "feito": "Chamado entregue"
     }
   },

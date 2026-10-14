@@ -58,7 +58,8 @@ async def of_ticket(db: AsyncSession, ticket_id: int) -> list[AttachmentOut]:
     rows = await db.execute(
         select(Attachment, TicketComment.public_id)
         .outerjoin(TicketComment, TicketComment.id == Attachment.comment_id)
-        .where(Attachment.ticket_id == ticket_id)
+        # Os anexos de uma tarefa removida saem junto com ela.
+        .where(Attachment.ticket_id == ticket_id, TicketComment.deleted_at.is_(None))
         .order_by(Attachment.created_at, Attachment.id)
     )
     return [out(a, comment_public_id) for a, comment_public_id in rows]
