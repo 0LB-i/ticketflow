@@ -300,7 +300,7 @@ src/
 |------|------|--------|
 | `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | `views/auth/` | Público |
 | `/trocar-senha` | Troca obrigatória da senha provisória | Logado |
-| `/chamados` | Filas em abas com contadores (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), "Pegar o próximo", botão de abrir no fim de cada linha e, para supervisor e admin, seleção de vários chamados com mudança de status. Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
+| `/chamados` | Filas em abas com contadores (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), "Pegar o próximo", botão de abrir no fim de cada linha e, para supervisor e admin, seleção de vários chamados com mudança de status (janela flutuante no pé da tela). Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
 | `/chamados/novo` | Registro | `ticket.create` |
 | `/chamados/:numero` | Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
 | `/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail) | `client.view` |

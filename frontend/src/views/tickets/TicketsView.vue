@@ -203,7 +203,7 @@ async function pegarProximo() {
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-7xl flex-col gap-4">
+  <div :class="['mx-auto flex max-w-7xl flex-col gap-4', { 'pb-28': selecionados.size }]">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-xl font-semibold">{{ t('chamados.titulo') }}</h1>
       <Button v-if="podePegar" :disabled="pegar.isPending.value" @click="pegarProximo">
@@ -248,29 +248,6 @@ async function pegarProximo() {
           <span>{{ t('chamados.resultadosPara', { q: filtro.q }) }}</span>
           <Button size="sm" variant="ghost" @click="filtrar('q', null)">
             {{ t('chamados.limparBusca') }}
-          </Button>
-        </div>
-
-        <div
-          v-if="selecionados.size"
-          class="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-3"
-          role="region"
-          :aria-label="t('chamados.mudarStatus')"
-        >
-          <span class="self-center font-medium">
-            {{ t('chamados.selecionados', { n: selecionados.size }) }}
-          </span>
-          <SelectField
-            v-model="novoStatus"
-            class="w-56"
-            :label="t('chamados.novoStatus')"
-            :options="opcoesNovoStatus"
-          />
-          <Button :disabled="!novoStatus || emMassa.isPending.value" @click="mudarStatusEmMassa">
-            {{ t('chamados.mudarStatus') }}
-          </Button>
-          <Button variant="ghost" @click="selecionados = new Set()">
-            {{ t('chamados.limparSelecao') }}
           </Button>
         </div>
 
@@ -358,5 +335,36 @@ async function pegarProximo() {
         </template>
       </TabsContent>
     </TabsRoot>
+
+    <!-- Mudar o status dos selecionados: janela flutuante no pé da tela -->
+    <Transition
+      enter-from-class="translate-y-4 opacity-0"
+      leave-to-class="translate-y-4 opacity-0"
+      enter-active-class="motion-safe:transition"
+      leave-active-class="motion-safe:transition"
+    >
+      <div
+        v-if="selecionados.size"
+        class="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-4 shadow-xl"
+        role="region"
+        :aria-label="t('chamados.mudarStatus')"
+      >
+        <span class="self-center font-medium">
+          {{ t('chamados.selecionados', { n: selecionados.size }) }}
+        </span>
+        <SelectField
+          v-model="novoStatus"
+          class="w-56"
+          :label="t('chamados.novoStatus')"
+          :options="opcoesNovoStatus"
+        />
+        <Button :disabled="!novoStatus || emMassa.isPending.value" @click="mudarStatusEmMassa">
+          {{ t('chamados.mudarStatus') }}
+        </Button>
+        <Button variant="ghost" class="ml-auto" @click="selecionados = new Set()">
+          {{ t('chamados.limparSelecao') }}
+        </Button>
+      </div>
+    </Transition>
   </div>
 </template>
