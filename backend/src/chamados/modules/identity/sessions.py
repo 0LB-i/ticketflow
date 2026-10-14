@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from chamados.config import Settings
 from chamados.modules.audit.service import client_ip
@@ -49,7 +50,12 @@ def clear_cookies(response: Response, settings: Settings) -> None:
 
 async def load_session(db: AsyncSession, token: str, settings: Settings) -> UserSession | None:
     """Sessão válida: não revogada, dentro do prazo, ativa nas últimas horas e de usuário ativo."""
-    session = await db.scalar(select(UserSession).where(UserSession.token_hash == sha256(token)))
+    session = await db.scalar(
+        select(UserSession)
+        .where(UserSession.token_hash == sha256(token))
+        # Os grupos já vêm aqui: get_auth monta o Actor com eles.
+        .options(joinedload(UserSession.user).selectinload(User.memberships))
+    )
     t = now()
     if (
         session is None

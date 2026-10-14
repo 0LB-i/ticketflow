@@ -145,13 +145,21 @@ server {
 }
 
 server {
-    listen 443 ssl default_server;
+    # HTTP/2: o Vite manda cada módulo num arquivo separado (centenas por tela); no HTTP/1.1
+    # o navegador baixa só seis por vez.
+    listen 443 ssl http2 default_server;
     server_name _;
     ssl_certificate     $TLS_DIR/ticketflow.crt;
     ssl_certificate_key $TLS_DIR/ticketflow.key;
 
     # Anexos de até 25 MB (docs/11 §11.3), com folga para o envio multipart.
     client_max_body_size 30m;
+
+    # Sem isto o nginx só comprime HTML: o JavaScript do modo dev (~19 MB) ia inteiro.
+    gzip on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_types text/css text/javascript application/javascript application/json image/svg+xml;
 
     proxy_set_header Host \$host;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;

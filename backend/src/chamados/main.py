@@ -7,6 +7,8 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from chamados import __version__
 from chamados.config import Settings, get_settings
@@ -83,6 +85,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
+class _HashedAssets(StaticFiles):
+    """Os arquivos de assets/ têm o hash do conteúdo no nome: o navegador guarda para sempre."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 def _mount_spa(app: FastAPI, settings: Settings) -> None:
     """Serve frontend/dist. Rotas desconhecidas devolvem o index.html (roteamento da SPA)."""
     dist = settings.frontend_dist.resolve()
@@ -90,11 +102,12 @@ def _mount_spa(app: FastAPI, settings: Settings) -> None:
     if not index.is_file():
         return
     if (dist / "assets").is_dir():
-        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+        app.mount("/assets", _HashedAssets(directory=dist / "assets"), name="assets")
 
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str) -> FileResponse:
         file = (dist / path).resolve()
         if path and file.is_file() and file.is_relative_to(dist):
             return FileResponse(file)
-        return FileResponse(index)
+        # Sempre conferido: depois de uma atualização, aponta para os assets novos.
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})

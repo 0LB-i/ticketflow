@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from chamados.config import Settings
 from chamados.core.permissions import Actor, P, can
@@ -45,12 +43,9 @@ async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
         raise HTTPException(401, "Sessão expirada ou inexistente. Entre novamente.")
     if request.method in UNSAFE and not csrf_ok(session, request.headers.get(CSRF_HEADER)):
         raise HTTPException(403, "Token CSRF ausente ou inválido.")
-    # Papel e grupos lidos a cada requisição: mudanças valem na hora (docs/09 §9.7).
-    user = await db.scalar(
-        select(User).where(User.id == session.user_id).options(selectinload(User.memberships))
-    )
-    if user is None:
-        raise HTTPException(401, "Sessão expirada ou inexistente. Entre novamente.")
+    # Papel e grupos lidos a cada requisição, junto com a sessão: mudanças valem na hora
+    # (docs/09 §9.7).
+    user = session.user
     if (
         user.must_change_password
         and (request.method, request.url.path) not in ALLOWED_BEFORE_PASSWORD_CHANGE
