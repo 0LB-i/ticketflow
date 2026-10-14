@@ -1,6 +1,6 @@
 import createClient, { type Middleware } from 'openapi-fetch'
 
-import { idiomaAtual } from '@/i18n'
+import { i18n, idiomaAtual } from '@/i18n'
 
 import type { components, paths } from './schema'
 
@@ -43,8 +43,11 @@ export const api = createClient<paths>({
 })
 api.use(sessao)
 
+/** Mensagem genérica, para quando a API não explica o erro. */
+export const erroInesperado = () => i18n.global.t('comum.erroInesperado')
+
 /** Texto do erro para mostrar ao usuário: o `detail` da API (RFC 9457) ou uma mensagem padrão. */
-export function mensagemDeErro(erro: unknown, padrao: string): string {
+export function mensagemDeErro(erro: unknown, padrao = erroInesperado()): string {
   if (erro && typeof erro === 'object' && 'detail' in erro && typeof erro.detail === 'string') {
     return erro.detail
   }
@@ -52,7 +55,7 @@ export function mensagemDeErro(erro: unknown, padrao: string): string {
 }
 
 /** Lança o erro da API (com a mensagem pronta) ou devolve os dados. */
-export function ou<T>(resultado: { data?: T; error?: unknown }, padrao: string): T {
+export function ou<T>(resultado: { data?: T; error?: unknown }, padrao = erroInesperado()): T {
   if (resultado.error !== undefined || resultado.data === undefined) {
     throw new Error(mensagemDeErro(resultado.error, padrao))
   }

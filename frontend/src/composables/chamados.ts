@@ -1,15 +1,20 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/vue-query'
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
-import { api, mensagemDeErro, ou, type Schemas } from '@/api/client'
+import { api, erroInesperado, mensagemDeErro, ou, type Schemas } from '@/api/client'
 import type { operations } from '@/api/schema'
-import { compararTexto, i18n } from '@/i18n'
+import { compararTexto } from '@/i18n'
 import type { Pessoa } from '@/components/editor/MentionList.vue'
 
 import { useGrupos } from './admin'
 
 export type Chamado = Schemas['TicketOut']
-export type ItemDaLista = Schemas['TicketListItem']
 /** Fila e filtros da lista, como a API recebe (sem o cursor). */
 export type FiltroChamados = Omit<
   NonNullable<operations['list_tickets_api_v1_tickets_get']['parameters']['query']>,
@@ -18,16 +23,14 @@ export type FiltroChamados = Omit<
 export type Fila = NonNullable<FiltroChamados['view']>
 export type Comentario = Schemas['CommentOut']
 export type Acao = Schemas['TransitionIn']['action']
-export type TipoChamado = Schemas['TicketCreate']['type'] & string
 
-const erro = () => i18n.global.t('comum.erroInesperado')
 const caminho = (numero: string | number) => ({ path: { ticket_ref: String(numero) } })
 
 /** Os status na ordem definida em Configurações. */
 export function useStatus() {
   return useQuery({
     queryKey: ['status'],
-    queryFn: async () => ou(await api.GET('/api/v1/statuses'), erro()).items,
+    queryFn: async () => ou(await api.GET('/api/v1/statuses')).items,
     staleTime: Infinity,
   })
 }
@@ -56,9 +59,10 @@ export function useChamados(filtro: MaybeRefOrGetter<FiltroChamados>) {
         await api.GET('/api/v1/tickets', {
           params: { query: { ...toValue(filtro), cursor: pageParam } },
         }),
-        erro(),
       ),
     getNextPageParam: (pagina) => pagina.next_cursor,
+    // Ao trocar de aba ou de filtro, as linhas anteriores ficam até as novas chegarem.
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -66,7 +70,7 @@ export function useChamados(filtro: MaybeRefOrGetter<FiltroChamados>) {
 export function useContagens() {
   return useQuery({
     queryKey: ['chamados', 'contagens'],
-    queryFn: async () => ou(await api.GET('/api/v1/tickets/counts'), erro()),
+    queryFn: async () => ou(await api.GET('/api/v1/tickets/counts')),
   })
 }
 
@@ -79,7 +83,7 @@ export function useChamado(numero: MaybeRefOrGetter<string>) {
         params: caminho(toValue(numero)),
       })
       if (error !== undefined || !data)
-        throw Object.assign(new Error(erro()), { status: response.status })
+        throw Object.assign(new Error(erroInesperado()), { status: response.status })
       return data
     },
     retry: false,
@@ -94,7 +98,6 @@ export function useComentarios(numero: MaybeRefOrGetter<string>) {
         await api.GET('/api/v1/tickets/{ticket_ref}/comments', {
           params: caminho(toValue(numero)),
         }),
-        erro(),
       ).items,
   })
 }
@@ -128,23 +131,19 @@ export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a:
 
 export const chamadosApi = {
   statusEmMassa: async (numbers: number[], status_id: number) =>
-    ou(await api.POST('/api/v1/tickets/bulk/status', { body: { numbers, status_id } }), erro()),
+    ou(await api.POST('/api/v1/tickets/bulk/status', { body: { numbers, status_id } })),
   pegarProximo: async (team_id: string | null) =>
-    ou(await api.POST('/api/v1/tickets/next', { body: { team_id } }), erro()),
+    ou(await api.POST('/api/v1/tickets/next', { body: { team_id } })),
   registrar: async (body: Schemas['TicketCreate']) =>
-    ou(await api.POST('/api/v1/tickets', { body }), erro()),
+    ou(await api.POST('/api/v1/tickets', { body })),
   comentar: async (numero: string, body: Schemas['CommentIn']) =>
-    ou(
-      await api.POST('/api/v1/tickets/{ticket_ref}/comments', { params: caminho(numero), body }),
-      erro(),
-    ),
+    ou(await api.POST('/api/v1/tickets/{ticket_ref}/comments', { params: caminho(numero), body })),
   editarComentario: async (numero: string, id: string, body: Schemas['CommentIn']) =>
     ou(
       await api.PATCH('/api/v1/tickets/{ticket_ref}/comments/{comment_id}', {
         params: { path: { ticket_ref: numero, comment_id: id } },
         body,
       }),
-      erro(),
     ),
   atribuir: async (numero: string, assignee: string | null) =>
     ou(
@@ -152,13 +151,9 @@ export const chamadosApi = {
         params: caminho(numero),
         body: { assignee },
       }),
-      erro(),
     ),
   transferir: async (numero: string, body: Schemas['TransferIn']) =>
-    ou(
-      await api.POST('/api/v1/tickets/{ticket_ref}/transfer', { params: caminho(numero), body }),
-      erro(),
-    ),
+    ou(await api.POST('/api/v1/tickets/{ticket_ref}/transfer', { params: caminho(numero), body })),
   /** Qualquer status, sem as exigências do fluxo (ação set_status). */
   mudarStatusPara: async (numero: string, status_id: number) =>
     ou(
@@ -166,24 +161,22 @@ export const chamadosApi = {
         params: caminho(numero),
         body: { status_id },
       }),
-      erro(),
     ),
   removerComentario: async (numero: string, id: string) => {
     const r = await api.DELETE('/api/v1/tickets/{ticket_ref}/comments/{comment_id}', {
       params: { path: { ticket_ref: numero, comment_id: id } },
     })
-    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error, erro()))
+    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error))
   },
   mudarStatus: async (numero: string, body: Schemas['TransitionIn']) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/transitions', { params: caminho(numero), body }),
-      erro(),
     ),
   observar: async (numero: string, usuario: string, observar: boolean) => {
     const params = { path: { ticket_ref: numero, user_id: usuario } }
     const r = observar
       ? await api.PUT('/api/v1/tickets/{ticket_ref}/watchers/{user_id}', { params })
       : await api.DELETE('/api/v1/tickets/{ticket_ref}/watchers/{user_id}', { params })
-    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error, erro()))
+    if (r.error !== undefined) throw new Error(mensagemDeErro(r.error))
   },
 }

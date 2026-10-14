@@ -43,10 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Idioma da pessoa; nulo volta ao padrão do sistema. */
   async function mudarIdioma(locale: Idioma | null): Promise<void> {
-    me.value = ou(
-      await api.PATCH('/api/v1/me', { body: { locale } }),
-      i18n.global.t('comum.erroInesperado'),
-    )
+    me.value = ou(await api.PATCH('/api/v1/me', { body: { locale } }))
   }
 
   function pode(permissao: string): boolean {

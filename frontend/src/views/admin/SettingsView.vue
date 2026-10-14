@@ -66,7 +66,6 @@ async function salvar() {
       await api.PATCH('/api/v1/admin/settings', {
         body: { default_locale: idioma.value, colors: iguaisAoPadrao() ? null : { ...cores } },
       }),
-      t('comum.erroInesperado'),
     )
     branding.aplicar(resultado)
     toast.show({ title: t('comum.salvo') })
@@ -105,10 +104,7 @@ async function enviarLogo(evento: Event) {
   }
   try {
     const data_url = await lerComoDataUrl(file)
-    const resultado = ou(
-      await api.PUT('/api/v1/admin/settings/logo', { body: { data_url } }),
-      t('comum.erroInesperado'),
-    )
+    const resultado = ou(await api.PUT('/api/v1/admin/settings/logo', { body: { data_url } }))
     branding.aplicar(resultado)
     toast.show({ title: t('configuracoes.logotipoSalvo') })
   } catch (e) {

@@ -80,7 +80,7 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
 
 
 async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
-    paths = await service.category_paths(db)
+    paths = await service.category_paths(db, [t])
     times = [
         PersonTime(id=u.public_id, full_name=u.full_name, minutes=m)
         for u, m in await service.time_by_person(db, t)
@@ -106,6 +106,11 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
         time_by_person=times,
         allowed_actions=sorted(service.actions(auth, t)),
     )
+
+
+async def _reloaded(db: AsyncSession, auth: Auth, ticket_ref: str) -> TicketOut:
+    """O detalhe depois de uma alteração, relido do banco."""
+    return await _detail(db, auth, await service.load(db, auth, ticket_ref))
 
 
 def _comment_out(c: TicketComment) -> CommentOut:
@@ -147,7 +152,7 @@ async def list_tickets(
         limit=limit,
         cursor=cursor,
     )
-    paths = await service.category_paths(db)
+    paths = await service.category_paths(db, [t for t, _, _ in rows])
     return TicketPage(
         items=[
             TicketListItem(**dict(_summary(t, paths)), has_news=news, time_spent_minutes=minutes)
@@ -178,7 +183,7 @@ async def bulk_status(
 @router.post("/next", response_model=TicketOut)
 async def take_next(data: NextIn, auth: CurrentAuth, db: DB) -> TicketOut:
     ticket = await service.take_next(db, auth, data.team_id)
-    return await _detail(db, auth, await service.load(db, auth, str(ticket.public_id)))
+    return await _reloaded(db, auth, str(ticket.public_id))
 
 
 @router.post("", response_model=TicketOut, status_code=201)
@@ -187,7 +192,7 @@ async def create_ticket(
 ) -> TicketOut:
     ticket = await service.create(db, auth, data)
     response.headers["Location"] = f"/api/v1/tickets/{ticket.public_id}"
-    return await _detail(db, auth, await service.load(db, auth, str(ticket.public_id)))
+    return await _reloaded(db, auth, str(ticket.public_id))
 
 
 @router.get("/{ticket_ref}", response_model=TicketOut)
@@ -218,13 +223,13 @@ async def update_ticket(
     ticket_ref: str, data: TicketUpdate, auth: CurrentAuth, db: DB
 ) -> TicketOut:
     await service.update(db, auth, await service.load(db, auth, ticket_ref), data)
-    return await _detail(db, auth, await service.load(db, auth, ticket_ref))
+    return await _reloaded(db, auth, ticket_ref)
 
 
 @router.post("/{ticket_ref}/assign", response_model=TicketOut)
 async def assign_ticket(ticket_ref: str, data: AssignIn, auth: CurrentAuth, db: DB) -> TicketOut:
     await service.assign(db, auth, await service.load(db, auth, ticket_ref), data.assignee)
-    return await _detail(db, auth, await service.load(db, auth, ticket_ref))
+    return await _reloaded(db, auth, ticket_ref)
 
 
 @router.post("/{ticket_ref}/transfer", response_model=TicketOut)
@@ -234,7 +239,7 @@ async def transfer_ticket(
     ticket = await service.load(db, auth, ticket_ref)
     await service.transfer(db, auth, ticket, data.team_id, data.reason)
     # Quem transferiu pode ter perdido o acesso de alteração, mas continua vendo (regra 2).
-    return await _detail(db, auth, await service.load(db, auth, ticket_ref))
+    return await _reloaded(db, auth, ticket_ref)
 
 
 @router.post("/{ticket_ref}/transitions", response_model=TicketOut)
@@ -242,7 +247,7 @@ async def transition_ticket(
     ticket_ref: str, data: TransitionIn, auth: CurrentAuth, db: DB
 ) -> TicketOut:
     await service.transition(db, auth, await service.load(db, auth, ticket_ref), data)
-    return await _detail(db, auth, await service.load(db, auth, ticket_ref))
+    return await _reloaded(db, auth, ticket_ref)
 
 
 # 204: quem se retira de um chamado de outro grupo deixa de vê-lo.

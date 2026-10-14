@@ -64,6 +64,7 @@ chamados/
 │   ├── errors.py        respostas de erro RFC 9457, traduzidas pelo idioma da requisição
 │   ├── i18n.py          idiomas (pt-BR, en), Accept-Language e catálogo de mensagens
 │   ├── permissions.py   catálogo de permissões, papéis, Actor e can()
+│   ├── text.py          texto dos formulários: optional_text() e required_text()
 │   ├── logging.py       structlog em stdout (journald); json em produção
 │   └── health.py        GET /api/health (aplicação + banco)
 ├── db/

@@ -14,9 +14,10 @@ from fastapi import HTTPException
 from sqlalchemy import ColumnElement, and_, exists, func, literal_column, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import contains_eager, defer, selectinload
+from sqlalchemy.orm import contains_eager, defaultload, defer, raiseload, selectinload
 
 from chamados.core.permissions import P, can
+from chamados.core.text import optional_text, required_text
 from chamados.modules.attachments import service as attachments
 from chamados.modules.catalog.models import Category, ResolutionCode, TicketStatus
 from chamados.modules.clients.models import Client
@@ -117,8 +118,10 @@ def require(auth: Auth, ticket: Ticket, action: str) -> None:
         raise HTTPException(403, FORBIDDEN)
 
 
-async def category_paths(db: AsyncSession) -> dict[int, str]:
-    """Caminho de cada categoria na árvore (são poucas: carrega todas)."""
+async def category_paths(db: AsyncSession, tickets: Sequence[Ticket]) -> dict[int, str]:
+    """Caminho de cada categoria na árvore (são poucas: carrega todas, se algum chamado tiver)."""
+    if not any(t.category_id for t in tickets):
+        return {}
     rows = {c.id: c for c in (await db.scalars(select(Category))).all()}
 
     def path(c: Category) -> str:
@@ -140,6 +143,9 @@ def _decode_cursor(cursor: str) -> tuple[datetime, int]:
         raise HTTPException(422, "Cursor inválido.") from None
 
 
+NEVER: ColumnElement[Any] = literal_column("'-infinity'::timestamptz")
+
+
 def has_news(user_id: int) -> ColumnElement[bool]:
     """Comentário de outra pessoa depois da última visita (ou nunca aberto) (docs/13 §13.5)."""
     read_at = (
@@ -151,7 +157,7 @@ def has_news(user_id: int) -> ColumnElement[bool]:
         TicketComment.ticket_id == Ticket.id,
         TicketComment.author_id != user_id,
         TicketComment.deleted_at.is_(None),
-        or_(read_at.is_(None), TicketComment.created_at > read_at),
+        TicketComment.created_at > func.coalesce(read_at, NEVER),
     )
 
 
@@ -243,8 +249,16 @@ async def list_tickets(
     stmt = _ordered(
         select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
-        # A lista não mostra a descrição, que pode ter até 50 mil caracteres por chamado.
-        .options(contains_eager(Ticket.status), defer(Ticket.description))
+        # A lista não mostra a descrição (até 50 mil caracteres por chamado), quem registrou nem
+        # o código de resolução: sem eles, menos colunas e menos joins.
+        .options(
+            contains_eager(Ticket.status),
+            defer(Ticket.description),
+            raiseload(Ticket.created_by),
+            raiseload(Ticket.resolution_code),
+            defaultload(Ticket.category).raiseload(Category.default_team),
+            defaultload(Ticket.assignee).raiseload(User.role),
+        )
         .where(ticket_visibility_filter(auth.actor), view_filter(auth, view))
         .limit(limit + 1)
     )
@@ -341,51 +355,26 @@ def _apply_status(ticket: Ticket, before: TicketStatus | None, status: TicketSta
             ticket.reopened_count += 1
 
 
-async def _active_category(db: AsyncSession, public_id: uuid.UUID) -> Category:
-    category = await db.scalar(
-        select(Category).where(Category.public_id == public_id, Category.is_active)
-    )
-    if category is None:
-        raise HTTPException(422, "Categoria não encontrada ou inativa.")
-    return category
+INACTIVE = {
+    Category: "Categoria não encontrada ou inativa.",
+    Team: "Grupo não encontrado ou inativo.",
+    Department: "Setor não encontrado ou inativo.",
+    Client: "Cliente não encontrado ou inativo.",
+}
 
 
-async def _active_team(db: AsyncSession, public_id: uuid.UUID) -> Team:
-    team = await db.scalar(select(Team).where(Team.public_id == public_id, Team.is_active))
-    if team is None:
-        raise HTTPException(422, "Grupo não encontrado ou inativo.")
-    return team
-
-
-async def _active_department(db: AsyncSession, public_id: uuid.UUID | None) -> Department | None:
-    if public_id is None:
-        return None
-    dept = await db.scalar(
-        select(Department).where(Department.public_id == public_id, Department.is_active)
-    )
-    if dept is None:
-        raise HTTPException(422, "Setor não encontrado ou inativo.")
-    return dept
-
-
-async def _active_client(db: AsyncSession, public_id: uuid.UUID | None) -> Client | None:
-    if public_id is None:
-        return None
-    client = await db.scalar(select(Client).where(Client.public_id == public_id, Client.is_active))
-    if client is None:
-        raise HTTPException(422, "Cliente não encontrado ou inativo.")
-    return client
+async def _active[M: (Category, Team, Department, Client)](
+    db: AsyncSession, model: type[M], public_id: uuid.UUID
+) -> M:
+    """Cadastro ativo pelo id público; 422 se não existe ou foi inativado."""
+    found = await db.scalar(select(model).where(model.public_id == public_id, model.is_active))
+    if found is None:
+        raise HTTPException(422, INACTIVE[model])
+    return found
 
 
 async def _team_member(db: AsyncSession, public_id: uuid.UUID, team_id: int) -> User:
-    user = await db.scalar(
-        select(User)
-        .join(TeamMember, TeamMember.user_id == User.id)
-        .where(User.public_id == public_id, User.is_active, TeamMember.team_id == team_id)
-    )
-    if user is None:
-        raise HTTPException(422, "O responsável precisa ser um membro ativo do grupo.")
-    return user
+    return (await _team_members(db, {public_id}, team_id))[0]
 
 
 async def _team_members(db: AsyncSession, public_ids: set[uuid.UUID], team_id: int) -> list[User]:
@@ -452,7 +441,7 @@ async def _comment(
         is_solution=is_solution,
     )
     if done_at is not None:
-        comment.done_at = _not_future(done_at, "A data da tarefa não pode ficar no futuro.")
+        comment.done_at = _done_at(done_at)
     db.add(comment)
     await db.flush()
     await _add_watchers(db, auth, ticket, mention_ids or [], "mentioned")
@@ -492,11 +481,8 @@ def _started_at(value: datetime) -> datetime:
     return _not_future(value, "O início não pode ficar no futuro.")
 
 
-def _text(value: str | None, message: str) -> str:
-    text = (value or "").strip()
-    if not text:
-        raise HTTPException(422, message)
-    return text
+def _done_at(value: datetime) -> datetime:
+    return _not_future(value, "A data da tarefa não pode ficar no futuro.")
 
 
 # --- registro ---------------------------------------------------------------------------------
@@ -506,9 +492,9 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     """Registro (docs/10 §10.4). O grupo vem da categoria quando não é informado (roteamento)."""
     if not can(auth.actor, P.TICKET_CREATE):
         raise HTTPException(403, FORBIDDEN)
-    category = await _active_category(db, data.category_id) if data.category_id else None
+    category = await _active(db, Category, data.category_id) if data.category_id else None
     if data.team_id is not None:
-        team = await _active_team(db, data.team_id)
+        team = await _active(db, Team, data.team_id)
     elif category and category.default_team is not None and category.default_team.is_active:
         team = category.default_team
     elif category:
@@ -517,8 +503,8 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         raise HTTPException(422, "Escolha o grupo do chamado.")
     if team.id not in auth.actor.teams:
         raise HTTPException(403, "Você só registra chamados nos grupos de que é membro.")
-    department = await _active_department(db, data.department_id)
-    client = await _active_client(db, data.client_id)
+    department = await _active(db, Department, data.department_id) if data.department_id else None
+    client = await _active(db, Client, data.client_id) if data.client_id else None
     if data.watcher_ids and not can(auth.actor, P.TICKET_WATCH):
         raise HTTPException(403, FORBIDDEN)
     if data.status_id is not None and not can(auth.actor, P.TICKET_TRANSITION):
@@ -551,7 +537,7 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         created_by_id=auth.user.id,
         department_id=department.id if department else None,
         client_id=client.id if client else None,
-        beneficiary_name=(data.beneficiary_name or "").strip() or None,
+        beneficiary_name=optional_text(data.beneficiary_name),
         team_id=team.id,
         assignee_id=assignee.id if assignee else None,
         category_id=category.id if category else None,
@@ -654,16 +640,18 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
         put("type", changes["type"])
     if "category_id" in changes:
         new_id = changes["category_id"]
-        category = await _active_category(db, new_id) if new_id else None
+        category = await _active(db, Category, new_id) if new_id else None
         put("category_id", category.id if category else None, ref(ticket.category), ref(category))
     if "department_id" in changes:
-        dept = await _active_department(db, changes["department_id"])
+        new_id = changes["department_id"]
+        dept = await _active(db, Department, new_id) if new_id else None
         put("department_id", dept.id if dept else None, ref(ticket.department), ref(dept))
     if "client_id" in changes:
-        client = await _active_client(db, changes["client_id"])
+        new_id = changes["client_id"]
+        client = await _active(db, Client, new_id) if new_id else None
         put("client_id", client.id if client else None, ref(ticket.client), ref(client))
     if "beneficiary_name" in changes:
-        put("beneficiary_name", (changes["beneficiary_name"] or "").strip() or None)
+        put("beneficiary_name", optional_text(changes["beneficiary_name"]))
     if changes.get("started_at") is not None:
         new = _started_at(changes["started_at"])
         put("started_at", new, ticket.started_at.isoformat(), new.isoformat())
@@ -681,7 +669,7 @@ async def add_comment(
         db,
         auth,
         ticket,
-        _text(data.body, "Escreva o comentário."),
+        required_text(data.body, "Escreva o comentário."),
         data.mention_ids,
         data.attachment_ids,
         time_spent_minutes=data.time_spent_minutes,
@@ -719,13 +707,9 @@ async def edit_comment(
 ) -> TicketComment:
     """Só o autor, a qualquer momento; a versão anterior fica no histórico (docs/10 §10.6)."""
     comment = await _own_comment(db, auth, ticket, comment_id)
-    body = _text(data.body, "Escreva o comentário.")
+    body = required_text(data.body, "Escreva o comentário.")
     minutes = data.time_spent_minutes
-    done_at = (
-        _not_future(data.done_at, "A data da tarefa não pode ficar no futuro.")
-        if data.done_at is not None
-        else comment.done_at
-    )
+    done_at = _done_at(data.done_at) if data.done_at is not None else comment.done_at
     changed_time = minutes != comment.time_spent_minutes
     changed_date = done_at != comment.done_at
     if body != comment.body or changed_time or changed_date:
@@ -821,10 +805,12 @@ async def transfer(
 ) -> None:
     """Vai para a fila do outro grupo, sem responsável; o anterior continua vendo (docs/10)."""
     require(auth, ticket, "transfer")
-    team = await _active_team(db, team_id)
+    team = await _active(db, Team, team_id)
     if team.id == ticket.team_id:
         raise HTTPException(422, "O chamado já está neste grupo.")
-    comment = await _comment(db, auth, ticket, _text(reason, "Informe o motivo da transferência."))
+    comment = await _comment(
+        db, auth, ticket, required_text(reason, "Informe o motivo da transferência.")
+    )
     payload: dict[str, Any] = {
         "from": ref(ticket.team),
         "to": ref(team),
