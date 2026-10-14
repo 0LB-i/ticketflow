@@ -54,6 +54,8 @@ export const usuariosApi = {
       await api.POST('/api/v1/users/{user_id}/link', { params: { path: { user_id: id } } }),
       erro(),
     ),
+  excluir: async (id: string) =>
+    ou(await api.DELETE('/api/v1/users/{user_id}', { params: { path: { user_id: id } } }), erro()),
 }
 
 export const gruposApi = {

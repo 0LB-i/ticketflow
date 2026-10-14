@@ -110,10 +110,24 @@ _LOAD = selectinload(User.memberships).selectinload(TeamMember.team)
 
 
 async def _get(db: AsyncSession, user_id: uuid.UUID) -> User:
-    user = await db.scalar(select(User).where(User.public_id == user_id).options(_LOAD))
+    user = await db.scalar(
+        select(User).where(User.public_id == user_id, User.deleted_at.is_(None)).options(_LOAD)
+    )
     if user is None:
         raise HTTPException(404, "Usuário não encontrado.")
     return user
+
+
+async def _keep_one_admin(db: AsyncSession) -> None:
+    """Chamada antes de tirar um admin ativo (troca de papel ou desativação)."""
+    admins = await db.scalar(
+        select(func.count())
+        .select_from(User)
+        .join(Role)
+        .where(Role.code == "admin", User.is_active)
+    )
+    if (admins or 0) <= 1:
+        raise HTTPException(409, "O sistema precisa de pelo menos um administrador ativo.")
 
 
 async def _role(db: AsyncSession, code: str) -> Role:
@@ -142,7 +156,11 @@ async def _send_link(
 
 @router.get("", response_model=UserList)
 async def list_users(_: Admin, db: DB) -> UserList:
-    users = (await db.scalars(select(User).options(_LOAD).order_by(User.full_name))).all()
+    users = (
+        await db.scalars(
+            select(User).where(User.deleted_at.is_(None)).options(_LOAD).order_by(User.full_name)
+        )
+    ).all()
     return UserList(items=[_out(u) for u in users])
 
 
@@ -208,14 +226,7 @@ async def update_user(
         (data.role is not None and data.role != "admin") or data.is_active is False
     )
     if losing_admin:
-        admins = await db.scalar(
-            select(func.count())
-            .select_from(User)
-            .join(Role)
-            .where(Role.code == "admin", User.is_active)
-        )
-        if (admins or 0) <= 1:
-            raise HTTPException(409, "O sistema precisa de pelo menos um administrador ativo.")
+        await _keep_one_admin(db)
     if data.full_name is not None:
         user.full_name = data.full_name.strip()
     if data.email is not None and data.email != user.email:
@@ -243,6 +254,33 @@ async def update_user(
         )
     await db.commit()
     return _out(await _get(db, user_id))
+
+
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(user_id: uuid.UUID, auth: Admin, request: Request, db: DB) -> None:
+    """Tira a pessoa do sistema e libera o e-mail; a linha fica para o histórico dos chamados."""
+    user = await _get(db, user_id)
+    if user.id == auth.user.id:
+        raise HTTPException(409, "Você não pode excluir o próprio usuário.")
+    before = {**_snapshot(user), "teams": [m.team.name for m in user.memberships]}
+    user.deleted_at = now()
+    user.is_active = False
+    user.email = None
+    user.username = None
+    user.password_hash = None
+    user.must_change_password = False
+    user.memberships.clear()
+    await revoke_sessions(db, user.id)
+    record(
+        db,
+        "user.deleted",
+        request=request,
+        actor_user_id=auth.user.id,
+        target_type="user",
+        target_id=user.public_id,
+        before=before,
+    )
+    await db.commit()
 
 
 @router.post("/{user_id}/link", response_model=LinkOut)

@@ -148,7 +148,10 @@
     "enviarConvite": "Reenviar convite",
     "enviarRedefinicao": "Enviar link para nova senha",
     "linkEnviado": "Link enviado por e-mail.",
-    "desativarAviso": "Quem é desativado não consegue mais entrar, e as sessões abertas são encerradas na hora.",
+    "excluir": "Excluir usuário",
+    "excluirTitulo": "Excluir {nome}?",
+    "excluirAviso": "A pessoa não consegue mais entrar, sai da lista e dos grupos, e o e-mail fica livre para outro cadastro. Nos chamados e nas horas o nome dela continua aparecendo. Não dá para desfazer.",
+    "excluido": "Usuário excluído",
     "gruposAviso": "Os grupos de cada pessoa são definidos na tela de Grupos.",
     "papeis": {
       "agent": "Agente",

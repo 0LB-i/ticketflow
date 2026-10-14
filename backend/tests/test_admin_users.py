@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.identity.models import User
-from tests.conftest import criar_usuario, entrar, grupo
+from tests.conftest import SENHA, criar_usuario, entrar, grupo
 
 NOVO = {
     "email": "bruno@exemplo.com",
@@ -105,6 +105,37 @@ def test_nao_remove_o_ultimo_admin(client: TestClient, db: Session) -> None:
     assert r.status_code == 409
     r = client.patch(f"/api/v1/users/{admin_id}", json={"is_active": False})
     assert r.status_code == 409
+
+
+def test_excluir_tira_do_sistema_e_libera_o_email(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    ana = criar_usuario(db, grupos={"TI": "supervisor"})
+    with TestClient(client.app) as sessao_ana:
+        entrar(sessao_ana)
+        assert client.delete(f"/api/v1/users/{ana.public_id}").status_code == 204
+        assert sessao_ana.get("/api/v1/me").status_code == 401
+    r = client.post("/api/v1/auth/login", json={"login": "ana@exemplo.com", "password": SENHA})
+    assert r.status_code == 401
+    assert client.get(f"/api/v1/users/{ana.public_id}").status_code == 404
+    assert client.delete(f"/api/v1/users/{ana.public_id}").status_code == 404
+    emails = [u["email"] for u in client.get("/api/v1/users").json()["items"]]
+    assert emails == ["admin@exemplo.com"]
+    ti = client.get("/api/v1/teams").json()["items"][0]
+    assert ti["members"] == []
+    db.expire_all()
+    excluida = db.get(User, ana.id)
+    assert excluida is not None and excluida.full_name == "Ana Souza"  # fica para o histórico
+    antes = db.scalar(select(AuditLog.before).where(AuditLog.action == "user.deleted"))
+    assert antes is not None and antes["email"] == "ana@exemplo.com"
+    assert antes["teams"] == ["TI"]
+    r = client.post("/api/v1/users", json={**NOVO, "email": "ana@exemplo.com"})
+    assert r.status_code == 201
+
+
+def test_nao_exclui_o_proprio_usuario(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    admin_id = client.get("/api/v1/me").json()["id"]
+    assert client.delete(f"/api/v1/users/{admin_id}").status_code == 409
 
 
 def test_link_de_acesso_reenvia_convite_ou_redefinicao(client: TestClient, db: Session) -> None:

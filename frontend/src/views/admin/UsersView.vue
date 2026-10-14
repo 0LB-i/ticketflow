@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import LinkDialog from '@/components/ui/LinkDialog.vue'
+import Modal from '@/components/ui/Modal.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import SidePanel from '@/components/ui/SidePanel.vue'
 import TextField from '@/components/ui/TextField.vue'
@@ -32,14 +33,11 @@ const grupos = useGrupos()
 const gruposAtivos = computed(() => (grupos.data.value ?? []).filter((g) => g.is_active))
 
 const busca = ref('')
-const mostrarInativos = ref(false)
 const lista = computed(() =>
-  (usuarios.data.value ?? []).filter(
-    (u) =>
-      (mostrarInativos.value || u.status !== 'inativo') &&
-      `${u.full_name} ${u.email ?? ''} ${u.username ?? ''}`
-        .toLowerCase()
-        .includes(busca.value.trim().toLowerCase()),
+  (usuarios.data.value ?? []).filter((u) =>
+    `${u.full_name} ${u.email ?? ''} ${u.username ?? ''}`
+      .toLowerCase()
+      .includes(busca.value.trim().toLowerCase()),
   ),
 )
 
@@ -99,6 +97,7 @@ function mostrarLink(nome: string, email: string, dados: LinkDeAcesso) {
 const criar = useAlteracao(usuariosApi.criar, ['usuarios', 'grupos'])
 const editar = useAlteracao(usuariosApi.editar, ['usuarios', 'grupos'])
 const enviarLink = useAlteracao(usuariosApi.enviarLink, ['usuarios'])
+const excluir = useAlteracao(usuariosApi.excluir, ['usuarios', 'grupos'])
 
 async function salvar() {
   erro.value = null
@@ -122,12 +121,27 @@ async function salvar() {
   }
 }
 
-async function alternarAtivo() {
+// Quem foi desativado antes de existir a exclusão ainda pode ser reativado.
+async function reativar() {
   if (!editando.value) return
   erro.value = null
   try {
-    const ativo = editando.value.status === 'inativo'
-    editando.value = await editar.mutateAsync({ id: editando.value.id, is_active: ativo })
+    editando.value = await editar.mutateAsync({ id: editando.value.id, is_active: true })
+  } catch (e) {
+    erro.value = (e as Error).message
+  }
+}
+
+const confirmarExclusao = ref(false)
+
+async function excluirUsuario() {
+  if (!editando.value) return
+  confirmarExclusao.value = false
+  erro.value = null
+  try {
+    await excluir.mutateAsync(editando.value.id)
+    toast.show({ title: t('usuarios.excluido'), description: editando.value.full_name })
+    painel.value = false
   } catch (e) {
     erro.value = (e as Error).message
   }
@@ -154,11 +168,8 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
       <Button @click="abrirNovo">{{ $t('usuarios.novo') }}</Button>
     </div>
 
-    <div class="flex flex-wrap items-end gap-4">
-      <div class="w-full max-w-xs">
-        <TextField v-model="busca" :label="$t('comum.buscar')" type="search" />
-      </div>
-      <Checkbox v-model="mostrarInativos" :label="$t('comum.mostrarInativos')" class="pb-2" />
+    <div class="w-full max-w-xs">
+      <TextField v-model="busca" :label="$t('comum.buscar')" type="search" />
     </div>
 
     <p v-if="usuarios.isPending.value" class="text-muted">{{ $t('comum.carregando') }}</p>
@@ -264,18 +275,22 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
                 : $t('usuarios.enviarRedefinicao')
             }}
           </Button>
-          <template v-if="!ehVoceMesmo">
-            <p v-if="editando.status !== 'inativo'" class="text-muted">
-              {{ $t('usuarios.desativarAviso') }}
-            </p>
-            <Button
-              :variant="editando.status === 'inativo' ? 'secondary' : 'danger'"
-              :disabled="editar.isPending.value"
-              @click="alternarAtivo"
-            >
-              {{ editando.status === 'inativo' ? $t('comum.reativar') : $t('comum.desativar') }}
-            </Button>
-          </template>
+          <Button
+            v-if="editando.status === 'inativo'"
+            variant="secondary"
+            :disabled="editar.isPending.value"
+            @click="reativar"
+          >
+            {{ $t('comum.reativar') }}
+          </Button>
+          <Button
+            v-if="!ehVoceMesmo"
+            variant="danger"
+            :disabled="excluir.isPending.value"
+            @click="confirmarExclusao = true"
+          >
+            {{ $t('usuarios.excluir') }}
+          </Button>
         </div>
       </form>
       <template #actions>
@@ -291,6 +306,19 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
         </Button>
       </template>
     </SidePanel>
+
+    <Modal
+      v-model:open="confirmarExclusao"
+      :title="$t('usuarios.excluirTitulo', { nome: editando?.full_name })"
+      :description="$t('usuarios.excluirAviso')"
+    >
+      <template #actions>
+        <Button variant="secondary" @click="confirmarExclusao = false">
+          {{ $t('comum.cancelar') }}
+        </Button>
+        <Button variant="danger" @click="excluirUsuario">{{ $t('usuarios.excluir') }}</Button>
+      </template>
+    </Modal>
 
     <LinkDialog
       v-if="link.dados?.url"
