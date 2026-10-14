@@ -104,6 +104,10 @@ describe('TicketsView', () => {
 
     await w.get('th input[type=checkbox]').setValue(true)
     await vi.waitFor(() => expect(w.text()).toContain('Selecionados: 2'))
+    // Janela flutuante, presa no pé da tela
+    expect(w.get('[role=region][aria-label="Mudar status"]').classes()).toEqual(
+      expect.arrayContaining(['fixed', 'bottom-4']),
+    )
     await escolher('Novo status', 'Entregue')
     await w
       .findAll('button')
