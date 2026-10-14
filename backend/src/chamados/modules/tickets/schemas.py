@@ -92,6 +92,7 @@ class TicketOut(TicketSummary):
 
 class TicketListItem(TicketSummary):
     has_news: bool = Field(description="comentário de outra pessoa desde a minha última visita")
+    time_spent_minutes: int = Field(description="soma do tempo gasto nas tarefas")
 
 
 class TicketPage(BaseModel):

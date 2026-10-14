@@ -489,6 +489,7 @@ def test_remover_tarefa(client: TestClient, cenario: dict[str, Any]) -> None:
     # Sai da lista, do tempo gasto e da busca; o texto fica no histórico
     assert [x["body"] for x in client.get(f"{url}/comments").json()["items"]] == ["Testado"]
     assert client.get(url).json()["time_spent_minutes"] == 15
+    assert client.get(API).json()["items"][0]["time_spent_minutes"] == 15
     assert client.get(API, params={"q": "toner"}).json()["items"] == []
     removido = eventos(client, t["number"])[-1]
     assert removido["type"] == "comment.deleted"
@@ -531,6 +532,8 @@ def test_tempo_gasto_nos_andamentos(client: TestClient, cenario: dict[str, Any])
 
     detalhe = client.get(url).json()
     assert detalhe["time_spent_minutes"] == 150
+    # A lista também traz o total de cada chamado
+    assert [c["time_spent_minutes"] for c in client.get(API).json()["items"]] == [150]
     assert detalhe["time_by_person"] == [
         {"id": cenario["bia"], "full_name": "Bia", "minutes": 105},
         {"id": cenario["ana"], "full_name": "Ana", "minutes": 45},

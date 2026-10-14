@@ -4884,6 +4884,11 @@
             "type": "boolean",
             "title": "Has News",
             "description": "comentário de outra pessoa desde a minha última visita"
+          },
+          "time_spent_minutes": {
+            "type": "integer",
+            "title": "Time Spent Minutes",
+            "description": "soma do tempo gasto nas tarefas"
           }
         },
         "type": "object",
@@ -4902,7 +4907,8 @@
           "started_at",
           "created_at",
           "updated_at",
-          "has_news"
+          "has_news",
+          "time_spent_minutes"
         ],
         "title": "TicketListItem"
       },

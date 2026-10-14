@@ -197,7 +197,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 ### Ações em massa (supervisor ou permissão `ticket.bulk`)
 
-**Feito:** na lista de chamados, o supervisor (nos chamados dos grupos que supervisiona) e o admin marcam vários chamados (ou todos da página) e escolhem o **novo status** numa janela flutuante no pé da tela, que aparece enquanto há chamados marcados. Cada chamado passa pelas próprias regras (a da revisão inclusive); os que não podem mudar ficam selecionados e o motivo aparece num aviso. Cada linha da lista também tem, no fim, um botão que abre o chamado.
+**Feito:** na lista de chamados, o supervisor (nos chamados dos grupos que supervisiona) e o admin marcam vários chamados (ou todos da página) e escolhem o **novo status** numa janela flutuante no pé da tela, que aparece enquanto há chamados marcados. Cada chamado passa pelas próprias regras (a da revisão inclusive); os que não podem mudar ficam selecionados e o motivo aparece num aviso. Cada linha da lista também mostra o **total de horas** das tarefas (ao lado da última movimentação) e, no fim, um botão com um lápis que abre o chamado.
 
 Planejado: atribuir, transferir, adicionar tag, concluir com o mesmo texto (ex.: incidente geral resolvido) e adicionar comentário.
 

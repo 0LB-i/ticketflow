@@ -149,7 +149,10 @@ async def list_tickets(
     )
     paths = await service.category_paths(db)
     return TicketPage(
-        items=[TicketListItem(**dict(_summary(t, paths)), has_news=news) for t, news in rows],
+        items=[
+            TicketListItem(**dict(_summary(t, paths)), has_news=news, time_spent_minutes=minutes)
+            for t, news, minutes in rows
+        ],
         next_cursor=next_cursor,
     )
 
