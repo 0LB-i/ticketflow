@@ -46,8 +46,15 @@ def test_padrao_e_permissao(client: TestClient, db: Session) -> None:
     criar_usuario(db, "ana@x.com")
     entrar(client, "ana@x.com")
     r = client.get(API)
-    assert nomes(r) == ["Pendente", "Aguardando cliente", "Entregue", "Concluído", "Cancelado"]
-    assert [s["is_default"] for s in r.json()["items"]] == [True, True, False, True, True]
+    assert nomes(r) == [
+        "Pendente",
+        "Aguardando cliente",
+        "Em espera de revisão",
+        "Entregue",
+        "Concluído",
+        "Cancelado",
+    ]
+    assert [s["is_default"] for s in r.json()["items"]] == [True, True, False, False, True, True]
     # Agente lista, mas não altera
     assert client.post(API, json={"name": "Em teste", "kind": "open"}).status_code == 403
 

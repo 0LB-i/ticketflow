@@ -28,6 +28,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Status "Em espera de revisão" (em espera, na aba Aguardando) para os chamados que o supervisor verifica antes de concluir: enquanto o chamado está nele, só o supervisor do grupo ou o admin o leva a Entregue ou Concluído. Seletor de status na lateral do chamado. Migração `0019`: `ticket_statuses.is_review` e o status novo, logo depois de "Aguardando cliente".
 - Tarefas: o autor edita a qualquer momento (sem o limite de 10 minutos) o texto, o tempo gasto e a data e hora em que a tarefa foi feita, e pode remover a tarefa (sai da tela e do tempo gasto; fica no histórico). "Marcar como entregue" não pede mais confirmação. Migração `0018`: `ticket_comments.done_at` e `deleted_at`. Na API, `CommentOut.editable_until` sai e entra `done_at`; nova rota `DELETE /tickets/{id}/comments/{comment_id}`.
 - No chamado, os comentários passam a se chamar **tarefas**: "Adicionar tarefa" no lugar de "Comentar", e "Anexar" (só o botão) fica à direita do tempo gasto. "Comentar e aguardar" sai da tela, e "Comentar e concluir" sai: no fim da lateral, o botão amarelo-ouro **Marcar como entregue** muda o status para "Entregue" (com confirmação).
 - A linha do tempo do chamado mostra só o registro e os comentários: as alterações (assumir, devolver, acompanhar, transferir, mudar status…) saem da tela, mas continuam gravadas no histórico (`GET /tickets/{id}/events`).

@@ -108,6 +108,7 @@ def actions(auth: Auth, ticket: Ticket) -> set[str]:
         assignee_id=ticket.assignee_id,
         is_watcher=any(w.user_id == auth.user.id for w in ticket.watchers),
         co_assignee_ids=frozenset(c.user_id for c in ticket.co_assignees),
+        in_review=ticket.status.is_review,
     )
     return rules.allowed_actions(auth.actor, state)
 
@@ -589,6 +590,8 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
     if changes.get("status_id") is not None:
         require(auth, ticket, "set_status")
         status = await _status(db, changes["status_id"])
+        if status.kind == "closed":
+            require(auth, ticket, "set_status_closed")
         if status.id != ticket.status_id:
             before = ticket.status
             add_event(

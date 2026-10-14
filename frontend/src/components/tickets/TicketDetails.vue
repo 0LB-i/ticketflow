@@ -9,7 +9,7 @@ import Modal from '@/components/ui/Modal.vue'
 import SelectField from '@/components/ui/SelectField.vue'
 import TextAreaField from '@/components/ui/TextAreaField.vue'
 import { useGrupos } from '@/composables/admin'
-import { type Chamado, chamadosApi, useAcaoNoChamado } from '@/composables/chamados'
+import { type Chamado, chamadosApi, useAcaoNoChamado, useStatus } from '@/composables/chamados'
 import { formatarDataHora, formatarDuracao } from '@/composables/formato'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
@@ -52,6 +52,31 @@ watch(outroResponsavel, (id) => {
   if (!id) return
   outroResponsavel.value = ''
   executar(() => atribuir.mutateAsync(id), t('chamado.feito.atribuido'))
+})
+
+// --- status ---
+// Qualquer status (set_status); os concluídos só com set_status_closed (em revisão, só o
+// supervisor ou o admin).
+const statusLista = useStatus()
+const opcoesStatus = computed(() =>
+  (statusLista.data.value ?? [])
+    .filter(
+      (s) =>
+        s.kind !== 'closed' ||
+        s.id === props.chamado.status.id ||
+        pode.value.has('set_status_closed'),
+    )
+    .map((s) => ({ value: String(s.id), label: s.name })),
+)
+const trocarStatus = useAcaoNoChamado(numero, (id: number) =>
+  chamadosApi.mudarStatusPara(numero(), id),
+)
+const statusAtual = computed({
+  get: () => String(props.chamado.status.id),
+  set: (id: string) => {
+    if (id && id !== String(props.chamado.status.id))
+      executar(() => trocarStatus.mutateAsync(Number(id)), t('chamado.feito.status'))
+  },
 })
 
 // --- transferência ---
@@ -141,6 +166,13 @@ const podeRemover = (id: string) =>
         <dd class="tabular-nums">{{ chamado.reopened_count }}</dd>
       </template>
     </dl>
+
+    <SelectField
+      v-if="pode.has('set_status')"
+      v-model="statusAtual"
+      :label="t('chamados.status')"
+      :options="opcoesStatus"
+    />
 
     <div class="flex flex-wrap gap-2">
       <Button
@@ -253,7 +285,7 @@ const podeRemover = (id: string) =>
       </h2>
       <AttachmentList :anexos="chamado.attachments" />
     </section>
-    <DeliverTicket v-if="pode.has('set_status')" :chamado="chamado" />
+    <DeliverTicket v-if="pode.has('set_status_closed')" :chamado="chamado" />
 
     <Modal
       v-model:open="transferindo"

@@ -44,6 +44,8 @@ class TicketState:
     assignee_id: int | None
     is_watcher: bool
     co_assignee_ids: frozenset[int] = frozenset()
+    # Status de revisão do supervisor ("Em espera de revisão").
+    in_review: bool = False
 
 
 def is_supervisor(actor: Actor, team_id: int) -> bool:
@@ -71,6 +73,9 @@ def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
     ):
         if can(actor, permission):
             actions.add(action)
+    # Escolher um status concluído (Entregue, Concluído): em revisão, só o supervisor ou o admin.
+    if "set_status" in actions and (not t.in_review or is_supervisor(actor, t.team_id)):
+        actions.add("set_status_closed")
     if t.kind not in FINAL_KINDS:
         if can(actor, P.TICKET_ASSIGN_SELF) and not mine and t.team_id in actor.teams:
             actions.add("assign_self")

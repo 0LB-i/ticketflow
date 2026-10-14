@@ -352,7 +352,8 @@
       "observador": "Watcher added",
       "observadorRemovido": "Watcher removed",
       "acompanhando": "You are watching the ticket",
-      "deixouDeAcompanhar": "You stopped watching the ticket"
+      "deixouDeAcompanhar": "You stopped watching the ticket",
+      "status": "Status changed"
     },
     "cliente": "Client",
     "contato": "Contact",

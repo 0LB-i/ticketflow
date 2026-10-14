@@ -352,7 +352,8 @@
       "observador": "Observador adicionado",
       "observadorRemovido": "Observador removido",
       "acompanhando": "Você está acompanhando o chamado",
-      "deixouDeAcompanhar": "Você deixou de acompanhar o chamado"
+      "deixouDeAcompanhar": "Você deixou de acompanhar o chamado",
+      "status": "Status alterado"
     },
     "cliente": "Cliente",
     "contato": "Contato",

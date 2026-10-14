@@ -36,6 +36,7 @@ DO_GRUPO = {
     "watch_self",
     "edit",
     "set_status",
+    "set_status_closed",
     "manage_watchers",
     "transfer",
 }
@@ -89,3 +90,29 @@ def test_finalizado_nao_se_atribui_nem_transfere(kind: str) -> None:
     acoes = allowed_actions(supervisor, situacao(kind, ator=supervisor))
     assert not acoes & {"assign_self", "assign_others", "unassign", "transfer"}
     assert {"comment", "edit", "set_status"} <= acoes  # reabrir pelo formulário
+
+
+# Em revisão ("Em espera de revisão"): só o supervisor do grupo ou o admin escolhe um status
+# concluído (Entregue, Concluído); os demais continuam escolhendo os outros status.
+EM_REVISAO = [
+    (membro, False),
+    (responsavel, False),
+    (registrou, False),
+    (supervisor, True),
+    (admin, True),
+]
+
+
+@pytest.mark.parametrize(("ator", "conclui"), EM_REVISAO)
+def test_em_revisao_so_o_supervisor_conclui(ator: Actor, conclui: bool) -> None:
+    estado = TicketState(
+        team_id=GRUPO,
+        kind="waiting",
+        created_by_id=registrou.user_id,
+        assignee_id=responsavel.user_id,
+        is_watcher=False,
+        in_review=True,
+    )
+    acoes = allowed_actions(ator, estado)
+    assert "set_status" in acoes
+    assert ("set_status_closed" in acoes) is conclui

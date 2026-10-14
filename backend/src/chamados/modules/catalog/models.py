@@ -73,6 +73,8 @@ class TicketStatus(Base):
     sort_order: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     # Status usado quando o fluxo leva a este kind (um por kind).
     is_default_for_kind: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Revisão do supervisor: daqui, só ele (ou o admin) leva o chamado a um status concluído.
+    is_review: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
 
 
 class ResolutionCode(Base):
