@@ -7,16 +7,19 @@ import { type Chamado, chamadosApi, useAcaoNoChamado, useStatus } from '@/compos
 import { useToast } from '@/composables/useToast'
 
 /**
- * Marcar como entregue: um clique muda o status para "Entregue" (ação set_status), sem tarefa nem
- * código de resolução. Sem um status com esse nome (renomeado ou removido), o botão não aparece.
+ * Marcar como entregue: um clique leva o chamado ao status de revisão do supervisor ("Entregue",
+ * `is_review`), sem tarefa nem código de resolução. Daí, só o supervisor ou o admin conclui.
+ * O status é achado pela marca de revisão, não pelo nome; sem ele, o botão não aparece.
  */
 const props = defineProps<{ chamado: Chamado }>()
 const { t } = useI18n()
 const toast = useToast()
 const status = useStatus()
 
-const entregue = computed(() => status.data.value?.find((s) => s.name === 'Entregue'))
+const entregue = computed(() => status.data.value?.find((s) => s.is_review))
 
+// Concluído ou cancelado não volta para a revisão por aqui.
+const FINAIS = ['closed', 'canceled']
 const numero = () => String(props.chamado.number)
 const entregar = useAcaoNoChamado(numero, (status_id: number) =>
   chamadosApi.mudarStatusPara(numero(), status_id),
@@ -34,7 +37,7 @@ async function marcar() {
 
 <template>
   <Button
-    v-if="entregue && chamado.status.id !== entregue.id"
+    v-if="entregue && chamado.status.id !== entregue.id && !FINAIS.includes(chamado.status.kind)"
     variant="gold"
     class="w-full"
     :disabled="entregar.isPending.value"

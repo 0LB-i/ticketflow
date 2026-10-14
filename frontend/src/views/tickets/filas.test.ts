@@ -87,7 +87,7 @@ describe('TicketsView', () => {
         {
           items: [
             { id: 1, name: 'Pendente', kind: 'open' },
-            { id: 5, name: 'Entregue', kind: 'closed' },
+            { id: 5, name: 'Concluído', kind: 'closed' },
           ],
         },
       ],
@@ -108,7 +108,7 @@ describe('TicketsView', () => {
     expect(w.get('[role=region][aria-label="Mudar status"]').classes()).toEqual(
       expect.arrayContaining(['fixed', 'bottom-4']),
     )
-    await escolher('Novo status', 'Entregue')
+    await escolher('Novo status', 'Concluído')
     await w
       .findAll('button')
       .find((b) => b.text() === 'Mudar status')!

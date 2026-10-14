@@ -49,12 +49,11 @@ def test_padrao_e_permissao(client: TestClient, db: Session) -> None:
     assert nomes(r) == [
         "Pendente",
         "Aguardando cliente",
-        "Em espera de revisão",
         "Entregue",
         "Concluído",
         "Cancelado",
     ]
-    assert [s["is_default"] for s in r.json()["items"]] == [True, True, False, False, True, True]
+    assert [s["is_default"] for s in r.json()["items"]] == [True, True, False, True, True]
     # Agente lista, mas não altera
     assert client.post(API, json={"name": "Em teste", "kind": "open"}).status_code == 403
 
@@ -95,7 +94,7 @@ def test_remover_move_os_chamados(client: TestClient, db: Session) -> None:
     r = client.delete(f"{API}/{status['Cancelado']['id']}")
     assert r.status_code == 422
 
-    # Entregue não é o padrão: os chamados vão para o padrão do kind (Concluído)
+    # Entregue não é o padrão: os chamados vão para o padrão do kind (Aguardando cliente)
     t = client.post(
         "/api/v1/tickets",
         json={"title": "Entregue", "team_id": ti, "status_id": status["Entregue"]["id"]},
@@ -103,8 +102,11 @@ def test_remover_move_os_chamados(client: TestClient, db: Session) -> None:
     assert por_nome(client)["Entregue"]["ticket_count"] == 1
     r = client.delete(f"{API}/{status['Entregue']['id']}")
     assert r.status_code == 200 and "Entregue" not in nomes(r)
-    assert client.get(f"/api/v1/tickets/{t['number']}").json()["status"]["name"] == "Concluído"
-    assert por_nome(client)["Concluído"]["ticket_count"] == 1
+    assert (
+        client.get(f"/api/v1/tickets/{t['number']}").json()["status"]["name"]
+        == "Aguardando cliente"
+    )
+    assert por_nome(client)["Aguardando cliente"]["ticket_count"] == 1
 
     # Removendo o padrão, o próximo do mesmo kind assume (e recebe os chamados)
     client.post(API, json={"name": "Em andamento", "kind": "open"})

@@ -26,7 +26,7 @@ const STATUS = {
   items: [
     { id: 1, name: 'Pendente', kind: 'open' },
     { id: 2, name: 'Aguardando cliente', kind: 'waiting' },
-    { id: 5, name: 'Entregue', kind: 'closed' },
+    { id: 5, name: 'Entregue', kind: 'waiting', is_review: true },
     { id: 3, name: 'Concluído', kind: 'closed' },
     { id: 4, name: 'Cancelado', kind: 'canceled' },
   ],
@@ -270,18 +270,15 @@ describe('TicketView', () => {
     )
   })
 
-  it('marcar como entregue fica no fim da lateral, em dourado, e muda o status num clique', async () => {
+  it('marcar como entregue (fim da lateral, dourado) leva à revisão num clique', async () => {
     const STATUS_LISTA = {
       items: [
-        { id: 1, name: 'Pendente', kind: 'open' },
-        { id: 5, name: 'Entregue', kind: 'closed' },
+        { id: 1, name: 'Pendente', kind: 'open', is_review: false },
+        { id: 5, name: 'Entregue', kind: 'waiting', is_review: true },
       ],
     }
     const feitas = simularApi({
-      'GET /api/v1/tickets/1000': [
-        200,
-        { ...CHAMADO, allowed_actions: ['comment', 'set_status', 'set_status_closed'] },
-      ],
+      'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment', 'set_status'] }],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS_LISTA],
@@ -302,7 +299,7 @@ describe('TicketView', () => {
   })
 
   it('em revisão, o seletor de status não oferece os concluídos a quem não supervisiona', async () => {
-    const REVISAO = { id: 3, name: 'Em espera de revisão', kind: 'waiting' }
+    const REVISAO = { id: 3, name: 'Entregue', kind: 'waiting', is_review: true }
     const feitas = simularApi({
       'GET /api/v1/tickets/1000': [
         200,
@@ -316,7 +313,6 @@ describe('TicketView', () => {
           items: [
             { id: 1, name: 'Pendente', kind: 'open' },
             REVISAO,
-            { id: 5, name: 'Entregue', kind: 'closed' },
             { id: 4, name: 'Concluído', kind: 'closed' },
           ],
         },
@@ -330,7 +326,7 @@ describe('TicketView', () => {
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ status_id: 1 }),
     )
-    // Entregue e Concluído não estão na lista
+    // Concluído não está na lista; e o chamado já entregue não mostra o botão de entregar
     const label = [...document.querySelectorAll('label')].find((l) => l.textContent === 'Status')!
     document
       .getElementById(label.htmlFor)!
@@ -342,7 +338,7 @@ describe('TicketView', () => {
       expect(lista.length).toBeGreaterThan(0)
       return lista
     })
-    expect(opcoes).toEqual(['Pendente', 'Em espera de revisão'])
+    expect(opcoes).toEqual(['Pendente', 'Entregue'])
   })
 
   it('mostra o tempo de cada andamento e a soma por pessoa na lateral', async () => {

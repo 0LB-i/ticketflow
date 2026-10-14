@@ -285,7 +285,7 @@ const podeRemover = (id: string) =>
       </h2>
       <AttachmentList :anexos="chamado.attachments" />
     </section>
-    <DeliverTicket v-if="pode.has('set_status_closed')" :chamado="chamado" />
+    <DeliverTicket v-if="pode.has('set_status')" :chamado="chamado" />
 
     <Modal
       v-model:open="transferindo"
