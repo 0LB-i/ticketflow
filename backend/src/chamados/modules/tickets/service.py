@@ -153,6 +153,8 @@ def has_news(user_id: int) -> ColumnElement[bool]:
     read_at = (
         select(TicketRead.read_at)
         .where(TicketRead.ticket_id == Ticket.id, TicketRead.user_id == user_id)
+        # Dentro do EXISTS a correlação automática não alcança o chamado de fora.
+        .correlate(Ticket)
         .scalar_subquery()
     )
     return exists().where(
