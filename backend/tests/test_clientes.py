@@ -100,7 +100,7 @@ def test_cadastra_pessoa_juridica(client: TestClient, agente: None) -> None:
         ({"id_number": "12.345.678-9"}, "RG inválido: só números, até 14."),
         ({"id_number": "12345678X"}, "RG inválido: só números, até 14."),
         ({"id_number": "123456789012345"}, "RG inválido: só números, até 14."),
-        ({"kind": "company"}, "CNPJ inválido."),
+        ({"kind": "company", "trade_name": "Loja"}, "CNPJ inválido."),
         ({"phones": ["3333-4444"]}, "Telefone inválido: informe o DDD e o número."),
         ({"phones": ["11987654321", "123"]}, "Telefone inválido: informe o DDD e o número."),
         ({"postal_code": "1310-100"}, "CEP inválido: são 8 números."),
@@ -121,19 +121,32 @@ def test_email_valido(client: TestClient, agente: None) -> None:
     assert client.post(API, json={**PESSOA, "emails": ["joao"]}).status_code == 422
 
 
-def test_so_cep_cidade_e_uf_obrigatorios(client: TestClient, agente: None) -> None:
-    minimo = {"kind": "person", "postal_code": "01310100", "city": "São Paulo", "state": "SP"}
-    r = client.post(API, json=minimo)
-    assert r.status_code == 201, r.text
-    c = r.json()
-    assert c["name"] is None and c["document"] is None and c["street"] is None
-    assert c["emails"] == [] and c["phones"] == []
-    assert c["label"] == "São Paulo/SP"
-    # Vários sem CPF/CNPJ não esbarram na unicidade
-    assert client.post(API, json=minimo).status_code == 201
-    for campo in ("postal_code", "city", "state"):
-        sem = {k: v for k, v in minimo.items() if k != campo}
-        assert client.post(API, json=sem).status_code == 422
+def test_campos_obrigatorios_por_tipo(client: TestClient, agente: None) -> None:
+    endereco = {"postal_code": "01310100", "city": "São Paulo", "state": "SP"}
+    pf = {"kind": "person", "name": "João da Silva", "document": "52998224725", **endereco}
+    pj = {
+        "kind": "company",
+        "name": "Padaria Pão Quente Ltda",
+        "trade_name": "Pão Quente",
+        "document": "12ABC34501DE35",
+        **endereco,
+    }
+    for base, obrigatorios in (
+        (pf, ("name", "document")),
+        (pj, ("name", "trade_name", "document")),
+    ):
+        for campo in (*obrigatorios, "postal_code", "city", "state"):
+            sem = {k: v for k, v in base.items() if k != campo}
+            assert client.post(API, json=sem).status_code == 422, (base["kind"], campo)
+            branco = {**base, campo: "  "}
+            assert client.post(API, json=branco).status_code == 422, (base["kind"], campo)
+    r = client.post(API, json={k: v for k, v in pj.items() if k != "document"})
+    assert r.json()["detail"] == "Informe o CNPJ."
+    # O resto (endereço, contatos, RG, IE...) continua opcional
+    for base in (pf, pj):
+        r = client.post(API, json=base)
+        assert r.status_code == 201, r.text
+        assert r.json()["street"] is None and r.json()["emails"] == [] and r.json()["phones"] == []
 
 
 def test_documento_unico_e_edicao(client: TestClient, db: Session, agente: None) -> None:

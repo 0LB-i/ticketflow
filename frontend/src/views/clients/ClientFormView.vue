@@ -113,7 +113,11 @@ const opcoesUf = UFS.map((uf) => ({ value: uf, label: uf }))
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const erros = computed(() => {
   const e: Partial<Record<keyof typeof vazio, string>> = {}
-  if (form.document && !(pf.value ? cpfValido(form.document) : cnpjValido(form.document)))
+  // PF: nome completo e CPF; PJ: razão social, nome fantasia e CNPJ.
+  if (!form.name.trim()) e.name = t('clientes.erros.obrigatorio')
+  if (!pf.value && !form.trade_name.trim()) e.trade_name = t('clientes.erros.obrigatorio')
+  if (!form.document.trim()) e.document = t('clientes.erros.obrigatorio')
+  else if (!(pf.value ? cpfValido(form.document) : cnpjValido(form.document)))
     e.document = t(pf.value ? 'clientes.erros.cpf' : 'clientes.erros.cnpj')
   if (soDigitos(form.postal_code).length !== 8) e.postal_code = t('clientes.erros.cep')
   if (!form.city.trim()) e.city = t('clientes.erros.obrigatorio')
@@ -222,13 +226,22 @@ async function enviar() {
           <TextField
             v-model="form.name"
             :label="pf ? t('clientes.nomeCompleto') : t('clientes.razaoSocial')"
+            :error="erroDe('name')"
+            required
           />
-          <TextField v-if="!pf" v-model="form.trade_name" :label="t('clientes.nomeFantasia')" />
+          <TextField
+            v-if="!pf"
+            v-model="form.trade_name"
+            :label="t('clientes.nomeFantasia')"
+            :error="erroDe('trade_name')"
+            required
+          />
           <div class="grid gap-4 sm:grid-cols-2">
             <TextField
               v-model="form.document"
               :label="pf ? 'CPF' : 'CNPJ'"
               :error="erroDe('document')"
+              required
             />
             <TextField v-if="pf" v-model="form.id_number" :label="t('clientes.rg')" />
             <TextField
