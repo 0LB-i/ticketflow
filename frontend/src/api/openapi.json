@@ -2288,6 +2288,242 @@
         }
       }
     },
+    "/api/v1/reports/options": {
+      "get": {
+        "tags": ["relatórios"],
+        "summary": "Report Options",
+        "operationId": "report_options_api_v1_reports_options_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports": {
+      "get": {
+        "tags": ["relatórios"],
+        "summary": "Report",
+        "operationId": "report_api_v1_reports_get",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "primeiro dia do período",
+              "title": "Start"
+            },
+            "description": "primeiro dia do período"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "último dia do período (incluído)",
+              "title": "End"
+            },
+            "description": "último dia do período (incluído)"
+          },
+          {
+            "name": "team",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "grupo atual do chamado",
+              "title": "Team"
+            },
+            "description": "grupo atual do chamado"
+          },
+          {
+            "name": "person",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "quem fez a tarefa",
+              "title": "Person"
+            },
+            "description": "quem fez a tarefa"
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "cliente do chamado",
+              "title": "Client"
+            },
+            "description": "cliente do chamado"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/pdf": {
+      "get": {
+        "tags": ["relatórios"],
+        "summary": "Report Pdf",
+        "operationId": "report_pdf_api_v1_reports_pdf_get",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "primeiro dia do período",
+              "title": "Start"
+            },
+            "description": "primeiro dia do período"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "último dia do período (incluído)",
+              "title": "End"
+            },
+            "description": "último dia do período (incluído)"
+          },
+          {
+            "name": "team",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "grupo atual do chamado",
+              "title": "Team"
+            },
+            "description": "grupo atual do chamado"
+          },
+          {
+            "name": "person",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "quem fez a tarefa",
+              "title": "Person"
+            },
+            "description": "quem fez a tarefa"
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "cliente do chamado",
+              "title": "Client"
+            },
+            "description": "cliente do chamado"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/branding": {
       "get": {
         "tags": ["configurações"],
@@ -2407,6 +2643,65 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/work-hours": {
+      "get": {
+        "tags": ["configurações"],
+        "summary": "Work Hours",
+        "description": "Expediente: o relatório de horas extras mostra a regra usada.",
+        "operationId": "work_hours_api_v1_work_hours_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkHours"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settings/work-hours": {
+      "put": {
+        "tags": ["configurações"],
+        "summary": "Set Work Hours",
+        "operationId": "set_work_hours_api_v1_admin_settings_work_hours_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkHours"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkHours"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3577,6 +3872,48 @@
         "required": ["items", "total"],
         "title": "ClientPage"
       },
+      "ClientRow": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "tickets_opened": {
+            "type": "integer",
+            "title": "Tickets Opened"
+          },
+          "tickets_closed": {
+            "type": "integer",
+            "title": "Tickets Closed"
+          }
+        },
+        "type": "object",
+        "required": ["id", "name", "minutes", "tickets_opened", "tickets_closed"],
+        "title": "ClientRow"
+      },
       "ClientSummary": {
         "properties": {
           "id": {
@@ -3835,6 +4172,26 @@
           "edited_at"
         ],
         "title": "CommentOut"
+      },
+      "DayRow": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "overtime_minutes": {
+            "type": "integer",
+            "title": "Overtime Minutes"
+          }
+        },
+        "type": "object",
+        "required": ["date", "minutes", "overtime_minutes"],
+        "title": "DayRow"
       },
       "DepartmentCreate": {
         "properties": {
@@ -4329,6 +4686,77 @@
         "type": "object",
         "title": "NextIn"
       },
+      "OvertimeTask": {
+        "properties": {
+          "ticket_number": {
+            "type": "integer",
+            "title": "Ticket Number"
+          },
+          "ticket_title": {
+            "type": "string",
+            "title": "Ticket Title"
+          },
+          "person": {
+            "type": "string",
+            "title": "Person"
+          },
+          "done_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Done At"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "overtime_minutes": {
+            "type": "integer",
+            "title": "Overtime Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket_number",
+          "ticket_title",
+          "person",
+          "done_at",
+          "minutes",
+          "overtime_minutes"
+        ],
+        "title": "OvertimeTask"
+      },
+      "PersonRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "overtime_minutes": {
+            "type": "integer",
+            "title": "Overtime Minutes"
+          },
+          "tasks": {
+            "type": "integer",
+            "title": "Tasks"
+          },
+          "tickets_closed": {
+            "type": "integer",
+            "title": "Tickets Closed"
+          }
+        },
+        "type": "object",
+        "required": ["id", "name", "minutes", "overtime_minutes", "tasks", "tickets_closed"],
+        "title": "PersonRow"
+      },
       "PersonTime": {
         "properties": {
           "id": {
@@ -4364,6 +4792,88 @@
         "type": "object",
         "required": ["id", "name"],
         "title": "Ref"
+      },
+      "Report": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "End"
+          },
+          "work_hours": {
+            "$ref": "#/components/schemas/WorkHours"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/Totals"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonRow"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/ClientRow"
+            },
+            "type": "array",
+            "title": "Clients"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayRow"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "overtime_tasks": {
+            "items": {
+              "$ref": "#/components/schemas/OvertimeTask"
+            },
+            "type": "array",
+            "title": "Overtime Tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "work_hours",
+          "totals",
+          "people",
+          "clients",
+          "days",
+          "overtime_tasks"
+        ],
+        "title": "Report"
+      },
+      "ReportOptions": {
+        "properties": {
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/Ref"
+            },
+            "type": "array",
+            "title": "Teams"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/Ref"
+            },
+            "type": "array",
+            "title": "People"
+          }
+        },
+        "type": "object",
+        "required": ["teams", "people"],
+        "title": "ReportOptions",
+        "description": "O que a pessoa pode escolher nos filtros: só o que ela tem direito de ver."
       },
       "ResolutionCodeList": {
         "properties": {
@@ -5430,6 +5940,33 @@
         "required": ["token", "password"],
         "title": "TokenPasswordIn"
       },
+      "Totals": {
+        "properties": {
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "overtime_minutes": {
+            "type": "integer",
+            "title": "Overtime Minutes"
+          },
+          "tasks": {
+            "type": "integer",
+            "title": "Tasks"
+          },
+          "tickets_opened": {
+            "type": "integer",
+            "title": "Tickets Opened"
+          },
+          "tickets_closed": {
+            "type": "integer",
+            "title": "Tickets Closed"
+          }
+        },
+        "type": "object",
+        "required": ["minutes", "overtime_minutes", "tasks", "tickets_opened", "tickets_closed"],
+        "title": "Totals"
+      },
       "TransferIn": {
         "properties": {
           "team_id": {
@@ -5834,6 +6371,47 @@
         "type": "object",
         "required": ["id", "display_name", "kind"],
         "title": "WatcherOut"
+      },
+      "WorkHours": {
+        "properties": {
+          "weekdays": {
+            "items": {
+              "type": "integer",
+              "maximum": 6.0,
+              "minimum": 0.0
+            },
+            "type": "array",
+            "maxItems": 7,
+            "title": "Weekdays",
+            "description": "dias de trabalho: 0 = segunda … 6 = domingo"
+          },
+          "start": {
+            "type": "string",
+            "format": "time",
+            "title": "Start",
+            "description": "início do expediente (hora de São Paulo)"
+          },
+          "end": {
+            "type": "string",
+            "format": "time",
+            "title": "End",
+            "description": "fim do expediente; depois do início"
+          },
+          "holidays": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Holidays",
+            "description": "feriados e folgas",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": ["weekdays", "start", "end"],
+        "title": "WorkHours"
       }
     }
   }

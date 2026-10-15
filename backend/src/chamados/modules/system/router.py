@@ -18,9 +18,10 @@ from chamados.core.i18n import Locale
 from chamados.core.permissions import P
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
-from chamados.modules.identity.deps import Auth, require
+from chamados.modules.identity.deps import Auth, CurrentAuth, require
 from chamados.modules.system.models import SystemSetting
 from chamados.modules.system.service import get_value, set_value
+from chamados.modules.system.work_hours import WorkHours, get_work_hours
 
 router = APIRouter(tags=["configurações"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_SETTINGS))]
@@ -172,3 +173,36 @@ async def remove_logo(auth: Admin, request: Request, db: DB) -> Branding:
     )
     await db.commit()
     return await _branding(db)
+
+
+@router.get("/work-hours", response_model=WorkHours)
+async def work_hours(auth: CurrentAuth, db: DB) -> WorkHours:
+    """Expediente: o relatório de horas extras mostra a regra usada."""
+    return await get_work_hours(db)
+
+
+@router.put("/admin/settings/work-hours", response_model=WorkHours)
+async def set_work_hours(data: WorkHours, auth: Admin, request: Request, db: DB) -> WorkHours:
+    if data.end <= data.start:
+        raise HTTPException(422, "O fim do expediente precisa ser depois do início.")
+    data = WorkHours(
+        weekdays=sorted(set(data.weekdays)),
+        start=data.start.replace(second=0, microsecond=0),
+        end=data.end.replace(second=0, microsecond=0),
+        holidays=sorted(set(data.holidays)),
+    )
+    before = (await get_work_hours(db)).model_dump(mode="json")
+    after = data.model_dump(mode="json")
+    await set_value(db, "work_hours", after, auth.user.id)
+    if before != after:
+        record(
+            db,
+            "settings.updated",
+            request=request,
+            actor_user_id=auth.user.id,
+            target_type="settings",
+            before={"work_hours": before},
+            after={"work_hours": after},
+        )
+    await db.commit()
+    return data

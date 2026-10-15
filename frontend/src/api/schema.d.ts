@@ -727,6 +727,57 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/reports/options': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Report Options */
+    get: operations['report_options_api_v1_reports_options_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/reports': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Report */
+    get: operations['report_api_v1_reports_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/reports/pdf': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Report Pdf */
+    get: operations['report_pdf_api_v1_reports_pdf_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/branding': {
     parameters: {
       query?: never
@@ -791,6 +842,43 @@ export interface paths {
     post?: never
     /** Remove Logo */
     delete: operations['remove_logo_api_v1_admin_settings_logo_delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/work-hours': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Work Hours
+     * @description Expediente: o relatório de horas extras mostra a regra usada.
+     */
+    get: operations['work_hours_api_v1_work_hours_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/settings/work-hours': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Set Work Hours */
+    put: operations['set_work_hours_api_v1_admin_settings_work_hours_put']
+    post?: never
+    delete?: never
     options?: never
     head?: never
     patch?: never
@@ -1218,6 +1306,19 @@ export interface components {
       /** Total */
       total: number
     }
+    /** ClientRow */
+    ClientRow: {
+      /** Id */
+      id: string | null
+      /** Name */
+      name: string | null
+      /** Minutes */
+      minutes: number
+      /** Tickets Opened */
+      tickets_opened: number
+      /** Tickets Closed */
+      tickets_closed: number
+    }
     /** ClientSummary */
     ClientSummary: {
       /**
@@ -1328,6 +1429,18 @@ export interface components {
       created_at: string
       /** Edited At */
       edited_at: string | null
+    }
+    /** DayRow */
+    DayRow: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string
+      /** Minutes */
+      minutes: number
+      /** Overtime Minutes */
+      overtime_minutes: number
     }
     /** DepartmentCreate */
     DepartmentCreate: {
@@ -1536,6 +1649,42 @@ export interface components {
        */
       team_id?: string | null
     }
+    /** OvertimeTask */
+    OvertimeTask: {
+      /** Ticket Number */
+      ticket_number: number
+      /** Ticket Title */
+      ticket_title: string
+      /** Person */
+      person: string
+      /**
+       * Done At
+       * Format: date-time
+       */
+      done_at: string
+      /** Minutes */
+      minutes: number
+      /** Overtime Minutes */
+      overtime_minutes: number
+    }
+    /** PersonRow */
+    PersonRow: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Name */
+      name: string
+      /** Minutes */
+      minutes: number
+      /** Overtime Minutes */
+      overtime_minutes: number
+      /** Tasks */
+      tasks: number
+      /** Tickets Closed */
+      tickets_closed: number
+    }
     /** PersonTime */
     PersonTime: {
       /**
@@ -1557,6 +1706,39 @@ export interface components {
       id: string
       /** Name */
       name: string
+    }
+    /** Report */
+    Report: {
+      /**
+       * Start
+       * Format: date
+       */
+      start: string
+      /**
+       * End
+       * Format: date
+       */
+      end: string
+      work_hours: components['schemas']['WorkHours']
+      totals: components['schemas']['Totals']
+      /** People */
+      people: components['schemas']['PersonRow'][]
+      /** Clients */
+      clients: components['schemas']['ClientRow'][]
+      /** Days */
+      days: components['schemas']['DayRow'][]
+      /** Overtime Tasks */
+      overtime_tasks: components['schemas']['OvertimeTask'][]
+    }
+    /**
+     * ReportOptions
+     * @description O que a pessoa pode escolher nos filtros: só o que ela tem direito de ver.
+     */
+    ReportOptions: {
+      /** Teams */
+      teams: components['schemas']['Ref'][]
+      /** People */
+      people: components['schemas']['Ref'][]
     }
     /** ResolutionCodeList */
     ResolutionCodeList: {
@@ -1975,6 +2157,19 @@ export interface components {
       /** Password */
       password: string
     }
+    /** Totals */
+    Totals: {
+      /** Minutes */
+      minutes: number
+      /** Overtime Minutes */
+      overtime_minutes: number
+      /** Tasks */
+      tasks: number
+      /** Tickets Opened */
+      tickets_opened: number
+      /** Tickets Closed */
+      tickets_closed: number
+    }
     /** TransferIn */
     TransferIn: {
       /**
@@ -2152,6 +2347,32 @@ export interface components {
        * @enum {string}
        */
       kind: 'watcher' | 'mentioned'
+    }
+    /** WorkHours */
+    WorkHours: {
+      /**
+       * Weekdays
+       * @description dias de trabalho: 0 = segunda … 6 = domingo
+       */
+      weekdays: number[]
+      /**
+       * Start
+       * Format: time
+       * @description início do expediente (hora de São Paulo)
+       */
+      start: string
+      /**
+       * End
+       * Format: time
+       * @description fim do expediente; depois do início
+       */
+      end: string
+      /**
+       * Holidays
+       * @description feriados e folgas
+       * @default []
+       */
+      holidays: string[]
     }
   }
   responses: never
@@ -3885,6 +4106,104 @@ export interface operations {
       }
     }
   }
+  report_options_api_v1_reports_options_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ReportOptions']
+        }
+      }
+    }
+  }
+  report_api_v1_reports_get: {
+    parameters: {
+      query: {
+        /** @description primeiro dia do período */
+        start: string
+        /** @description último dia do período (incluído) */
+        end: string
+        /** @description grupo atual do chamado */
+        team?: string | null
+        /** @description quem fez a tarefa */
+        person?: string | null
+        /** @description cliente do chamado */
+        client?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Report']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  report_pdf_api_v1_reports_pdf_get: {
+    parameters: {
+      query: {
+        /** @description primeiro dia do período */
+        start: string
+        /** @description último dia do período (incluído) */
+        end: string
+        /** @description grupo atual do chamado */
+        team?: string | null
+        /** @description quem fez a tarefa */
+        person?: string | null
+        /** @description cliente do chamado */
+        client?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   branding_api_v1_branding_get: {
     parameters: {
       query?: never
@@ -4005,6 +4324,59 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['Branding']
+        }
+      }
+    }
+  }
+  work_hours_api_v1_work_hours_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkHours']
+        }
+      }
+    }
+  }
+  set_work_hours_api_v1_admin_settings_work_hours_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkHours']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkHours']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

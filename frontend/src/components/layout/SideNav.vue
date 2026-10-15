@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   Building2,
+  ChartColumn,
   Contact,
   LayoutGrid,
   Settings,
@@ -22,6 +23,7 @@ const principal = computed(() =>
   [
     { to: '/chamados', rotulo: 'menu.chamados', icone: Ticket, perm: null },
     { to: '/clientes', rotulo: 'menu.clientes', icone: Contact, perm: 'client.view' },
+    { to: '/relatorios', rotulo: 'menu.relatorios', icone: ChartColumn, perm: null },
   ].filter((item) => !item.perm || auth.pode(item.perm)),
 )
 const administracao = computed(() =>
