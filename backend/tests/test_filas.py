@@ -75,6 +75,24 @@ def test_novidade_e_comentario_de_outra_pessoa_depois_da_visita(
     assert client.get(API).json()["items"][0]["has_news"] is False
 
 
+def test_novidade_com_varios_chamados_ja_visitados(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+) -> None:
+    # A última visita é a do próprio chamado: com mais de uma visita, a consulta não pode
+    # misturar os chamados (dava erro 500 na lista e nos contadores).
+    lido = registrar(client, cenario, assignee="me")["number"]
+    novo = registrar(client, cenario, assignee="me")["number"]
+    client.get(f"{API}/{lido}")
+    client.get(f"{API}/{novo}")
+    entrar(client, "bia@x.com")
+    client.post(f"{API}/{novo}/comments", json={"body": "Resolvido?"})
+    entrar(client, "ana@x.com")
+    assert numeros(client, view="mine") == [lido, novo]
+    assert numeros(client, view="news") == [novo]
+    assert client.get(f"{API}/counts").json()["news"] == 1
+
+
 def test_busca(client: TestClient, cenario: dict[str, Any], db: Session) -> None:  # noqa: F811
     padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     impressora = registrar(client, cenario, title="Impressora não imprime", client_id=padaria)
