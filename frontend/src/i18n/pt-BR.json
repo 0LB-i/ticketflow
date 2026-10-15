@@ -317,7 +317,6 @@
     "naFila": "Na fila do grupo",
     "tipo": "Tipo",
     "resolucao": "Resolução",
-    "reaberturas": "Reaberturas",
     "assumir": "Assumir",
     "devolver": "Devolver para a fila",
     "transferir": "Transferir",
@@ -357,8 +356,8 @@
       "cancel": "Cancelar chamado"
     },
     "cancelarTitulo": "Cancelar o chamado?",
-    "cancelarTexto": "Escreva o motivo do cancelamento. Um chamado cancelado não volta a ser aberto.",
-    "cancelarMotivo": "Motivo do cancelamento",
+    "cancelarTexto": "Um chamado cancelado não volta a ser aberto.",
+    "naoCancelar": "Voltar",
     "textoObrigatorio": {
       "reopen": "Escreva na tarefa o motivo da reabertura."
     },

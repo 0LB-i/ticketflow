@@ -36,7 +36,7 @@ TRANSITIONS: dict[str, Transition] = {
         frozenset({"open", "waiting", "delivered"}),
         "canceled",
         "owner_or_creator",
-        comment_required=True,
+        comment_required=False,  # só a confirmação na tela, sem motivo (pedido do usuário)
     ),
 }
 

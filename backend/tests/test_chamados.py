@@ -715,9 +715,9 @@ def test_cancelar_pelo_registrante(client: TestClient, cenario: dict[str, Any]) 
     t = registrar(client, cenario, assignee=cenario["ana"])
     url = f"{API}/{t['number']}/transitions"
     entrar(client, "ana@x.com")
-    assert client.post(url, json={"action": "cancel"}).status_code == 422
-    t = client.post(url, json={"action": "cancel", "comment": "Era duplicado"}).json()
+    t = client.post(url, json={"action": "cancel"}).json()  # o motivo é opcional
     assert t["status"]["kind"] == "canceled"
+    assert client.get(f"{API}/{t['number']}/comments").json()["items"] == []
     assert not {"reopen", "close", "assign_self", "transfer"} & set(t["allowed_actions"])
     assert client.post(url, json={"action": "reopen", "comment": "x"}).status_code == 403
 
