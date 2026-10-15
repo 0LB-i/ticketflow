@@ -52,6 +52,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - O agente passa a atribuir chamados a outros membros do grupo (`ticket.assign_others`), antes só nos grupos que supervisiona; no detalhe do chamado, também pode devolver à fila o chamado de outra pessoa. A migração `0015` atualiza o papel.
 - Identificadores da instalação passam a ser `ticketflow`: código em `/opt/ticketflow`, serviços `ticketflow`, `ticketflow-worker` e `ticketflow-backup` (units em `deploy/ticketflow*.service`), usuário do sistema e papel no PostgreSQL `ticketflow`, configuração em `/etc/ticketflow/env`, anexos em `/var/lib/ticketflow/files` e backups em `/var/backups/ticketflow`. O banco (`chamados`) e o comando `chamados` não mudam.
 - Todo chamado tem responsável e cliente: o registro exige os dois, o cliente troca mas não sai, e a transferência pede o novo responsável (membro do grupo de destino). Saem a aba "Não atribuídos", o botão "Pegar o próximo" (`POST /tickets/next`), o "Devolver para a fila" (`assignee: null`) e o filtro "Sem responsável" (`assignee=none`). Migração `0028`: `tickets.assignee_id` NOT NULL (falha se houver chamado sem responsável: atribua antes de atualizar). Chamados antigos sem cliente continuam aceitos pelo banco.
+- Sai a aba "Com novidades" da lista de chamados (fila `news` da API e o contador dela). O ícone de tarefa nova de outra pessoa continua ao lado do título, em todas as abas.
 
 ### Variáveis de ambiente
 

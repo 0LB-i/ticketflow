@@ -239,7 +239,6 @@
     "filas": "Queues",
     "abas": {
       "mine": "Mine",
-      "news": "With updates",
       "waiting": "Waiting",
       "watching": "Watching",
       "all": "All"
@@ -263,7 +262,6 @@
     "limparBusca": "Clear search",
     "vazio": {
       "mine": "No tickets with you.",
-      "news": "No updates on your tickets.",
       "waiting": "No tickets waiting.",
       "watching": "You are not watching any open ticket.",
       "all": "No tickets found.",

@@ -239,7 +239,6 @@
     "filas": "Filas",
     "abas": {
       "mine": "Meus",
-      "news": "Com novidades",
       "waiting": "Aguardando",
       "watching": "Acompanhando",
       "all": "Todos"
@@ -263,7 +262,6 @@
     "limparBusca": "Limpar a busca",
     "vazio": {
       "mine": "Nenhum chamado com você.",
-      "news": "Nenhuma novidade nos seus chamados.",
       "waiting": "Nenhum chamado aguardando.",
       "watching": "Você não acompanha nenhum chamado em aberto.",
       "all": "Nenhum chamado encontrado.",

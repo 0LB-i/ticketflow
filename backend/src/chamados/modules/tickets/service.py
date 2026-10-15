@@ -188,8 +188,6 @@ def view_filter(auth: Auth, view: TicketView) -> ColumnElement[bool]:
     match view:
         case "mine":
             return and_(assigned_to(me), TicketStatus.kind.in_(ACTIVE))
-        case "news":
-            return and_(assigned_to(me), has_news(me))
         case "waiting":
             return and_(my_teams, TicketStatus.kind.in_(WAITING))
         case "watching":
@@ -298,7 +296,7 @@ async def list_tickets(
 
 async def counts(db: AsyncSession, auth: Auth) -> dict[str, int]:
     """Quantos chamados visíveis há em cada fila, numa consulta só."""
-    views: tuple[TicketView, ...] = ("mine", "news", "waiting", "watching")
+    views: tuple[TicketView, ...] = ("mine", "waiting", "watching")
     row = (
         await db.execute(
             select(*(func.count().filter(view_filter(auth, v)).label(v) for v in views))

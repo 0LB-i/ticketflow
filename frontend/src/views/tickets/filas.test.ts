@@ -37,7 +37,7 @@ const ITEM = {
   has_news: true,
   time_spent_minutes: 135,
 }
-const CONTAGENS = { mine: 1, news: 1, waiting: 0, watching: 2 }
+const CONTAGENS = { mine: 1, waiting: 0, watching: 2 }
 
 function api(extras: Record<string, [number, unknown?]> = {}) {
   return simularApi({
@@ -63,7 +63,6 @@ describe('TicketsView', () => {
     expect(w.get('[role=tab][data-state=active]').text()).toContain('Meus')
     expect(w.findAll('[role=tab]').map((a) => a.text())).toEqual([
       'Meus 1',
-      'Com novidades 1',
       'Aguardando',
       'Acompanhando 2',
       'Todos',

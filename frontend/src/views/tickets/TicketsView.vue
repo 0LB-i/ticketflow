@@ -39,7 +39,6 @@ const contagens = useContagens()
 
 const ABAS: { slug: string; fila: Fila }[] = [
   { slug: 'meus', fila: 'mine' },
-  { slug: 'novidades', fila: 'news' },
   { slug: 'aguardando', fila: 'waiting' },
   { slug: 'acompanhando', fila: 'watching' },
   { slug: 'todos', fila: 'all' },

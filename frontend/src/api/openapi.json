@@ -1385,7 +1385,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": ["mine", "news", "waiting", "watching", "all"],
+              "enum": ["mine", "waiting", "watching", "all"],
               "type": "string",
               "description": "fila (aba da lista)",
               "default": "all",
@@ -5148,10 +5148,6 @@
             "type": "integer",
             "title": "Mine"
           },
-          "news": {
-            "type": "integer",
-            "title": "News"
-          },
           "waiting": {
             "type": "integer",
             "title": "Waiting"
@@ -5162,7 +5158,7 @@
           }
         },
         "type": "object",
-        "required": ["mine", "news", "waiting", "watching"],
+        "required": ["mine", "waiting", "watching"],
         "title": "TicketCounts",
         "description": "Quantos chamados há em cada fila (as abas da lista)."
       },

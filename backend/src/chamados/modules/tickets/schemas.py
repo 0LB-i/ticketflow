@@ -7,7 +7,7 @@ from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 TicketType = Literal["incident", "request", "task"]
 StatusKind = Literal["approval", "open", "waiting", "delivered", "closed", "canceled"]
 TransitionAction = Literal["wait", "resume", "close", "reopen", "cancel"]
-TicketView = Literal["mine", "news", "waiting", "watching", "all"]
+TicketView = Literal["mine", "waiting", "watching", "all"]
 Body = Annotated[str, Field(min_length=1, max_length=50_000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
 # Até 1000 horas num andamento: mais que isso é erro de digitação.
@@ -104,7 +104,6 @@ class TicketCounts(BaseModel):
     """Quantos chamados há em cada fila (as abas da lista)."""
 
     mine: int
-    news: int
     waiting: int
     watching: int
 
