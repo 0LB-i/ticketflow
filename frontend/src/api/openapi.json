@@ -1848,6 +1848,57 @@
         }
       }
     },
+    "/api/v1/tickets/{ticket_ref}/assignees": {
+      "put": {
+        "tags": ["chamados"],
+        "summary": "Set Ticket Assignees",
+        "description": "Vários responsáveis de uma vez (ou o grupo inteiro): a lista completa.",
+        "operationId": "set_ticket_assignees_api_v1_tickets__ticket_ref__assignees_put",
+        "parameters": [
+          {
+            "name": "ticket_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Ref"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssigneesIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tickets/{ticket_ref}/transfer": {
       "post": {
         "tags": ["chamados"],
@@ -2860,6 +2911,24 @@
         "type": "object",
         "required": ["assignee"],
         "title": "AssignIn"
+      },
+      "AssigneesIn": {
+        "properties": {
+          "assignee_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Assignee Ids",
+            "description": "todos os responsáveis, membros ativos do grupo; o principal continua se estiver na lista, senão o primeiro assume"
+          }
+        },
+        "type": "object",
+        "required": ["assignee_ids"],
+        "title": "AssigneesIn"
       },
       "AttachmentOut": {
         "properties": {

@@ -761,6 +761,40 @@ async def assign(db: AsyncSession, auth: Auth, ticket: Ticket, assignee: Assigne
     await db.commit()
 
 
+async def set_assignees(
+    db: AsyncSession, auth: Auth, ticket: Ticket, assignee_ids: list[uuid.UUID]
+) -> None:
+    """Troca a lista inteira de responsáveis (várias pessoas ou o grupo todo).
+
+    O principal continua se estiver na lista; senão, o primeiro da lista assume."""
+    require(auth, ticket, "assign_others")
+    ids = list(dict.fromkeys(assignee_ids))
+    found = {u.public_id: u for u in await _team_members(db, set(ids), ticket.team_id)}
+    users = [found[i] for i in ids]
+    keep = {u.id for u in users}
+    current = [ticket.assignee, *(c.user for c in ticket.co_assignees)]
+    added = [u for u in users if u.id not in {c.id for c in current}]
+    removed = [u for u in current if u.id not in keep]
+    if not added and not removed:
+        return
+    principal = ticket.assignee if ticket.assignee_id in keep else users[0]
+    payload: dict[str, Any] = {
+        "added": [ref(u) for u in added],
+        "removed": [ref(u) for u in removed],
+    }
+    if principal.id != ticket.assignee_id:
+        payload["assignee"] = {"from": ref(ticket.assignee), "to": ref(principal)}
+    add_event(db, ticket, "ticket.assignees_changed", auth, **payload)
+    ticket.assignee_id = principal.id
+    ticket.co_assignees[:] = [
+        c for c in ticket.co_assignees if c.user_id in keep and c.user_id != principal.id
+    ]
+    ticket.co_assignees.extend(
+        TicketCoAssignee(user_id=u.id) for u in added if u.id != principal.id
+    )
+    await db.commit()
+
+
 async def transfer(
     db: AsyncSession,
     auth: Auth,

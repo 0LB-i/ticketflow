@@ -11,7 +11,7 @@ Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado
 | Tipo | Incidente, requisição ou tarefa (10.2) | Padrão da categoria; ajustável |
 | Categoria | O que é a tarefa | Quem registra |
 | Grupo | Fila responsável | Categoria (padrão) ou quem registra; muda por transferência |
-| Responsável | Membro(s) que estão executando (**obrigatório**: não há chamado sem responsável) | Quem registra (ele mesmo, outros membros ou o grupo todo), quem assume ou outro membro do grupo |
+| Responsável | Membro(s) que estão executando (**obrigatório**: não há chamado sem responsável) | Quem registra (ele mesmo, outros membros ou o grupo todo), quem assume ou quem atribui (uma ou várias pessoas do grupo, ou o grupo todo) |
 | Registrado por | Membro que criou o chamado | Sistema |
 | Setor atendido | Área para a qual a tarefa é feita (opcional) | Quem registra |
 | Pessoa atendida | Nome de quem pediu ou será atendido, em texto livre, sem conta no sistema (opcional) | Quem registra |

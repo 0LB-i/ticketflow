@@ -297,6 +297,53 @@ describe('TicketView', () => {
     expect(w.find('button[aria-label="Tirar o cliente"]').exists()).toBe(false)
   })
 
+  it('a lista de clientes abre com todos, não só com o já escolhido', async () => {
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': [200, CHAMADO],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/clients/options': [200, { items: [{ id: PADARIA.id, label: PADARIA.label }] }],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
+    // Passa a espera da busca: o nome no campo não pode virar o termo
+    await new Promise((r) => setTimeout(r, 400))
+    await w.get('aside').get('button[aria-label="Cliente"]').trigger('click')
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.caminho.endsWith('/clients/options'))).toBeTruthy(),
+    )
+    const pedidos = feitas.filter((r) => r.caminho.endsWith('/clients/options'))
+    expect(pedidos.map((r) => r.query.get('q'))).toEqual([null])
+  })
+
+  it('atribui a várias pessoas ou ao grupo inteiro e tira um responsável', async () => {
+    let chamado = { ...CHAMADO, allowed_actions: ['assign_others', 'comment'] }
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': () => [200, chamado],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'PUT /api/v1/tickets/1000/assignees': () => {
+        chamado = { ...chamado, co_assignees: [{ id: ANA, display_name: 'Ana' }] as never[] }
+        return [200, chamado]
+      },
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Atribuir a'))
+
+    await escolher('Atribuir a', 'Todas as pessoas do grupo')
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.metodo === 'PUT')?.corpo).toEqual({ assignee_ids: [BIA, ANA] }),
+    )
+    // Com duas pessoas, cada uma pode sair
+    const remover = await vi.waitFor(() => w.get('button[aria-label="Remover Ana"]'))
+    await remover.trigger('click')
+    await vi.waitFor(() =>
+      expect(feitas.filter((r) => r.metodo === 'PUT').at(-1)?.corpo).toEqual({
+        assignee_ids: [BIA],
+      }),
+    )
+  })
+
   it('transferir pede o grupo de destino, o novo responsável de lá e o motivo', async () => {
     const INFRA = '00000000-0000-0000-0000-0000000000a2'
     const CAIO = '00000000-0000-0000-0000-0000000000b3'

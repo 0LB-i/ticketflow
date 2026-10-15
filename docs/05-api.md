@@ -62,6 +62,7 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores (respondem `204`: quem se retira de um chamado de outro grupo deixa de vê-lo) |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
 | `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir (id de um membro do grupo); o chamado nunca fica sem responsável |
+| `PUT` | `/tickets/{id}/assignees` | Vários responsáveis (ou o grupo todo): `{"assignee_ids": [...]}`, a lista inteira, membros ativos do grupo; o principal continua se estiver nela, senão o primeiro assume |
 | `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "assignee_id", "reason"}`; o novo responsável é um membro ativo do grupo de destino |
 | `POST` | `/tickets/{id}/merge` | Mesclar em outro chamado |
 | `GET` / `POST` | `/tickets/{id}/approvals` | Aprovações do chamado |
@@ -109,7 +110,7 @@ Futuro: `/saved-views`, `/admin/idp-mappings`, `/admin/api-clients`, `/admin/web
 
 ## Webhooks de saída (futuro)
 
-**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.closed`, `ticket.reopened`
+**Eventos:** `ticket.created`, `ticket.updated`, `ticket.status_changed`, `ticket.assigned`, `ticket.assignees_changed`, `ticket.transferred`, `ticket.approval_requested`, `ticket.approval_decided`, `ticket.comment_added`, `ticket.closed`, `ticket.reopened`
 
 **Entrega:**
 

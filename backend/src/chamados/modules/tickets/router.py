@@ -16,6 +16,7 @@ from chamados.modules.identity.models import User
 from chamados.modules.tickets import service
 from chamados.modules.tickets.models import Ticket, TicketComment, TicketEvent
 from chamados.modules.tickets.schemas import (
+    AssigneesIn,
     AssignIn,
     BulkFailure,
     BulkResult,
@@ -222,6 +223,16 @@ async def update_ticket(
 @router.post("/{ticket_ref}/assign", response_model=TicketOut)
 async def assign_ticket(ticket_ref: str, data: AssignIn, auth: CurrentAuth, db: DB) -> TicketOut:
     await service.assign(db, auth, await service.load(db, auth, ticket_ref), data.assignee)
+    return await _reloaded(db, auth, ticket_ref)
+
+
+@router.put("/{ticket_ref}/assignees", response_model=TicketOut)
+async def set_ticket_assignees(
+    ticket_ref: str, data: AssigneesIn, auth: CurrentAuth, db: DB
+) -> TicketOut:
+    """Vários responsáveis de uma vez (ou o grupo inteiro): a lista completa."""
+    ticket = await service.load(db, auth, ticket_ref)
+    await service.set_assignees(db, auth, ticket, data.assignee_ids)
     return await _reloaded(db, auth, ticket_ref)
 
 

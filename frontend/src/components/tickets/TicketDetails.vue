@@ -43,16 +43,36 @@ async function executar(fn: () => Promise<unknown>, aviso: string) {
 const atribuir = useAcaoNoChamado(numero, (assignee: string) =>
   chamadosApi.atribuir(numero(), assignee),
 )
-const outroResponsavel = ref('')
-const membros = computed(() =>
-  (grupos.data.value?.find((g) => g.id === props.chamado.team.id)?.members ?? [])
-    .filter((m) => m.is_active && m.user_id !== props.chamado.assignee.id)
-    .map((m) => ({ value: m.user_id, label: m.display_name })),
+// Vários responsáveis ou o grupo inteiro: cada mudança envia a lista completa.
+const TODOS = 'todos'
+const responsaveis = computed(() => [props.chamado.assignee, ...props.chamado.co_assignees])
+const membrosDoGrupo = computed(() =>
+  (grupos.data.value?.find((g) => g.id === props.chamado.team.id)?.members ?? []).filter(
+    (m) => m.is_active,
+  ),
 )
+const membros = computed(() => {
+  const fora = membrosDoGrupo.value.filter(
+    (m) => !responsaveis.value.some((r) => r.id === m.user_id),
+  )
+  if (!fora.length) return []
+  return [
+    { value: TODOS, label: t('novoChamado.todosDoGrupo') },
+    ...fora.map((m) => ({ value: m.user_id, label: m.display_name })),
+  ]
+})
+const definirResponsaveis = useAcaoNoChamado(numero, (ids: string[]) =>
+  chamadosApi.definirResponsaveis(numero(), ids),
+)
+function mudarResponsaveis(ids: string[]) {
+  executar(() => definirResponsaveis.mutateAsync(ids), t('chamado.feito.atribuido'))
+}
+const outroResponsavel = ref('')
 watch(outroResponsavel, (id) => {
   if (!id) return
   outroResponsavel.value = ''
-  executar(() => atribuir.mutateAsync(id), t('chamado.feito.atribuido'))
+  const novos = id === TODOS ? membrosDoGrupo.value.map((m) => m.user_id) : [id]
+  mudarResponsaveis([...new Set([...responsaveis.value.map((r) => r.id), ...novos])])
 })
 
 // --- status ---
@@ -189,10 +209,12 @@ const podeRemover = (id: string) =>
       </template>
       <dt class="text-muted">{{ t('chamado.grupo') }}</dt>
       <dd class="font-medium">{{ chamado.team.name }}</dd>
-      <dt class="text-muted">{{ t('chamado.responsavel') }}</dt>
-      <dd class="font-medium">
-        {{ [chamado.assignee, ...chamado.co_assignees].map((u) => u.display_name).join(', ') }}
-      </dd>
+      <template v-if="!pode.has('assign_others')">
+        <dt class="text-muted">{{ t('chamado.responsavel') }}</dt>
+        <dd class="font-medium">
+          {{ responsaveis.map((u) => u.display_name).join(', ') }}
+        </dd>
+      </template>
       <dt class="text-muted">{{ t('chamado.tipo') }}</dt>
       <dd>{{ t(`tipos.${chamado.type}`) }}</dd>
       <dt class="text-muted">{{ t('chamado.inicio') }}</dt>
@@ -226,13 +248,33 @@ const podeRemover = (id: string) =>
         {{ t('chamado.acoes.cancel') }}
       </Button>
     </div>
-    <SelectField
-      v-if="pode.has('assign_others')"
-      v-model="outroResponsavel"
-      :label="t('chamado.atribuirA')"
-      :placeholder="t('chamado.escolhaMembro')"
-      :options="membros"
-    />
+    <div v-if="pode.has('assign_others')" class="flex flex-col gap-2">
+      <SelectField
+        v-model="outroResponsavel"
+        :label="t('chamado.atribuirA')"
+        :placeholder="t('novoChamado.adicionarUsuario')"
+        :options="membros"
+      />
+      <ul class="flex flex-wrap gap-2" :aria-label="t('chamado.responsavel')">
+        <li
+          v-for="r in responsaveis"
+          :key="r.id"
+          class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3"
+        >
+          {{ r.display_name }}
+          <button
+            v-if="responsaveis.length > 1"
+            type="button"
+            class="rounded-full p-0.5 text-muted hover:bg-border"
+            :aria-label="t('novoChamado.removerUsuario', { nome: r.display_name })"
+            :disabled="definirResponsaveis.isPending.value"
+            @click="mudarResponsaveis(responsaveis.filter((o) => o.id !== r.id).map((o) => o.id))"
+          >
+            <X class="size-4" aria-hidden="true" />
+          </button>
+        </li>
+      </ul>
+    </div>
 
     <section class="flex flex-col gap-2 border-t border-border pt-4" aria-labelledby="tempo-titulo">
       <div class="flex items-baseline justify-between gap-2">

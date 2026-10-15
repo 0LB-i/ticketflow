@@ -209,6 +209,15 @@ class AssignIn(BaseModel):
     )
 
 
+class AssigneesIn(BaseModel):
+    assignee_ids: list[uuid.UUID] = Field(
+        min_length=1,
+        max_length=200,
+        description="todos os responsáveis, membros ativos do grupo; o principal continua se "
+        "estiver na lista, senão o primeiro assume",
+    )
+
+
 class TransferIn(BaseModel):
     team_id: uuid.UUID
     assignee_id: uuid.UUID = Field(description="novo responsável: membro ativo do grupo de destino")

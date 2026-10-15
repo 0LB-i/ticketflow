@@ -26,9 +26,11 @@ const aberto = ref(false)
 const busca = ref('')
 const termo = ref('')
 let espera: ReturnType<typeof setTimeout> | undefined
+// O campo mostra o nome do cliente escolhido: esse texto não é busca, senão a lista abriria só
+// com ele.
 watch(busca, (valor) => {
   clearTimeout(espera)
-  espera = setTimeout(() => (termo.value = valor), 300)
+  espera = setTimeout(() => (termo.value = valor === model.value?.name ? '' : valor), 300)
 })
 // Só consulta a API com a lista aberta.
 const clientes = useOpcoesClientes(termo, aberto)

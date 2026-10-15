@@ -150,6 +150,14 @@ export const chamadosApi = {
         body: { assignee },
       }),
     ),
+  /** A lista inteira de responsáveis: o principal continua se estiver nela. */
+  definirResponsaveis: async (numero: string, assignee_ids: string[]) =>
+    ou(
+      await api.PUT('/api/v1/tickets/{ticket_ref}/assignees', {
+        params: caminho(numero),
+        body: { assignee_ids },
+      }),
+    ),
   transferir: async (numero: string, body: Schemas['TransferIn']) =>
     ou(await api.POST('/api/v1/tickets/{ticket_ref}/transfer', { params: caminho(numero), body })),
   /** Qualquer status, sem as exigências do fluxo (ação set_status). */

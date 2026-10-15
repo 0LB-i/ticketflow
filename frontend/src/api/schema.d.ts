@@ -585,6 +585,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/tickets/{ticket_ref}/assignees': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Set Ticket Assignees
+     * @description Vários responsáveis de uma vez (ou o grupo inteiro): a lista completa.
+     */
+    put: operations['set_ticket_assignees_api_v1_tickets__ticket_ref__assignees_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/tickets/{ticket_ref}/transfer': {
     parameters: {
       query?: never
@@ -915,6 +935,14 @@ export interface components {
        * @description "me" para assumir ou um membro do grupo
        */
       assignee: 'me' | string
+    }
+    /** AssigneesIn */
+    AssigneesIn: {
+      /**
+       * Assignee Ids
+       * @description todos os responsáveis, membros ativos do grupo; o principal continua se estiver na lista, senão o primeiro assume
+       */
+      assignee_ids: string[]
     }
     /** AttachmentOut */
     AttachmentOut: {
@@ -3745,6 +3773,41 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': components['schemas']['AssignIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TicketOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  set_ticket_assignees_api_v1_tickets__ticket_ref__assignees_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_ref: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AssigneesIn']
       }
     }
     responses: {

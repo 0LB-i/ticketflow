@@ -29,6 +29,8 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Chamado: "Atribuir a" acrescenta outra pessoa do grupo ou "Todas as pessoas do grupo" sem tirar quem já está; cada responsável pode ser tirado (sempre fica ao menos um). Nova rota `PUT /tickets/{id}/assignees`. Sem migração.
+- Chamado: a lista de clientes da lateral abre com todos os clientes ativos, e não só com o já escolhido.
 - Chamado: o cliente pode ser trocado ou tirado na lateral (quem pode editar o chamado), e o botão **Cancelar chamado** saiu da caixa de tarefa e foi para a lateral, junto de Assumir e Transferir, e pede só uma confirmação, sem motivo (na API, o comentário do cancelamento passou a ser opcional). A lateral não mostra mais o número de reaberturas.
 - Clientes: o CPF/CNPJ continua único (a migração `0025` tirou a restrição e a `0026` a devolve; **antes de aplicar a 0026, resolva documentos repetidos**), e o **nome** (nome completo ou razão social) também não pode repetir: a API compara sem diferença de maiúsculas, acentos e espaços a mais, e grava o nome sem espaços repetidos.
 - Clientes: só membros do grupo **Administradores** cadastram, alteram e inativam clientes (migração `0027` tira `client.manage` dos papéis Agente e Administrador). Os demais só consultam. Quem tem o papel Administrador, mas não está no grupo, também só consulta.
