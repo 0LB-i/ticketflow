@@ -1,7 +1,8 @@
 """Cadastro de clientes, pessoa física e jurídica (/clientes).
 
-Ver exige client.view; cadastrar e alterar, client.manage (só membros do grupo
-Administradores, ver core/permissions.py). Só o CEP, a cidade e a UF são
+Ver exige client.view; cadastrar e alterar, client.manage (as duas só para membros do grupo
+Administradores, ver core/permissions.py). Para escolher o cliente de um chamado, qualquer
+pessoa logada usa GET /clients/options, que devolve só o id e o nome. Só o CEP, a cidade e a UF são
 obrigatórios; telefones e e-mails são listas. Não há exclusão: cliente que não é
 mais atendido fica inativo. A auditoria guarda só quais campos mudaram, não os dados pessoais.
 """
@@ -22,7 +23,7 @@ from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.clients import documents as doc
 from chamados.modules.clients.models import Client
-from chamados.modules.identity.deps import Auth, require
+from chamados.modules.identity.deps import Auth, CurrentAuth, require
 
 router = APIRouter(prefix="/clients", tags=["clientes"])
 Viewer = Annotated[Auth, Depends(require(P.CLIENT_VIEW))]
@@ -85,6 +86,15 @@ class ClientSummary(BaseModel):
 class ClientPage(BaseModel):
     items: list[ClientSummary]
     total: int
+
+
+class ClientOption(BaseModel):
+    id: uuid.UUID
+    label: str
+
+
+class ClientOptions(BaseModel):
+    items: list[ClientOption]
 
 
 FIELDS = tuple(ClientIn.model_fields)
@@ -222,6 +232,29 @@ async def list_clients(
         ],
         total=total,
     )
+
+
+@router.get("/options", response_model=ClientOptions)
+async def client_options(
+    _: CurrentAuth,
+    db: DB,
+    q: Annotated[str | None, Query(max_length=200, description="nome ou nome fantasia")] = None,
+) -> ClientOptions:
+    """Clientes ativos para escolher no chamado e nos relatórios: só o id e o nome."""
+    stmt = select(Client).where(Client.is_active)
+    if q and q.strip():
+        term = func.unaccent(f"%{q.strip()}%")
+        stmt = stmt.where(
+            or_(
+                func.unaccent(Client.name).ilike(term), func.unaccent(Client.trade_name).ilike(term)
+            )
+        )
+    rows = await db.scalars(
+        stmt.order_by(
+            func.lower(func.coalesce(Client.name, Client.trade_name, Client.city)), Client.id
+        ).limit(50)
+    )
+    return ClientOptions(items=[ClientOption(id=c.public_id, label=c.label) for c in rows])
 
 
 @router.get("/{client_id}", response_model=ClientOut)

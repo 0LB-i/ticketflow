@@ -44,7 +44,7 @@ const colunas = computed(() => [
   <div class="mx-auto flex max-w-7xl flex-col gap-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-xl font-semibold">{{ t('clientes.titulo') }}</h1>
-      <Button v-if="auth.pode('client.manage')" @click="$router.push('/clientes/novo')">
+      <Button v-if="auth.pode('client.manage')" @click="$router.push('/admin/clientes/novo')">
         {{ t('clientes.novo') }}
       </Button>
     </div>
@@ -66,7 +66,7 @@ const colunas = computed(() => [
     <template v-else>
       <DataTable :columns="colunas" :rows="linhas" row-key="id" :caption="t('clientes.titulo')">
         <template #cell-name="{ row }">
-          <RouterLink :to="`/clientes/${row.id}`" class="font-medium hover:underline">
+          <RouterLink :to="`/admin/clientes/${row.id}`" class="font-medium hover:underline">
             {{ row.label }}
           </RouterLink>
           <span v-if="row.name && row.trade_name" class="block text-muted">{{

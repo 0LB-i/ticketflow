@@ -53,6 +53,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Identificadores da instalação passam a ser `ticketflow`: código em `/opt/ticketflow`, serviços `ticketflow`, `ticketflow-worker` e `ticketflow-backup` (units em `deploy/ticketflow*.service`), usuário do sistema e papel no PostgreSQL `ticketflow`, configuração em `/etc/ticketflow/env`, anexos em `/var/lib/ticketflow/files` e backups em `/var/backups/ticketflow`. O banco (`chamados`) e o comando `chamados` não mudam.
 - Todo chamado tem responsável e cliente: o registro exige os dois, o cliente troca mas não sai, e a transferência pede o novo responsável (membro do grupo de destino). Saem a aba "Não atribuídos", o botão "Pegar o próximo" (`POST /tickets/next`), o "Devolver para a fila" (`assignee: null`) e o filtro "Sem responsável" (`assignee=none`). Migração `0028`: `tickets.assignee_id` NOT NULL (falha se houver chamado sem responsável: atribua antes de atualizar). Chamados antigos sem cliente continuam aceitos pelo banco.
 - Sai a aba "Com novidades" da lista de chamados (fila `news` da API e o contador dela). O ícone de tarefa nova de outra pessoa continua ao lado do título, em todas as abas.
+- Clientes passam para o menu **Administração** (`/admin/clientes`) e só o grupo **Administradores** vê o cadastro (migração `0029` tira `client.view` dos papéis). Os demais escolhem o cliente do chamado e o filtro dos relatórios só pelo nome (`GET /clients/options`, sem CPF/CNPJ, contatos nem endereço).
 
 ### Variáveis de ambiente
 

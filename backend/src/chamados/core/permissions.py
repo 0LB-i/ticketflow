@@ -4,8 +4,10 @@ As permissões são códigos fixos. Um papel é uma lista deles. Algumas só val
 supervisor do grupo em questão (👤 na matriz do docs/08): o papel Agente não as tem
 globalmente, e `can()` as concede pela supervisão.
 
-A exceção é client.manage: nenhum papel a tem; vale só para quem é membro do grupo
-Administradores (pedido do usuário), mesmo que o papel seja Administrador.
+A exceção são os clientes (client.view e client.manage): nenhum papel os tem; valem só para
+quem é membro do grupo Administradores (pedido do usuário), mesmo que o papel seja
+Administrador. Para escolher o cliente de um chamado, todos usam GET /clients/options, que
+devolve só o nome.
 
 O filtro de visibilidade de chamados (`ticket_visibility_filter`) fica em
 modules/tickets/visibility.py, e as ações em um chamado, em modules/tickets/rules.py.
@@ -73,10 +75,9 @@ ROLES: dict[str, frozenset[P]] = {
             P.TICKET_MERGE,
             P.KB_READ,
             P.KB_WRITE,
-            P.CLIENT_VIEW,
         }
     ),
-    "admin": frozenset(P) - {P.CLIENT_MANAGE},
+    "admin": frozenset(P) - {P.CLIENT_VIEW, P.CLIENT_MANAGE},
     "auditor": frozenset(
         {
             P.TICKET_VIEW_TEAM,
@@ -86,14 +87,14 @@ ROLES: dict[str, frozenset[P]] = {
             P.REPORT_VIEW_TEAM,
             P.REPORT_VIEW_ALL,
             P.AUDIT_VIEW,
-            P.CLIENT_VIEW,
         }
     ),
 }
 
-# Quem é membro deste grupo (ativo) cadastra, altera e inativa clientes. O nome é comparado sem
+# Quem é membro deste grupo (ativo) vê, cadastra, altera e inativa clientes. O nome é comparado sem
 # maiúsculas: renomear o grupo tira a permissão de todos.
 CLIENT_MANAGERS_TEAM = "administradores"
+CLIENTS = frozenset({P.CLIENT_VIEW, P.CLIENT_MANAGE})
 
 ROLE_NAMES = {"agent": "Agente", "admin": "Administrador", "auditor": "Auditor"}
 
@@ -111,7 +112,7 @@ class Actor:
     @property
     def permissions(self) -> frozenset[P]:
         perms = ROLES.get(self.role, frozenset())
-        return perms | {P.CLIENT_MANAGE} if self.manages_clients else perms
+        return perms | CLIENTS if self.manages_clients else perms
 
 
 def can(actor: Actor, permission: P, team_id: int | None = None) -> bool:

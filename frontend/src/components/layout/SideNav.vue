@@ -22,12 +22,12 @@ const route = useRoute()
 const principal = computed(() =>
   [
     { to: '/chamados', rotulo: 'menu.chamados', icone: Ticket, perm: null },
-    { to: '/clientes', rotulo: 'menu.clientes', icone: Contact, perm: 'client.view' },
     { to: '/relatorios', rotulo: 'menu.relatorios', icone: ChartColumn, perm: null },
   ].filter((item) => !item.perm || auth.pode(item.perm)),
 )
 const administracao = computed(() =>
   [
+    { to: '/admin/clientes', rotulo: 'menu.clientes', icone: Contact, perm: 'client.view' },
     { to: '/admin/usuarios', rotulo: 'menu.usuarios', icone: Users, perm: 'admin.users' },
     { to: '/admin/grupos', rotulo: 'menu.grupos', icone: UsersRound, perm: 'admin.organization' },
     {

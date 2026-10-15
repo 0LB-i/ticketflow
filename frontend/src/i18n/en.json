@@ -371,7 +371,7 @@
     "cliente": "Client",
     "contato": "Contact",
     "contatoDica": "Who asked for the work.",
-    "buscarCliente": "Search by name or tax ID",
+    "buscarCliente": "Search by name",
     "nenhumCliente": "No client found.",
     "tirarCliente": "Remove the client",
     "entregue": {

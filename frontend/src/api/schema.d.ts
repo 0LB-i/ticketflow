@@ -454,6 +454,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/clients/options': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Client Options
+     * @description Clientes ativos para escolher no chamado e nos relatórios: só o id e o nome.
+     */
+    get: operations['client_options_api_v1_clients_options_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/clients/{client_id}': {
     parameters: {
       query?: never
@@ -1178,6 +1198,21 @@ export interface components {
        * @default true
        */
       is_active: boolean
+    }
+    /** ClientOption */
+    ClientOption: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Label */
+      label: string
+    }
+    /** ClientOptions */
+    ClientOptions: {
+      /** Items */
+      items: components['schemas']['ClientOption'][]
     }
     /** ClientOut */
     ClientOut: {
@@ -3389,6 +3424,38 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ClientOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  client_options_api_v1_clients_options_get: {
+    parameters: {
+      query?: {
+        /** @description nome ou nome fantasia */
+        q?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientOptions']
         }
       }
       /** @description Validation Error */

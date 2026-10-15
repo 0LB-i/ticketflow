@@ -196,11 +196,24 @@ def test_busca_e_inativos(client: TestClient, agente: None) -> None:
     assert client.get(API, params={"inactive": True}).json()["total"] == 2
 
 
-def test_permissoes(client: TestClient, db: Session) -> None:
+def test_fora_do_grupo_so_escolhe_pelo_nome(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "adm@x.com", grupos={"Administradores": "member"})
+    entrar(client, "adm@x.com")
+    pessoa = client.post(API, json=PESSOA).json()
+    empresa = client.post(API, json=EMPRESA).json()
+    client.put(f"{API}/{empresa['id']}", json={**EMPRESA, "is_active": False})
+
     criar_usuario(db, "auditor@x.com", "auditor")
     entrar(client, "auditor@x.com")
-    assert client.get(API).status_code == 200
+    assert client.get(API).status_code == 403
+    assert client.get(f"{API}/{pessoa['id']}").status_code == 403
     assert client.post(API, json=PESSOA).status_code == 403
+    # O seletor do chamado: só os ativos, só o id e o nome, busca pelo nome (sem acento)
+    r = client.get(f"{API}/options", params={"q": pessoa["label"][:4].upper()})
+    assert r.status_code == 200
+    assert r.json() == {"items": [{"id": pessoa["id"], "label": pessoa["label"]}]}
+    assert client.get(f"{API}/options").json()["items"] == r.json()["items"]
+    assert client.get(f"{API}/options", params={"q": PESSOA["document"]}).json()["items"] == []
 
 
 @pytest.mark.parametrize(
@@ -217,8 +230,9 @@ def test_so_o_grupo_administradores_gerencia(
 ) -> None:
     criar_usuario(db, "bia@x.com", papel, grupos=grupos)
     entrar(client, "bia@x.com")
-    assert client.get(API).status_code == 200
-    assert ("client.manage" in client.get("/api/v1/me").json()["permissions"]) is pode
+    assert (client.get(API).status_code == 200) is pode
+    permissoes = client.get("/api/v1/me").json()["permissions"]
+    assert ("client.view" in permissoes) is pode and ("client.manage" in permissoes) is pode
     assert (client.post(API, json=PESSOA).status_code == 201) is pode
 
 
