@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 
 import { api, ou } from '@/api/client'
 import StatusSettings from '@/components/admin/StatusSettings.vue'
+import WorkHoursSettings from '@/components/admin/WorkHoursSettings.vue'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import Button from '@/components/ui/Button.vue'
 import SelectField from '@/components/ui/SelectField.vue'
@@ -13,7 +14,7 @@ import { type Idioma, IDIOMAS } from '@/i18n'
 import { useBrandingStore } from '@/stores/branding'
 import { CORES_PADRAO, type Cores, paleta, PREDEFINIDAS, variaveis } from '@/tema/paleta'
 
-/** Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, logotipo e status. */
+/** Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, logotipo, status e expediente. */
 useHead('configuracoes.titulo')
 const { t } = useI18n()
 const toast = useToast()
@@ -296,5 +297,7 @@ async function removerLogo() {
     </section>
 
     <StatusSettings />
+
+    <WorkHoursSettings />
   </div>
 </template>

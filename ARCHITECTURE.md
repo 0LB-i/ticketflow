@@ -116,9 +116,10 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `catalog` | `models` (Category, TicketStatus, ResolutionCode), `router` | Árvore de categorias (até 3 níveis; sem tela desde que saíram dos chamados), status por `kind`, códigos de resolução | `/categories`, `/statuses`, `/resolution-codes` |
 | `clients` | `models` (Client), `router`, `documents` (CPF, CNPJ alfanumérico, telefone, CEP) | Cadastro de clientes pessoa física e jurídica, com contato e endereço; sem exclusão (inativa) | `/clients` |
 | `tickets` | `models`, `schemas`, `router`, `service`, `rules`, `visibility` | Chamados, comentários, observadores, atribuição (um ou mais responsáveis), transferência, transições e histórico | `/tickets/*` |
-| `system` | `models` (SystemSetting), `router`, `service` | Configurações da instalação: idioma padrão, cores, logotipo; idioma efetivo de um usuário | `/branding`, `/admin/settings` |
+| `system` | `models` (SystemSetting), `router`, `service`, `work_hours` (expediente) | Configurações da instalação: idioma padrão, cores, logotipo, expediente; idioma efetivo de um usuário | `/branding`, `/admin/settings`, `/work-hours` |
 | `audit` | `models` (AuditLog), `service` (`record()`), `router` | Auditoria de login e administração | `/admin/audit-log` |
 | `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
+| `reports` | `schemas`, `service` (escopo, cálculo, horas fora do expediente), `pdf` (ReportLab), `router` | Relatórios de horas: por pessoa, cliente e dia, horas extras e PDF (3.7.2) | `/reports`, `/reports/options`, `/reports/pdf` |
 | `notifications` | `email` | Envio por SMTP ou para o log (`Mailer`) | — |
 
 Os módulos podem importar modelos e services uns dos outros (por exemplo, `tickets` usa `catalog`, `organization` e `identity`), mas **a decisão de permissão de um chamado só acontece em `tickets`** e **o registro na auditoria só por `audit.service.record()`**.
@@ -186,7 +187,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 
 ### 3.7 Configurações (`modules/system/`)
 
-- Tabela `settings` com chave e valor (jsonb). Sem a linha, vale o padrão. Chaves: `locale`, `colors` (`brand`, `neutral`, `background`) e `logo` (imagem em base64, tipo e sha256).
+- Tabela `settings` com chave e valor (jsonb). Sem a linha, vale o padrão. Chaves: `locale`, `colors` (`brand`, `neutral`, `background`), `logo` (imagem em base64, tipo e sha256) e `work_hours` (expediente: `weekdays` 0 = segunda, `start`, `end`, `holidays`; padrão seg–sex 08:00–18:00). O expediente é lido por todos (`GET /work-hours`) e gravado por `PUT /admin/settings/work-hours`.
 - `GET /branding` é **público**: a tela de login também usa as cores, o logotipo e o idioma.
 - O logotipo é servido por `GET /branding/logo?v=<hash>`, com cache permanente (o endereço muda quando a imagem muda). Só PNG, JPEG e WebP, conferidos pelos primeiros bytes; SVG é recusado porque pode conter scripts.
 - O backend guarda só as **três cores**; a paleta inteira é derivada no frontend (4.6).
@@ -199,6 +200,13 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - A validação fica no router (`_clean`), com mensagens do catálogo de idiomas. O formulário envia o cadastro inteiro (`PUT`).
 - Permissões: `client.view` (agente, admin, auditor) e `client.manage` (agente, admin). A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
 - Ligação com os chamados: `tickets.client_id` (3.5).
+
+### 3.7.2 Relatórios (`modules/reports/`)
+
+- Regras de negócio em [docs/14 §14.7](docs/14-relatorios-e-indicadores.md#147-relatórios-de-horas-pedido-do-usuário-2026-10-15). Calculado na hora, sem tabela própria: as tarefas do período vêm numa consulta e as somas (pessoa, cliente, dia) e as horas extras saem em Python (`service.build`).
+- **Escopo:** `service.resolve` confere os filtros (grupo e pessoa só os que a pessoa pode ver, senão 403) e `_own_or_supervised` restringe as linhas: `report.view_all` vê tudo; os demais, o próprio trabalho mais os chamados dos grupos supervisionados. Sempre junto com `ticket_visibility_filter`.
+- **Hora extra:** `service.outside_minutes(done_at, minutos, expediente)`: a tarefa termina em `done_at`; conta o que fica fora da faixa do dia (em São Paulo), nos dias que não são de trabalho e nos feriados.
+- **PDF:** `pdf.render` (ReportLab, fontes padrão do PDF, sem pacotes do sistema), no idioma do `Accept-Language`, gerado numa thread; cada download vai para o `audit_log` (`report.exported`).
 
 ### 3.8 Auditoria × histórico
 
@@ -269,12 +277,14 @@ src/
 │   ├── admin.ts         usuários, grupos, setores, status (admin)
 │   ├── chamados.ts      chamados, comentários, histórico, status, pessoas
 │   ├── clientes.ts      clientes; documentos.ts formata e valida CPF, CNPJ, telefone e CEP
+│   ├── relatorios.ts    relatórios, opções dos filtros, download do PDF e expediente
 │   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
-├── views/               uma pasta por área: auth/, tickets/, clients/, admin/
+├── views/               uma pasta por área: auth/, tickets/, clients/, reports/, admin/
 ├── components/
 │   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, DateTimeField, DurationField (hh:mm com lista), Modal, SidePanel, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
-│   ├── admin/           StatusSettings (status dos chamados, dentro de Configurações)
+│   ├── admin/           StatusSettings (status dos chamados) e WorkHoursSettings (expediente), dentro de Configurações
+│   ├── reports/         BarChart (barras horizontais) e ColumnChart (colunas no tempo): uma série, só tokens
 │   ├── editor/          RichEditor (Tiptap → Markdown, @menções, imagens coladas), MarkdownView, markdown.ts
 │   └── tickets/         TicketTimeline, CommentBox, TicketDetails, DeliverTicket, ClientPicker,
 │                        AttachmentUploader (Anexar, arrastar e soltar), AttachmentList
@@ -296,7 +306,7 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`.
+- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['relatorios', filtro]`, `['relatorios', 'opcoes']`, `['expediente']`.
 - **Escrita:** `useAlteracao(fn, chaves)` (admin) e `useAcaoNoChamado(numero, fn)` (chamados) fazem a mutação e invalidam as chaves afetadas.
 - **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
 
@@ -312,7 +322,8 @@ src/
 | `/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail) | `client.view` |
 | `/clientes/novo`, `/clientes/:id` | Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
 | `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | Cadastros | `admin.users` / `admin.organization` |
-| `/admin/configuracoes` | Idioma, cores, logotipo e status dos chamados | `admin.settings` |
+| `/relatorios` | Relatórios: totais, abas Produtividade, Clientes e Horas extras (gráficos + tabelas), filtros de período, grupo, pessoa e cliente, botão Baixar PDF. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
+| `/admin/configuracoes` | Idioma, cores, logotipo, status dos chamados e expediente | `admin.settings` |
 | `/dev/componentes` | Vitrine do design system | Só em desenvolvimento |
 
 Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão)`. O botão "Novo chamado" e a busca global ficam no cabeçalho (`AppLayout.vue`): `1234` ou `#1234` abre o chamado, texto abre a aba Todos com `q`.

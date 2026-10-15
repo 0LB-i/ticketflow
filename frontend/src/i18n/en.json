@@ -15,6 +15,7 @@
     "setores": "Departments served",
     "chamados": "Tickets",
     "clientes": "Clients",
+    "relatorios": "Reports",
     "configuracoes": "Settings"
   },
   "tema": {
@@ -396,6 +397,81 @@
     "nomes": {
       "pt-BR": "Português (Brasil)",
       "en": "English"
+    }
+  },
+  "relatorios": {
+    "titulo": "Reports",
+    "descricao": "Hours worked, clients and overtime. You see your own work; supervisors see their team's.",
+    "baixarPdf": "Download PDF",
+    "gerandoPdf": "Generating PDF…",
+    "periodo": "Period",
+    "personalizado": "Custom",
+    "de": "From",
+    "ate": "To",
+    "periodoInvalido": "The end date must be on or after the start date.",
+    "grupo": "Team",
+    "pessoa": "Person",
+    "cliente": "Client",
+    "todosOsGrupos": "All teams",
+    "todasAsPessoas": "Everyone",
+    "semCliente": "No client",
+    "vazio": "No tasks in this period.",
+    "semExtras": "No overtime in this period.",
+    "expedienteUsado": "Overtime is task time outside working hours: {dias}, {inicio} to {fim}, excluding holidays. A task ends at the date and time entered.",
+    "horasPorDia": "Hours per day",
+    "horasPorSemana": "Hours per week",
+    "horasPorPessoa": "Hours per person",
+    "horasPorCliente": "Hours per client (top 10)",
+    "horasExtrasPorDia": "Overtime per day",
+    "horasExtrasPorSemana": "Overtime per week",
+    "horasExtrasPorPessoa": "Overtime per person",
+    "tarefasForaDoExpediente": "Tasks outside working hours",
+    "abas": {
+      "produtividade": "Productivity",
+      "clientes": "Clients",
+      "horasExtras": "Overtime"
+    },
+    "cartoes": {
+      "horas": "Hours",
+      "horasExtras": "Overtime",
+      "tarefas": "Tasks",
+      "registrados": "Tickets opened",
+      "concluidos": "Tickets closed"
+    },
+    "colunas": {
+      "pessoa": "Person",
+      "cliente": "Client",
+      "horas": "Hours",
+      "horasExtras": "Overtime",
+      "tarefas": "Tasks",
+      "registrados": "Opened",
+      "concluidos": "Closed",
+      "quando": "When",
+      "chamado": "Ticket",
+      "tempo": "Time",
+      "foraDoExpediente": "Outside working hours"
+    }
+  },
+  "expediente": {
+    "titulo": "Working hours",
+    "descricao": "Working days and hours. Task time outside them shows up as overtime in the reports.",
+    "dias": "Working days",
+    "inicio": "Start",
+    "fim": "End",
+    "horarioInvalido": "The end must be after the start.",
+    "feriados": "Holidays and days off",
+    "feriadosDica": "On these days all task time counts as overtime.",
+    "novoFeriado": "Date",
+    "removerFeriado": "Remove {data}",
+    "salvar": "Save working hours",
+    "diasCurtos": {
+      "seg": "Mon",
+      "ter": "Tue",
+      "qua": "Wed",
+      "qui": "Thu",
+      "sex": "Fri",
+      "sab": "Sat",
+      "dom": "Sun"
     }
   },
   "configuracoes": {

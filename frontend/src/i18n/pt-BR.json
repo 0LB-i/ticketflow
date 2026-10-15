@@ -15,6 +15,7 @@
     "setores": "Setores atendidos",
     "chamados": "Chamados",
     "clientes": "Clientes",
+    "relatorios": "Relatórios",
     "configuracoes": "Configurações"
   },
   "tema": {
@@ -396,6 +397,81 @@
     "nomes": {
       "pt-BR": "Português (Brasil)",
       "en": "English"
+    }
+  },
+  "relatorios": {
+    "titulo": "Relatórios",
+    "descricao": "Horas trabalhadas, clientes e horas extras. Você vê o seu trabalho; o supervisor vê o do grupo.",
+    "baixarPdf": "Baixar PDF",
+    "gerandoPdf": "Gerando PDF…",
+    "periodo": "Período",
+    "personalizado": "Personalizado",
+    "de": "De",
+    "ate": "Até",
+    "periodoInvalido": "A data final precisa ser igual ou depois da inicial.",
+    "grupo": "Grupo",
+    "pessoa": "Pessoa",
+    "cliente": "Cliente",
+    "todosOsGrupos": "Todos os grupos",
+    "todasAsPessoas": "Todas as pessoas",
+    "semCliente": "Sem cliente",
+    "vazio": "Nenhuma tarefa no período.",
+    "semExtras": "Nenhuma hora extra no período.",
+    "expedienteUsado": "Hora extra é o tempo de tarefa fora do expediente: {dias}, das {inicio} às {fim}, sem contar os feriados. A tarefa termina na data e hora informadas.",
+    "horasPorDia": "Horas por dia",
+    "horasPorSemana": "Horas por semana",
+    "horasPorPessoa": "Horas por pessoa",
+    "horasPorCliente": "Horas por cliente (os 10 primeiros)",
+    "horasExtrasPorDia": "Horas extras por dia",
+    "horasExtrasPorSemana": "Horas extras por semana",
+    "horasExtrasPorPessoa": "Horas extras por pessoa",
+    "tarefasForaDoExpediente": "Tarefas fora do expediente",
+    "abas": {
+      "produtividade": "Produtividade",
+      "clientes": "Clientes",
+      "horasExtras": "Horas extras"
+    },
+    "cartoes": {
+      "horas": "Horas",
+      "horasExtras": "Horas extras",
+      "tarefas": "Tarefas",
+      "registrados": "Chamados registrados",
+      "concluidos": "Chamados concluídos"
+    },
+    "colunas": {
+      "pessoa": "Pessoa",
+      "cliente": "Cliente",
+      "horas": "Horas",
+      "horasExtras": "Horas extras",
+      "tarefas": "Tarefas",
+      "registrados": "Registrados",
+      "concluidos": "Concluídos",
+      "quando": "Quando",
+      "chamado": "Chamado",
+      "tempo": "Tempo",
+      "foraDoExpediente": "Fora do expediente"
+    }
+  },
+  "expediente": {
+    "titulo": "Expediente",
+    "descricao": "Dias e horário de trabalho. O tempo de tarefa fora deles aparece como hora extra nos relatórios.",
+    "dias": "Dias de trabalho",
+    "inicio": "Início",
+    "fim": "Fim",
+    "horarioInvalido": "O fim precisa ser depois do início.",
+    "feriados": "Feriados e folgas",
+    "feriadosDica": "Nesses dias todo o tempo de tarefa conta como hora extra.",
+    "novoFeriado": "Data",
+    "removerFeriado": "Remover {data}",
+    "salvar": "Salvar expediente",
+    "diasCurtos": {
+      "seg": "Seg",
+      "ter": "Ter",
+      "qua": "Qua",
+      "qui": "Qui",
+      "sex": "Sex",
+      "sab": "Sáb",
+      "dom": "Dom"
     }
   },
   "configuracoes": {

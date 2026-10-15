@@ -91,6 +91,11 @@ const routes: RouteRecordRaw[] = [
     meta: { permissao: 'client.view' },
   },
   {
+    path: '/relatorios',
+    name: 'relatorios',
+    component: () => import('@/views/reports/ReportsView.vue'),
+  },
+  {
     path: '/admin/usuarios',
     name: 'admin-usuarios',
     component: () => import('@/views/admin/UsersView.vue'),
