@@ -149,15 +149,21 @@ def test_campos_obrigatorios_por_tipo(client: TestClient, agente: None) -> None:
         assert r.json()["street"] is None and r.json()["emails"] == [] and r.json()["phones"] == []
 
 
-def test_documento_repetido_e_edicao(client: TestClient, db: Session, agente: None) -> None:
+def test_documento_e_nome_unicos_e_edicao(client: TestClient, db: Session, agente: None) -> None:
     c = client.post(API, json=PESSOA).json()
-    # O mesmo CPF (e os mesmos dados) pode estar em mais de um cadastro
-    r = client.post(API, json={**PESSOA, "document": "52998224725"})
-    assert r.status_code == 201, r.text
-    outro = client.post(API, json={**PESSOA, "document": "11144477735"}).json()
-    r = client.put(f"{API}/{outro['id']}", json=PESSOA)
-    assert r.status_code == 200 and r.json()["document"] == "52998224725"
-    assert client.get(API, params={"q": "529.982"}).json()["total"] == 3
+    outro = {**PESSOA, "name": "Maria Souza", "document": "11144477735"}
+    r = client.post(API, json={**outro, "document": "52998224725"})
+    assert r.status_code == 409 and r.json()["detail"] == "Já existe um cliente com este CPF/CNPJ."
+    for nome in ("João da Silva", "JOAO  DA  SILVA", " joão da silva "):
+        r = client.post(API, json={**outro, "name": nome})
+        assert r.status_code == 409 and r.json()["detail"] == "Já existe um cliente com este nome."
+    maria = client.post(API, json={**outro, "name": "  Maria   Souza "}).json()
+    assert maria["name"] == "Maria Souza"
+    # Na edição vale o mesmo, e o próprio cadastro não conta
+    url = f"{API}/{maria['id']}"
+    assert client.put(url, json={**outro, "document": "52998224725"}).status_code == 409
+    assert client.put(url, json={**outro, "name": "joão da silva"}).status_code == 409
+    assert client.put(url, json={**outro, "city": "Santos"}).status_code == 200
 
     r = client.put(f"{API}/{c['id']}", json={**PESSOA, "city": "Campinas", "is_active": False})
     assert r.status_code == 200

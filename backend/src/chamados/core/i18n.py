@@ -142,6 +142,8 @@ EN: dict[str, str] = {
     "Informe o CNPJ.": "Enter the CNPJ.",
     "CPF inválido.": "Invalid CPF.",
     "CNPJ inválido.": "Invalid CNPJ.",
+    "Já existe um cliente com este CPF/CNPJ.": "A client with this CPF/CNPJ already exists.",
+    "Já existe um cliente com este nome.": "A client with this name already exists.",
     "A data de nascimento não pode ficar no futuro.": "The date of birth cannot be in the future.",
     "Telefone inválido: informe o DDD e o número.": (
         "Invalid phone: enter the area code and the number."

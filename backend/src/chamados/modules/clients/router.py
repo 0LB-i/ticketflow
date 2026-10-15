@@ -93,7 +93,7 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     """Valida e normaliza. Devolve os valores como vão para o banco."""
     v: dict[str, Any] = {
         "kind": data.kind,
-        "name": optional_text(data.name),
+        "name": optional_text(" ".join((data.name or "").split())),  # sem espaços repetidos
         "trade_name": optional_text(data.trade_name),
         "id_number": optional_text(data.id_number),
         "birth_date": data.birth_date,
@@ -146,6 +146,19 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     for field in COMPANY_ONLY if data.kind == "person" else PERSON_ONLY:
         v[field] = None
     return v
+
+
+async def _check_unique(db: AsyncSession, values: dict[str, Any], except_id: int | None) -> None:
+    """CPF/CNPJ e nome não repetem (o nome sem diferença de maiúsculas, acentos e espaços)."""
+    others = select(Client.id).where(Client.id != (except_id or 0))
+    if values["document"] and await db.scalar(others.where(Client.document == values["document"])):
+        raise HTTPException(409, "Já existe um cliente com este CPF/CNPJ.")
+    if values["name"] and await db.scalar(
+        others.where(
+            func.lower(func.unaccent(Client.name)) == func.lower(func.unaccent(values["name"]))
+        )
+    ):
+        raise HTTPException(409, "Já existe um cliente com este nome.")
 
 
 async def _client(db: AsyncSession, public_id: uuid.UUID) -> Client:
@@ -218,6 +231,7 @@ async def get_client(client_id: uuid.UUID, _: Viewer, db: DB) -> ClientOut:
 @router.post("", response_model=ClientOut, status_code=201)
 async def create_client(data: ClientIn, auth: Manager, request: Request, db: DB) -> ClientOut:
     values = _clean(data)
+    await _check_unique(db, values, None)
     client = Client(**values)
     db.add(client)
     await db.flush()
@@ -240,6 +254,7 @@ async def update_client(
     """Substitui o cadastro inteiro (o formulário envia todos os campos)."""
     client = await _client(db, client_id)
     values = _clean(data)
+    await _check_unique(db, values, client.id)
     changed = sorted(f for f, value in values.items() if getattr(client, f) != value)
     if changed:
         for field in changed:
