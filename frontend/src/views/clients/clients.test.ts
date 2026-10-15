@@ -117,7 +117,28 @@ describe('ClientFormView', () => {
     expect(feitas.some((r) => r.metodo === 'POST')).toBe(false)
   })
 
-  it('cadastra só com CEP, cidade e UF', async () => {
+  it('PJ não envia sem razão social, nome fantasia e CNPJ', async () => {
+    const feitas = simularApi({ 'GET /api/v1/me': [200, ME] })
+    const w = montar(ClientFormView, { global: { plugins: [criarRouter()] } })
+    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    await w
+      .findAll('input[type=radio]')
+      .find((r) => r.attributes('value') === 'company')!
+      .setValue()
+    await digitar(w, 'CEP', '01310100')
+    await digitar(w, 'Cidade', 'São Paulo')
+    await escolher('UF', 'SP')
+    await w.get('form').trigger('submit')
+    for (const rotulo of ['Razão social', 'Nome fantasia', 'CNPJ']) {
+      const label = w.findAll('label').find((l) => l.text().replace(' *', '') === rotulo)!
+      expect(label.text()).toContain('*')
+      const dica = w.get(`#${label.attributes('for')}`).attributes('aria-describedby')!
+      expect(w.get(`#${dica}`).text()).toBe('Campo obrigatório.')
+    }
+    expect(feitas.some((r) => r.metodo === 'POST')).toBe(false)
+  })
+
+  it('cadastra pessoa física só com nome, CPF, CEP, cidade e UF', async () => {
     const feitas = simularApi({
       'GET /api/v1/me': [200, ME],
       'POST /api/v1/clients': [201, { id: ID }],
@@ -127,14 +148,17 @@ describe('ClientFormView', () => {
     const w = montar(ClientFormView, { global: { plugins: [router] }, attachTo: document.body })
     await router.push('/clientes/novo')
     await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    await digitar(w, 'Nome completo', 'João da Silva')
+    await digitar(w, 'CPF', '52998224725')
     await digitar(w, 'CEP', '01310100')
     await digitar(w, 'Cidade', 'São Paulo')
     await escolher('UF', 'SP')
     await w.get('form').trigger('submit')
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/clientes'))
     expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toMatchObject({
-      name: null,
-      document: null,
+      name: 'João da Silva',
+      document: '529.982.247-25',
+      trade_name: null,
       street: null,
       phones: [],
       emails: [],
@@ -157,7 +181,7 @@ describe('ClientsView', () => {
               label: 'João da Silva',
               name: 'João da Silva',
               trade_name: null,
-              document: '52998224725',
+              document: '529.982.247-25',
               emails: ['joao@exemplo.com'],
               phones: ['11987654321', '1133334444'],
               city: 'São Paulo',

@@ -109,10 +109,20 @@ def _clean(data: ClientIn) -> dict[str, Any]:
         "notes": optional_text(data.notes),
         "is_active": data.is_active,
     }
+    # PF: nome completo e CPF; PJ: razão social, nome fantasia e CNPJ.
+    if data.kind == "person":
+        required_text(data.name, "Informe o nome completo.")
+    else:
+        required_text(data.name, "Informe a razão social.")
+        required_text(data.trade_name, "Informe o nome fantasia.")
     document = doc.normalize_document(data.document or "") or None
-    if document and data.kind == "person" and not doc.valid_cpf(document):
+    if document is None and data.kind == "person":
+        raise HTTPException(422, "Informe o CPF.")
+    if document is None:
+        raise HTTPException(422, "Informe o CNPJ.")
+    if data.kind == "person" and not doc.valid_cpf(document):
         raise HTTPException(422, "CPF inválido.")
-    if document and data.kind == "company" and not doc.valid_cnpj(document):
+    if data.kind == "company" and not doc.valid_cnpj(document):
         raise HTTPException(422, "CNPJ inválido.")
     v["document"] = document
     if v["id_number"] and not re.fullmatch(r"[0-9]{1,14}", v["id_number"]):
