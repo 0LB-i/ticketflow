@@ -6,9 +6,10 @@ import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
 import DataTable from '@/components/ui/DataTable.vue'
+import SelectField from '@/components/ui/SelectField.vue'
 import TextField from '@/components/ui/TextField.vue'
-import { useClientes } from '@/composables/clientes'
-import { formatarDocumento, formatarTelefone } from '@/composables/documentos'
+import { type TipoCliente, useClientes } from '@/composables/clientes'
+import { formatarDocumento, formatarTelefone, UFS } from '@/composables/documentos'
 import { useHead } from '@/composables/useHead'
 import { useAuthStore } from '@/stores/auth'
 
@@ -28,7 +29,25 @@ watch(busca, (valor) => {
 })
 onBeforeUnmount(() => clearTimeout(espera))
 
-const clientes = useClientes(() => ({ q: termo.value, inativos: inativos.value }))
+// Opção "todos" dos filtros (não vai para a API).
+const TODOS = '*'
+const tipo = ref(TODOS)
+const uf = ref(TODOS)
+const opcoesTipo = computed(() => [
+  { value: TODOS, label: t('clientes.filtros.todosOsTipos') },
+  ...(['person', 'company'] as const).map((k) => ({ value: k, label: t(`clientes.tipos.${k}`) })),
+])
+const opcoesUf = computed(() => [
+  { value: TODOS, label: t('clientes.filtros.todasAsUfs') },
+  ...UFS.map((u) => ({ value: u, label: u })),
+])
+
+const clientes = useClientes(() => ({
+  q: termo.value,
+  inativos: inativos.value,
+  tipo: tipo.value === TODOS ? null : (tipo.value as TipoCliente),
+  uf: uf.value === TODOS ? null : uf.value,
+}))
 const linhas = computed(() => clientes.data.value?.items ?? [])
 const colunas = computed(() => [
   { key: 'name', label: t('clientes.nome') },
@@ -57,6 +76,12 @@ const colunas = computed(() => [
           :hint="t('clientes.buscaDica')"
           type="search"
         />
+      </div>
+      <div class="w-48 pb-7">
+        <SelectField v-model="tipo" :label="t('clientes.tipo')" :options="opcoesTipo" />
+      </div>
+      <div class="w-36 pb-7">
+        <SelectField v-model="uf" :label="t('clientes.uf')" :options="opcoesUf" />
       </div>
       <div class="pb-7"><Checkbox v-model="inativos" :label="t('comum.mostrarInativos')" /></div>
     </div>

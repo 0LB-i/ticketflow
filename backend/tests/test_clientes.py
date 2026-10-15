@@ -190,6 +190,11 @@ def test_busca_e_inativos(client: TestClient, agente: None) -> None:
     assert client.get(API, params={"q": "529.982"}).json()["total"] == 1
     assert client.get(API, params={"q": "12.abc"}).json()["total"] == 1
     assert client.get(API, params={"q": "joao.silva@"}).json()["total"] == 1
+    assert [c["kind"] for c in client.get(API, params={"kind": "company"}).json()["items"]] == [
+        "company"
+    ]
+    assert client.get(API, params={"state": "sp"}).json()["total"] == 2
+    assert client.get(API, params={"state": "RJ"}).json()["total"] == 0
 
     client.put(f"{API}/{pessoa['id']}", json={**PESSOA, "is_active": False})
     assert client.get(API).json()["total"] == 1

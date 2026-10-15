@@ -3375,6 +3375,10 @@ export interface operations {
         q?: string | null
         /** @description incluir os inativos */
         inactive?: boolean
+        /** @description PF ou PJ */
+        kind?: ('person' | 'company') | null
+        /** @description UF */
+        state?: string | null
         limit?: number
         offset?: number
       }

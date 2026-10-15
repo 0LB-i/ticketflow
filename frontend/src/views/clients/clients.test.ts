@@ -199,4 +199,20 @@ describe('ClientsView', () => {
     expect(w.text()).toContain('(11) 98765-4321')
     expect(w.text()).toContain('Novo cliente')
   })
+
+  it('filtra por tipo e UF na API', async () => {
+    const feitas = simularApi({
+      'GET /api/v1/me': [200, ME],
+      'GET /api/v1/clients': [200, { items: [], total: 0 }],
+    })
+    const w = montar(ClientsView, { global: { plugins: [criarRouter()] }, attachTo: document.body })
+    await vi.waitFor(() => expect(w.text()).toContain('Todos os tipos'))
+    await escolher('Tipo', 'Pessoa jurídica')
+    await escolher('UF', 'SP')
+    await vi.waitFor(() => {
+      const ultima = feitas.filter((r) => r.caminho === '/api/v1/clients').at(-1)!.query
+      expect(ultima.get('kind')).toBe('company')
+      expect(ultima.get('state')).toBe('SP')
+    })
+  })
 })
