@@ -29,6 +29,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Chamado: o cliente pode ser trocado ou tirado na lateral (quem pode editar o chamado), e o botão **Cancelar chamado** saiu da caixa de tarefa e foi para a lateral, junto de Assumir e Transferir; o motivo é pedido numa janela e vai como tarefa.
 - Clientes: o CPF/CNPJ continua único (a migração `0025` tirou a restrição e a `0026` a devolve; **antes de aplicar a 0026, resolva documentos repetidos**), e o **nome** (nome completo ou razão social) também não pode repetir: a API compara sem diferença de maiúsculas, acentos e espaços a mais, e grava o nome sem espaços repetidos.
 - Clientes: só membros do grupo **Administradores** cadastram, alteram e inativam clientes (migração `0027` tira `client.manage` dos papéis Agente e Administrador). Os demais só consultam. Quem tem o papel Administrador, mas não está no grupo, também só consulta.
 - Clientes: voltam a ser obrigatórios, além de CEP, cidade e UF, o **nome completo e o CPF** (pessoa física) e a **razão social, o nome fantasia e o CNPJ** (pessoa jurídica). Clientes já cadastrados sem esses dados continuam como estão e precisam ser completados na próxima edição.

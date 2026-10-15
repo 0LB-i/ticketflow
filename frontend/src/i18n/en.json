@@ -356,15 +356,11 @@
       "reopen": "Reopen",
       "cancel": "Cancel ticket"
     },
+    "cancelarTitulo": "Cancel the ticket?",
+    "cancelarTexto": "Write why it is being canceled. A canceled ticket cannot be reopened.",
+    "cancelarMotivo": "Reason for canceling",
     "textoObrigatorio": {
-      "reopen": "Write in the task why it is being reopened.",
-      "cancel": "Write in the task why it is being canceled."
-    },
-    "confirmar": {
-      "cancel": "Cancel the ticket?"
-    },
-    "confirmarTexto": {
-      "cancel": "The task is recorded as the reason. A canceled ticket cannot be reopened."
+      "reopen": "Write in the task why it is being reopened."
     },
     "feito": {
       "resume": "Ticket resumed",
@@ -372,6 +368,7 @@
       "cancel": "Ticket canceled",
       "assumido": "You took the ticket",
       "atribuido": "Assignee changed",
+      "cliente": "Client changed",
       "devolvido": "Ticket returned to the queue",
       "transferido": "Ticket transferred",
       "observador": "Watcher added",

@@ -6,7 +6,6 @@ import type { Pessoa } from '@/components/editor/MentionList.vue'
 import RichEditor from '@/components/editor/RichEditor.vue'
 import Button from '@/components/ui/Button.vue'
 import DurationField from '@/components/ui/DurationField.vue'
-import Modal from '@/components/ui/Modal.vue'
 import { anexosNoTexto } from '@/composables/anexos'
 import { type Acao, type Chamado, chamadosApi, useAcaoNoChamado } from '@/composables/chamados'
 import { lerDuracao } from '@/composables/formato'
@@ -16,8 +15,9 @@ import AttachmentUploader from './AttachmentUploader.vue'
 
 /**
  * Adicionar uma tarefa (o andamento do chamado, um comentário na API) e, na mesma ação, mudar o
- * status (docs/10 §10.6). Em reabrir e cancelar o texto é obrigatório (docs/10 §10.5). Cada
- * tarefa pode levar o tempo gasto nela. "Marcar como entregue" fica na lateral (DeliverTicket).
+ * status (docs/10 §10.6). Em reabrir o texto é obrigatório (docs/10 §10.5). Cada tarefa pode
+ * levar o tempo gasto nela. "Marcar como entregue" e "Cancelar chamado" ficam na lateral
+ * (TicketDetails).
  */
 const props = defineProps<{ chamado: Chamado; pessoas: Pessoa[] }>()
 const { t } = useI18n()
@@ -35,11 +35,10 @@ const erro = ref<string | null>(null)
 const numero = () => String(props.chamado.number)
 const acoes = computed(() => new Set(props.chamado.allowed_actions))
 
-// Aguardar não aparece na tela (decisão de 2026-10-14); concluir fica na lateral.
-const ACOES: { acao: Acao; exigeTexto: boolean; variante: 'secondary' | 'danger' }[] = [
-  { acao: 'resume', exigeTexto: false, variante: 'secondary' },
-  { acao: 'reopen', exigeTexto: true, variante: 'secondary' },
-  { acao: 'cancel', exigeTexto: true, variante: 'danger' },
+// Aguardar não aparece na tela (decisão de 2026-10-14); entregar e cancelar ficam na lateral.
+const ACOES: { acao: Acao; exigeTexto: boolean }[] = [
+  { acao: 'resume', exigeTexto: false },
+  { acao: 'reopen', exigeTexto: true },
 ]
 const disponiveis = computed(() => ACOES.filter((a) => acoes.value.has(a.acao)))
 
@@ -97,9 +96,6 @@ function enviarComentario() {
   )
 }
 
-// Cancelar passa por uma confirmação.
-const confirmando = ref<Acao | null>(null)
-
 function pedir(acao: Acao, exigeTexto: boolean) {
   erro.value = null
   if (exigeTexto && !texto.value.trim()) {
@@ -110,15 +106,6 @@ function pedir(acao: Acao, exigeTexto: boolean) {
     erro.value = t('chamado.tempoSemTexto')
     return
   }
-  if (acao === 'cancel') {
-    confirmando.value = acao
-    return
-  }
-  return mudarStatus(acao)
-}
-
-function mudarStatus(acao: Acao) {
-  confirmando.value = null
   return executar(
     () =>
       mudar.mutateAsync({
@@ -163,30 +150,12 @@ function mudarStatus(acao: Acao) {
       <Button
         v-for="a in disponiveis"
         :key="a.acao"
-        :variant="a.variante"
+        variant="secondary"
         :disabled="ocupado"
         @click="pedir(a.acao, a.exigeTexto)"
       >
         {{ t(`chamado.acoes.${a.acao}`) }}
       </Button>
     </div>
-
-    <Modal
-      :open="confirmando !== null"
-      :title="confirmando ? t(`chamado.confirmar.${confirmando}`) : ''"
-      :description="confirmando ? t(`chamado.confirmarTexto.${confirmando}`) : ''"
-      @update:open="(aberto) => !aberto && (confirmando = null)"
-    >
-      <template #actions>
-        <Button variant="secondary" @click="confirmando = null">{{ t('comum.cancelar') }}</Button>
-        <Button
-          variant="danger"
-          :disabled="ocupado"
-          @click="confirmando && mudarStatus(confirmando)"
-        >
-          {{ confirmando ? t(`chamado.acoes.${confirmando}`) : '' }}
-        </Button>
-      </template>
-    </Modal>
   </form>
 </template>

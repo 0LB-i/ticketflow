@@ -15,6 +15,7 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
 import AttachmentList from './AttachmentList.vue'
+import ClientPicker from './ClientPicker.vue'
 import DeliverTicket from './DeliverTicket.vue'
 
 /** Dados do chamado e as ações sobre eles, conforme `allowed_actions` (docs/08 §8.5). */
@@ -79,6 +80,33 @@ const statusAtual = computed({
   },
 })
 
+// --- cliente ---
+const trocarCliente = useAcaoNoChamado(numero, (id: string | null) =>
+  chamadosApi.trocarCliente(numero(), id),
+)
+const cliente = computed({
+  get: () => props.chamado.client ?? null,
+  set: (c: { id: string; name: string } | null) => {
+    if ((c?.id ?? null) !== (props.chamado.client?.id ?? null))
+      executar(() => trocarCliente.mutateAsync(c?.id ?? null), t('chamado.feito.cliente'))
+  },
+})
+
+// --- cancelamento (o motivo vai como tarefa) ---
+const cancelando = ref(false)
+const motivoCancelamento = ref('')
+const cancelar = useAcaoNoChamado(numero, (comment: string) =>
+  chamadosApi.mudarStatus(numero(), { action: 'cancel', comment, attachment_ids: [] }),
+)
+function abrirCancelamento() {
+  motivoCancelamento.value = ''
+  cancelando.value = true
+}
+async function confirmarCancelamento() {
+  cancelando.value = false
+  await executar(() => cancelar.mutateAsync(motivoCancelamento.value), t('chamado.feito.cancel'))
+}
+
 // --- transferência ---
 const transferindo = ref(false)
 const destino = ref('')
@@ -134,8 +162,10 @@ const podeRemover = (id: string) =>
   >
     <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
 
+    <ClientPicker v-if="pode.has('edit')" v-model="cliente" :label="t('chamado.cliente')" />
+
     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-      <template v-if="chamado.client">
+      <template v-if="chamado.client && !pode.has('edit')">
         <dt class="text-muted">{{ t('chamado.cliente') }}</dt>
         <dd class="font-medium">{{ chamado.client.name }}</dd>
       </template>
@@ -194,6 +224,9 @@ const podeRemover = (id: string) =>
       </Button>
       <Button v-if="pode.has('transfer')" size="sm" variant="secondary" @click="abrirTransferencia">
         {{ t('chamado.transferir') }}
+      </Button>
+      <Button v-if="pode.has('cancel')" size="sm" variant="danger" @click="abrirCancelamento">
+        {{ t('chamado.acoes.cancel') }}
       </Button>
     </div>
     <SelectField
@@ -308,6 +341,24 @@ const podeRemover = (id: string) =>
           @click="confirmarTransferencia"
         >
           {{ t('chamado.transferir') }}
+        </Button>
+      </template>
+    </Modal>
+
+    <Modal
+      v-model:open="cancelando"
+      :title="t('chamado.cancelarTitulo')"
+      :description="t('chamado.cancelarTexto')"
+    >
+      <TextAreaField v-model="motivoCancelamento" :label="t('chamado.cancelarMotivo')" required />
+      <template #actions>
+        <Button variant="secondary" @click="cancelando = false">{{ t('comum.cancelar') }}</Button>
+        <Button
+          variant="danger"
+          :disabled="!motivoCancelamento.trim() || cancelar.isPending.value"
+          @click="confirmarCancelamento"
+        >
+          {{ t('chamado.acoes.cancel') }}
         </Button>
       </template>
     </Modal>
