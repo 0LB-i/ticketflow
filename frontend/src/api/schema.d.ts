@@ -1859,8 +1859,6 @@ export interface components {
     TicketCounts: {
       /** Mine */
       mine: number
-      /** News */
-      news: number
       /** Waiting */
       waiting: number
       /** Watching */
@@ -3474,7 +3472,7 @@ export interface operations {
     parameters: {
       query?: {
         /** @description fila (aba da lista) */
-        view?: 'mine' | 'news' | 'waiting' | 'watching' | 'all'
+        view?: 'mine' | 'waiting' | 'watching' | 'all'
         /** @description id do grupo atual */
         team?: string | null
         /** @description "me" ou o id do usuário */

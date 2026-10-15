@@ -129,7 +129,6 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 | Visão | Conteúdo | Para quem |
 |-------|----------|-----------|
 | **Meus chamados** | Chamados em que sou o responsável, ainda abertos | Todos |
-| **Com novidades** | Meus chamados com comentário novo de outra pessoa, recém-aprovados ou reabertos | Todos |
 | **Aguardando** | Chamados dos meus grupos parados em `waiting` | Todos |
 | **Acompanhando** | Chamados em que sou observador | Todos |
 | **Todos** | Tudo o que vejo, com filtro por grupo, responsável e status | Todos |

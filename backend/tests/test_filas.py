@@ -41,6 +41,7 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
     entrar(client, "ana@x.com")
 
     assert client.get(API, params={"view": "unassigned"}).status_code == 422
+    assert client.get(API, params={"view": "news"}).status_code == 422
     assert numeros(client, view="mine") == [meu, parado]
     assert numeros(client, view="waiting") == [parado]
     assert numeros(client, view="watching") == [da_infra]
@@ -48,7 +49,6 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
     assert numeros(client, view="all", status=["closed"]) == [concluido]
     assert client.get(f"{API}/counts").json() == {
         "mine": 2,
-        "news": 0,
         "waiting": 1,
         "watching": 1,
     }
@@ -65,17 +65,14 @@ def test_novidade_e_comentario_de_outra_pessoa_depois_da_visita(
 ) -> None:
     t = registrar(client, cenario, assignee="me")["number"]
     client.post(f"{API}/{t}/comments", json={"body": "Meu próprio comentário"})
-    assert numeros(client, view="news") == []
+    assert client.get(API).json()["items"][0]["has_news"] is False
 
     entrar(client, "bia@x.com")
     client.post(f"{API}/{t}/comments", json={"body": "Já trocou o toner?"})
     entrar(client, "ana@x.com")
-    assert numeros(client, view="news") == [t]
     assert client.get(API).json()["items"][0]["has_news"] is True
-    assert client.get(f"{API}/counts").json()["news"] == 1
 
     client.get(f"{API}/{t}")  # abrir o chamado é a visita
-    assert numeros(client, view="news") == []
     assert client.get(API).json()["items"][0]["has_news"] is False
 
 
@@ -84,7 +81,7 @@ def test_novidade_com_varios_chamados_ja_visitados(
     cenario: dict[str, Any],  # noqa: F811
 ) -> None:
     # A última visita é a do próprio chamado: com mais de uma visita, a consulta não pode
-    # misturar os chamados (dava erro 500 na lista e nos contadores).
+    # misturar os chamados (dava erro 500 na lista).
     lido = registrar(client, cenario, assignee="me")["number"]
     novo = registrar(client, cenario, assignee="me")["number"]
     client.get(f"{API}/{lido}")
@@ -92,9 +89,8 @@ def test_novidade_com_varios_chamados_ja_visitados(
     entrar(client, "bia@x.com")
     client.post(f"{API}/{novo}/comments", json={"body": "Resolvido?"})
     entrar(client, "ana@x.com")
-    assert numeros(client, view="mine") == [lido, novo]
-    assert numeros(client, view="news") == [novo]
-    assert client.get(f"{API}/counts").json()["news"] == 1
+    novidades = {t["number"]: t["has_news"] for t in client.get(API).json()["items"]}
+    assert novidades == {lido: False, novo: True}
 
 
 def test_busca(client: TestClient, cenario: dict[str, Any], db: Session) -> None:  # noqa: F811

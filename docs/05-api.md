@@ -49,7 +49,7 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `mine`, `news`, `waiting`, `watching`, `all`), `team`, `assignee` (`me` ou o id), `status` e a busca textual `q` |
+| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `mine`, `waiting`, `watching`, `all`), `team`, `assignee` (`me` ou o id), `status` e a busca textual `q` |
 | `GET` | `/tickets/counts` | Quantos chamados há em cada fila (os contadores das abas) |
 | `POST` | `/tickets` | Registrar chamado: `assignee` (`"me"` ou um membro do grupo) e `client_id` são obrigatórios |
 | `GET` | `/tickets/{id}` | Detalhe |
