@@ -158,6 +158,11 @@
     "excluirAviso": "A pessoa não consegue mais entrar, sai da lista e dos grupos, e o e-mail fica livre para outro cadastro. Nos chamados e nas horas o nome dela continua aparecendo. Não dá para desfazer.",
     "excluido": "Usuário excluído",
     "gruposAviso": "Os grupos de cada pessoa são definidos na tela de Grupos.",
+    "filtros": {
+      "todosOsPapeis": "Todos os papéis",
+      "todosOsGrupos": "Todos os grupos",
+      "todas": "Todas"
+    },
     "papeis": {
       "agent": "Agente",
       "admin": "Administrador",
@@ -569,6 +574,10 @@
     "tiposLongos": {
       "person": "Pessoa física (CPF)",
       "company": "Pessoa jurídica (CNPJ)"
+    },
+    "filtros": {
+      "todosOsTipos": "Todos os tipos",
+      "todasAsUfs": "Todas as UFs"
     },
     "dados": "Dados do cliente",
     "nomeCompleto": "Nome completo",

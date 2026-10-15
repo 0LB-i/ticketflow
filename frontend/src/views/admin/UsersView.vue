@@ -33,11 +33,20 @@ const grupos = useGrupos()
 const gruposAtivos = computed(() => (grupos.data.value ?? []).filter((g) => g.is_active))
 
 const busca = ref('')
+// Opção "todos" dos filtros.
+const TODOS = '*'
+const filtroPapel = ref(TODOS)
+const filtroGrupo = ref(TODOS)
+const filtroSituacao = ref(TODOS)
 const lista = computed(() =>
-  (usuarios.data.value ?? []).filter((u) =>
-    `${u.full_name} ${u.display_name} ${u.email ?? ''} ${u.username ?? ''}`
-      .toLowerCase()
-      .includes(busca.value.trim().toLowerCase()),
+  (usuarios.data.value ?? []).filter(
+    (u) =>
+      `${u.full_name} ${u.display_name} ${u.email ?? ''} ${u.username ?? ''}`
+        .toLowerCase()
+        .includes(busca.value.trim().toLowerCase()) &&
+      (filtroPapel.value === TODOS || u.role === filtroPapel.value) &&
+      (filtroGrupo.value === TODOS || u.teams.some((g) => g.id === filtroGrupo.value)) &&
+      (filtroSituacao.value === TODOS || u.status === filtroSituacao.value),
   ),
 )
 
@@ -48,6 +57,22 @@ const papeis = computed(() =>
   })),
 )
 const corStatus = { ativo: 'green', convite_pendente: 'teal', inativo: 'gray' } as const
+
+const opcoesFiltroPapel = computed(() => [
+  { value: TODOS, label: t('usuarios.filtros.todosOsPapeis') },
+  ...papeis.value,
+])
+const opcoesFiltroGrupo = computed(() => [
+  { value: TODOS, label: t('usuarios.filtros.todosOsGrupos') },
+  ...gruposAtivos.value.map((g) => ({ value: g.id, label: g.name })),
+])
+const opcoesFiltroSituacao = computed(() => [
+  { value: TODOS, label: t('usuarios.filtros.todas') },
+  ...(Object.keys(corStatus) as (keyof typeof corStatus)[]).map((s) => ({
+    value: s,
+    label: t(`usuarios.status.${s}`),
+  })),
+])
 
 // Painel de criação/edição
 const painel = ref(false)
@@ -188,8 +213,23 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
       <Button @click="abrirNovo">{{ $t('usuarios.novo') }}</Button>
     </div>
 
-    <div class="w-full max-w-xs">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <TextField v-model="busca" :label="$t('comum.buscar')" type="search" />
+      <SelectField
+        v-model="filtroPapel"
+        :label="$t('usuarios.papel')"
+        :options="opcoesFiltroPapel"
+      />
+      <SelectField
+        v-model="filtroGrupo"
+        :label="$t('usuarios.grupos')"
+        :options="opcoesFiltroGrupo"
+      />
+      <SelectField
+        v-model="filtroSituacao"
+        :label="$t('usuarios.situacao')"
+        :options="opcoesFiltroSituacao"
+      />
     </div>
 
     <p v-if="usuarios.isPending.value" class="text-muted">{{ $t('comum.carregando') }}</p>

@@ -197,12 +197,18 @@ async def list_clients(
     db: DB,
     q: Annotated[str | None, Query(description="nome, nome fantasia, CPF/CNPJ ou e-mail")] = None,
     inactive: Annotated[bool, Query(description="incluir os inativos")] = False,
+    kind: Annotated[Literal["person", "company"] | None, Query(description="PF ou PJ")] = None,
+    state: Annotated[str | None, Query(min_length=2, max_length=2, description="UF")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ClientPage:
     stmt = select(Client)
     if not inactive:
         stmt = stmt.where(Client.is_active)
+    if kind:
+        stmt = stmt.where(Client.kind == kind)
+    if state:
+        stmt = stmt.where(Client.state == state.upper())
     if q and q.strip():
         term = f"%{q.strip()}%"
         filters: list[ColumnElement[bool]] = [

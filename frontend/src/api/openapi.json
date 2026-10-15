@@ -1199,6 +1199,45 @@
             "description": "incluir os inativos"
           },
           {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["person", "company"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "PF ou PJ",
+              "title": "Kind"
+            },
+            "description": "PF ou PJ"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "UF",
+              "title": "State"
+            },
+            "description": "UF"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,

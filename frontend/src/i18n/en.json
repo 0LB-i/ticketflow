@@ -158,6 +158,11 @@
     "excluirAviso": "The person can no longer sign in, leaves the list and the teams, and the email becomes free for a new user. Tickets and hours keep showing their name. This cannot be undone.",
     "excluido": "User deleted",
     "gruposAviso": "Each person's teams are set on the Teams screen.",
+    "filtros": {
+      "todosOsPapeis": "All roles",
+      "todosOsGrupos": "All teams",
+      "todas": "All"
+    },
     "papeis": {
       "agent": "Agent",
       "admin": "Administrator",
@@ -569,6 +574,10 @@
     "tiposLongos": {
       "person": "Individual (CPF)",
       "company": "Company (CNPJ)"
+    },
+    "filtros": {
+      "todosOsTipos": "All types",
+      "todasAsUfs": "All states"
     },
     "dados": "Client details",
     "nomeCompleto": "Full name",

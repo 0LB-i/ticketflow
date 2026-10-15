@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth'
-import { ME_ADMIN, montar, simularApi } from '@/test/setup'
+import { escolher, ME_ADMIN, montar, simularApi } from '@/test/setup'
 
 import UsersView from './UsersView.vue'
 
@@ -77,6 +77,38 @@ describe('UsersView', () => {
       team_ids: [GRUPO.id],
     })
     expect(criacao.headers.get('X-CSRF-Token')).toBe('token-csrf')
+  })
+
+  it('filtra por papel, grupo e situação', async () => {
+    const outro = {
+      ...USUARIO,
+      id: '00000000-0000-0000-0000-000000000003',
+      full_name: 'Carla Souza',
+      display_name: 'Carla',
+      role: 'admin',
+      status: 'ativo',
+      teams: [{ id: GRUPO.id, name: GRUPO.name }],
+    }
+    simularApi({
+      'GET /api/v1/users': [200, { items: [USUARIO, outro] }],
+      'GET /api/v1/teams': [200, { items: [GRUPO] }],
+    })
+    const w = montar(UsersView, { attachTo: document.body })
+    useAuthStore().me = ME_ADMIN
+    await vi.waitFor(() => expect(w.text()).toContain('Carla Souza'))
+    expect(w.text()).toContain('Bruno Lima')
+
+    await escolher('Papel', 'Agente')
+    await vi.waitFor(() => expect(w.text()).not.toContain('Carla Souza'))
+    expect(w.text()).toContain('Bruno Lima')
+
+    await escolher('Papel', 'Todos os papéis')
+    await escolher('Grupos', 'TI')
+    await vi.waitFor(() => expect(w.text()).not.toContain('Bruno Lima'))
+    expect(w.text()).toContain('Carla Souza')
+
+    await escolher('Situação', 'Convite pendente')
+    await vi.waitFor(() => expect(w.text()).not.toContain('Carla Souza'))
   })
 
   it('exclui depois de confirmar', async () => {
