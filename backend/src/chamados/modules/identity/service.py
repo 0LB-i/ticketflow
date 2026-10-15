@@ -113,7 +113,7 @@ def _send(mailer: Mailer, user: User, kind: str, locale: str, url: str = "") -> 
     if user.email is None:
         return
     subject, body = EMAILS.get(locale, EMAILS["pt-BR"])[kind]
-    mailer.send(user.email, subject, body.format(nome=user.full_name.split()[0], url=url))
+    mailer.send(user.email, subject, body.format(nome=user.display_name.split()[0], url=url))
 
 
 def send_link_email(mailer: Mailer, user: User, purpose: Purpose, url: str, locale: str) -> None:

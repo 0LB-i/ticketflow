@@ -58,7 +58,7 @@ watchEffect(() => {
           {{
             t('chamado.registradoPor', {
               quando: formatarDataHora(chamado.data.value.created_at),
-              quem: chamado.data.value.created_by.full_name,
+              quem: chamado.data.value.created_by.display_name,
             })
           }}
         </p>

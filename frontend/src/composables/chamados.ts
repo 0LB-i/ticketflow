@@ -42,7 +42,7 @@ export function usePessoas() {
     const vistos = new Map<string, Pessoa>()
     for (const g of grupos.data.value ?? []) {
       for (const m of g.members) {
-        if (m.is_active) vistos.set(m.user_id, { id: m.user_id, label: m.full_name })
+        if (m.is_active) vistos.set(m.user_id, { id: m.user_id, label: m.display_name })
       }
     }
     return [...vistos.values()].sort((a, b) => compararTexto(a.label, b.label))

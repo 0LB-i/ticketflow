@@ -128,7 +128,9 @@
   "usuarios": {
     "titulo": "Users",
     "novo": "New user",
-    "nome": "Name",
+    "nome": "Full name",
+    "nomeExibicao": "Display name",
+    "nomeExibicaoDica": "The name shown across the system: tickets, tasks, hours, teams and menu.",
     "email": "Email",
     "usuario": "Username",
     "usuarioDica": "To sign in, besides the email. Unaccented letters, digits, dot, hyphen or underscore.",

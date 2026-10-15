@@ -93,7 +93,7 @@ export const ME_ADMIN = {
   id: '00000000-0000-0000-0000-000000000001',
   email: 'admin@exemplo.com',
   username: null,
-  full_name: 'Admin',
+  display_name: 'Admin',
   must_change_password: false,
   role: 'admin',
   teams: [],

@@ -319,7 +319,7 @@ async function pegarProximo() {
             <template #cell-status="{ row }">
               <StatusBadge :kind="row.status.kind" :label="row.status.name" />
             </template>
-            <template #cell-assignee="{ row }">{{ row.assignee?.full_name ?? '—' }}</template>
+            <template #cell-assignee="{ row }">{{ row.assignee?.display_name ?? '—' }}</template>
             <template #cell-team="{ row }">{{ row.team.name }}</template>
             <template #cell-movimento="{ row }">
               <span :title="formatarDataHora(row.updated_at) ?? undefined">

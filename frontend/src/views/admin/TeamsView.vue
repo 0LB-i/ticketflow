@@ -58,7 +58,7 @@ const candidatos = computed(() =>
     .filter(
       (u) => u.status !== 'inativo' && !editando.value?.members.some((m) => m.user_id === u.id),
     )
-    .map((u) => ({ value: u.id, label: `${u.full_name} (${u.email})` })),
+    .map((u) => ({ value: u.id, label: `${u.display_name} (${u.email})` })),
 )
 
 function abrir(g: Grupo | null) {
@@ -166,7 +166,7 @@ function adicionar() {
         {{
           row.members
             .filter((m) => m.role === 'supervisor')
-            .map((m) => m.full_name)
+            .map((m) => m.display_name)
             .join(', ') || '—'
         }}
       </template>
@@ -200,7 +200,7 @@ function adicionar() {
                 class="flex items-center gap-2 py-2"
               >
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate font-medium">{{ m.full_name }}</span>
+                  <span class="block truncate font-medium">{{ m.display_name }}</span>
                   <span class="block truncate text-xs text-muted">{{ m.email }}</span>
                 </span>
                 <select
@@ -224,7 +224,7 @@ function adicionar() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  :aria-label="`${$t('comum.remover')} ${m.full_name}`"
+                  :aria-label="`${$t('comum.remover')} ${m.display_name}`"
                   @click="
                     tentar(() =>
                       removerMembro.mutateAsync({ grupo: editando!.id, usuario: m.user_id }),

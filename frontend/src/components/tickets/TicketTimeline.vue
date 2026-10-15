@@ -122,7 +122,7 @@ async function confirmarRemocao(id: string) {
   <ol class="flex flex-col gap-3" :aria-label="t('chamado.linhaDoTempo')">
     <li class="rounded-lg border border-border bg-surface p-4">
       <p class="text-muted">
-        <span class="font-medium text-fg">{{ chamado.created_by.full_name }}</span>
+        <span class="font-medium text-fg">{{ chamado.created_by.display_name }}</span>
         · {{ formatarDataHora(chamado.created_at) }}
       </p>
       <MarkdownView v-if="chamado.description" class="mt-2" :source="chamado.description" />
@@ -132,7 +132,7 @@ async function confirmarRemocao(id: string) {
 
     <li v-for="c in comentarios" :key="c.id" class="rounded-lg border border-border bg-surface p-4">
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted">
-        <span class="font-medium text-fg">{{ c.author.full_name }}</span>
+        <span class="font-medium text-fg">{{ c.author.display_name }}</span>
         <span>· {{ formatarDataHora(c.done_at) }}</span>
         <span v-if="c.edited_at">· {{ t('chamado.editado') }}</span>
         <Badge v-if="c.is_solution" color="green">{{ t('chamado.solucao') }}</Badge>

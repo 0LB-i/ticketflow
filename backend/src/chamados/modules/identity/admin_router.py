@@ -39,6 +39,7 @@ class UserOut(BaseModel):
     email: str | None
     username: str | None
     full_name: str
+    display_name: str
     role: RoleCode
     status: Literal["ativo", "convite_pendente", "inativo"]
     teams: list[UserTeam]
@@ -54,6 +55,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     username: str = Field(max_length=50, description="login, além do e-mail")
     full_name: str = Field(min_length=2, max_length=200)
+    display_name: str = Field(
+        min_length=2, max_length=100, description="o nome que aparece no sistema"
+    )
     role: RoleCode = "agent"
     password: str = Field(max_length=MAX_LENGTH, description="senha inicial, trocada no 1º acesso")
     team_ids: list[uuid.UUID] = Field(default=[], description="grupos em que entra como membro")
@@ -61,6 +65,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=200)
+    display_name: str | None = Field(default=None, min_length=2, max_length=100)
     email: EmailStr | None = None
     username: str | None = Field(default=None, max_length=50)
     role: RoleCode | None = None
@@ -88,6 +93,7 @@ def _out(user: User) -> UserOut:
         email=user.email,
         username=user.username,
         full_name=user.full_name,
+        display_name=user.display_name,
         role=user.role.code,
         status=status,
         teams=[
@@ -104,6 +110,7 @@ def _snapshot(user: User) -> dict[str, object]:
         "email": user.email,
         "username": user.username,
         "full_name": user.full_name,
+        "display_name": user.display_name,
         "role": user.role.code,
         "is_active": user.is_active,
     }
@@ -209,6 +216,7 @@ async def create_user(data: UserCreate, auth: Admin, request: Request, db: DB) -
         email=data.email,
         username=username,
         full_name=data.full_name.strip(),
+        display_name=data.display_name.strip(),
         role=await _role(db, data.role),
         password_hash=await run_in_threadpool(hash_password, data.password),
         password_changed_at=now(),
@@ -254,6 +262,8 @@ async def update_user(
         await _keep_one_admin(db)
     if data.full_name is not None:
         user.full_name = data.full_name.strip()
+    if data.display_name is not None:
+        user.display_name = data.display_name.strip()
     if data.email is not None and data.email != user.email:
         taken = await db.scalar(select(User.id).where(User.email == data.email, User.id != user.id))
         if taken:

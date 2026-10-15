@@ -74,7 +74,7 @@ describe('SetPasswordView', () => {
       'GET /api/v1/me': [401, { status: 401 }],
       'GET /api/v1/auth/tokens/bom': [
         200,
-        { purpose: 'invite', email: 'bruno@exemplo.com', full_name: 'Bruno Lima' },
+        { purpose: 'invite', email: 'bruno@exemplo.com', display_name: 'Bruno Lima' },
       ],
       'POST /api/v1/auth/invite/accept': [204],
     })

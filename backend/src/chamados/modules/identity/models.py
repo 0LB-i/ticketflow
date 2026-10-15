@@ -33,6 +33,8 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(CITEXT, unique=True)
     username: Mapped[str | None] = mapped_column(CITEXT, unique=True)
     full_name: Mapped[str] = mapped_column(Text)
+    # O nome que aparece no sistema; o completo fica no cadastro (tela de Usuários, auditoria).
+    display_name: Mapped[str] = mapped_column(Text)
     role_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("roles.id"))
     password_hash: Mapped[str | None] = mapped_column(Text)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

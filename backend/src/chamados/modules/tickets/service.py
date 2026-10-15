@@ -54,7 +54,7 @@ def ref(
     if obj is None:
         return None
     if isinstance(obj, User):
-        return {"id": str(obj.public_id), "name": obj.full_name}
+        return {"id": str(obj.public_id), "name": obj.display_name}
     if isinstance(obj, TicketStatus | ResolutionCode):
         return {"id": obj.id, "name": obj.name}
     if isinstance(obj, Client):
@@ -464,7 +464,7 @@ async def time_by_person(db: AsyncSession, ticket: Ticket) -> list[tuple[User, i
             TicketComment.deleted_at.is_(None),
         )
         .group_by(User.id)
-        .order_by(total.desc(), User.full_name)
+        .order_by(total.desc(), User.display_name)
     )
     return [(user, minutes or 0) for user, minutes in rows]
 

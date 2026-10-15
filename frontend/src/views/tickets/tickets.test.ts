@@ -18,7 +18,7 @@ const BIA = '00000000-0000-0000-0000-0000000000b2'
 const IMPRESSAO = '00000000-0000-0000-0000-0000000000c1'
 const ME = {
   ...ME_AGENTE,
-  full_name: 'Ana',
+  display_name: 'Ana',
   teams: [{ id: TI, name: 'TI', role: 'member' as const }],
   permissions: ['ticket.create'],
 }
@@ -40,8 +40,8 @@ const GRUPOS = {
       notify_on_new: 'queue_only',
       is_active: true,
       members: [
-        { user_id: ANA, full_name: 'Ana', email: 'ana@x.com', role: 'member', is_active: true },
-        { user_id: BIA, full_name: 'Bia', email: 'bia@x.com', role: 'member', is_active: true },
+        { user_id: ANA, display_name: 'Ana', email: 'ana@x.com', role: 'member', is_active: true },
+        { user_id: BIA, display_name: 'Bia', email: 'bia@x.com', role: 'member', is_active: true },
       ],
     },
   ],
@@ -223,7 +223,7 @@ const CHAMADO = {
   created_at: '2026-10-10T12:00:00Z',
   updated_at: '2026-10-10T12:00:00Z',
   description: 'Aparece **offline**.',
-  created_by: { id: BIA, full_name: 'Bia' },
+  created_by: { id: BIA, display_name: 'Bia' },
   resolution_code: null,
   reopened_count: 0,
   closed_at: null,
@@ -243,7 +243,7 @@ describe('TicketView', () => {
       'GET /api/v1/teams': [200, GRUPOS],
       'POST /api/v1/tickets/1000/assign': [
         200,
-        { ...CHAMADO, assignee: { id: ANA, full_name: 'Ana' } },
+        { ...CHAMADO, assignee: { id: ANA, display_name: 'Ana' } },
       ],
     })
     const w = montar(TicketView, { props: { numero: '1000' } })
@@ -351,8 +351,8 @@ describe('TicketView', () => {
           allowed_actions: ['comment', 'resume'],
           time_spent_minutes: 135,
           time_by_person: [
-            { id: ANA, full_name: 'Ana', minutes: 90 },
-            { id: BIA, full_name: 'Bia', minutes: 45 },
+            { id: ANA, display_name: 'Ana', minutes: 90 },
+            { id: BIA, display_name: 'Bia', minutes: 45 },
           ],
         },
       ],
@@ -362,7 +362,7 @@ describe('TicketView', () => {
           items: [
             {
               id: 'c1',
-              author: { id: ANA, full_name: 'Ana' },
+              author: { id: ANA, display_name: 'Ana' },
               body: 'Troquei o toner.',
               is_solution: false,
               time_spent_minutes: 90,

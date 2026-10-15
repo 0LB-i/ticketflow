@@ -12,6 +12,7 @@ NOVO = {
     "email": "bruno@exemplo.com",
     "username": "bruno",
     "full_name": "Bruno Lima",
+    "display_name": "Bruno",
     "role": "agent",
     "password": "Provisoria#2026",
 }
@@ -43,6 +44,20 @@ def test_criar_usuario_com_senha_inicial_e_troca_no_primeiro_acesso(
         entrar(sessao_bruno, "Bruno", "Provisoria#2026")  # pelo usuário, sem diferença de caixa
     acoes = set(db.scalars(select(AuditLog.action)))
     assert "user.created" in acoes
+
+
+def test_nome_de_exibicao_e_o_que_aparece_no_sistema(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    ti = grupo(db, "TI")
+    r = client.post("/api/v1/users", json={**NOVO, "team_ids": [str(ti.public_id)]})
+    assert (r.json()["full_name"], r.json()["display_name"]) == ("Bruno Lima", "Bruno")
+    membros = client.get("/api/v1/teams").json()["items"][0]["members"]
+    assert [m["display_name"] for m in membros] == ["Bruno"]
+    with TestClient(client.app) as sessao_bruno:
+        entrar(sessao_bruno, "bruno", "Provisoria#2026")
+        assert sessao_bruno.get("/api/v1/me").json()["display_name"] == "Bruno"
+    r = client.patch(f"/api/v1/users/{r.json()['id']}", json={"display_name": " Bruninho "})
+    assert (r.json()["full_name"], r.json()["display_name"]) == ("Bruno Lima", "Bruninho")
 
 
 def test_nome_de_usuario_valido_e_unico(client: TestClient, db: Session) -> None:

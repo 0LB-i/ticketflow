@@ -35,7 +35,7 @@ const gruposAtivos = computed(() => (grupos.data.value ?? []).filter((g) => g.is
 const busca = ref('')
 const lista = computed(() =>
   (usuarios.data.value ?? []).filter((u) =>
-    `${u.full_name} ${u.email ?? ''} ${u.username ?? ''}`
+    `${u.full_name} ${u.display_name} ${u.email ?? ''} ${u.username ?? ''}`
       .toLowerCase()
       .includes(busca.value.trim().toLowerCase()),
   ),
@@ -54,6 +54,7 @@ const painel = ref(false)
 const editando = ref<Usuario | null>(null)
 const form = reactive({
   full_name: '',
+  display_name: '',
   email: '',
   username: '',
   role: 'agent' as 'agent' | 'admin' | 'auditor',
@@ -66,6 +67,7 @@ function abrirNovo() {
   editando.value = null
   Object.assign(form, {
     full_name: '',
+    display_name: '',
     email: '',
     username: '',
     role: 'agent',
@@ -80,6 +82,7 @@ function abrirEdicao(u: Usuario) {
   editando.value = u
   Object.assign(form, {
     full_name: u.full_name,
+    display_name: u.display_name,
     email: u.email ?? '',
     username: u.username ?? '',
     role: u.role,
@@ -122,6 +125,7 @@ async function salvar() {
       await editar.mutateAsync({
         id: editando.value.id,
         full_name: form.full_name,
+        display_name: form.display_name,
         role: form.role,
         ...(email && email !== editando.value.email ? { email } : {}),
         ...(username && username !== editando.value.username ? { username } : {}),
@@ -198,6 +202,7 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
       row-key="id"
       :rows="lista"
       :columns="[
+        { key: 'display_name', label: $t('usuarios.nomeExibicao') },
         { key: 'full_name', label: $t('usuarios.nome') },
         { key: 'email', label: $t('usuarios.email') },
         { key: 'username', label: $t('usuarios.usuario') },
@@ -207,9 +212,9 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
         { key: 'last_login_at', label: $t('usuarios.ultimoAcesso') },
       ]"
     >
-      <template #cell-full_name="{ row }">
+      <template #cell-display_name="{ row }">
         <button type="button" class="font-medium text-primary underline" @click="abrirEdicao(row)">
-          {{ row.full_name }}
+          {{ row.display_name }}
         </button>
       </template>
       <template #cell-role="{ row }">{{ $t(`usuarios.papeis.${row.role}`) }}</template>
@@ -239,6 +244,12 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
       <form id="form-usuario" class="flex flex-col gap-4" novalidate @submit.prevent="salvar">
         <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
         <TextField v-model="form.full_name" :label="$t('usuarios.nome')" required />
+        <TextField
+          v-model="form.display_name"
+          :label="$t('usuarios.nomeExibicao')"
+          :hint="$t('usuarios.nomeExibicaoDica')"
+          required
+        />
         <TextField
           v-model="form.email"
           :label="$t('usuarios.email')"
@@ -317,7 +328,10 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
           type="submit"
           form="form-usuario"
           :disabled="
-            criar.isPending.value || editar.isPending.value || form.full_name.trim().length < 2
+            criar.isPending.value ||
+            editar.isPending.value ||
+            form.full_name.trim().length < 2 ||
+            form.display_name.trim().length < 2
           "
         >
           {{ $t('comum.salvar') }}

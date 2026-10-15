@@ -128,7 +128,9 @@
   "usuarios": {
     "titulo": "Usuários",
     "novo": "Novo usuário",
-    "nome": "Nome",
+    "nome": "Nome completo",
+    "nomeExibicao": "Nome de exibição",
+    "nomeExibicaoDica": "É o nome que aparece no sistema: chamados, tarefas, horas, grupos e menu.",
     "email": "E-mail",
     "usuario": "Usuário",
     "usuarioDica": "Para entrar no sistema, junto com o e-mail. Letras sem acento, números, ponto, hífen ou sublinhado.",

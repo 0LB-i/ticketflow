@@ -150,7 +150,7 @@ async def token_info(token: str, db: DB) -> TokenInfo:
     return TokenInfo(
         purpose=found.purpose,
         email=found.user.email,
-        full_name=found.user.full_name,
+        display_name=found.user.display_name,
     )
 
 
@@ -198,7 +198,7 @@ async def me(auth: CurrentAuth, db: DB) -> Me:
         id=auth.user.public_id,
         email=auth.user.email,
         username=auth.user.username,
-        full_name=auth.user.full_name,
+        display_name=auth.user.display_name,
         must_change_password=auth.user.must_change_password,
         role=auth.user.role.code,
         teams=[MeTeam(id=m.team.public_id, name=m.team.name, role=m.role) for m in memberships],

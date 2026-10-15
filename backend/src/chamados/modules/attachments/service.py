@@ -72,7 +72,7 @@ def out(a: Attachment, comment_public_id: uuid.UUID | None = None) -> Attachment
         content_type=a.content_type,
         size_bytes=a.size_bytes,
         comment_id=comment_public_id,
-        uploaded_by=UserRef(id=a.uploader.public_id, full_name=a.uploader.full_name),
+        uploaded_by=UserRef(id=a.uploader.public_id, display_name=a.uploader.display_name),
         created_at=a.created_at,
     )
 
