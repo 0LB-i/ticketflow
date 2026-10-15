@@ -1283,6 +1283,57 @@
         }
       }
     },
+    "/api/v1/clients/options": {
+      "get": {
+        "tags": ["clientes"],
+        "summary": "Client Options",
+        "description": "Clientes ativos para escolher no chamado e nos relatórios: só o id e o nome.",
+        "operationId": "client_options_api_v1_clients_options_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "nome ou nome fantasia",
+              "title": "Q"
+            },
+            "description": "nome ou nome fantasia"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientOptions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clients/{client_id}": {
       "get": {
         "tags": ["clientes"],
@@ -3564,6 +3615,36 @@
         "type": "object",
         "required": ["kind", "postal_code", "city", "state"],
         "title": "ClientIn"
+      },
+      "ClientOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": ["id", "label"],
+        "title": "ClientOption"
+      },
+      "ClientOptions": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClientOption"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "ClientOptions"
       },
       "ClientOut": {
         "properties": {

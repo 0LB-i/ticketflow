@@ -371,7 +371,7 @@
     "cliente": "Cliente",
     "contato": "Contato",
     "contatoDica": "Quem pediu o atendimento.",
-    "buscarCliente": "Buscar por nome ou CPF/CNPJ",
+    "buscarCliente": "Buscar pelo nome",
     "nenhumCliente": "Nenhum cliente encontrado.",
     "tirarCliente": "Tirar o cliente",
     "entregue": {

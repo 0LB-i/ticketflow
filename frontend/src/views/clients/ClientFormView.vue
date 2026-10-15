@@ -181,7 +181,7 @@ async function enviar() {
       title: props.id ? t('comum.salvo') : t('clientes.cadastrado'),
       description: form.name || form.trade_name || `${form.city}/${form.state}`,
     })
-    await router.push('/clientes')
+    await router.push('/admin/clientes')
   } catch (e) {
     erro.value = (e as Error).message
   }
@@ -195,7 +195,7 @@ async function enviar() {
         {{ id ? (cliente.data.value?.label ?? t('clientes.editar')) : t('clientes.novo') }}
       </h1>
       <div class="flex gap-2">
-        <Button variant="secondary" @click="router.push('/clientes')">
+        <Button variant="secondary" @click="router.push('/admin/clientes')">
           {{ podeEditar ? t('comum.cancelar') : t('comum.fechar') }}
         </Button>
         <Button

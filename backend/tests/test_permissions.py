@@ -50,8 +50,8 @@ MATRIZ = {
     P.ADMIN_CATALOG: (N, N, S, N),
     P.ADMIN_SETTINGS: (N, N, S, N),
     P.AUDIT_VIEW: (N, N, S, S),
-    P.CLIENT_VIEW: (S, S, S, S),
-    P.CLIENT_MANAGE: (N, N, N, N),  # só pelo grupo Administradores
+    P.CLIENT_VIEW: (N, N, N, N),  # só pelo grupo Administradores
+    P.CLIENT_MANAGE: (N, N, N, N),
 }
 
 
@@ -89,16 +89,17 @@ def _migracao(numero: str) -> Any:
 
 
 def test_clientes_so_pelo_grupo_administradores() -> None:
-    assert can(admin_do_grupo, P.CLIENT_MANAGE)
-    assert "client.manage" in effective_permissions(admin_do_grupo)
-    assert "client.manage" not in effective_permissions(admin)
+    for permissao in ("client.view", "client.manage"):
+        assert permissao in effective_permissions(admin_do_grupo)
+        assert permissao not in effective_permissions(admin)
 
 
 def test_papeis_da_migracao_batem_com_o_catalogo() -> None:
     # Papéis criados na 0002; permissões acrescentadas depois (0010: clientes; 0015: atribuir
-    # a outro membro) e retiradas (0016: prioridade; 0027: clientes, que passou ao grupo).
+    # a outro membro) e retiradas (0016: prioridade; 0027 e 0029: clientes, que passaram ao
+    # grupo Administradores).
     novas = [_migracao(n).NEW_PERMISSIONS for n in ("0010", "0015")]
-    retiradas = [_migracao(n).REMOVED_PERMISSIONS for n in ("0016", "0027")]
+    retiradas = [_migracao(n).REMOVED_PERMISSIONS for n in ("0016", "0027", "0029")]
     for codigo, _, permissoes in _migracao("0002").SYSTEM_ROLES:
         esperado = set(permissoes).union(*(n.get(codigo, []) for n in novas))
         esperado -= set().union(*(r.get(codigo, []) for r in retiradas))

@@ -13,10 +13,10 @@ import {
 } from 'reka-ui'
 import { computed, ref, useId, watch } from 'vue'
 
-import { useClientes } from '@/composables/clientes'
-import { formatarDocumento } from '@/composables/documentos'
+import { useOpcoesClientes } from '@/composables/clientes'
 
-/** Cliente: busca na API por nome, nome fantasia ou CPF/CNPJ. `obrigatorio` tira o botão de
+/** Cliente: busca na API por nome ou nome fantasia (só o nome volta: o cadastro é do grupo
+ * Administradores). `obrigatorio` tira o botão de
  * limpar (o chamado sempre tem cliente; o filtro dos relatórios, não). */
 defineProps<{ label: string; obrigatorio?: boolean; error?: string }>()
 const model = defineModel<{ id: string; name: string } | null>({ default: null })
@@ -31,11 +31,8 @@ watch(busca, (valor) => {
   espera = setTimeout(() => (termo.value = valor), 300)
 })
 // Só consulta a API com a lista aberta.
-const clientes = useClientes(
-  () => ({ q: termo.value, inativos: false }),
-  () => aberto.value,
-)
-const opcoes = computed(() => clientes.data.value?.items ?? [])
+const clientes = useOpcoesClientes(termo, aberto)
+const opcoes = computed(() => clientes.data.value ?? [])
 </script>
 
 <template>
@@ -86,13 +83,9 @@ const opcoes = computed(() => clientes.data.value?.items ?? [])
               v-for="c in opcoes"
               :key="c.id"
               :value="{ id: c.id, name: c.label }"
-              class="flex cursor-default flex-col rounded px-2 py-1.5 outline-none select-none data-highlighted:bg-surface-raised"
+              class="flex cursor-default rounded px-2 py-1.5 outline-none select-none data-highlighted:bg-surface-raised"
             >
-              <span>{{ c.label }}</span>
-              <span class="text-muted tabular-nums">
-                <template v-if="c.document">{{ formatarDocumento(c.document, c.kind) }}</template>
-                <template v-if="c.name && c.trade_name"> · {{ c.trade_name }}</template>
-              </span>
+              {{ c.label }}
             </ComboboxItem>
           </ComboboxViewport>
         </ComboboxContent>

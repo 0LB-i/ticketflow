@@ -83,7 +83,7 @@ describe('NewTicketView', () => {
       'GET /api/v1/me': [200, { ...ME, permissions: ['ticket.create', 'ticket.transition'] }],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS],
-      'GET /api/v1/clients': [200, { items: [PADARIA], total: 1 }],
+      'GET /api/v1/clients/options': [200, { items: [{ id: PADARIA.id, label: PADARIA.label }] }],
       'POST /api/v1/tickets': [201, { number: 1000, title: 'Impressora parada' }],
     })
     const router = criarRouter()
@@ -119,7 +119,7 @@ describe('NewTicketView', () => {
       'GET /api/v1/me': [200, ME],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS],
-      'GET /api/v1/clients': [200, { items: [PADARIA], total: 1 }],
+      'GET /api/v1/clients/options': [200, { items: [{ id: PADARIA.id, label: PADARIA.label }] }],
       'POST /api/v1/tickets': [201, { number: 1001, title: 'Para o grupo' }],
     })
     const router = criarRouter()
@@ -161,7 +161,7 @@ describe('NewTicketView', () => {
       'GET /api/v1/me': [200, ME],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS],
-      'GET /api/v1/clients': [200, { items: [PADARIA], total: 1 }],
+      'GET /api/v1/clients/options': [200, { items: [{ id: PADARIA.id, label: PADARIA.label }] }],
       'POST /api/v1/tickets': [201, { number: 1002, title: 'Começou cedo' }],
     })
     const router = criarRouter()
@@ -283,7 +283,7 @@ describe('TicketView', () => {
       'GET /api/v1/tickets/1000': [200, CHAMADO],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
       'GET /api/v1/teams': [200, GRUPOS],
-      'GET /api/v1/clients': [200, { items: [OFICINA], total: 1 }],
+      'GET /api/v1/clients/options': [200, { items: [{ id: OFICINA.id, label: OFICINA.label }] }],
       'PATCH /api/v1/tickets/1000': [200, CHAMADO],
     })
     const w = montar(TicketView, { props: { numero: '1000' } })

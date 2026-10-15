@@ -29,7 +29,7 @@ describe('ClientFormView', () => {
     })
     const router = criarRouter()
     const w = montar(ClientFormView, { global: { plugins: [router] }, attachTo: document.body })
-    await router.push('/clientes/novo')
+    await router.push('/admin/clientes/novo')
     await vi.waitFor(() => expect(w.text()).toContain('Pessoa jurídica (CNPJ)'))
 
     await w
@@ -67,7 +67,7 @@ describe('ClientFormView', () => {
     expect(w.text()).not.toContain('Data de nascimento')
 
     await w.get('form').trigger('submit')
-    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/clientes'))
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/admin/clientes'))
     expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toMatchObject({
       kind: 'company',
       name: 'Padaria Pão Quente Ltda',
@@ -146,7 +146,7 @@ describe('ClientFormView', () => {
     })
     const router = criarRouter()
     const w = montar(ClientFormView, { global: { plugins: [router] }, attachTo: document.body })
-    await router.push('/clientes/novo')
+    await router.push('/admin/clientes/novo')
     await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
     await digitar(w, 'Nome completo', 'João da Silva')
     await digitar(w, 'CPF', '52998224725')
@@ -154,7 +154,7 @@ describe('ClientFormView', () => {
     await digitar(w, 'Cidade', 'São Paulo')
     await escolher('UF', 'SP')
     await w.get('form').trigger('submit')
-    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/clientes'))
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/admin/clientes'))
     expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toMatchObject({
       name: 'João da Silva',
       document: '529.982.247-25',
