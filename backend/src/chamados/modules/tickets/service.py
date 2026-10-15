@@ -499,7 +499,9 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         raise HTTPException(422, "Escolha o grupo: a categoria não tem um grupo padrão ativo.")
     else:
         raise HTTPException(422, "Escolha o grupo do chamado.")
-    if team.id not in auth.actor.teams:
+    # O agente registra nos próprios grupos; quem vê todos os chamados (admin), em qualquer um.
+    member = team.id in auth.actor.teams
+    if not member and not can(auth.actor, P.TICKET_VIEW_ALL):
         raise HTTPException(403, "Você só registra chamados nos grupos de que é membro.")
     department = await _active(db, Department, data.department_id) if data.department_id else None
     client = await _active(db, Client, data.client_id)
@@ -512,6 +514,9 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     )
 
     if data.assignee == "me" or data.assignee == auth.user.public_id:
+        # Fora dos próprios grupos, quem registra não pode ficar como responsável.
+        if not member:
+            raise HTTPException(422, "O responsável precisa ser um membro ativo do grupo.")
         assignee = auth.user
     else:
         if not can(auth.actor, P.TICKET_ASSIGN_OTHERS, team.id):

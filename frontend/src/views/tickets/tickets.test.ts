@@ -182,6 +182,54 @@ describe('NewTicketView', () => {
     expect(w.text()).not.toContain('Antigo')
   })
 
+  it('o admin registra em qualquer grupo ativo, com responsáveis membros dele', async () => {
+    const ADM = '00000000-0000-0000-0000-0000000000a3'
+    const feitas = simularApi({
+      'GET /api/v1/me': [
+        200,
+        {
+          ...ME,
+          display_name: 'Admin',
+          teams: [{ id: ADM, name: 'Administradores', role: 'member' }],
+          permissions: ['ticket.create', 'ticket.view_all'],
+        },
+      ],
+      'GET /api/v1/teams': [
+        200,
+        {
+          items: [
+            ...GRUPOS.items,
+            { ...GRUPOS.items[0]!, id: ADM, name: 'Administradores', members: [] },
+            { ...GRUPOS.items[0]!, id: 'x', name: 'Antigo', is_active: false },
+          ],
+        },
+      ],
+      'GET /api/v1/statuses': [200, STATUS],
+      'GET /api/v1/clients/options': [200, { items: [{ id: PADARIA.id, label: PADARIA.label }] }],
+      'POST /api/v1/tickets': [201, { number: 1002, title: 'Para o TI' }],
+    })
+    const router = criarRouter()
+    const w = montar(NewTicketView, { global: { plugins: [router] } })
+    await router.push('/chamados/novo')
+    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+
+    await escolher('Grupo', 'TI')
+    // Não é membro do TI: não começa como responsável.
+    await vi.waitFor(() => expect(w.text()).toContain('Usuários'))
+    expect(w.find('button[aria-label^="Remover"]').exists()).toBe(false)
+    await escolher('Usuários', 'Bia')
+    await w.get('input[type=text]').setValue('Para o TI')
+    await escolherCliente(w, 'Padaria Pão Quente')
+    await w.get('form').trigger('submit')
+
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1002'))
+    expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toMatchObject({
+      team_id: TI,
+      assignee: BIA,
+      co_assignee_ids: [],
+    })
+  })
+
   it('o início acompanha a hora atual até a pessoa mudar', async () => {
     const feitas = simularApi({
       'GET /api/v1/me': [200, ME],

@@ -29,6 +29,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Novo chamado: o administrador escolhe **qualquer grupo ativo**, e não só os de que é membro. O responsável continua sendo membro do grupo escolhido: fora dos próprios grupos, o admin não começa como responsável e escolhe as pessoas do grupo.
 - Chamados: grupos, membros, status e clientes são relidos ao abrir a tela (e a lista de clientes a cada abertura), então o que o admin mudou em outra sessão já aparece; salvar cliente, usuário ou grupo atualiza na hora os nomes na lista e no detalhe dos chamados; o registro não oferece mais grupo inativo, e a lista de chamados relê os grupos da pessoa ao abrir.
 - Chamado: "Atribuir a" acrescenta outra pessoa do grupo ou "Todas as pessoas do grupo" sem tirar quem já está; cada responsável pode ser tirado (sempre fica ao menos um). Nova rota `PUT /tickets/{id}/assignees`. Sem migração.
 - Chamado: a lista de clientes da lateral abre com todos os clientes ativos, e não só com o já escolhido.

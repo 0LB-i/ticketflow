@@ -30,15 +30,21 @@ const pessoas = usePessoas()
 const editor = useTemplateRef('editor')
 const anexador = useTemplateRef('anexador')
 
-// Só os grupos ativos recebem chamados (o /me traz também os inativos). Até a lista chegar,
-// vale o /me, para a tela não piscar o aviso de "sem grupo".
-const meusGrupos = computed(() =>
-  (auth.me?.teams ?? []).filter(
-    (g) => grupos.data.value?.find((x) => x.id === g.id)?.is_active !== false,
-  ),
+// Só os grupos ativos recebem chamados (o /me traz também os inativos). O agente registra nos
+// próprios grupos; quem vê todos os chamados (admin), em qualquer um. Para o agente, até a lista
+// chegar vale o /me, para a tela não piscar o aviso de "sem grupo".
+const emQualquerGrupo = computed(() => auth.pode('ticket.view_all'))
+const gruposDoRegistro = computed(() =>
+  emQualquerGrupo.value
+    ? (grupos.data.value ?? []).filter((g) => g.is_active)
+    : (auth.me?.teams ?? []).filter(
+        (g) => grupos.data.value?.find((x) => x.id === g.id)?.is_active !== false,
+      ),
 )
+const carregandoGrupos = computed(() => emQualquerGrupo.value && grupos.isPending.value)
+const souMembro = (grupo: string) => !!auth.me?.teams.some((g) => g.id === grupo)
 const form = reactive({
-  team: meusGrupos.value.length === 1 ? meusGrupos.value[0]!.id : '',
+  team: gruposDoRegistro.value.length === 1 ? gruposDoRegistro.value[0]!.id : '',
   status: '',
   title: '',
   description: '',
@@ -46,8 +52,8 @@ const form = reactive({
   inicio: null as string | null,
   cliente: null as { id: string; name: string } | null,
   contato: '',
-  // Responsáveis: começa com quem registra; pelo menos um.
-  responsaveis: auth.me ? [auth.me.id] : ([] as string[]),
+  // Responsáveis: pelo menos um (começa com quem registra, se for membro do grupo).
+  responsaveis: [] as string[],
   observadores: [] as string[],
   anexos: [] as string[],
 })
@@ -56,7 +62,7 @@ const tentou = ref(false)
 
 // Os grupos podem ter mudado depois do login (ex.: o admin incluiu a pessoa num grupo).
 onMounted(() => auth.carregar())
-watch(meusGrupos, (grupos) => {
+watch(gruposDoRegistro, (grupos) => {
   if (!form.team && grupos.length === 1) form.team = grupos[0]!.id
 })
 
@@ -74,7 +80,8 @@ watch(
 )
 watch(
   () => form.team,
-  () => (form.responsaveis = auth.me ? [auth.me.id] : []),
+  (grupo) => (form.responsaveis = auth.me && souMembro(grupo) ? [auth.me.id] : []),
+  { immediate: true },
 )
 
 const TODOS = 'todos'
@@ -162,7 +169,7 @@ async function enviar() {
   <div class="mx-auto flex max-w-7xl flex-col gap-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-xl font-semibold">{{ $t('novoChamado.titulo') }}</h1>
-      <div v-if="meusGrupos.length" class="flex gap-2">
+      <div v-if="gruposDoRegistro.length" class="flex gap-2">
         <Button variant="secondary" @click="router.push('/chamados')">
           {{ $t('comum.cancelar') }}
         </Button>
@@ -175,12 +182,16 @@ async function enviar() {
         </Button>
       </div>
     </div>
-    <p v-if="!meusGrupos.length" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">
+    <p
+      v-if="!gruposDoRegistro.length && !carregandoGrupos"
+      class="rounded-md bg-red-bg p-3 text-red-fg"
+      role="alert"
+    >
       {{ $t('novoChamado.semGrupo') }}
     </p>
 
     <form
-      v-else
+      v-else-if="gruposDoRegistro.length"
       id="form-novo-chamado"
       class="flex flex-col gap-4"
       novalidate
@@ -218,7 +229,7 @@ async function enviar() {
           <SelectField
             v-model="form.team"
             :label="$t('novoChamado.grupo')"
-            :options="meusGrupos.map((g) => ({ value: g.id, label: g.name }))"
+            :options="gruposDoRegistro.map((g) => ({ value: g.id, label: g.name }))"
             :error="tentou && faltando.team ? $t('novoChamado.escolhaGrupo') : undefined"
             required
           />

@@ -42,7 +42,7 @@ Os chamados **não têm prioridade**, nem impacto e urgência (decisão de 2026-
 
 | Origem | Como funciona | Fase |
 |--------|---------------|------|
-| **Formulário** | Um membro registra pelo botão "Novo chamado", sempre visível | 1 |
+| **Formulário** | Um membro registra pelo botão "Novo chamado", sempre visível, num dos seus grupos; o admin, em qualquer grupo ativo (o responsável é sempre membro do grupo) | 1 |
 | **API / integrações** | `POST /tickets` com token de API | Futuro |
 | **Agente de IA / MCP** | Via API ou servidor MCP | Futuro |
 

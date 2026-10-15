@@ -143,6 +143,25 @@ def test_registro_valida_grupo_responsavel_e_perfil(
     )
 
 
+def test_admin_registra_em_qualquer_grupo(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    # O admin (ticket.view_all) registra num grupo de que não é membro; o responsável continua
+    # sendo um membro do grupo, então ele próprio não pode ficar.
+    criar_usuario(db, "adm@x.com", "admin", nome="Adm")
+    entrar(client, "adm@x.com")
+    dados = {**base(cenario), "title": "Na Infra", "team_id": cenario["infra"]}
+    r = client.post(API, json=dados)
+    assert r.status_code == 422
+    assert r.json()["detail"] == "O responsável precisa ser um membro ativo do grupo."
+
+    r = client.post(API, json={**dados, "assignee": cenario["caio"]})
+    assert r.status_code == 201, r.text
+    t = r.json()
+    assert t["team"]["name"] == "Infra" and t["assignee"]["display_name"] == "Caio"
+    assert t["created_by"]["display_name"] == "Adm"
+
+
 def test_registro_sem_categoria(client: TestClient, cenario: dict[str, Any]) -> None:
     # Sem categoria não há grupo padrão: o grupo é obrigatório
     r = client.post(API, json={**base(cenario), "title": "Sem categoria"})
