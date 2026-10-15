@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { MessageCircle, Pencil } from 'lucide-vue-next'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type LocationQueryRaw, useRoute, useRouter } from 'vue-router'
 
@@ -36,6 +36,8 @@ const toast = useToast()
 const auth = useAuthStore()
 const grupos = useGrupos()
 const contagens = useContagens()
+// Os grupos da pessoa (aba inicial, seleção em massa) podem ter mudado depois do login.
+onMounted(() => auth.carregar())
 
 const ABAS: { slug: string; fila: Fila }[] = [
   { slug: 'meus', fila: 'mine' },

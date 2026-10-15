@@ -137,9 +137,18 @@ function mostrarLink(nome: string, email: string, dados: LinkDeAcesso) {
 }
 
 const criar = useAlteracao(usuariosApi.criar, ['usuarios', 'grupos'])
-const editar = useAlteracao(usuariosApi.editar, ['usuarios', 'grupos'])
+// O nome de exibição aparece nos chamados (responsáveis, observadores, tempo por pessoa).
+const editar = useAlteracao(
+  async (a: Parameters<typeof usuariosApi.editar>[0]) => {
+    const usuario = await usuariosApi.editar(a)
+    // O próprio cadastro também muda os meus dados (nome, papel e permissões).
+    if (a.id === auth.me?.id) await auth.carregar()
+    return usuario
+  },
+  ['usuarios', 'grupos', 'chamados', 'chamado'],
+)
 const enviarLink = useAlteracao(usuariosApi.enviarLink, ['usuarios'])
-const excluir = useAlteracao(usuariosApi.excluir, ['usuarios', 'grupos'])
+const excluir = useAlteracao(usuariosApi.excluir, ['usuarios', 'grupos', 'chamados', 'chamado'])
 
 async function salvar() {
   erro.value = null

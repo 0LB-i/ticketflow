@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
 import { criarRouter } from '@/router'
 import { escolher, ME_AGENTE, montar, simularApi } from '@/test/setup'
 
@@ -184,6 +185,22 @@ describe('TicketsView', () => {
     await vi.waitFor(() =>
       expect(router.currentRoute.value.query).toEqual({ aba: 'todos', grupo: TI }),
     )
+  })
+
+  it('relê os grupos ao abrir: quem entrou num grupo depois do login já abre em Meus', async () => {
+    let chamadasMe = 0
+    // O guard leu o /me antes de a pessoa entrar no grupo; a tela relê.
+    simularApi({
+      'GET /api/v1/me': () => [200, chamadasMe++ ? ME : { ...ME, teams: [] }],
+      'GET /api/v1/teams': [200, { items: [] }],
+      'GET /api/v1/tickets': [200, { items: [ITEM], next_cursor: null }],
+      'GET /api/v1/tickets/counts': [200, CONTAGENS],
+    })
+    const router = criarRouter()
+    montar(TicketsView, { global: { plugins: [router] } })
+    await router.push('/chamados')
+    await vi.waitFor(() => expect(chamadasMe).toBe(2))
+    expect(useAuthStore().me?.teams).toEqual(ME.teams)
   })
 
   it('a lista vazia explica o que fazer', async () => {

@@ -156,6 +156,32 @@ describe('NewTicketView', () => {
     expect(w.text()).not.toContain('ainda não é membro')
   })
 
+  it('não oferece grupo inativo: com um só grupo ativo, ele já vem escolhido', async () => {
+    const ANTIGO = '00000000-0000-0000-0000-0000000000a2'
+    simularApi({
+      'GET /api/v1/me': [
+        200,
+        { ...ME, teams: [...ME.teams, { id: ANTIGO, name: 'Antigo', role: 'member' }] },
+      ],
+      'GET /api/v1/teams': [
+        200,
+        {
+          items: [
+            ...GRUPOS.items,
+            { ...GRUPOS.items[0]!, id: ANTIGO, name: 'Antigo', is_active: false },
+          ],
+        },
+      ],
+      'GET /api/v1/statuses': [200, STATUS],
+    })
+    const router = criarRouter()
+    const w = montar(NewTicketView, { global: { plugins: [router] } })
+    await router.push('/chamados/novo')
+    // Grupo escolhido: os responsáveis aparecem, começando por quem registra.
+    await vi.waitFor(() => expect(w.find('button[aria-label="Remover Ana"]').exists()).toBe(true))
+    expect(w.text()).not.toContain('Antigo')
+  })
+
   it('o início acompanha a hora atual até a pessoa mudar', async () => {
     const feitas = simularApi({
       'GET /api/v1/me': [200, ME],
@@ -314,6 +340,30 @@ describe('TicketView', () => {
     )
     const pedidos = feitas.filter((r) => r.caminho.endsWith('/clients/options'))
     expect(pedidos.map((r) => r.query.get('q'))).toEqual([null])
+  })
+
+  it('relê os clientes a cada abertura da lista: o cadastrado em outra sessão já aparece', async () => {
+    let clientes = [{ id: PADARIA.id, label: PADARIA.label }]
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': [200, CHAMADO],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/clients/options': () => [200, { items: clientes }],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    // Como na aplicação (main.ts): o que tem menos de 30 s não é buscado de novo.
+    w.queryClient.setDefaultOptions({ queries: { retry: false, staleTime: 30_000 } })
+    await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
+    const abrirOuFechar = () => w.get('aside').get('button[aria-label="Cliente"]').trigger('click')
+    await abrirOuFechar()
+    await vi.waitFor(() => expect(document.querySelectorAll('[role=option]')).toHaveLength(1))
+    await abrirOuFechar()
+    await vi.waitFor(() => expect(document.querySelector('[role=listbox]')).toBeNull())
+
+    clientes = [...clientes, { id: 'novo', label: 'Mercado Novo' }]
+    await abrirOuFechar()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Mercado Novo'))
+    expect(feitas.filter((r) => r.caminho.endsWith('/clients/options'))).toHaveLength(2)
   })
 
   it('atribui a várias pessoas ou ao grupo inteiro e tira um responsável', async () => {

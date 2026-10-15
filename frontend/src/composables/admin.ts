@@ -17,10 +17,13 @@ export function useUsuarios() {
   })
 }
 
+/** Grupos e membros. Sempre relidos ao abrir uma tela e ao voltar à aba: os formulários de
+ * chamado dependem deles, e o admin pode tê-los mudado em outra sessão. */
 export function useGrupos() {
   return useQuery({
     queryKey: ['grupos'],
     queryFn: async () => ou(await api.GET('/api/v1/teams'), erro()).items,
+    staleTime: 0,
   })
 }
 

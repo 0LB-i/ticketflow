@@ -26,12 +26,13 @@ export type Acao = Schemas['TransitionIn']['action']
 
 const caminho = (numero: string | number) => ({ path: { ticket_ref: String(numero) } })
 
-/** Os status na ordem definida em Configurações. */
+/** Os status na ordem definida em Configurações (relidos ao abrir: podem ter mudado em outra
+ * sessão). */
 export function useStatus() {
   return useQuery({
     queryKey: ['status'],
     queryFn: async () => ou(await api.GET('/api/v1/statuses')).items,
-    staleTime: Infinity,
+    staleTime: 0,
   })
 }
 

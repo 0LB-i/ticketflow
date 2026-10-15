@@ -40,7 +40,8 @@ export function useClientes(
   })
 }
 
-/** Clientes ativos para escolher (chamado, relatórios): só o id e o nome, aberto a todos. */
+/** Clientes ativos para escolher (chamado, relatórios): só o id e o nome, aberto a todos.
+ * Relidos a cada abertura da lista: um cliente cadastrado em outra sessão já aparece. */
 export function useOpcoesClientes(q: MaybeRefOrGetter<string>, ativa: MaybeRefOrGetter<boolean>) {
   return useQuery({
     queryKey: computed(() => ['clientes', 'opcoes', toValue(q)]),
@@ -50,6 +51,7 @@ export function useOpcoesClientes(q: MaybeRefOrGetter<string>, ativa: MaybeRefOr
           params: { query: { q: toValue(q).trim() || undefined } },
         }),
       ).items,
+    staleTime: 0,
     placeholderData: keepPreviousData,
     enabled: computed(() => toValue(ativa)),
   })

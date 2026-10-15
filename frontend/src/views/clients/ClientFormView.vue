@@ -140,7 +140,8 @@ const rotuloDaLista = (rotulo: string, lista: string[], i: number) =>
 const salvar = useAlteracao(
   (body: ClienteEntrada) =>
     props.id ? clientesApi.editar({ id: props.id, ...body }) : clientesApi.criar(body),
-  ['clientes', 'cliente'],
+  // O nome do cliente aparece na lista e no detalhe dos chamados.
+  ['clientes', 'cliente', 'chamados', 'chamado'],
 )
 
 async function enviar() {

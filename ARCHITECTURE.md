@@ -311,9 +311,9 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['relatorios', filtro]`, `['relatorios', 'opcoes']`, `['expediente']`.
-- **Escrita:** `useAlteracao(fn, chaves)` (admin) e `useAcaoNoChamado(numero, fn)` (chamados) fazem a mutação e invalidam as chaves afetadas.
-- **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
+- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['relatorios', filtro]`, `['relatorios', 'opcoes']`, `['expediente']`. O padrão é 30 s sem buscar de novo (`main.ts`), menos os cadastros que os formulários de chamado usam, `['grupos']`, `['status']` e `['clientes', 'opcoes', busca]`: `staleTime: 0`, relidos ao abrir a tela (ou a lista de clientes) e ao voltar à aba, porque o admin pode mudá-los em outra sessão.
+- **Escrita:** `useAlteracao(fn, chaves)` (admin) e `useAcaoNoChamado(numero, fn)` (chamados) fazem a mutação e invalidam as chaves afetadas. Salvar cliente, usuário ou grupo também invalida `['chamados']` e `['chamado']`, que mostram os nomes deles.
+- **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`: lista e registro de chamados, mudanças nos próprios grupos ou no próprio cadastro), porque eles podem mudar depois do login.
 
 ### 4.3 Telas
 

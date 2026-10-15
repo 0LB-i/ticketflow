@@ -141,4 +141,40 @@ describe('UsersView', () => {
     await vi.waitFor(() => expect(document.body.querySelector('[role=dialog]')).toBeNull())
     expect(feitas.filter((r) => r.metodo === 'DELETE')).toHaveLength(1)
   })
+
+  it('editar o próprio cadastro relê os meus dados e recarrega os chamados', async () => {
+    let chamadasMe = 0
+    const EU = {
+      ...USUARIO,
+      id: ME_ADMIN.id,
+      status: 'ativo',
+      full_name: 'Admin',
+      display_name: 'Admin',
+    }
+    simularApi({
+      'GET /api/v1/users': [200, { items: [EU] }],
+      'GET /api/v1/teams': [200, { items: [] }],
+      'GET /api/v1/me': () => (chamadasMe++, [200, { ...ME_ADMIN, display_name: 'Adm' }]),
+      [`PATCH /api/v1/users/${EU.id}`]: [200, { ...EU, display_name: 'Adm' }],
+    })
+    const w = montar(UsersView)
+    const auth = useAuthStore()
+    auth.me = ME_ADMIN
+    w.queryClient.setQueryData(['chamado', '1000'], { number: 1000 })
+    await vi.waitFor(() => expect(w.findAll('button').some((b) => b.text() === 'Admin')).toBe(true))
+    await w
+      .findAll('button')
+      .find((b) => b.text() === 'Admin')!
+      .trigger('click')
+    const painel = () => document.body.querySelector('[role=dialog]')!
+    await vi.waitFor(() => expect(painel()).toBeTruthy())
+    const exibicao = painel().querySelectorAll<HTMLInputElement>('input:not([type=checkbox])')[1]!
+    exibicao.value = 'Adm'
+    exibicao.dispatchEvent(new Event('input'))
+    painel().querySelector('form')!.dispatchEvent(new Event('submit'))
+
+    await vi.waitFor(() => expect(auth.me?.display_name).toBe('Adm'))
+    expect(chamadasMe).toBe(1)
+    expect(w.queryClient.getQueryState(['chamado', '1000'])?.isInvalidated).toBe(true)
+  })
 })

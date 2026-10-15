@@ -29,6 +29,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Chamados: grupos, membros, status e clientes são relidos ao abrir a tela (e a lista de clientes a cada abertura), então o que o admin mudou em outra sessão já aparece; salvar cliente, usuário ou grupo atualiza na hora os nomes na lista e no detalhe dos chamados; o registro não oferece mais grupo inativo, e a lista de chamados relê os grupos da pessoa ao abrir.
 - Chamado: "Atribuir a" acrescenta outra pessoa do grupo ou "Todas as pessoas do grupo" sem tirar quem já está; cada responsável pode ser tirado (sempre fica ao menos um). Nova rota `PUT /tickets/{id}/assignees`. Sem migração.
 - Chamado: a lista de clientes da lateral abre com todos os clientes ativos, e não só com o já escolhido.
 - Chamado: o cliente pode ser trocado ou tirado na lateral (quem pode editar o chamado), e o botão **Cancelar chamado** saiu da caixa de tarefa e foi para a lateral, junto de Assumir e Transferir, e pede só uma confirmação, sem motivo (na API, o comentário do cancelamento passou a ser opcional). A lateral não mostra mais o número de reaberturas.

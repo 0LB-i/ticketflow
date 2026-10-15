@@ -82,7 +82,8 @@ const editar = useAlteracao(
     if (grupo.members.some((m) => m.user_id === auth.me?.id)) await auth.carregar()
     return grupo
   },
-  ['grupos'],
+  // O nome do grupo aparece na lista e no detalhe dos chamados.
+  ['grupos', 'chamados', 'chamado'],
 )
 const definirMembro = useAlteracao(
   async (a: Parameters<typeof gruposApi.definirMembro>[0]) => {

@@ -30,7 +30,13 @@ const pessoas = usePessoas()
 const editor = useTemplateRef('editor')
 const anexador = useTemplateRef('anexador')
 
-const meusGrupos = computed(() => auth.me?.teams ?? [])
+// Só os grupos ativos recebem chamados (o /me traz também os inativos). Até a lista chegar,
+// vale o /me, para a tela não piscar o aviso de "sem grupo".
+const meusGrupos = computed(() =>
+  (auth.me?.teams ?? []).filter(
+    (g) => grupos.data.value?.find((x) => x.id === g.id)?.is_active !== false,
+  ),
+)
 const form = reactive({
   team: meusGrupos.value.length === 1 ? meusGrupos.value[0]!.id : '',
   status: '',

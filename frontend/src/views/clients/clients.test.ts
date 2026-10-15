@@ -165,6 +165,32 @@ describe('ClientFormView', () => {
       city: 'São Paulo',
     })
   })
+
+  it('salvar recarrega os chamados, que mostram o nome do cliente', async () => {
+    simularApi({
+      'GET /api/v1/me': [200, ME],
+      'POST /api/v1/clients': [201, { id: ID }],
+      'GET /api/v1/clients': [200, { items: [], total: 0 }],
+    })
+    const router = criarRouter()
+    const w = montar(ClientFormView, { global: { plugins: [router] }, attachTo: document.body })
+    w.queryClient.setQueryData(['chamados', { view: 'all' }], { pages: [], pageParams: [] })
+    w.queryClient.setQueryData(['chamado', '1000'], { number: 1000 })
+    await router.push('/admin/clientes/novo')
+    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    await digitar(w, 'Nome completo', 'João da Silva')
+    await digitar(w, 'CPF', '52998224725')
+    await digitar(w, 'CEP', '01310100')
+    await digitar(w, 'Cidade', 'São Paulo')
+    await escolher('UF', 'SP')
+    await w.get('form').trigger('submit')
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/admin/clientes'))
+    for (const chave of [
+      ['chamados', { view: 'all' }],
+      ['chamado', '1000'],
+    ])
+      expect(w.queryClient.getQueryState(chave)?.isInvalidated).toBe(true)
+  })
 })
 
 describe('ClientsView', () => {
