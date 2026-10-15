@@ -92,19 +92,14 @@ const cliente = computed({
   },
 })
 
-// --- cancelamento (o motivo vai como tarefa) ---
+// --- cancelamento: só a confirmação, sem motivo ---
 const cancelando = ref(false)
-const motivoCancelamento = ref('')
-const cancelar = useAcaoNoChamado(numero, (comment: string) =>
-  chamadosApi.mudarStatus(numero(), { action: 'cancel', comment, attachment_ids: [] }),
+const cancelar = useAcaoNoChamado(numero, () =>
+  chamadosApi.mudarStatus(numero(), { action: 'cancel', attachment_ids: [] }),
 )
-function abrirCancelamento() {
-  motivoCancelamento.value = ''
-  cancelando.value = true
-}
 async function confirmarCancelamento() {
   cancelando.value = false
-  await executar(() => cancelar.mutateAsync(motivoCancelamento.value), t('chamado.feito.cancel'))
+  await executar(() => cancelar.mutateAsync(undefined), t('chamado.feito.cancel'))
 }
 
 // --- transferência ---
@@ -191,10 +186,6 @@ const podeRemover = (id: string) =>
         <dt class="text-muted">{{ t('chamado.resolucao') }}</dt>
         <dd>{{ chamado.resolution_code.name }} · {{ formatarDataHora(chamado.closed_at) }}</dd>
       </template>
-      <template v-if="chamado.reopened_count">
-        <dt class="text-muted">{{ t('chamado.reaberturas') }}</dt>
-        <dd class="tabular-nums">{{ chamado.reopened_count }}</dd>
-      </template>
     </dl>
 
     <SelectField
@@ -225,7 +216,7 @@ const podeRemover = (id: string) =>
       <Button v-if="pode.has('transfer')" size="sm" variant="secondary" @click="abrirTransferencia">
         {{ t('chamado.transferir') }}
       </Button>
-      <Button v-if="pode.has('cancel')" size="sm" variant="danger" @click="abrirCancelamento">
+      <Button v-if="pode.has('cancel')" size="sm" variant="danger" @click="cancelando = true">
         {{ t('chamado.acoes.cancel') }}
       </Button>
     </div>
@@ -350,12 +341,13 @@ const podeRemover = (id: string) =>
       :title="t('chamado.cancelarTitulo')"
       :description="t('chamado.cancelarTexto')"
     >
-      <TextAreaField v-model="motivoCancelamento" :label="t('chamado.cancelarMotivo')" required />
       <template #actions>
-        <Button variant="secondary" @click="cancelando = false">{{ t('comum.cancelar') }}</Button>
+        <Button variant="secondary" @click="cancelando = false">{{
+          t('chamado.naoCancelar')
+        }}</Button>
         <Button
           variant="danger"
-          :disabled="!motivoCancelamento.trim() || cancelar.isPending.value"
+          :disabled="cancelar.isPending.value"
           @click="confirmarCancelamento"
         >
           {{ t('chamado.acoes.cancel') }}

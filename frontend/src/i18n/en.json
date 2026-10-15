@@ -317,7 +317,6 @@
     "naFila": "In the team queue",
     "tipo": "Type",
     "resolucao": "Resolution",
-    "reaberturas": "Reopened",
     "assumir": "Take it",
     "devolver": "Return to queue",
     "transferir": "Transfer",
@@ -357,8 +356,8 @@
       "cancel": "Cancel ticket"
     },
     "cancelarTitulo": "Cancel the ticket?",
-    "cancelarTexto": "Write why it is being canceled. A canceled ticket cannot be reopened.",
-    "cancelarMotivo": "Reason for canceling",
+    "cancelarTexto": "A canceled ticket cannot be reopened.",
+    "naoCancelar": "Go back",
     "textoObrigatorio": {
       "reopen": "Write in the task why it is being reopened."
     },

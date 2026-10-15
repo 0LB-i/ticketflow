@@ -305,7 +305,7 @@ describe('TicketView', () => {
     expect(w.get('aside').find('input[role=combobox]').exists()).toBe(false)
   })
 
-  it('cancelar fica na lateral e pede o motivo', async () => {
+  it('cancelar fica na lateral e só pede confirmação, sem motivo', async () => {
     const feitas = simularApi({
       'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment', 'cancel'] }],
       'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
@@ -322,24 +322,29 @@ describe('TicketView', () => {
       .trigger('click')
 
     const janela = () => document.body.querySelector('[role=dialog]')!
-    await vi.waitFor(() => expect(janela()?.textContent).toContain('Motivo do cancelamento'))
-    const confirmar = () =>
-      [...janela().querySelectorAll('button')].find(
-        (b) => b.textContent?.trim() === 'Cancelar chamado',
-      )!
-    expect(confirmar().disabled).toBe(true) // sem motivo
-    const motivo = janela().querySelector('textarea')!
-    motivo.value = 'Cliente desistiu'
-    motivo.dispatchEvent(new Event('input'))
-    await vi.waitFor(() => expect(confirmar().disabled).toBe(false))
-    confirmar().click()
+    await vi.waitFor(() => expect(janela()?.textContent).toContain('Cancelar o chamado?'))
+    expect(janela().querySelector('textarea')).toBeNull()
+    expect(feitas.some((r) => r.metodo === 'POST')).toBe(false) // só depois de confirmar
+    ;[...janela().querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Cancelar chamado')!
+      .click()
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.metodo === 'POST')?.corpo).toEqual({
         action: 'cancel',
-        comment: 'Cliente desistiu',
         attachment_ids: [],
       }),
     )
+  })
+
+  it('não mostra o número de reaberturas', async () => {
+    simularApi({
+      'GET /api/v1/tickets/1000': [200, { ...CHAMADO, reopened_count: 2 }],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
+    expect(w.get('aside').text()).not.toContain('Reaberturas')
   })
 
   it('marcar como entregue (fim da lateral, dourado) leva à revisão num clique', async () => {
