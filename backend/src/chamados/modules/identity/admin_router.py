@@ -1,5 +1,6 @@
 """Administração de usuários (docs/13: /admin/usuarios). Exige admin.users."""
 
+import re
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
@@ -51,6 +52,7 @@ class UserList(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
+    username: str = Field(max_length=50, description="login, além do e-mail")
     full_name: str = Field(min_length=2, max_length=200)
     role: RoleCode = "agent"
     password: str = Field(max_length=MAX_LENGTH, description="senha inicial, trocada no 1º acesso")
@@ -60,6 +62,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=200)
     email: EmailStr | None = None
+    username: str | None = Field(default=None, max_length=50)
     role: RoleCode | None = None
     is_active: bool | None = None
 
@@ -118,6 +121,26 @@ async def _get(db: AsyncSession, user_id: uuid.UUID) -> User:
     return user
 
 
+_USERNAME = re.compile(r"[a-z0-9][a-z0-9._-]{1,49}")
+
+
+async def _username(db: AsyncSession, raw: str, except_id: int | None = None) -> str:
+    """Nome de usuário válido e livre (sem acento nem @, para não confundir com o e-mail)."""
+    username = raw.strip().lower()
+    if not _USERNAME.fullmatch(username):
+        raise HTTPException(
+            422,
+            "O usuário precisa ter de 2 a 50 caracteres: letras sem acento, números, "
+            "ponto, hífen ou sublinhado.",
+        )
+    taken = await db.scalar(
+        select(User.id).where(User.username == username, User.id != (except_id or 0))
+    )
+    if taken:
+        raise HTTPException(409, "Já existe um usuário com este nome de usuário.")
+    return username
+
+
 async def _keep_one_admin(db: AsyncSession) -> None:
     """Chamada antes de tirar um admin ativo (troca de papel ou desativação)."""
     admins = await db.scalar(
@@ -174,7 +197,8 @@ async def create_user(data: UserCreate, auth: Admin, request: Request, db: DB) -
     """Cria com a senha inicial definida pelo admin; a pessoa troca no primeiro acesso."""
     if await db.scalar(select(User.id).where(User.email == data.email)):
         raise HTTPException(409, "Já existe um usuário com este e-mail.")
-    if problem := password_problem(data.password, data.email):
+    username = await _username(db, data.username)
+    if problem := password_problem(data.password, data.email, username):
         raise HTTPException(422, problem)
     teams = (
         await db.scalars(select(Team).where(Team.public_id.in_(data.team_ids), Team.is_active))
@@ -183,6 +207,7 @@ async def create_user(data: UserCreate, auth: Admin, request: Request, db: DB) -
         raise HTTPException(422, "Grupo não encontrado ou inativo.")
     user = User(
         email=data.email,
+        username=username,
         full_name=data.full_name.strip(),
         role=await _role(db, data.role),
         password_hash=await run_in_threadpool(hash_password, data.password),
@@ -234,6 +259,8 @@ async def update_user(
         if taken:
             raise HTTPException(409, "Já existe um usuário com este e-mail.")
         user.email = data.email
+    if data.username is not None and data.username.strip().lower() != user.username:
+        user.username = await _username(db, data.username, user.id)
     if data.role is not None:
         user.role = await _role(db, data.role)
     if data.is_active is not None and data.is_active != user.is_active:

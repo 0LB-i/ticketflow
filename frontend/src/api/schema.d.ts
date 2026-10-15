@@ -2015,6 +2015,11 @@ export interface components {
        * Format: email
        */
       email: string
+      /**
+       * Username
+       * @description login, além do e-mail
+       */
+      username: string
       /** Full Name */
       full_name: string
       /**
@@ -2104,6 +2109,8 @@ export interface components {
       full_name?: string | null
       /** Email */
       email?: string | null
+      /** Username */
+      username?: string | null
       /** Role */
       role?: ('agent' | 'admin' | 'auditor') | null
       /** Is Active */

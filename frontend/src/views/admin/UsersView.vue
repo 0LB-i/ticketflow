@@ -55,6 +55,7 @@ const editando = ref<Usuario | null>(null)
 const form = reactive({
   full_name: '',
   email: '',
+  username: '',
   role: 'agent' as 'agent' | 'admin' | 'auditor',
   password: '',
   team_ids: [] as string[],
@@ -63,14 +64,27 @@ const erro = ref<string | null>(null)
 
 function abrirNovo() {
   editando.value = null
-  Object.assign(form, { full_name: '', email: '', role: 'agent', password: '', team_ids: [] })
+  Object.assign(form, {
+    full_name: '',
+    email: '',
+    username: '',
+    role: 'agent',
+    password: '',
+    team_ids: [],
+  })
   erro.value = null
   painel.value = true
 }
 
 function abrirEdicao(u: Usuario) {
   editando.value = u
-  Object.assign(form, { full_name: u.full_name, email: u.email ?? '', role: u.role, password: '' })
+  Object.assign(form, {
+    full_name: u.full_name,
+    email: u.email ?? '',
+    username: u.username ?? '',
+    role: u.role,
+    password: '',
+  })
   erro.value = null
   painel.value = true
 }
@@ -104,11 +118,13 @@ async function salvar() {
   try {
     if (editando.value) {
       const email = form.email.trim()
+      const username = form.username.trim()
       await editar.mutateAsync({
         id: editando.value.id,
         full_name: form.full_name,
         role: form.role,
         ...(email && email !== editando.value.email ? { email } : {}),
+        ...(username && username !== editando.value.username ? { username } : {}),
       })
       toast.show({ title: t('comum.salvo') })
     } else {
@@ -184,6 +200,7 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
       :columns="[
         { key: 'full_name', label: $t('usuarios.nome') },
         { key: 'email', label: $t('usuarios.email') },
+        { key: 'username', label: $t('usuarios.usuario') },
         { key: 'role', label: $t('usuarios.papel') },
         { key: 'teams', label: $t('usuarios.grupos') },
         { key: 'status', label: $t('usuarios.situacao') },
@@ -194,12 +211,6 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
         <button type="button" class="font-medium text-primary underline" @click="abrirEdicao(row)">
           {{ row.full_name }}
         </button>
-      </template>
-      <template #cell-email="{ row }">
-        <span v-if="row.email">{{ row.email }}</span>
-        <span v-else class="text-muted">
-          {{ $t('usuarios.usuarioLogin', { usuario: row.username }) }}
-        </span>
       </template>
       <template #cell-role="{ row }">{{ $t(`usuarios.papeis.${row.role}`) }}</template>
       <template #cell-teams="{ row }">
@@ -233,6 +244,13 @@ const ehVoceMesmo = computed(() => editando.value?.id === auth.me?.id)
           :label="$t('usuarios.email')"
           :hint="editando && !editando.email ? $t('usuarios.semEmail') : undefined"
           type="email"
+          :required="!editando"
+        />
+        <TextField
+          v-model="form.username"
+          :label="$t('usuarios.usuario')"
+          :hint="$t('usuarios.usuarioDica')"
+          autocomplete="off"
           :required="!editando"
         />
         <TextField
