@@ -130,6 +130,8 @@
     "novo": "Novo usuário",
     "nome": "Nome",
     "email": "E-mail",
+    "usuario": "Usuário",
+    "usuarioDica": "Para entrar no sistema, junto com o e-mail. Letras sem acento, números, ponto, hífen ou sublinhado.",
     "papel": "Papel",
     "grupos": "Grupos",
     "situacao": "Situação",

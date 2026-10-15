@@ -10,6 +10,7 @@ from tests.conftest import SENHA, criar_usuario, entrar, grupo
 
 NOVO = {
     "email": "bruno@exemplo.com",
+    "username": "bruno",
     "full_name": "Bruno Lima",
     "role": "agent",
     "password": "Provisoria#2026",
@@ -38,13 +39,39 @@ def test_criar_usuario_com_senha_inicial_e_troca_no_primeiro_acesso(
     with TestClient(client.app) as sessao_bruno:
         entrar(sessao_bruno, "bruno@exemplo.com", "Provisoria#2026")
         assert sessao_bruno.get("/api/v1/me").json()["must_change_password"] is True
+    with TestClient(client.app) as sessao_bruno:
+        entrar(sessao_bruno, "Bruno", "Provisoria#2026")  # pelo usuário, sem diferença de caixa
     acoes = set(db.scalars(select(AuditLog.action)))
     assert "user.created" in acoes
 
 
+def test_nome_de_usuario_valido_e_unico(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    for errado in ("joão", "b", "bruno@x", "com espaço", ".bruno"):
+        r = client.post("/api/v1/users", json={**NOVO, "username": errado})
+        assert r.status_code == 422, errado
+    r = client.post("/api/v1/users", json={**NOVO, "username": " Bruno.Lima "})
+    assert r.status_code == 201 and r.json()["username"] == "bruno.lima"
+    r = client.post(
+        "/api/v1/users", json={**NOVO, "email": "outro@x.com", "username": "BRUNO.lima"}
+    )
+    assert r.status_code == 409
+
+
+def test_editar_nome_de_usuario(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    ana = criar_usuario(db)
+    criar_usuario(db, "bia@exemplo.com", username="bia")
+    url = f"/api/v1/users/{ana.public_id}"
+    assert client.patch(url, json={"username": "bia"}).status_code == 409
+    assert client.patch(url, json={"username": "ana.souza"}).json()["username"] == "ana.souza"
+    with TestClient(client.app) as sessao_ana:
+        entrar(sessao_ana, "ana.souza")
+
+
 def test_senha_inicial_fraca_e_recusada(client: TestClient, db: Session) -> None:
     _admin(client, db)
-    for senha in ("curta", "12345678", "bruno@exemplo.com"):
+    for senha in ("curta", "12345678", "bruno@exemplo.com", "bruno"):
         r = client.post("/api/v1/users", json={**NOVO, "password": senha})
         assert r.status_code == 422, senha
     assert db.scalar(select(User.id).where(User.email == "bruno@exemplo.com")) is None

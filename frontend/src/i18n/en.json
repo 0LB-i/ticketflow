@@ -130,6 +130,8 @@
     "novo": "New user",
     "nome": "Name",
     "email": "Email",
+    "usuario": "Username",
+    "usuarioDica": "To sign in, besides the email. Unaccented letters, digits, dot, hyphen or underscore.",
     "papel": "Role",
     "grupos": "Teams",
     "situacao": "Status",

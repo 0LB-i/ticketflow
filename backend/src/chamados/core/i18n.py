@@ -66,6 +66,10 @@ EN: dict[str, str] = {
     "Usuário não encontrado.": "User not found.",
     "Você não pode excluir o próprio usuário.": "You cannot delete your own user.",
     "Já existe um usuário com este e-mail.": "A user with this email already exists.",
+    "Já existe um usuário com este nome de usuário.": "A user with this username already exists.",
+    "O usuário precisa ter de 2 a 50 caracteres: letras sem acento, números, ponto, hífen ou "
+    "sublinhado.": "The username needs 2 to 50 characters: unaccented letters, digits, dot, "
+    "hyphen or underscore.",
     "Papel inválido.": "Invalid role.",
     "O sistema precisa de pelo menos um administrador ativo.": (
         "The system needs at least one active administrator."

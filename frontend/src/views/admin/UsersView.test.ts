@@ -54,7 +54,8 @@ describe('UsersView', () => {
     for (const [campo, valor] of [
       [campos[0], 'Bruno Lima'],
       [campos[1], 'bruno@exemplo.com'],
-      [campos[2], 'Provisoria#2026'],
+      [campos[2], 'bruno'],
+      [campos[3], 'Provisoria#2026'],
     ] as const) {
       campo!.value = valor
       campo!.dispatchEvent(new Event('input'))
@@ -67,6 +68,7 @@ describe('UsersView', () => {
     expect(criacao.corpo).toEqual({
       full_name: 'Bruno Lima',
       email: 'bruno@exemplo.com',
+      username: 'bruno',
       role: 'agent',
       password: 'Provisoria#2026',
       team_ids: [GRUPO.id],

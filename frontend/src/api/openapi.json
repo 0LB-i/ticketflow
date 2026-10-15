@@ -5515,6 +5515,12 @@
             "format": "email",
             "title": "Email"
           },
+          "username": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Username",
+            "description": "login, além do e-mail"
+          },
           "full_name": {
             "type": "string",
             "maxLength": 200,
@@ -5545,7 +5551,7 @@
           }
         },
         "type": "object",
-        "required": ["email", "full_name", "password"],
+        "required": ["email", "username", "full_name", "password"],
         "title": "UserCreate"
       },
       "UserList": {
@@ -5707,6 +5713,18 @@
               }
             ],
             "title": "Email"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "role": {
             "anyOf": [
