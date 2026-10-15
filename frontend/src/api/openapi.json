@@ -3100,8 +3100,15 @@
             "title": "Kind"
           },
           "name": {
-            "type": "string",
-            "maxLength": 200,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name",
             "description": "nome completo ou razão social"
           },
@@ -3119,8 +3126,15 @@
             "description": "nome fantasia (PJ)"
           },
           "document": {
-            "type": "string",
-            "maxLength": 50,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Document",
             "description": "CPF ou CNPJ, com ou sem pontuação"
           },
@@ -3189,17 +3203,45 @@
             "title": "Contact Name",
             "description": "pessoa de contato (PJ)"
           },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email"
+          "emails": {
+            "items": {
+              "type": "string",
+              "format": "email"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Emails",
+            "default": []
           },
-          "phone": {
+          "phones": {
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Phones",
+            "description": "com o DDD",
+            "default": []
+          },
+          "postal_code": {
             "type": "string",
             "maxLength": 50,
-            "title": "Phone"
+            "title": "Postal Code"
           },
-          "mobile": {
+          "street": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street"
+          },
+          "number": {
             "anyOf": [
               {
                 "type": "string",
@@ -3209,21 +3251,6 @@
                 "type": "null"
               }
             ],
-            "title": "Mobile"
-          },
-          "postal_code": {
-            "type": "string",
-            "maxLength": 50,
-            "title": "Postal Code"
-          },
-          "street": {
-            "type": "string",
-            "maxLength": 200,
-            "title": "Street"
-          },
-          "number": {
-            "type": "string",
-            "maxLength": 50,
             "title": "Number",
             "description": "\"S/N\" quando não houver"
           },
@@ -3240,8 +3267,15 @@
             "title": "Complement"
           },
           "district": {
-            "type": "string",
-            "maxLength": 200,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "District"
           },
           "city": {
@@ -3275,19 +3309,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "kind",
-          "name",
-          "document",
-          "email",
-          "phone",
-          "postal_code",
-          "street",
-          "number",
-          "district",
-          "city",
-          "state"
-        ],
+        "required": ["kind", "postal_code", "city", "state"],
         "title": "ClientIn"
       },
       "ClientOut": {
@@ -3298,8 +3320,15 @@
             "title": "Kind"
           },
           "name": {
-            "type": "string",
-            "maxLength": 200,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name",
             "description": "nome completo ou razão social"
           },
@@ -3317,8 +3346,15 @@
             "description": "nome fantasia (PJ)"
           },
           "document": {
-            "type": "string",
-            "maxLength": 50,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Document",
             "description": "CPF ou CNPJ, com ou sem pontuação"
           },
@@ -3387,16 +3423,42 @@
             "title": "Contact Name",
             "description": "pessoa de contato (PJ)"
           },
-          "email": {
-            "type": "string",
-            "title": "Email"
+          "emails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Emails"
           },
-          "phone": {
+          "phones": {
+            "items": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Phones",
+            "description": "com o DDD",
+            "default": []
+          },
+          "postal_code": {
             "type": "string",
             "maxLength": 50,
-            "title": "Phone"
+            "title": "Postal Code"
           },
-          "mobile": {
+          "street": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street"
+          },
+          "number": {
             "anyOf": [
               {
                 "type": "string",
@@ -3406,21 +3468,6 @@
                 "type": "null"
               }
             ],
-            "title": "Mobile"
-          },
-          "postal_code": {
-            "type": "string",
-            "maxLength": 50,
-            "title": "Postal Code"
-          },
-          "street": {
-            "type": "string",
-            "maxLength": 200,
-            "title": "Street"
-          },
-          "number": {
-            "type": "string",
-            "maxLength": 50,
             "title": "Number",
             "description": "\"S/N\" quando não houver"
           },
@@ -3437,8 +3484,15 @@
             "title": "Complement"
           },
           "district": {
-            "type": "string",
-            "maxLength": 200,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "District"
           },
           "city": {
@@ -3475,6 +3529,11 @@
             "format": "uuid",
             "title": "Id"
           },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "nome, nome fantasia ou cidade/UF, para exibir"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3489,17 +3548,12 @@
         "type": "object",
         "required": [
           "kind",
-          "name",
-          "document",
-          "email",
-          "phone",
+          "emails",
           "postal_code",
-          "street",
-          "number",
-          "district",
           "city",
           "state",
           "id",
+          "label",
           "created_at",
           "updated_at"
         ],
@@ -3535,8 +3589,19 @@
             "enum": ["person", "company"],
             "title": "Kind"
           },
-          "name": {
+          "label": {
             "type": "string",
+            "title": "Label"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
           },
           "trade_name": {
@@ -3551,16 +3616,29 @@
             "title": "Trade Name"
           },
           "document": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Document"
           },
-          "email": {
-            "type": "string",
-            "title": "Email"
+          "emails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Emails"
           },
-          "phone": {
-            "type": "string",
-            "title": "Phone"
+          "phones": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Phones"
           },
           "city": {
             "type": "string",
@@ -3579,11 +3657,12 @@
         "required": [
           "id",
           "kind",
+          "label",
           "name",
           "trade_name",
           "document",
-          "email",
-          "phone",
+          "emails",
+          "phones",
           "city",
           "state",
           "is_active"

@@ -1,6 +1,7 @@
 """Cadastro de clientes, pessoa física e jurídica (/clientes).
 
-Ver exige client.view; cadastrar e alterar, client.manage. Não há exclusão: cliente que não é
+Ver exige client.view; cadastrar e alterar, client.manage. Só o CEP, a cidade e a UF são
+obrigatórios; telefones e e-mails são listas. Não há exclusão: cliente que não é
 mais atendido fica inativo. A auditoria guarda só quais campos mudaram, não os dados pessoais.
 """
 
@@ -37,22 +38,21 @@ COMPANY_ONLY = ("trade_name", "state_registration", "municipal_registration", "c
 
 class ClientIn(BaseModel):
     kind: ClientKind
-    name: Text200 = Field(description="nome completo ou razão social")
+    name: Text200 | None = Field(default=None, description="nome completo ou razão social")
     trade_name: Text200 | None = Field(default=None, description="nome fantasia (PJ)")
-    document: Short = Field(description="CPF ou CNPJ, com ou sem pontuação")
+    document: Short | None = Field(default=None, description="CPF ou CNPJ, com ou sem pontuação")
     id_number: Short | None = Field(default=None, description="RG (PF), só números, até 14")
     birth_date: date | None = Field(default=None, description="PF")
     state_registration: Short | None = Field(default=None, description='IE (PJ), ou "ISENTO"')
     municipal_registration: Short | None = Field(default=None, description="IM (PJ)")
     contact_name: Text200 | None = Field(default=None, description="pessoa de contato (PJ)")
-    email: EmailStr
-    phone: Short
-    mobile: Short | None = None
+    emails: list[EmailStr] = Field(default=[], max_length=20)
+    phones: list[Short] = Field(default=[], max_length=20, description="com o DDD")
     postal_code: Short
-    street: Text200
-    number: Short = Field(description='"S/N" quando não houver')
+    street: Text200 | None = None
+    number: Short | None = Field(default=None, description='"S/N" quando não houver')
     complement: Text200 | None = None
-    district: Text200
+    district: Text200 | None = None
     city: Text200
     state: str = Field(min_length=2, max_length=2, description="UF")
     notes: str | None = Field(default=None, max_length=5000)
@@ -61,7 +61,8 @@ class ClientIn(BaseModel):
 
 class ClientOut(ClientIn):
     id: uuid.UUID
-    email: str  # na saída, o que está gravado (sem revalidar)
+    label: str = Field(description="nome, nome fantasia ou cidade/UF, para exibir")
+    emails: list[str]  # na saída, o que está gravado (sem revalidar)
     created_at: datetime
     updated_at: datetime
 
@@ -69,11 +70,12 @@ class ClientOut(ClientIn):
 class ClientSummary(BaseModel):
     id: uuid.UUID
     kind: ClientKind
-    name: str
+    label: str
+    name: str | None
     trade_name: str | None
-    document: str
-    email: str
-    phone: str
+    document: str | None
+    emails: list[str]
+    phones: list[str]
     city: str
     state: str
     is_active: bool
@@ -91,26 +93,26 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     """Valida e normaliza. Devolve os valores como vão para o banco."""
     v: dict[str, Any] = {
         "kind": data.kind,
-        "name": required_text(data.name, "Informe o nome do cliente."),
+        "name": optional_text(data.name),
         "trade_name": optional_text(data.trade_name),
         "id_number": optional_text(data.id_number),
         "birth_date": data.birth_date,
         "state_registration": optional_text(data.state_registration),
         "municipal_registration": optional_text(data.municipal_registration),
         "contact_name": optional_text(data.contact_name),
-        "email": str(data.email).strip().lower(),
-        "street": required_text(data.street, "Informe o endereço."),
-        "number": required_text(data.number, "Informe o número do endereço."),
+        "emails": list(dict.fromkeys(str(e).strip().lower() for e in data.emails)),
+        "street": optional_text(data.street),
+        "number": optional_text(data.number),
         "complement": optional_text(data.complement),
-        "district": required_text(data.district, "Informe o bairro."),
+        "district": optional_text(data.district),
         "city": required_text(data.city, "Informe a cidade."),
         "notes": optional_text(data.notes),
         "is_active": data.is_active,
     }
-    document = doc.normalize_document(data.document)
-    if data.kind == "person" and not doc.valid_cpf(document):
+    document = doc.normalize_document(data.document or "") or None
+    if document and data.kind == "person" and not doc.valid_cpf(document):
         raise HTTPException(422, "CPF inválido.")
-    if data.kind == "company" and not doc.valid_cnpj(document):
+    if document and data.kind == "company" and not doc.valid_cnpj(document):
         raise HTTPException(422, "CNPJ inválido.")
     v["document"] = document
     if v["id_number"] and not re.fullmatch(r"[0-9]{1,14}", v["id_number"]):
@@ -120,13 +122,9 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     if v["state_registration"]:
         v["state_registration"] = v["state_registration"].upper()
 
-    v["phone"] = doc.normalize_phone(data.phone)
-    if not doc.valid_phone(v["phone"]):
+    v["phones"] = list(dict.fromkeys(doc.normalize_phone(p) for p in data.phones))
+    if not all(doc.valid_phone(p) for p in v["phones"]):
         raise HTTPException(422, "Telefone inválido: informe o DDD e o número.")
-    mobile = optional_text(data.mobile)
-    v["mobile"] = doc.normalize_phone(mobile) if mobile else None
-    if v["mobile"] is not None and not doc.valid_phone(v["mobile"]):
-        raise HTTPException(422, "Celular inválido: informe o DDD e o número.")
 
     v["postal_code"] = doc.only_digits(data.postal_code)
     if len(v["postal_code"]) != 8:
@@ -140,7 +138,9 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     return v
 
 
-async def _check_document(db: AsyncSession, document: str, except_id: int | None) -> None:
+async def _check_document(db: AsyncSession, document: str | None, except_id: int | None) -> None:
+    if document is None:
+        return
     found = await db.scalar(select(Client.id).where(Client.document == document))
     if found is not None and found != except_id:
         raise HTTPException(409, "Já existe um cliente com este CPF/CNPJ.")
@@ -156,7 +156,12 @@ async def _client(db: AsyncSession, public_id: uuid.UUID) -> Client:
 def _out(c: Client) -> ClientOut:
     return ClientOut.model_validate(
         {f: getattr(c, f) for f in FIELDS}
-        | {"id": c.public_id, "created_at": c.created_at, "updated_at": c.updated_at}
+        | {
+            "id": c.public_id,
+            "label": c.label,
+            "created_at": c.created_at,
+            "updated_at": c.updated_at,
+        }
     )
 
 
@@ -177,7 +182,7 @@ async def list_clients(
         filters: list[ColumnElement[bool]] = [
             func.unaccent(Client.name).ilike(func.unaccent(term)),
             func.unaccent(Client.trade_name).ilike(func.unaccent(term)),
-            Client.email.ilike(term),
+            func.array_to_string(Client.emails, " ").ilike(term),
         ]
         document = doc.normalize_document(q)
         if len(document) >= 3:
@@ -185,7 +190,11 @@ async def list_clients(
         stmt = stmt.where(or_(*filters))
     total = await db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = await db.scalars(
-        stmt.order_by(func.lower(Client.name), Client.id).limit(limit).offset(offset)
+        stmt.order_by(
+            func.lower(func.coalesce(Client.name, Client.trade_name, Client.city)), Client.id
+        )
+        .limit(limit)
+        .offset(offset)
     )
     return ClientPage(
         items=[

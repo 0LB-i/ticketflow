@@ -319,13 +319,11 @@ def test_edicao_de_campos_vai_para_o_historico(
     db.rollback()
 
 
-def criar_cliente(db: Session, nome: str, documento: str, *, ativo: bool = True) -> str:
+def criar_cliente(db: Session, nome: str | None, documento: str, *, ativo: bool = True) -> str:
     cliente = Client(
         kind="company",
         name=nome,
         document=documento,
-        email="contato@x.com",
-        phone="1133334444",
         postal_code="01310100",
         street="Avenida Paulista",
         number="1000",
@@ -359,6 +357,9 @@ def test_cliente_e_contato_do_chamado(
         "from": {"id": padaria, "name": "Padaria Pão Quente"},
         "to": {"id": mercado, "name": "Mercado Bom Preço"},
     }
+    sem_nome = criar_cliente(db, None, "11444777000242")
+    r = client.patch(url, json={"client_id": sem_nome})
+    assert r.json()["client"] == {"id": sem_nome, "name": "São Paulo/SP"}
     r = client.patch(url, json={"client_id": None})
     assert r.json()["client"] is None
     assert eventos(client, t["number"])[-1]["payload"]["changes"]["client"]["to"] is None

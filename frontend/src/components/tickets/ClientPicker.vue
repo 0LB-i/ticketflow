@@ -77,13 +77,13 @@ const opcoes = computed(() => clientes.data.value?.items ?? [])
             <ComboboxItem
               v-for="c in opcoes"
               :key="c.id"
-              :value="{ id: c.id, name: c.name }"
+              :value="{ id: c.id, name: c.label }"
               class="flex cursor-default flex-col rounded px-2 py-1.5 outline-none select-none data-highlighted:bg-surface-raised"
             >
-              <span>{{ c.name }}</span>
+              <span>{{ c.label }}</span>
               <span class="text-muted tabular-nums">
-                {{ formatarDocumento(c.document, c.kind) }}
-                <template v-if="c.trade_name"> · {{ c.trade_name }}</template>
+                <template v-if="c.document">{{ formatarDocumento(c.document, c.kind) }}</template>
+                <template v-if="c.name && c.trade_name"> · {{ c.trade_name }}</template>
               </span>
             </ComboboxItem>
           </ComboboxViewport>

@@ -1033,7 +1033,7 @@ export interface components {
        * Name
        * @description nome completo ou razão social
        */
-      name: string
+      name?: string | null
       /**
        * Trade Name
        * @description nome fantasia (PJ)
@@ -1043,7 +1043,7 @@ export interface components {
        * Document
        * @description CPF ou CNPJ, com ou sem pontuação
        */
-      document: string
+      document?: string | null
       /**
        * Id Number
        * @description RG (PF), só números, até 14
@@ -1070,27 +1070,29 @@ export interface components {
        */
       contact_name?: string | null
       /**
-       * Email
-       * Format: email
+       * Emails
+       * @default []
        */
-      email: string
-      /** Phone */
-      phone: string
-      /** Mobile */
-      mobile?: string | null
+      emails: string[]
+      /**
+       * Phones
+       * @description com o DDD
+       * @default []
+       */
+      phones: string[]
       /** Postal Code */
       postal_code: string
       /** Street */
-      street: string
+      street?: string | null
       /**
        * Number
        * @description "S/N" quando não houver
        */
-      number: string
+      number?: string | null
       /** Complement */
       complement?: string | null
       /** District */
-      district: string
+      district?: string | null
       /** City */
       city: string
       /**
@@ -1117,7 +1119,7 @@ export interface components {
        * Name
        * @description nome completo ou razão social
        */
-      name: string
+      name?: string | null
       /**
        * Trade Name
        * @description nome fantasia (PJ)
@@ -1127,7 +1129,7 @@ export interface components {
        * Document
        * @description CPF ou CNPJ, com ou sem pontuação
        */
-      document: string
+      document?: string | null
       /**
        * Id Number
        * @description RG (PF), só números, até 14
@@ -1153,25 +1155,27 @@ export interface components {
        * @description pessoa de contato (PJ)
        */
       contact_name?: string | null
-      /** Email */
-      email: string
-      /** Phone */
-      phone: string
-      /** Mobile */
-      mobile?: string | null
+      /** Emails */
+      emails: string[]
+      /**
+       * Phones
+       * @description com o DDD
+       * @default []
+       */
+      phones: string[]
       /** Postal Code */
       postal_code: string
       /** Street */
-      street: string
+      street?: string | null
       /**
        * Number
        * @description "S/N" quando não houver
        */
-      number: string
+      number?: string | null
       /** Complement */
       complement?: string | null
       /** District */
-      district: string
+      district?: string | null
       /** City */
       city: string
       /**
@@ -1191,6 +1195,11 @@ export interface components {
        * Format: uuid
        */
       id: string
+      /**
+       * Label
+       * @description nome, nome fantasia ou cidade/UF, para exibir
+       */
+      label: string
       /**
        * Created At
        * Format: date-time
@@ -1221,16 +1230,18 @@ export interface components {
        * @enum {string}
        */
       kind: 'person' | 'company'
+      /** Label */
+      label: string
       /** Name */
-      name: string
+      name: string | null
       /** Trade Name */
       trade_name: string | null
       /** Document */
-      document: string
-      /** Email */
-      email: string
-      /** Phone */
-      phone: string
+      document: string | null
+      /** Emails */
+      emails: string[]
+      /** Phones */
+      phones: string[]
       /** City */
       city: string
       /** State */

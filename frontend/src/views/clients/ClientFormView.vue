@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Plus, Trash2 } from 'lucide-vue-next'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -33,7 +34,8 @@ import { useAuthStore } from '@/stores/auth'
 
 /**
  * Cadastro e edição de cliente, em três colunas (dados, contato, endereço) para caber na tela
- * do computador sem rolar. Sem client.manage, o formulário só mostra os dados.
+ * do computador sem rolar. Só CEP, cidade e UF são obrigatórios; telefones e e-mails são listas
+ * em que se adiciona e remove. Sem client.manage, o formulário só mostra os dados.
  */
 const props = defineProps<{ id?: string }>()
 const { t } = useI18n()
@@ -55,9 +57,6 @@ const vazio = {
   state_registration: '',
   municipal_registration: '',
   contact_name: '',
-  email: '',
-  phone: '',
-  mobile: '',
   postal_code: '',
   street: '',
   number: '',
@@ -68,7 +67,7 @@ const vazio = {
   notes: '',
   is_active: true,
 }
-const form = reactive({ ...vazio })
+const form = reactive({ ...vazio, phones: [''], emails: [''] })
 const tentou = ref(false)
 const erro = ref<string | null>(null)
 
@@ -76,9 +75,9 @@ function preencher(c: Cliente) {
   Object.assign(form, {
     ...Object.fromEntries(Object.keys(vazio).map((k) => [k, c[k as keyof Cliente] ?? ''])),
     is_active: c.is_active,
-    document: formatarDocumento(c.document, c.kind),
-    phone: formatarTelefone(c.phone),
-    mobile: formatarTelefone(c.mobile ?? ''),
+    document: formatarDocumento(c.document ?? '', c.kind),
+    phones: c.phones.length ? c.phones.map(formatarTelefone) : [''],
+    emails: c.emails.length ? [...c.emails] : [''],
     postal_code: formatarCep(c.postal_code),
   })
 }
@@ -92,14 +91,6 @@ watch(
 watch(
   () => [form.document, form.kind] as const,
   ([valor, tipo]) => (form.document = formatarDocumento(valor, tipo)),
-)
-watch(
-  () => form.phone,
-  (v) => (form.phone = formatarTelefone(v)),
-)
-watch(
-  () => form.mobile,
-  (v) => (form.mobile = formatarTelefone(v)),
 )
 watch(
   () => form.id_number,
@@ -121,20 +112,26 @@ const opcoesUf = UFS.map((uf) => ({ value: uf, label: uf }))
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const erros = computed(() => {
-  const e: Partial<Record<keyof typeof form, string>> = {}
-  if (!form.name.trim()) e.name = t('clientes.erros.nome')
-  if (!(pf.value ? cpfValido(form.document) : cnpjValido(form.document)))
+  const e: Partial<Record<keyof typeof vazio, string>> = {}
+  if (form.document && !(pf.value ? cpfValido(form.document) : cnpjValido(form.document)))
     e.document = t(pf.value ? 'clientes.erros.cpf' : 'clientes.erros.cnpj')
-  if (!EMAIL.test(form.email.trim())) e.email = t('clientes.erros.email')
-  if (!telefoneValido(form.phone)) e.phone = t('clientes.erros.telefone')
-  if (form.mobile && !telefoneValido(form.mobile)) e.mobile = t('clientes.erros.telefone')
   if (soDigitos(form.postal_code).length !== 8) e.postal_code = t('clientes.erros.cep')
-  for (const campo of ['street', 'number', 'district', 'city'] as const)
-    if (!form[campo].trim()) e[campo] = t('clientes.erros.obrigatorio')
+  if (!form.city.trim()) e.city = t('clientes.erros.obrigatorio')
   if (!form.state) e.state = t('clientes.erros.uf')
   return e
 })
-const erroDe = (campo: keyof typeof form) => (tentou.value ? erros.value[campo] : undefined)
+// Linha vazia não conta: só é ignorada no envio.
+const errosTelefones = computed(() =>
+  form.phones.map((v) => (v && !telefoneValido(v) ? t('clientes.erros.telefone') : undefined)),
+)
+const errosEmails = computed(() =>
+  form.emails.map((v) =>
+    v.trim() && !EMAIL.test(v.trim()) ? t('clientes.erros.email') : undefined,
+  ),
+)
+const erroDe = (campo: keyof typeof vazio) => (tentou.value ? erros.value[campo] : undefined)
+const rotuloDaLista = (rotulo: string, lista: string[], i: number) =>
+  lista.length > 1 ? `${rotulo} ${i + 1}` : rotulo
 
 const salvar = useAlteracao(
   (body: ClienteEntrada) =>
@@ -145,27 +142,32 @@ const salvar = useAlteracao(
 async function enviar() {
   tentou.value = true
   erro.value = null
-  if (Object.keys(erros.value).length) return
+  if (
+    Object.keys(erros.value).length ||
+    errosTelefones.value.some(Boolean) ||
+    errosEmails.value.some(Boolean)
+  )
+    return
   const opcional = (v: string) => v.trim() || null
+  const preenchidos = (lista: string[]) => lista.map((v) => v.trim()).filter(Boolean)
   try {
     await salvar.mutateAsync({
       kind: form.kind,
-      name: form.name.trim(),
+      name: opcional(form.name),
       trade_name: pf.value ? null : opcional(form.trade_name),
-      document: form.document,
+      document: opcional(form.document),
       id_number: pf.value ? opcional(form.id_number) : null,
       birth_date: pf.value ? opcional(form.birth_date) : null,
       state_registration: pf.value ? null : opcional(form.state_registration),
       municipal_registration: pf.value ? null : opcional(form.municipal_registration),
       contact_name: pf.value ? null : opcional(form.contact_name),
-      email: form.email.trim(),
-      phone: form.phone,
-      mobile: opcional(form.mobile),
+      emails: preenchidos(form.emails),
+      phones: preenchidos(form.phones),
       postal_code: form.postal_code,
-      street: form.street.trim(),
-      number: form.number.trim(),
+      street: opcional(form.street),
+      number: opcional(form.number),
       complement: opcional(form.complement),
-      district: form.district.trim(),
+      district: opcional(form.district),
       city: form.city.trim(),
       state: form.state,
       notes: opcional(form.notes),
@@ -173,7 +175,7 @@ async function enviar() {
     })
     toast.show({
       title: props.id ? t('comum.salvo') : t('clientes.cadastrado'),
-      description: form.name,
+      description: form.name || form.trade_name || `${form.city}/${form.state}`,
     })
     await router.push('/clientes')
   } catch (e) {
@@ -186,7 +188,7 @@ async function enviar() {
   <div class="mx-auto flex max-w-7xl flex-col gap-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-xl font-semibold">
-        {{ id ? (cliente.data.value?.name ?? t('clientes.editar')) : t('clientes.novo') }}
+        {{ id ? (cliente.data.value?.label ?? t('clientes.editar')) : t('clientes.novo') }}
       </h1>
       <div class="flex gap-2">
         <Button variant="secondary" @click="router.push('/clientes')">
@@ -220,8 +222,6 @@ async function enviar() {
           <TextField
             v-model="form.name"
             :label="pf ? t('clientes.nomeCompleto') : t('clientes.razaoSocial')"
-            :error="erroDe('name')"
-            required
           />
           <TextField v-if="!pf" v-model="form.trade_name" :label="t('clientes.nomeFantasia')" />
           <div class="grid gap-4 sm:grid-cols-2">
@@ -229,7 +229,6 @@ async function enviar() {
               v-model="form.document"
               :label="pf ? 'CPF' : 'CNPJ'"
               :error="erroDe('document')"
-              required
             />
             <TextField v-if="pf" v-model="form.id_number" :label="t('clientes.rg')" />
             <TextField
@@ -260,29 +259,68 @@ async function enviar() {
           aria-labelledby="contato-titulo"
         >
           <h2 id="contato-titulo" class="font-semibold">{{ t('clientes.contato') }}</h2>
-          <TextField
-            v-model="form.email"
-            type="email"
-            autocomplete="off"
-            :label="t('clientes.email')"
-            :error="erroDe('email')"
-            required
-          />
-          <div class="grid gap-4 sm:grid-cols-2">
-            <TextField
-              v-model="form.phone"
-              type="tel"
-              :label="t('clientes.telefone')"
-              :error="erroDe('phone')"
-              required
-            />
-            <TextField
-              v-model="form.mobile"
-              type="tel"
-              :label="t('clientes.celular')"
-              :error="erroDe('mobile')"
-            />
+          <div v-for="(_, i) in form.phones" :key="`tel-${i}`" class="flex items-start gap-2">
+            <div class="flex-1">
+              <TextField
+                :model-value="form.phones[i]"
+                type="tel"
+                :label="rotuloDaLista(t('clientes.telefone'), form.phones, i)"
+                :error="tentou ? errosTelefones[i] : undefined"
+                @update:model-value="form.phones[i] = formatarTelefone($event)"
+              />
+            </div>
+            <Button
+              v-if="podeEditar"
+              variant="ghost"
+              size="sm"
+              class="mt-8"
+              :aria-label="t('clientes.removerTelefone')"
+              :title="t('clientes.removerTelefone')"
+              @click="form.phones.splice(i, 1)"
+            >
+              <Trash2 class="size-4" aria-hidden="true" />
+            </Button>
           </div>
+          <Button
+            v-if="podeEditar"
+            variant="ghost"
+            size="sm"
+            class="self-start"
+            @click="form.phones.push('')"
+          >
+            <Plus class="size-4" aria-hidden="true" /> {{ t('clientes.adicionarTelefone') }}
+          </Button>
+          <div v-for="(_, i) in form.emails" :key="`email-${i}`" class="flex items-start gap-2">
+            <div class="flex-1">
+              <TextField
+                v-model="form.emails[i]"
+                type="email"
+                autocomplete="off"
+                :label="rotuloDaLista(t('clientes.email'), form.emails, i)"
+                :error="tentou ? errosEmails[i] : undefined"
+              />
+            </div>
+            <Button
+              v-if="podeEditar"
+              variant="ghost"
+              size="sm"
+              class="mt-8"
+              :aria-label="t('clientes.removerEmail')"
+              :title="t('clientes.removerEmail')"
+              @click="form.emails.splice(i, 1)"
+            >
+              <Trash2 class="size-4" aria-hidden="true" />
+            </Button>
+          </div>
+          <Button
+            v-if="podeEditar"
+            variant="ghost"
+            size="sm"
+            class="self-start"
+            @click="form.emails.push('')"
+          >
+            <Plus class="size-4" aria-hidden="true" /> {{ t('clientes.adicionarEmail') }}
+          </Button>
           <TextAreaField v-model="form.notes" :label="t('clientes.observacoes')" :rows="5" />
         </section>
 
@@ -299,27 +337,12 @@ async function enviar() {
               required
             />
           </div>
-          <TextField
-            v-model="form.street"
-            :label="t('clientes.logradouro')"
-            :error="erroDe('street')"
-            required
-          />
+          <TextField v-model="form.street" :label="t('clientes.logradouro')" />
           <div class="grid grid-cols-[8rem_1fr] gap-4">
-            <TextField
-              v-model="form.number"
-              :label="t('clientes.numero')"
-              :error="erroDe('number')"
-              required
-            />
+            <TextField v-model="form.number" :label="t('clientes.numero')" />
             <TextField v-model="form.complement" :label="t('clientes.complemento')" />
           </div>
-          <TextField
-            v-model="form.district"
-            :label="t('clientes.bairro')"
-            :error="erroDe('district')"
-            required
-          />
+          <TextField v-model="form.district" :label="t('clientes.bairro')" />
           <div class="grid grid-cols-[1fr_6rem] gap-4">
             <TextField
               v-model="form.city"
