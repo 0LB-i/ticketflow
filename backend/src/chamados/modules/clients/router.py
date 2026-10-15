@@ -1,6 +1,7 @@
 """Cadastro de clientes, pessoa física e jurídica (/clientes).
 
-Ver exige client.view; cadastrar e alterar, client.manage. Só o CEP, a cidade e a UF são
+Ver exige client.view; cadastrar e alterar, client.manage (só membros do grupo
+Administradores, ver core/permissions.py). Só o CEP, a cidade e a UF são
 obrigatórios; telefones e e-mails são listas. Não há exclusão: cliente que não é
 mais atendido fica inativo. A auditoria guarda só quais campos mudaram, não os dados pessoais.
 """

@@ -4,6 +4,9 @@ As permissões são códigos fixos. Um papel é uma lista deles. Algumas só val
 supervisor do grupo em questão (👤 na matriz do docs/08): o papel Agente não as tem
 globalmente, e `can()` as concede pela supervisão.
 
+A exceção é client.manage: nenhum papel a tem; vale só para quem é membro do grupo
+Administradores (pedido do usuário), mesmo que o papel seja Administrador.
+
 O filtro de visibilidade de chamados (`ticket_visibility_filter`) fica em
 modules/tickets/visibility.py, e as ações em um chamado, em modules/tickets/rules.py.
 """
@@ -71,10 +74,9 @@ ROLES: dict[str, frozenset[P]] = {
             P.KB_READ,
             P.KB_WRITE,
             P.CLIENT_VIEW,
-            P.CLIENT_MANAGE,
         }
     ),
-    "admin": frozenset(P),
+    "admin": frozenset(P) - {P.CLIENT_MANAGE},
     "auditor": frozenset(
         {
             P.TICKET_VIEW_TEAM,
@@ -89,6 +91,10 @@ ROLES: dict[str, frozenset[P]] = {
     ),
 }
 
+# Quem é membro deste grupo (ativo) cadastra, altera e inativa clientes. O nome é comparado sem
+# maiúsculas: renomear o grupo tira a permissão de todos.
+CLIENT_MANAGERS_TEAM = "administradores"
+
 ROLE_NAMES = {"agent": "Agente", "admin": "Administrador", "auditor": "Auditor"}
 
 
@@ -100,10 +106,12 @@ class Actor:
     role: str
     teams: frozenset[int] = field(default_factory=frozenset)
     supervises: frozenset[int] = field(default_factory=frozenset)
+    manages_clients: bool = False
 
     @property
     def permissions(self) -> frozenset[P]:
-        return ROLES.get(self.role, frozenset())
+        perms = ROLES.get(self.role, frozenset())
+        return perms | {P.CLIENT_MANAGE} if self.manages_clients else perms
 
 
 def can(actor: Actor, permission: P, team_id: int | None = None) -> bool:

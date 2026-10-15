@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, Request
 
 from chamados.config import Settings
-from chamados.core.permissions import Actor, P, can
+from chamados.core.permissions import CLIENT_MANAGERS_TEAM, Actor, P, can
 from chamados.db.session import DB
 from chamados.modules.identity.models import User, UserSession
 from chamados.modules.identity.sessions import CSRF_HEADER, SESSION_COOKIE, csrf_ok, load_session
@@ -56,6 +56,10 @@ async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
         role=user.role.code,
         teams=frozenset(m.team_id for m in user.memberships),
         supervises=frozenset(m.team_id for m in user.memberships if m.role == "supervisor"),
+        manages_clients=any(
+            m.team.is_active and m.team.name.strip().casefold() == CLIENT_MANAGERS_TEAM
+            for m in user.memberships
+        ),
     )
     return Auth(user=user, session=session, actor=actor)
 

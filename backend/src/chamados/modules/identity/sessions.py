@@ -11,6 +11,7 @@ from chamados.config import Settings
 from chamados.modules.audit.service import client_ip
 from chamados.modules.identity.models import User, UserSession
 from chamados.modules.identity.tokens import new_secret, sha256
+from chamados.modules.organization.models import TeamMember
 
 SESSION_COOKIE = "tf_sessao"
 CSRF_COOKIE = "tf_csrf"
@@ -53,8 +54,10 @@ async def load_session(db: AsyncSession, token: str, settings: Settings) -> User
     session = await db.scalar(
         select(UserSession)
         .where(UserSession.token_hash == sha256(token))
-        # Os grupos já vêm aqui: get_auth monta o Actor com eles.
-        .options(joinedload(UserSession.user).selectinload(User.memberships))
+        # Os grupos (com nome, para o de clientes) já vêm aqui: get_auth monta o Actor com eles.
+        .options(
+            joinedload(UserSession.user).selectinload(User.memberships).joinedload(TeamMember.team)
+        )
     )
     t = now()
     if (
