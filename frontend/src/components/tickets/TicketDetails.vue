@@ -46,7 +46,7 @@ const outroResponsavel = ref('')
 const membros = computed(() =>
   (grupos.data.value?.find((g) => g.id === props.chamado.team.id)?.members ?? [])
     .filter((m) => m.is_active && m.user_id !== props.chamado.assignee?.id)
-    .map((m) => ({ value: m.user_id, label: m.full_name })),
+    .map((m) => ({ value: m.user_id, label: m.display_name })),
 )
 watch(outroResponsavel, (id) => {
   if (!id) return
@@ -149,7 +149,7 @@ const podeRemover = (id: string) =>
       <dd class="font-medium">
         {{
           chamado.assignee
-            ? [chamado.assignee, ...chamado.co_assignees].map((u) => u.full_name).join(', ')
+            ? [chamado.assignee, ...chamado.co_assignees].map((u) => u.display_name).join(', ')
             : t('chamado.naFila')
         }}
       </dd>
@@ -215,7 +215,7 @@ const podeRemover = (id: string) =>
       <p v-if="!chamado.time_by_person.length" class="text-muted">{{ t('chamado.semTempo') }}</p>
       <dl v-else class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
         <template v-for="p in chamado.time_by_person" :key="p.id">
-          <dt>{{ p.full_name }}</dt>
+          <dt>{{ p.display_name }}</dt>
           <dd class="text-right tabular-nums">{{ formatarDuracao(p.minutes) }}</dd>
         </template>
       </dl>
@@ -249,12 +249,12 @@ const podeRemover = (id: string) =>
           :key="w.id"
           class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3"
         >
-          {{ w.full_name }}
+          {{ w.display_name }}
           <button
             v-if="podeRemover(w.id)"
             type="button"
             class="rounded-full p-0.5 text-muted hover:bg-border"
-            :aria-label="t('chamado.removerObservador', { nome: w.full_name })"
+            :aria-label="t('chamado.removerObservador', { nome: w.display_name })"
             @click="
               executar(
                 () => observar.mutateAsync({ usuario: w.id, observar: false }),

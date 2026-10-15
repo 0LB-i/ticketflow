@@ -76,14 +76,14 @@ const membrosDoGrupo = computed(() =>
   (grupos.data.value?.find((g) => g.id === form.team)?.members ?? []).filter((m) => m.is_active),
 )
 const nomesDosMembros = computed(
-  () => new Map(membrosDoGrupo.value.map((m) => [m.user_id, m.full_name])),
+  () => new Map(membrosDoGrupo.value.map((m) => [m.user_id, m.display_name])),
 )
 const opcoesResponsavel = computed(() => {
   const fora = membrosDoGrupo.value.filter((m) => !form.responsaveis.includes(m.user_id))
   if (!fora.length) return []
   return [
     { value: TODOS, label: t('novoChamado.todosDoGrupo') },
-    ...fora.map((m) => ({ value: m.user_id, label: m.full_name })),
+    ...fora.map((m) => ({ value: m.user_id, label: m.display_name })),
   ]
 })
 const novoResponsavel = ref('')

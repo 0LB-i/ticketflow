@@ -21,7 +21,7 @@ class Ref(BaseModel):
 
 class UserRef(BaseModel):
     id: uuid.UUID
-    full_name: str
+    display_name: str
 
 
 class CategoryRef(Ref):

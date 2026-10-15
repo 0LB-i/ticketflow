@@ -45,7 +45,7 @@ def test_redefinir_senha_encerra_sessoes_e_token_e_de_uso_unico(
     assert info == {
         "purpose": "password_reset",
         "email": "ana@exemplo.com",
-        "full_name": "Ana Souza",
+        "display_name": "Ana Souza",
     }
 
     fraca = client.post("/api/v1/auth/password/reset", json={"token": token, "password": "curta"})

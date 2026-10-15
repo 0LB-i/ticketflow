@@ -153,7 +153,7 @@ def test_vinculo_no_registro_comentario_e_conclusao(
     assert [a["filename"] for a in anexos] == ["antes.png", "contrato.pdf", "depois.png"]
     assert anexos[1]["comment_id"] == comentario
     assert anexos[2]["comment_id"] is not None
-    assert anexos[0]["uploaded_by"]["full_name"] == "Ana"
+    assert anexos[0]["uploaded_by"]["display_name"] == "Ana"
 
     # Uma vez só, e só por quem enviou
     r = client.post(f"{url}/comments", json={"body": "De novo", "attachment_ids": [contrato]})

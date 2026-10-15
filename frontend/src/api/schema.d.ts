@@ -1461,8 +1461,8 @@ export interface components {
       email: string | null
       /** Username */
       username: string | null
-      /** Full Name */
-      full_name: string
+      /** Display Name */
+      display_name: string
       /** Must Change Password */
       must_change_password: boolean
       /** Role */
@@ -1516,8 +1516,8 @@ export interface components {
        * Format: uuid
        */
       user_id: string
-      /** Full Name */
-      full_name: string
+      /** Display Name */
+      display_name: string
       /** Email */
       email: string | null
       /**
@@ -1543,8 +1543,8 @@ export interface components {
        * Format: uuid
        */
       id: string
-      /** Full Name */
-      full_name: string
+      /** Display Name */
+      display_name: string
       /** Minutes */
       minutes: number
     }
@@ -1965,8 +1965,8 @@ export interface components {
       purpose: 'invite' | 'password_reset'
       /** Email */
       email: string | null
-      /** Full Name */
-      full_name: string
+      /** Display Name */
+      display_name: string
     }
     /** TokenPasswordIn */
     TokenPasswordIn: {
@@ -2023,6 +2023,11 @@ export interface components {
       /** Full Name */
       full_name: string
       /**
+       * Display Name
+       * @description o nome que aparece no sistema
+       */
+      display_name: string
+      /**
        * Role
        * @default agent
        * @enum {string}
@@ -2058,6 +2063,8 @@ export interface components {
       username: string | null
       /** Full Name */
       full_name: string
+      /** Display Name */
+      display_name: string
       /**
        * Role
        * @enum {string}
@@ -2085,8 +2092,8 @@ export interface components {
        * Format: uuid
        */
       id: string
-      /** Full Name */
-      full_name: string
+      /** Display Name */
+      display_name: string
     }
     /** UserTeam */
     UserTeam: {
@@ -2107,6 +2114,8 @@ export interface components {
     UserUpdate: {
       /** Full Name */
       full_name?: string | null
+      /** Display Name */
+      display_name?: string | null
       /** Email */
       email?: string | null
       /** Username */
@@ -2136,8 +2145,8 @@ export interface components {
        * Format: uuid
        */
       id: string
-      /** Full Name */
-      full_name: string
+      /** Display Name */
+      display_name: string
       /**
        * Kind
        * @enum {string}

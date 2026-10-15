@@ -4167,9 +4167,9 @@
             ],
             "title": "Username"
           },
-          "full_name": {
+          "display_name": {
             "type": "string",
-            "title": "Full Name"
+            "title": "Display Name"
           },
           "must_change_password": {
             "type": "boolean",
@@ -4212,7 +4212,7 @@
           "id",
           "email",
           "username",
-          "full_name",
+          "display_name",
           "must_change_password",
           "role",
           "teams",
@@ -4281,9 +4281,9 @@
             "format": "uuid",
             "title": "User Id"
           },
-          "full_name": {
+          "display_name": {
             "type": "string",
-            "title": "Full Name"
+            "title": "Display Name"
           },
           "email": {
             "anyOf": [
@@ -4307,7 +4307,7 @@
           }
         },
         "type": "object",
-        "required": ["user_id", "full_name", "email", "role", "is_active"],
+        "required": ["user_id", "display_name", "email", "role", "is_active"],
         "title": "MemberOut"
       },
       "NextIn": {
@@ -4336,9 +4336,9 @@
             "format": "uuid",
             "title": "Id"
           },
-          "full_name": {
+          "display_name": {
             "type": "string",
-            "title": "Full Name"
+            "title": "Display Name"
           },
           "minutes": {
             "type": "integer",
@@ -4346,7 +4346,7 @@
           }
         },
         "type": "object",
-        "required": ["id", "full_name", "minutes"],
+        "required": ["id", "display_name", "minutes"],
         "title": "PersonTime"
       },
       "Ref": {
@@ -5404,13 +5404,13 @@
             ],
             "title": "Email"
           },
-          "full_name": {
+          "display_name": {
             "type": "string",
-            "title": "Full Name"
+            "title": "Display Name"
           }
         },
         "type": "object",
-        "required": ["purpose", "email", "full_name"],
+        "required": ["purpose", "email", "display_name"],
         "title": "TokenInfo"
       },
       "TokenPasswordIn": {
@@ -5527,6 +5527,13 @@
             "minLength": 2,
             "title": "Full Name"
           },
+          "display_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Display Name",
+            "description": "o nome que aparece no sistema"
+          },
           "role": {
             "type": "string",
             "enum": ["agent", "admin", "auditor"],
@@ -5551,7 +5558,7 @@
           }
         },
         "type": "object",
-        "required": ["email", "username", "full_name", "password"],
+        "required": ["email", "username", "full_name", "display_name", "password"],
         "title": "UserCreate"
       },
       "UserList": {
@@ -5601,6 +5608,10 @@
             "type": "string",
             "title": "Full Name"
           },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
           "role": {
             "type": "string",
             "enum": ["agent", "admin", "auditor"],
@@ -5642,6 +5653,7 @@
           "email",
           "username",
           "full_name",
+          "display_name",
           "role",
           "status",
           "teams",
@@ -5657,13 +5669,13 @@
             "format": "uuid",
             "title": "Id"
           },
-          "full_name": {
+          "display_name": {
             "type": "string",
-            "title": "Full Name"
+            "title": "Display Name"
           }
         },
         "type": "object",
-        "required": ["id", "full_name"],
+        "required": ["id", "display_name"],
         "title": "UserRef"
       },
       "UserTeam": {
@@ -5701,6 +5713,19 @@
               }
             ],
             "title": "Full Name"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
           },
           "email": {
             "anyOf": [
@@ -5796,9 +5821,9 @@
             "format": "uuid",
             "title": "Id"
           },
-          "full_name": {
+          "display_name": {
             "type": "string",
-            "title": "Full Name"
+            "title": "Display Name"
           },
           "kind": {
             "type": "string",
@@ -5807,7 +5832,7 @@
           }
         },
         "type": "object",
-        "required": ["id", "full_name", "kind"],
+        "required": ["id", "display_name", "kind"],
         "title": "WatcherOut"
       }
     }

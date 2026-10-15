@@ -51,7 +51,7 @@ router = APIRouter(prefix="/tickets", tags=["chamados"])
 
 
 def _user(u: User | None) -> UserRef | None:
-    return UserRef(id=u.public_id, full_name=u.full_name) if u else None
+    return UserRef(id=u.public_id, display_name=u.display_name) if u else None
 
 
 def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
@@ -82,7 +82,7 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
 async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
     paths = await service.category_paths(db, [t])
     times = [
-        PersonTime(id=u.public_id, full_name=u.full_name, minutes=m)
+        PersonTime(id=u.public_id, display_name=u.display_name, minutes=m)
         for u, m in await service.time_by_person(db, t)
     ]
     return TicketOut(
@@ -95,10 +95,10 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
         reopened_count=t.reopened_count,
         closed_at=t.closed_at,
         co_assignees=[
-            UserRef(id=c.user.public_id, full_name=c.user.full_name) for c in t.co_assignees
+            UserRef(id=c.user.public_id, display_name=c.user.display_name) for c in t.co_assignees
         ],
         watchers=[
-            WatcherOut(id=w.user.public_id, full_name=w.user.full_name, kind=w.kind)
+            WatcherOut(id=w.user.public_id, display_name=w.user.display_name, kind=w.kind)
             for w in t.watchers
         ],
         attachments=await attachments.of_ticket(db, t.id),

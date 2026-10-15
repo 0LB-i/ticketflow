@@ -138,6 +138,7 @@ def criar_usuario(
     user = User(
         email=email,
         full_name=nome,
+        display_name=nome,
         role=papel,
         password_hash=hash_password(senha) if senha else None,
         is_active=ativo,

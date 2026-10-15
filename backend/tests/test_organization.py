@@ -31,7 +31,7 @@ def test_grupo_e_membros(client: TestClient, db: Session) -> None:
     assert r.json()["members"] == [
         {
             "user_id": str(ana.public_id),
-            "full_name": "Ana Souza",
+            "display_name": "Ana Souza",
             "email": "ana@exemplo.com",
             "role": "supervisor",
             "is_active": True,

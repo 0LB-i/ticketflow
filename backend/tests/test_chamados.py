@@ -68,8 +68,8 @@ def test_registro_com_roteamento(client: TestClient, cenario: dict[str, Any]) ->
     assert t["team"]["name"] == "TI"  # grupo padrão da categoria
     assert t["type"] == "incident"
     assert t["status"] == {"id": 1, "name": "Pendente", "kind": "open"}
-    assert t["assignee"]["full_name"] == "Ana"
-    assert t["created_by"]["full_name"] == "Ana"
+    assert t["assignee"]["display_name"] == "Ana"
+    assert t["created_by"]["display_name"] == "Ana"
     assert t["category"]["path"] == "Impressão"
     assert {"close", "wait", "edit", "transfer"} <= set(t["allowed_actions"])
 
@@ -97,7 +97,7 @@ def test_registro_valida_grupo_responsavel_e_perfil(
     )
     assert r.status_code == 403
     # Qualquer membro registra para outro membro; o responsável precisa ser do grupo
-    assert registrar(client, cenario, assignee=cenario["bia"])["assignee"]["full_name"] == "Bia"
+    assert registrar(client, cenario, assignee=cenario["bia"])["assignee"]["display_name"] == "Bia"
     r = client.post(
         API,
         json={"title": "Caio", "category_id": cenario["impressao"], "assignee": cenario["caio"]},
@@ -384,7 +384,7 @@ def test_mencao_torna_observador_que_so_comenta(
     )
     assert r.status_code == 201
     assert client.get(url).json()["watchers"] == [
-        {"id": cenario["caio"], "full_name": "Caio", "kind": "mentioned"}
+        {"id": cenario["caio"], "display_name": "Caio", "kind": "mentioned"}
     ]
 
     entrar(client, "caio@x.com")
@@ -405,9 +405,9 @@ def test_mencao_torna_observador_que_so_comenta(
 def test_observadores(client: TestClient, cenario: dict[str, Any]) -> None:
     t = registrar(client, cenario, watcher_ids=[cenario["bia"]])
     url = f"{API}/{t['number']}"
-    assert [w["full_name"] for w in t["watchers"]] == ["Bia"]
+    assert [w["display_name"] for w in t["watchers"]] == ["Bia"]
     assert client.put(f"{url}/watchers/{cenario['caio']}").status_code == 204
-    assert [w["full_name"] for w in client.get(url).json()["watchers"]] == ["Bia", "Caio"]
+    assert [w["display_name"] for w in client.get(url).json()["watchers"]] == ["Bia", "Caio"]
     assert client.put(f"{url}/watchers/{cenario['caio']}").status_code == 204  # já acompanha
     assert client.delete(f"{url}/watchers/{cenario['caio']}").status_code == 204
     assert client.delete(f"{url}/watchers/{cenario['caio']}").status_code == 404
@@ -425,7 +425,7 @@ def test_edicao_de_tarefa_pelo_autor_sem_prazo(
     t = registrar(client, cenario)
     url = f"{API}/{t['number']}/comments"
     c = client.post(url, json={"body": "Primeira versão"}).json()
-    assert c["author"]["full_name"] == "Ana"
+    assert c["author"]["display_name"] == "Ana"
     assert c["done_at"] == c["created_at"]  # sem data, foi feita agora
 
     r = client.patch(f"{url}/{c['id']}", json={"body": "Segunda versão"})
@@ -536,8 +536,8 @@ def test_tempo_gasto_nos_andamentos(client: TestClient, cenario: dict[str, Any])
     # A lista também traz o total de cada chamado
     assert [c["time_spent_minutes"] for c in client.get(API).json()["items"]] == [150]
     assert detalhe["time_by_person"] == [
-        {"id": cenario["bia"], "full_name": "Bia", "minutes": 105},
-        {"id": cenario["ana"], "full_name": "Ana", "minutes": 45},
+        {"id": cenario["bia"], "display_name": "Bia", "minutes": 105},
+        {"id": cenario["ana"], "display_name": "Ana", "minutes": 45},
     ]
     tempos = [x["time_spent_minutes"] for x in client.get(f"{url}/comments").json()["items"]]
     assert tempos == [45, None, 90, 15]
@@ -566,13 +566,12 @@ def test_assumir_atribuir_e_devolver(client: TestClient, cenario: dict[str, Any]
     assert "assign_self" in t["allowed_actions"]
 
     r = client.post(url, json={"assignee": "me"})
-    assert r.json()["assignee"]["full_name"] == "Ana"
+    assert r.json()["assignee"]["display_name"] == "Ana"
     assert client.post(url, json={"assignee": None}).json()["assignee"] is None
 
     entrar(client, "bia@x.com")
-    assert (
-        client.post(url, json={"assignee": cenario["ana"]}).json()["assignee"]["full_name"] == "Ana"
-    )
+    r = client.post(url, json={"assignee": cenario["ana"]})
+    assert r.json()["assignee"]["display_name"] == "Ana"
     assert client.post(url, json={"assignee": cenario["caio"]}).status_code == 422  # de outro grupo
     atribuicoes = [
         e["payload"] for e in eventos(client, t["number"]) if e["type"] == "ticket.assigned"
@@ -583,8 +582,8 @@ def test_assumir_atribuir_e_devolver(client: TestClient, cenario: dict[str, Any]
 
 def test_registro_com_varios_responsaveis(client: TestClient, cenario: dict[str, Any]) -> None:
     t = registrar(client, cenario, assignee="me", co_assignee_ids=[cenario["bia"], cenario["ana"]])
-    assert t["assignee"]["full_name"] == "Ana"
-    assert [u["full_name"] for u in t["co_assignees"]] == ["Bia"]  # o principal não se repete
+    assert t["assignee"]["display_name"] == "Ana"
+    assert [u["display_name"] for u in t["co_assignees"]] == ["Bia"]  # o principal não se repete
     criado = eventos(client, t["number"])[0]["payload"]
     assert [u["name"] for u in criado["co_assignees"]] == ["Bia"]
 
@@ -610,7 +609,7 @@ def test_registro_com_varios_responsaveis(client: TestClient, cenario: dict[str,
     entrar(client, "ana@x.com")
     url = f"{API}/{t['number']}"
     r = client.post(f"{url}/assign", json={"assignee": cenario["bia"]})
-    assert r.json()["assignee"]["full_name"] == "Bia" and r.json()["co_assignees"] == []
+    assert r.json()["assignee"]["display_name"] == "Bia" and r.json()["co_assignees"] == []
 
     # Devolver à fila tira todos
     t = registrar(client, cenario, assignee="me", co_assignee_ids=[cenario["bia"]])
@@ -701,7 +700,7 @@ def test_ciclo_aguardar_concluir_reabrir(client: TestClient, cenario: dict[str, 
     assert client.post(url, json={"action": "reopen"}).status_code == 422
     t = client.post(url, json={"action": "reopen", "comment": "Voltou a falhar"}).json()
     assert t["status"]["name"] == "Pendente" and t["reopened_count"] == 1
-    assert t["assignee"]["full_name"] == "Ana"  # volta para o mesmo responsável
+    assert t["assignee"]["display_name"] == "Ana"  # volta para o mesmo responsável
     assert t["resolution_code"] is None and t["closed_at"] is None
     mudancas = [
         e["payload"]["action"]

@@ -16,7 +16,7 @@ describe('TicketTimeline', () => {
       'PATCH /api/v1/tickets/1000/comments/c1': [200, {}],
       'DELETE /api/v1/tickets/1000/comments/c1': [204],
     })
-    const autor = { id: ME_AGENTE.id, full_name: 'Ana' }
+    const autor = { id: ME_AGENTE.id, display_name: 'Ana' }
     const tarefa = (id: string, author: typeof autor) => ({
       id,
       author,
@@ -36,7 +36,7 @@ describe('TicketTimeline', () => {
           description: '',
           attachments: [],
         } as never,
-        comentarios: [tarefa('c1', autor), tarefa('c2', { id: 'outra', full_name: 'Bia' })],
+        comentarios: [tarefa('c1', autor), tarefa('c2', { id: 'outra', display_name: 'Bia' })],
         pessoas: [],
       },
     })
@@ -75,7 +75,7 @@ describe('TicketTimeline', () => {
   })
 
   it('mostra os anexos de cada comentário, sem repetir as imagens que já estão no texto', () => {
-    const autor = { id: ME_AGENTE.id, full_name: 'Ana' }
+    const autor = { id: ME_AGENTE.id, display_name: 'Ana' }
     const PRINT = '00000000-0000-0000-0000-0000000000f1'
     const anexo = (id: string, filename: string, comment_id: string | null) => ({
       id,

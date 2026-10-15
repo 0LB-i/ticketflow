@@ -70,7 +70,10 @@ async function salvar() {
     <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="salvar">
       <p class="text-muted">
         {{
-          $t('definirSenha.para', { nome: info.data.value.full_name, email: info.data.value.email })
+          $t('definirSenha.para', {
+            nome: info.data.value.display_name,
+            email: info.data.value.email,
+          })
         }}
       </p>
       <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>

@@ -109,7 +109,7 @@ def test_pegar_o_proximo(client: TestClient, cenario: dict[str, Any]) -> None:  
     entrar(client, "bia@x.com")
     r = client.post(f"{API}/next", json={"team_id": cenario["ti"]})
     assert r.status_code == 200
-    assert r.json()["number"] == primeiro and r.json()["assignee"]["full_name"] == "Bia"
+    assert r.json()["number"] == primeiro and r.json()["assignee"]["display_name"] == "Bia"
     assert client.post(f"{API}/next", json={}).json()["number"] == segundo
     assert client.post(f"{API}/next", json={}).status_code == 404
 

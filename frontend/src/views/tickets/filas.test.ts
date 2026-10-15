@@ -15,7 +15,7 @@ afterEach(() => {
 const TI = '00000000-0000-0000-0000-0000000000a1'
 const ME = {
   ...ME_AGENTE,
-  full_name: 'Ana',
+  display_name: 'Ana',
   teams: [{ id: TI, name: 'TI', role: 'member' as const }],
   permissions: ['ticket.create', 'ticket.assign_self'],
 }
@@ -30,7 +30,7 @@ const ITEM = {
   department: null,
   client: { id: 'p', name: 'Padaria Pão Quente' },
   beneficiary_name: null,
-  assignee: { id: ME.id, full_name: 'Ana' },
+  assignee: { id: ME.id, display_name: 'Ana' },
   started_at: '2026-10-10T11:30:00Z',
   created_at: '2026-10-10T12:00:00Z',
   updated_at: '2026-10-10T12:00:00Z',

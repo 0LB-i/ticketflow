@@ -55,7 +55,7 @@ async def _create_admin(email: str, name: str) -> str:
             role = await db.scalar(select(Role).where(Role.code == "admin"))
             if role is None:
                 raise SystemExit("Papéis não encontrados: rode `chamados db upgrade` antes.")
-            user = User(email=email, full_name=name, role=role)
+            user = User(email=email, full_name=name, display_name=name, role=role)
             db.add(user)
             await db.flush()
             raw = await issue_token(db, user, "invite", timedelta(hours=24))

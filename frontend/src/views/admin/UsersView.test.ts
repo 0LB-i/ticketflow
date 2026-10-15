@@ -15,6 +15,7 @@ const USUARIO = {
   email: 'bruno@exemplo.com',
   username: null,
   full_name: 'Bruno Lima',
+  display_name: 'Bruno',
   role: 'agent',
   status: 'convite_pendente',
   teams: [],
@@ -53,9 +54,10 @@ describe('UsersView', () => {
     const campos = painel().querySelectorAll<HTMLInputElement>('input:not([type=checkbox])')
     for (const [campo, valor] of [
       [campos[0], 'Bruno Lima'],
-      [campos[1], 'bruno@exemplo.com'],
-      [campos[2], 'bruno'],
-      [campos[3], 'Provisoria#2026'],
+      [campos[1], 'Bruno'],
+      [campos[2], 'bruno@exemplo.com'],
+      [campos[3], 'bruno'],
+      [campos[4], 'Provisoria#2026'],
     ] as const) {
       campo!.value = valor
       campo!.dispatchEvent(new Event('input'))
@@ -67,6 +69,7 @@ describe('UsersView', () => {
     const criacao = feitas.find((r) => r.metodo === 'POST')!
     expect(criacao.corpo).toEqual({
       full_name: 'Bruno Lima',
+      display_name: 'Bruno',
       email: 'bruno@exemplo.com',
       username: 'bruno',
       role: 'agent',
@@ -86,11 +89,12 @@ describe('UsersView', () => {
     const w = montar(UsersView)
     useAuthStore().me = ME_ADMIN
     await vi.waitFor(() => expect(w.text()).toContain('Bruno Lima'))
+    expect(w.findAll('button').some((b) => b.text() === 'Bruno')).toBe(true)
     expect(w.text()).not.toContain('Mostrar inativos')
 
     await w
       .findAll('button')
-      .find((b) => b.text() === 'Bruno Lima')!
+      .find((b) => b.text() === 'Bruno')!
       .trigger('click')
     const botao = (texto: string, onde: ParentNode = document.body) =>
       [...onde.querySelectorAll('button')].filter((b) => b.textContent?.trim() === texto)

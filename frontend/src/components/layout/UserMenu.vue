@@ -62,9 +62,9 @@ async function sair() {
         class="inline-flex size-8 items-center justify-center rounded-full bg-primary-subtle font-semibold text-primary"
         aria-hidden="true"
       >
-        {{ auth.me.full_name.charAt(0) }}
+        {{ auth.me.display_name.charAt(0) }}
       </span>
-      <span class="hidden max-w-40 truncate sm:inline">{{ auth.me.full_name }}</span>
+      <span class="hidden max-w-40 truncate sm:inline">{{ auth.me.display_name }}</span>
       <ChevronDown class="size-4 text-muted" aria-hidden="true" />
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
@@ -74,7 +74,7 @@ async function sair() {
         class="z-50 min-w-48 rounded-md border border-border bg-surface p-1 text-fg shadow-lg"
       >
         <DropdownMenuLabel class="px-2 py-1">
-          <span class="block font-medium">{{ auth.me.full_name }}</span>
+          <span class="block font-medium">{{ auth.me.display_name }}</span>
           <span class="block text-xs text-muted">{{ auth.me.email ?? auth.me.username }}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator class="my-1 h-px bg-border" />

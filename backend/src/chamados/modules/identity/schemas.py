@@ -29,7 +29,7 @@ class ChangePasswordIn(BaseModel):
 class TokenInfo(BaseModel):
     purpose: Literal["invite", "password_reset"]
     email: str | None
-    full_name: str
+    display_name: str
 
 
 class MeTeam(BaseModel):
@@ -42,7 +42,7 @@ class Me(BaseModel):
     id: uuid.UUID
     email: str | None
     username: str | None
-    full_name: str
+    display_name: str
     must_change_password: bool
     role: str
     teams: list[MeTeam]
