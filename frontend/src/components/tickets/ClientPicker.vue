@@ -16,8 +16,9 @@ import { computed, ref, useId, watch } from 'vue'
 import { useClientes } from '@/composables/clientes'
 import { formatarDocumento } from '@/composables/documentos'
 
-/** Cliente do chamado, opcional: busca na API por nome, nome fantasia ou CPF/CNPJ. */
-defineProps<{ label: string }>()
+/** Cliente: busca na API por nome, nome fantasia ou CPF/CNPJ. `obrigatorio` tira o botão de
+ * limpar (o chamado sempre tem cliente; o filtro dos relatórios, não). */
+defineProps<{ label: string; obrigatorio?: boolean; error?: string }>()
 const model = defineModel<{ id: string; name: string } | null>({ default: null })
 const id = useId()
 
@@ -39,20 +40,27 @@ const opcoes = computed(() => clientes.data.value?.items ?? [])
 
 <template>
   <div class="flex flex-col gap-1">
-    <label :for="id" class="font-medium">{{ label }}</label>
+    <label :for="id" class="font-medium">
+      {{ label }}<span v-if="obrigatorio" class="text-danger" aria-hidden="true"> *</span>
+    </label>
     <ComboboxRoot v-model="model" v-model:open="aberto" by="id" ignore-filter open-on-click>
       <ComboboxAnchor
-        class="inline-flex h-10 items-center gap-1 rounded-md border border-border-input bg-surface pr-1 pl-3"
+        :class="[
+          'inline-flex h-10 items-center gap-1 rounded-md border bg-surface pr-1 pl-3',
+          error ? 'border-danger' : 'border-border-input',
+        ]"
       >
         <ComboboxInput
           :id="id"
           v-model="busca"
+          :aria-invalid="error ? true : undefined"
+          :aria-describedby="error ? `${id}-erro` : undefined"
           :display-value="(c) => c?.name ?? ''"
           :placeholder="$t('chamado.buscarCliente')"
           class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted"
         />
         <button
-          v-if="model"
+          v-if="model && !obrigatorio"
           type="button"
           class="rounded p-1 text-muted hover:bg-surface-raised"
           :aria-label="$t('chamado.tirarCliente')"
@@ -90,5 +98,6 @@ const opcoes = computed(() => clientes.data.value?.items ?? [])
         </ComboboxContent>
       </ComboboxPortal>
     </ComboboxRoot>
+    <p v-if="error" :id="`${id}-erro`" class="text-danger">{{ error }}</p>
   </div>
 </template>

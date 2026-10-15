@@ -530,23 +530,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/tickets/next': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Take Next */
-    post: operations['take_next_api_v1_tickets_next_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/tickets/{ticket_ref}': {
     parameters: {
       query?: never
@@ -909,9 +892,9 @@ export interface components {
     AssignIn: {
       /**
        * Assignee
-       * @description "me" para assumir, um membro do grupo, ou nulo para devolver à fila
+       * @description "me" para assumir ou um membro do grupo
        */
-      assignee: 'me' | string | null
+      assignee: 'me' | string
     }
     /** AttachmentOut */
     AttachmentOut: {
@@ -1641,14 +1624,6 @@ export interface components {
       /** Is Active */
       is_active: boolean
     }
-    /** NextIn */
-    NextIn: {
-      /**
-       * Team Id
-       * @description sem grupo, a fila de todos os meus grupos
-       */
-      team_id?: string | null
-    }
     /** OvertimeTask */
     OvertimeTask: {
       /** Ticket Number */
@@ -1882,8 +1857,6 @@ export interface components {
      * @description Quantos chamados há em cada fila (as abas da lista).
      */
     TicketCounts: {
-      /** Unassigned */
-      unassigned: number
       /** Mine */
       mine: number
       /** News */
@@ -1916,8 +1889,12 @@ export interface components {
       type?: ('incident' | 'request' | 'task') | null
       /** Department Id */
       department_id?: string | null
-      /** Client Id */
-      client_id?: string | null
+      /**
+       * Client Id
+       * Format: uuid
+       * @description cliente ativo
+       */
+      client_id: string
       /**
        * Beneficiary Name
        * @description contato: quem pediu (texto livre)
@@ -1935,9 +1912,9 @@ export interface components {
       status_id?: number | null
       /**
        * Assignee
-       * @description "me", outro membro do grupo ou nulo (fila)
+       * @description "me" ou outro membro do grupo
        */
-      assignee?: 'me' | string | null
+      assignee: 'me' | string
       /**
        * Co Assignee Ids
        * @description outros responsáveis, membros ativos do grupo; exige o assignee
@@ -1988,7 +1965,7 @@ export interface components {
        * @description contato: quem pediu (texto livre)
        */
       beneficiary_name: string | null
-      assignee: components['schemas']['UserRef'] | null
+      assignee: components['schemas']['UserRef']
       /**
        * Started At
        * Format: date-time
@@ -2041,7 +2018,7 @@ export interface components {
        * @description contato: quem pediu (texto livre)
        */
       beneficiary_name: string | null
-      assignee: components['schemas']['UserRef'] | null
+      assignee: components['schemas']['UserRef']
       /**
        * Started At
        * Format: date-time
@@ -2117,7 +2094,7 @@ export interface components {
       department_id?: string | null
       /**
        * Client Id
-       * @description nulo tira o cliente
+       * @description outro cliente ativo
        */
       client_id?: string | null
       /**
@@ -2177,6 +2154,12 @@ export interface components {
        * Format: uuid
        */
       team_id: string
+      /**
+       * Assignee Id
+       * Format: uuid
+       * @description novo responsável: membro ativo do grupo de destino
+       */
+      assignee_id: string
       /** Reason */
       reason: string
     }
@@ -3491,10 +3474,10 @@ export interface operations {
     parameters: {
       query?: {
         /** @description fila (aba da lista) */
-        view?: 'unassigned' | 'mine' | 'news' | 'waiting' | 'watching' | 'all'
+        view?: 'mine' | 'news' | 'waiting' | 'watching' | 'all'
         /** @description id do grupo atual */
         team?: string | null
-        /** @description "me", "none" ou o id do usuário */
+        /** @description "me" ou o id do usuário */
         assignee?: string | null
         /** @description kinds de status */
         status?: ('approval' | 'open' | 'waiting' | 'delivered' | 'closed' | 'canceled')[] | null
@@ -3602,39 +3585,6 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['BulkResult']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  take_next_api_v1_tickets_next_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['NextIn']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TicketOut']
         }
       }
       /** @description Validation Error */

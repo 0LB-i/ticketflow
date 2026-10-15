@@ -12,10 +12,8 @@ import SelectField from '@/components/ui/SelectField.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useGrupos } from '@/composables/admin'
 import {
-  chamadosApi,
   type Fila,
   type FiltroChamados,
-  useAcaoNoChamado,
   useChamados,
   useContagens,
   useStatus,
@@ -40,7 +38,6 @@ const grupos = useGrupos()
 const contagens = useContagens()
 
 const ABAS: { slug: string; fila: Fila }[] = [
-  { slug: 'nao-atribuidos', fila: 'unassigned' },
   { slug: 'meus', fila: 'mine' },
   { slug: 'novidades', fila: 'news' },
   { slug: 'aguardando', fila: 'waiting' },
@@ -50,7 +47,7 @@ const ABAS: { slug: string; fila: Fila }[] = [
 // Opção "todos" dos filtros (não vai para a URL).
 const TODOS = '*'
 const KINDS = ['open', 'waiting', 'delivered', 'closed', 'canceled'] as const
-const RESPONSAVEL = { eu: 'me', ninguem: 'none' } as const
+const RESPONSAVEL = { eu: 'me' } as const
 
 const texto = (chave: string) => {
   const valor = route.query[chave]
@@ -115,7 +112,6 @@ const opcoesStatus = computed(() => [
 const opcoesResponsavel = computed(() => [
   { value: TODOS, label: t('chamados.filtros.todos') },
   { value: 'eu', label: t('chamados.filtros.eu') },
-  { value: 'ninguem', label: t('chamados.filtros.ninguem') },
 ])
 
 const contagem = (fila: Fila) => (fila === 'all' ? null : (contagens.data.value?.[fila] ?? null))
@@ -185,32 +181,11 @@ async function mudarStatusEmMassa() {
     toast.show({ title: (e as Error).message, variant: 'error' })
   }
 }
-
-// "Pegar o próximo" (docs/10 §10.6): da fila Não atribuídos, no grupo do filtro ou em todos.
-const podePegar = computed(() => auth.pode('ticket.assign_self') && !!auth.me?.teams.length)
-const pegar = useAcaoNoChamado('proximo', chamadosApi.pegarProximo)
-async function pegarProximo() {
-  try {
-    const chamado = await pegar.mutateAsync(texto('grupo'))
-    toast.show({
-      title: t('chamados.pegou', { numero: chamado.number }),
-      description: chamado.title,
-    })
-    await router.push(`/chamados/${chamado.number}`)
-  } catch (e) {
-    toast.show({ title: (e as Error).message, variant: 'error' })
-  }
-}
 </script>
 
 <template>
   <div :class="['mx-auto flex max-w-7xl flex-col gap-4', { 'pb-28': selecionados.size }]">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-xl font-semibold">{{ t('chamados.titulo') }}</h1>
-      <Button v-if="podePegar" :disabled="pegar.isPending.value" @click="pegarProximo">
-        {{ t('chamados.pegarProximo') }}
-      </Button>
-    </div>
+    <h1 class="text-xl font-semibold">{{ t('chamados.titulo') }}</h1>
 
     <TabsRoot :model-value="aba.slug" @update:model-value="(v) => filtrar('aba', String(v))">
       <TabsList
@@ -319,7 +294,7 @@ async function pegarProximo() {
             <template #cell-status="{ row }">
               <StatusBadge :kind="row.status.kind" :label="row.status.name" />
             </template>
-            <template #cell-assignee="{ row }">{{ row.assignee?.display_name ?? '—' }}</template>
+            <template #cell-assignee="{ row }">{{ row.assignee.display_name }}</template>
             <template #cell-team="{ row }">{{ row.team.name }}</template>
             <template #cell-movimento="{ row }">
               <span :title="formatarDataHora(row.updated_at) ?? undefined">

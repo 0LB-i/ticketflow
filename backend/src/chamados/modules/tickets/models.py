@@ -70,7 +70,7 @@ class Ticket(Base):
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
     beneficiary_name: Mapped[str | None] = mapped_column(Text)  # contato: quem pediu, texto livre
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
-    assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    assignee_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
     status_id: Mapped[int] = mapped_column(ForeignKey("ticket_statuses.id"))
     resolution_code_id: Mapped[int | None] = mapped_column(ForeignKey("resolution_codes.id"))
@@ -88,7 +88,7 @@ class Ticket(Base):
     )
 
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
-    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id], lazy="joined")
+    assignee: Mapped[User] = relationship(foreign_keys=[assignee_id], lazy="joined")
     team: Mapped[Team] = relationship(lazy="joined")
     category: Mapped[Category | None] = relationship(lazy="joined")
     department: Mapped[Department | None] = relationship(lazy="joined")
@@ -105,7 +105,7 @@ class Ticket(Base):
 
 class TicketCoAssignee(Base):
     """Outros responsáveis, além do principal (assignee_id): só existem com um principal e saem
-    junto com ele (devolver à fila, transferir)."""
+    junto com ele na transferência."""
 
     __tablename__ = "ticket_co_assignees"
 

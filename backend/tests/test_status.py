@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
 from tests.conftest import criar_usuario, entrar, grupo
+from tests.test_chamados import criar_cliente
 
 API = "/api/v1/statuses"
 
@@ -88,6 +89,7 @@ def test_remover_move_os_chamados(client: TestClient, db: Session) -> None:
     criar_usuario(db, "admin@x.com", "admin", grupos={"TI": "member"})
     entrar(client, "admin@x.com")
     ti = str(grupo(db, "TI").public_id)
+    base = {"client_id": criar_cliente(db, "Cliente", "33445566000186"), "assignee": "me"}
     status = por_nome(client)
 
     # O único status de um comportamento não sai
@@ -102,7 +104,7 @@ def test_remover_move_os_chamados(client: TestClient, db: Session) -> None:
     revisao_id = next(s["id"] for s in revisao["items"] if s["name"] == "Em revisão")
     t = client.post(
         "/api/v1/tickets",
-        json={"title": "Revisar", "team_id": ti, "status_id": revisao_id},
+        json={**base, "title": "Revisar", "team_id": ti, "status_id": revisao_id},
     ).json()
     assert por_nome(client)["Em revisão"]["ticket_count"] == 1
     r = client.delete(f"{API}/{revisao_id}")
@@ -112,10 +114,10 @@ def test_remover_move_os_chamados(client: TestClient, db: Session) -> None:
 
     # Removendo o padrão, o próximo do mesmo kind assume (e recebe os chamados)
     client.post(API, json={"name": "Em andamento", "kind": "open"})
-    client.post("/api/v1/tickets", json={"title": "Pendente", "team_id": ti})
+    client.post("/api/v1/tickets", json={**base, "title": "Pendente", "team_id": ti})
     r = client.delete(f"{API}/{status['Pendente']['id']}")
     andamento = por_nome(client)["Em andamento"]
     assert andamento["is_default"] is True and andamento["ticket_count"] == 1
     # E o registro passa a usar o novo padrão
-    t = client.post("/api/v1/tickets", json={"title": "Novo", "team_id": ti}).json()
+    t = client.post("/api/v1/tickets", json={**base, "title": "Novo", "team_id": ti}).json()
     assert t["status"]["name"] == "Em andamento"

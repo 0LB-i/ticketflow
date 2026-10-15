@@ -40,7 +40,7 @@ const form = reactive({
   inicio: null as string | null,
   cliente: null as { id: string; name: string } | null,
   contato: '',
-  // Responsáveis: começa com quem registra; vazio deixa na fila do grupo.
+  // Responsáveis: começa com quem registra; pelo menos um.
   responsaveis: auth.me ? [auth.me.id] : ([] as string[]),
   observadores: [] as string[],
   anexos: [] as string[],
@@ -110,6 +110,8 @@ watch(novoObservador, (id) => {
 const faltando = computed(() => ({
   team: !form.team,
   title: form.title.trim().length < 3,
+  responsaveis: !form.responsaveis.length,
+  cliente: !form.cliente,
   // A API aceita até 5 minutos adiantado (relógio do computador); aqui, qualquer futuro.
   inicio: form.inicio !== null && new Date(form.inicio).getTime() > Date.now(),
 }))
@@ -130,9 +132,9 @@ async function enviar() {
       team_id: form.team,
       status_id: podeEscolherStatus.value && form.status ? Number(form.status) : null,
       started_at: form.inicio,
-      client_id: form.cliente?.id ?? null,
+      client_id: form.cliente!.id,
       beneficiary_name: form.contato.trim() || null,
-      assignee: principal === eu ? 'me' : (principal ?? null),
+      assignee: principal === eu ? 'me' : principal!,
       co_assignee_ids: form.responsaveis.filter((id) => id !== principal),
       watcher_ids: form.observadores,
       mention_ids: editor.value?.mencionados() ?? [],
@@ -220,11 +222,12 @@ async function enviar() {
               :label="$t('novoChamado.usuarios')"
               :placeholder="$t('novoChamado.adicionarUsuario')"
               :options="opcoesResponsavel"
+              :error="
+                tentou && faltando.responsaveis ? $t('novoChamado.escolhaResponsavel') : undefined
+              "
+              required
             />
-            <p v-if="!form.responsaveis.length" class="text-muted">
-              {{ $t('novoChamado.usuariosDica') }}
-            </p>
-            <ul v-else class="flex flex-wrap gap-2">
+            <ul v-if="form.responsaveis.length" class="flex flex-wrap gap-2">
               <li
                 v-for="id in form.responsaveis"
                 :key="id"
@@ -254,7 +257,12 @@ async function enviar() {
           />
 
           <div class="flex flex-col gap-4 border-t border-border pt-4">
-            <ClientPicker v-model="form.cliente" :label="$t('chamado.cliente')" />
+            <ClientPicker
+              v-model="form.cliente"
+              :label="$t('chamado.cliente')"
+              :error="tentou && faltando.cliente ? $t('novoChamado.escolhaCliente') : undefined"
+              obrigatorio
+            />
             <TextField
               v-model="form.contato"
               :label="$t('chamado.contato')"

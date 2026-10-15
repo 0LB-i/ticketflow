@@ -132,8 +132,6 @@ export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a:
 export const chamadosApi = {
   statusEmMassa: async (numbers: number[], status_id: number) =>
     ou(await api.POST('/api/v1/tickets/bulk/status', { body: { numbers, status_id } })),
-  pegarProximo: async (team_id: string | null) =>
-    ou(await api.POST('/api/v1/tickets/next', { body: { team_id } })),
   registrar: async (body: Schemas['TicketCreate']) =>
     ou(await api.POST('/api/v1/tickets', { body })),
   comentar: async (numero: string, body: Schemas['CommentIn']) =>
@@ -145,7 +143,7 @@ export const chamadosApi = {
         body,
       }),
     ),
-  atribuir: async (numero: string, assignee: string | null) =>
+  atribuir: async (numero: string, assignee: string) =>
     ou(
       await api.POST('/api/v1/tickets/{ticket_ref}/assign', {
         params: caminho(numero),
@@ -162,8 +160,8 @@ export const chamadosApi = {
         body: { status_id },
       }),
     ),
-  /** Cliente do chamado; `null` tira o cliente. */
-  trocarCliente: async (numero: string, client_id: string | null) =>
+  /** Cliente do chamado (obrigatório: troca, mas não tira). */
+  trocarCliente: async (numero: string, client_id: string) =>
     ou(
       await api.PATCH('/api/v1/tickets/{ticket_ref}', {
         params: caminho(numero),

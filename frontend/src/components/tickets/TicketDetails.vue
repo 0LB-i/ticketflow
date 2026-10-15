@@ -40,13 +40,13 @@ async function executar(fn: () => Promise<unknown>, aviso: string) {
 }
 
 // --- responsável ---
-const atribuir = useAcaoNoChamado(numero, (assignee: string | null) =>
+const atribuir = useAcaoNoChamado(numero, (assignee: string) =>
   chamadosApi.atribuir(numero(), assignee),
 )
 const outroResponsavel = ref('')
 const membros = computed(() =>
   (grupos.data.value?.find((g) => g.id === props.chamado.team.id)?.members ?? [])
-    .filter((m) => m.is_active && m.user_id !== props.chamado.assignee?.id)
+    .filter((m) => m.is_active && m.user_id !== props.chamado.assignee.id)
     .map((m) => ({ value: m.user_id, label: m.display_name })),
 )
 watch(outroResponsavel, (id) => {
@@ -80,15 +80,15 @@ const statusAtual = computed({
   },
 })
 
-// --- cliente ---
-const trocarCliente = useAcaoNoChamado(numero, (id: string | null) =>
+// --- cliente: obrigatório, troca mas não sai ---
+const trocarCliente = useAcaoNoChamado(numero, (id: string) =>
   chamadosApi.trocarCliente(numero(), id),
 )
 const cliente = computed({
   get: () => props.chamado.client ?? null,
   set: (c: { id: string; name: string } | null) => {
-    if ((c?.id ?? null) !== (props.chamado.client?.id ?? null))
-      executar(() => trocarCliente.mutateAsync(c?.id ?? null), t('chamado.feito.cliente'))
+    if (c && c.id !== props.chamado.client?.id)
+      executar(() => trocarCliente.mutateAsync(c.id), t('chamado.feito.cliente'))
   },
 })
 
@@ -102,17 +102,26 @@ async function confirmarCancelamento() {
   await executar(() => cancelar.mutateAsync(undefined), t('chamado.feito.cancel'))
 }
 
-// --- transferência ---
+// --- transferência: vai para o outro grupo com um responsável de lá ---
 const transferindo = ref(false)
 const destino = ref('')
+const novoResponsavel = ref('')
 const motivo = ref('')
 const outrosGrupos = computed(() =>
   (grupos.data.value ?? [])
     .filter((g) => g.is_active && g.id !== props.chamado.team.id)
     .map((g) => ({ value: g.id, label: g.name })),
 )
-const transferir = useAcaoNoChamado(numero, (body: { team_id: string; reason: string }) =>
-  chamadosApi.transferir(numero(), body),
+const membrosDoDestino = computed(() =>
+  (grupos.data.value?.find((g) => g.id === destino.value)?.members ?? [])
+    .filter((m) => m.is_active)
+    .map((m) => ({ value: m.user_id, label: m.display_name })),
+)
+watch(destino, () => (novoResponsavel.value = ''))
+const transferir = useAcaoNoChamado(
+  numero,
+  (body: { team_id: string; assignee_id: string; reason: string }) =>
+    chamadosApi.transferir(numero(), body),
 )
 function abrirTransferencia() {
   destino.value = ''
@@ -122,7 +131,12 @@ function abrirTransferencia() {
 async function confirmarTransferencia() {
   transferindo.value = false
   await executar(
-    () => transferir.mutateAsync({ team_id: destino.value, reason: motivo.value }),
+    () =>
+      transferir.mutateAsync({
+        team_id: destino.value,
+        assignee_id: novoResponsavel.value,
+        reason: motivo.value,
+      }),
     t('chamado.feito.transferido'),
   )
 }
@@ -157,7 +171,12 @@ const podeRemover = (id: string) =>
   >
     <p v-if="erro" class="rounded-md bg-red-bg p-3 text-red-fg" role="alert">{{ erro }}</p>
 
-    <ClientPicker v-if="pode.has('edit')" v-model="cliente" :label="t('chamado.cliente')" />
+    <ClientPicker
+      v-if="pode.has('edit')"
+      v-model="cliente"
+      :label="t('chamado.cliente')"
+      obrigatorio
+    />
 
     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
       <template v-if="chamado.client && !pode.has('edit')">
@@ -172,11 +191,7 @@ const podeRemover = (id: string) =>
       <dd class="font-medium">{{ chamado.team.name }}</dd>
       <dt class="text-muted">{{ t('chamado.responsavel') }}</dt>
       <dd class="font-medium">
-        {{
-          chamado.assignee
-            ? [chamado.assignee, ...chamado.co_assignees].map((u) => u.display_name).join(', ')
-            : t('chamado.naFila')
-        }}
+        {{ [chamado.assignee, ...chamado.co_assignees].map((u) => u.display_name).join(', ') }}
       </dd>
       <dt class="text-muted">{{ t('chamado.tipo') }}</dt>
       <dd>{{ t(`tipos.${chamado.type}`) }}</dd>
@@ -203,15 +218,6 @@ const podeRemover = (id: string) =>
         @click="executar(() => atribuir.mutateAsync('me'), t('chamado.feito.assumido'))"
       >
         {{ t('chamado.assumir') }}
-      </Button>
-      <Button
-        v-if="pode.has('unassign')"
-        size="sm"
-        variant="secondary"
-        :disabled="atribuir.isPending.value"
-        @click="executar(() => atribuir.mutateAsync(null), t('chamado.feito.devolvido'))"
-      >
-        {{ t('chamado.devolver') }}
       </Button>
       <Button v-if="pode.has('transfer')" size="sm" variant="secondary" @click="abrirTransferencia">
         {{ t('chamado.transferir') }}
@@ -323,12 +329,19 @@ const podeRemover = (id: string) =>
           :options="outrosGrupos"
           required
         />
+        <SelectField
+          v-model="novoResponsavel"
+          :label="t('chamado.novoResponsavel')"
+          :placeholder="t('chamado.escolhaMembro')"
+          :options="membrosDoDestino"
+          required
+        />
         <TextAreaField v-model="motivo" :label="t('chamado.motivo')" required />
       </div>
       <template #actions>
         <Button variant="secondary" @click="transferindo = false">{{ t('comum.cancelar') }}</Button>
         <Button
-          :disabled="!destino || !motivo.trim() || transferir.isPending.value"
+          :disabled="!destino || !novoResponsavel || !motivo.trim() || transferir.isPending.value"
           @click="confirmarTransferencia"
         >
           {{ t('chamado.transferir') }}

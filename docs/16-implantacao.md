@@ -29,7 +29,7 @@ O dia D é marcado no início da Sprint 5. Sugestão: uma **terça ou quarta-fei
 | D−7 | **Treinamento** de 1 hora (16.5) + guia rápido (16.6) | Desenvolvedor | Cada membro registrou, assumiu e concluiu um chamado de teste |
 | D−3 a D−1 | **Levantamento das tarefas em aberto**: cada membro lista o que está com ele hoje (e-mails, anotações, mensagens, planilhas) | Equipe da TI | Lista pronta para cadastrar |
 | **D** | **Virada.** Até o meio-dia, cada um cadastra as próprias tarefas em aberto. A partir daí vale a regra: *se não está no TicketFlow, não existe* | Equipe da TI | Nenhuma tarefa em aberto fora do sistema |
-| D+1 a D+10 | **Acompanhamento próximo**: 10 minutos diários revisando "Não atribuídos" e dúvidas; desenvolvedor disponível para correções | Supervisor + desenvolvedor | — |
+| D+1 a D+10 | **Acompanhamento próximo**: 10 minutos diários revisando as filas e dúvidas; desenvolvedor disponível para correções | Supervisor + desenvolvedor | — |
 | D+7 | 1ª conversa de retorno (16.7) | Supervisor + desenvolvedor | Ajustes priorizados |
 | D+14 | **Avaliação do M1**: duas semanas usando só o sistema, sem bugs críticos abertos | Supervisor | Decisão: piloto aprovado, estendido ou pausado |
 | D+30 | Retrospectiva: categorias, status e combinados revistos com os dados do primeiro mês | Supervisor + equipe | Mudanças aplicadas pelo administrador |

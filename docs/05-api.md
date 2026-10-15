@@ -49,9 +49,9 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `unassigned`, `mine`, `news`, `waiting`, `watching`, `all`), `team`, `assignee`, `status` e a busca textual `q` |
+| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `mine`, `news`, `waiting`, `watching`, `all`), `team`, `assignee` (`me` ou o id), `status` e a busca textual `q` |
 | `GET` | `/tickets/counts` | Quantos chamados há em cada fila (os contadores das abas) |
-| `POST` | `/tickets` | Registrar chamado |
+| `POST` | `/tickets` | Registrar chamado: `assignee` (`"me"` ou um membro do grupo) e `client_id` são obrigatórios |
 | `GET` | `/tickets/{id}` | Detalhe |
 | `PATCH` | `/tickets/{id}` | Alterar campos (título, categoria, setor e pessoa atendidos, tags) |
 | `POST` | `/tickets/{id}/transitions` | Mudar status pelo fluxo: `{"action": "close", "comment": "...", "resolution_code_id": ...}`. Ações: `wait`, `resume`, `close`, `reopen`, `cancel` ([10.5](10-chamados.md#105-status-e-fluxo)); o comentário vira comentário do chamado |
@@ -61,9 +61,8 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `GET` | `/tickets/{id}/events` | Histórico / linha do tempo |
 | `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores (respondem `204`: quem se retira de um chamado de outro grupo deixa de vê-lo) |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
-| `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`), atribuir (id de um membro do grupo) ou devolver à fila (`null`) |
-| `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "reason"}` |
-| `POST` | `/tickets/next` | "Pegar o próximo" da fila Não atribuídos: `{"team_id"}` opcional; fila vazia responde `404` |
+| `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir (id de um membro do grupo); o chamado nunca fica sem responsável |
+| `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "assignee_id", "reason"}`; o novo responsável é um membro ativo do grupo de destino |
 | `POST` | `/tickets/{id}/merge` | Mesclar em outro chamado |
 | `GET` / `POST` | `/tickets/{id}/approvals` | Aprovações do chamado |
 | `POST` | `/approvals/{id}/decision` | `{"decision": "approve" \| "reject", "comment"}` |

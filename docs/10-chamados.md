@@ -11,7 +11,7 @@ Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado
 | Tipo | Incidente, requisição ou tarefa (10.2) | Padrão da categoria; ajustável |
 | Categoria | O que é a tarefa | Quem registra |
 | Grupo | Fila responsável | Categoria (padrão) ou quem registra; muda por transferência |
-| Responsável | Membro(s) que estão executando | Quem registra (ele mesmo, outros membros ou o grupo todo), quem assume ou outro membro do grupo |
+| Responsável | Membro(s) que estão executando (**obrigatório**: não há chamado sem responsável) | Quem registra (ele mesmo, outros membros ou o grupo todo), quem assume ou outro membro do grupo |
 | Registrado por | Membro que criou o chamado | Sistema |
 | Setor atendido | Área para a qual a tarefa é feita (opcional) | Quem registra |
 | Pessoa atendida | Nome de quem pediu ou será atendido, em texto livre, sem conta no sistema (opcional) | Quem registra |
@@ -56,7 +56,7 @@ Categoria*     [TI › Acessos › Novo acesso ▾]   (filtrada pelo grupo; busc
 Título*        [______________________________________]
 Descrição      [ editor de texto (colar prints)       ]
 Para quem      Setor [Comercial ▾]   Pessoa [Carla Dias      ]   (opcionais)
-Usuários       [Ana ×] [+ adicionar pessoa ▾]   (começa com quem registra; vazio = fila do grupo;
+Usuários       [Ana ×] [+ adicionar pessoa ▾]   (começa com quem registra; pelo menos uma pessoa;
                                                  "Todas as pessoas do grupo" marca todos os membros)
 Observadores   [+ adicionar colega]
 📎 Arraste arquivos aqui ou clique para anexar
@@ -67,7 +67,7 @@ Ao registrar:
 
 1. O sistema grava quem registrou.
 2. Se a categoria **exige aprovação**, o chamado nasce em "Aguardando aprovação" e os supervisores do grupo são avisados (10.8).
-3. Senão, nasce em **Pendente**, com o responsável escolhido ou na fila do grupo.
+3. Senão, nasce em **Pendente**, com o responsável escolhido e o cliente (os dois obrigatórios).
 4. O grupo é avisado conforme a configuração dele: só a fila, ou e-mail para todos os membros.
 
 ## 10.5 Status e fluxo
@@ -78,7 +78,7 @@ Ao registrar:
 
 | Status | `kind` | Significado |
 |--------|--------|-------------|
-| **Pendente** | `open` | Em aberto: na fila do grupo (sem responsável) ou em execução |
+| **Pendente** | `open` | Em aberto, com o responsável |
 | **Aguardando** | `waiting` | Parado por algo de fora: outra pessoa, peça, fornecedor, janela de manutenção |
 | **Concluído** | `closed` | Final. A tarefa foi feita |
 | **Cancelado** | `canceled` | Final. Não era necessário, era duplicado ou foi reprovado |
@@ -128,7 +128,6 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 | Visão | Conteúdo | Para quem |
 |-------|----------|-----------|
-| **Não atribuídos** | Chamados dos meus grupos sem responsável | Todos |
 | **Meus chamados** | Chamados em que sou o responsável, ainda abertos | Todos |
 | **Com novidades** | Meus chamados com comentário novo de outra pessoa, recém-aprovados ou reabertos | Todos |
 | **Aguardando** | Chamados dos meus grupos parados em `waiting` | Todos |
@@ -143,7 +142,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 ### Distribuição do trabalho
 
 - **Para si:** quem registra já pode ficar como responsável, o caso mais comum quando a pessoa vai executar a tarefa.
-- **Puxar:** o membro clica em **"Pegar o próximo"**, e o sistema atribui o primeiro chamado da fila "Não atribuídos" na ordenação padrão. Também é possível assumir um chamado específico.
+- **Assumir:** o membro assume um chamado específico de um colega do grupo. Não há fila de não atribuídos nem "Pegar o próximo" (removidos em 2026-10-15: todo chamado tem responsável e cliente).
 - **Empurrar:** qualquer membro atribui chamados a outros membros do grupo; no registro, a uma ou mais pessoas, ou ao grupo todo. A atribuição em massa é do supervisor.
 - **Automática** (futuro): por rodízio ou menor carga.
 
@@ -187,7 +186,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 | Situação | Como funciona |
 |----------|---------------|
-| **Transferência** (ex.: Suporte → Infraestrutura) | Escolhe-se o grupo de destino e escreve-se um **motivo obrigatório**, que vira comentário. O chamado continua **Pendente**, na fila do novo grupo e sem responsável. O grupo anterior mantém acesso de leitura |
+| **Transferência** (ex.: Suporte → Infraestrutura) | Escolhe-se o grupo de destino e escreve-se um **motivo obrigatório**, que vira comentário. Escolhe-se também o **novo responsável**, um membro do grupo de destino. O chamado continua **Pendente**, com esse responsável. O grupo anterior mantém acesso de leitura |
 | **Pedir ajuda sem transferir** | Comentário com `@menção` a um colega de outro grupo, que vira observador |
 
 ### Duplicados e vínculos
@@ -231,7 +230,6 @@ Não há SLA: não existem metas de prazo, alertas de vencimento nem calendário
 
 | Evento | Responsável | Observadores | Grupo | Supervisores | Outros |
 |--------|:-:|:-:|:-:|:-:|---|
-| Chamado registrado sem responsável | | | ✉️/🔔 conforme o grupo | | |
 | Atribuído a alguém | ✉️🔔 | | | | |
 | Aguardando aprovação | | | | ✉️🔔 | |
 | Aprovado / reprovado | 🔔 | 🔔 | | | Quem registrou 🔔 |

@@ -37,7 +37,7 @@ const ITEM = {
   has_news: true,
   time_spent_minutes: 135,
 }
-const CONTAGENS = { unassigned: 7, mine: 1, news: 1, waiting: 0, watching: 2 }
+const CONTAGENS = { mine: 1, news: 1, waiting: 0, watching: 2 }
 
 function api(extras: Record<string, [number, unknown?]> = {}) {
   return simularApi({
@@ -61,7 +61,13 @@ describe('TicketsView', () => {
     await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
     expect(listas(feitas).at(-1)!.get('view')).toBe('mine')
     expect(w.get('[role=tab][data-state=active]').text()).toContain('Meus')
-    expect(w.findAll('[role=tab]').map((a) => a.text())).toContain('Não atribuídos 7')
+    expect(w.findAll('[role=tab]').map((a) => a.text())).toEqual([
+      'Meus 1',
+      'Com novidades 1',
+      'Aguardando',
+      'Acompanhando 2',
+      'Todos',
+    ])
     expect(w.find('[aria-label="Tarefa nova de outra pessoa"]').exists()).toBe(true)
     expect(w.text()).toContain('Padaria Pão Quente')
   })
@@ -137,7 +143,7 @@ describe('TicketsView', () => {
     const feitas = api()
     const router = criarRouter()
     const w = montar(TicketsView, { global: { plugins: [router] } })
-    await router.push(`/chamados?aba=todos&status=waiting&responsavel=ninguem&grupo=${TI}&q=toner`)
+    await router.push(`/chamados?aba=todos&status=waiting&responsavel=eu&grupo=${TI}&q=toner`)
 
     await vi.waitFor(() => expect(w.text()).toContain('Resultados da busca por “toner”'))
     const q = await vi.waitFor(() => {
@@ -148,7 +154,7 @@ describe('TicketsView', () => {
     expect(Object.fromEntries(q)).toEqual({
       view: 'all',
       status: 'waiting',
-      assignee: 'none',
+      assignee: 'me',
       team: TI,
       q: 'toner',
     })
@@ -186,26 +192,8 @@ describe('TicketsView', () => {
     const router = criarRouter()
     const w = montar(TicketsView, { global: { plugins: [router] } })
     await router.push('/chamados')
-    await vi.waitFor(() => expect(w.text()).toContain('Que tal pegar o próximo da fila?'))
-  })
-
-  it('pegar o próximo assume e abre o chamado', async () => {
-    const feitas = api({
-      'POST /api/v1/tickets/next': [200, { ...ITEM, number: 1005, title: 'VPN' }],
-    })
-    const router = criarRouter()
-    const w = montar(TicketsView, { global: { plugins: [router] } })
-    await router.push(`/chamados?grupo=${TI}`)
-    await vi.waitFor(() => expect(w.text()).toContain('Pegar o próximo'))
-    // Confere o pedido de navegação: carregar a tela do chamado (com o editor) é lento no jsdom.
-    const navegar = vi.spyOn(router, 'push').mockResolvedValue(undefined)
-
-    await w
-      .findAll('button')
-      .find((b) => b.text() === 'Pegar o próximo')!
-      .trigger('click')
-    await vi.waitFor(() => expect(navegar).toHaveBeenCalledWith('/chamados/1005'))
-    expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toEqual({ team_id: TI })
+    await vi.waitFor(() => expect(w.text()).toContain('Nenhum chamado com você.'))
+    expect(w.text()).not.toContain('Pegar o próximo')
   })
 })
 

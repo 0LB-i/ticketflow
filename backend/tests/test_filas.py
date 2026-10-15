@@ -1,4 +1,4 @@
-"""Filas, novidades, busca e "Pegar o próximo" (Sprint 4: docs/10 §10.6).
+"""Filas, novidades e busca (Sprint 4: docs/10 §10.6).
 
 Cenário do test_chamados: Ana e Bia (supervisora) no TI, Caio na Infra.
 """
@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from tests.conftest import entrar
-from tests.test_chamados import API, cenario, criar_cliente, registrar  # noqa: F401
+from tests.test_chamados import API, base, cenario, criar_cliente, registrar  # noqa: F401
 
 
 def numeros(client: TestClient, **query: Any) -> list[int]:
@@ -19,7 +19,7 @@ def numeros(client: TestClient, **query: Any) -> list[int]:
 
 
 def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa: F811
-    fila = registrar(client, cenario, title="Na fila")["number"]
+    da_bia = registrar(client, cenario, title="Com a Bia", assignee=cenario["bia"])["number"]
     meu = registrar(client, cenario, title="Comigo", assignee="me")["number"]
     parado = registrar(client, cenario, title="Parado", assignee="me")["number"]
     client.post(f"{API}/{parado}/transitions", json={"action": "wait", "comment": "Esperando"})
@@ -31,18 +31,22 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
     entrar(client, "caio@x.com")
     da_infra = client.post(
         API,
-        json={"title": "Da Infra", "team_id": cenario["infra"], "watcher_ids": [cenario["ana"]]},
+        json={
+            **base(cenario),
+            "title": "Da Infra",
+            "team_id": cenario["infra"],
+            "watcher_ids": [cenario["ana"]],
+        },
     ).json()["number"]
     entrar(client, "ana@x.com")
 
-    assert numeros(client, view="unassigned") == [fila]
+    assert client.get(API, params={"view": "unassigned"}).status_code == 422
     assert numeros(client, view="mine") == [meu, parado]
     assert numeros(client, view="waiting") == [parado]
     assert numeros(client, view="watching") == [da_infra]
-    assert set(numeros(client)) == {fila, meu, parado, concluido, da_infra}
+    assert set(numeros(client)) == {da_bia, meu, parado, concluido, da_infra}
     assert numeros(client, view="all", status=["closed"]) == [concluido]
     assert client.get(f"{API}/counts").json() == {
-        "unassigned": 1,
         "mine": 2,
         "news": 0,
         "waiting": 1,
@@ -51,8 +55,8 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
 
     # Caio não vê as filas do TI
     entrar(client, "caio@x.com")
-    assert numeros(client, view="unassigned") == [da_infra]
-    assert client.get(f"{API}/counts").json()["unassigned"] == 1
+    assert numeros(client, view="mine") == [da_infra]
+    assert client.get(f"{API}/counts").json()["waiting"] == 0
 
 
 def test_novidade_e_comentario_de_outra_pessoa_depois_da_visita(
@@ -108,28 +112,9 @@ def test_busca(client: TestClient, cenario: dict[str, Any], db: Session) -> None
     assert numeros(client, q="certificados") == [vpn["number"]]  # comentário, plural
     assert numeros(client, q="pao quente") == [impressora["number"]]  # cliente, sem acento
     assert numeros(client, q=f"#{vpn['number']}") == [vpn["number"]]
-    assert numeros(client, q="vpn", view="unassigned") == []  # dentro da fila
+    assert numeros(client, q="vpn", view="waiting") == []  # dentro da fila
     assert numeros(client, q="de") == []  # só palavras vazias
     assert client.get(API, params={"q": "?!"}).status_code == 200
 
     entrar(client, "caio@x.com")  # a busca respeita a visibilidade
     assert numeros(client, q="impressora") == []
-
-
-def test_pegar_o_proximo(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa: F811
-    primeiro = registrar(client, cenario, title="Primeiro")["number"]
-    segundo = registrar(client, cenario, title="Segundo")["number"]
-
-    entrar(client, "caio@x.com")
-    r = client.post(f"{API}/next", json={})
-    assert r.status_code == 404 and r.json()["detail"] == "Não há chamados na fila."
-
-    entrar(client, "bia@x.com")
-    r = client.post(f"{API}/next", json={"team_id": cenario["ti"]})
-    assert r.status_code == 200
-    assert r.json()["number"] == primeiro and r.json()["assignee"]["display_name"] == "Bia"
-    assert client.post(f"{API}/next", json={}).json()["number"] == segundo
-    assert client.post(f"{API}/next", json={}).status_code == 404
-
-    entrar(client, "auditor@x.com")  # sem grupos, não há fila
-    assert client.post(f"{API}/next", json={}).status_code == 404

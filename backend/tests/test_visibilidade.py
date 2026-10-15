@@ -50,6 +50,7 @@ def _cenario(db: Session) -> dict[str, User]:
     def chamado(
         titulo: str, team_atual: int, antes: list[int], categoria: int, **extra: int
     ) -> Ticket:
+        extra.setdefault("assignee_id", users["admin"].id)  # o admin vê tudo: não muda nada
         t = Ticket(
             title=titulo,
             type="incident",

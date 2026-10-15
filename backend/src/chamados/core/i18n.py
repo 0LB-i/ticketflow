@@ -102,12 +102,12 @@ EN: dict[str, str] = {
     "Você não tem acesso a este chamado.": "You don't have access to this ticket.",
     "Chamado não encontrado.": "Ticket not found.",
     "Cursor inválido.": "Invalid cursor.",
-    'Responsável: use "me", "none" ou o id.': 'Assignee: use "me", "none" or the id.',
+    'Responsável: use "me" ou o id.': 'Assignee: use "me" or the id.',
     "Categoria não encontrada ou inativa.": "Category not found or inactive.",
     "Grupo não encontrado ou inativo.": "Team not found or inactive.",
     "Setor não encontrado ou inativo.": "Department not found or inactive.",
     "Cliente não encontrado ou inativo.": "Client not found or inactive.",
-    "Não há chamados na fila.": "There are no tickets in the queue.",
+    "O chamado precisa de um cliente.": "The ticket needs a client.",
     # Anexos
     "Tipo de arquivo não permitido.": "File type not allowed.",
     "O arquivo está vazio.": "The file is empty.",
@@ -119,9 +119,6 @@ EN: dict[str, str] = {
     "Anexo não encontrado ou já usado.": "Attachment not found or already used.",
     "Os anexos deste chamado passariam do limite de 200 MB.": (
         "This ticket's attachments would exceed the 200 MB limit."
-    ),
-    "Escolha o responsável principal antes dos demais.": (
-        "Choose the main assignee before the others."
     ),
     "O responsável precisa ser um membro ativo do grupo.": (
         "The assignee must be an active member of the team."

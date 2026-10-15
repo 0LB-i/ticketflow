@@ -21,7 +21,7 @@ admin = Actor(user_id=7, role="admin")
 auditor = Actor(user_id=8, role="auditor")
 
 
-def situacao(kind: str, *, ator: Actor, assignee: int | None = 2) -> TicketState:
+def situacao(kind: str, *, ator: Actor, assignee: int = 2) -> TicketState:
     return TicketState(
         team_id=GRUPO,
         kind=kind,
@@ -44,14 +44,14 @@ DONO = {"wait", "close", "cancel"}
 
 # Chamado Pendente, com responsável (docs/08 §8.5)
 PENDENTE = [
-    (membro, DO_GRUPO | {"assign_self", "assign_others", "unassign"}),
-    (responsavel, DO_GRUPO | DONO | {"assign_others", "unassign"}),
-    (supervisor, DO_GRUPO | DONO | {"assign_self", "assign_others", "unassign", "bulk"}),
-    (registrou, DO_GRUPO | {"assign_self", "assign_others", "unassign", "cancel"}),
+    (membro, DO_GRUPO | {"assign_self", "assign_others"}),
+    (responsavel, DO_GRUPO | DONO | {"assign_others"}),
+    (supervisor, DO_GRUPO | DONO | {"assign_self", "assign_others", "bulk"}),
+    (registrou, DO_GRUPO | {"assign_self", "assign_others", "cancel"}),
     (observador_de_fora, {"comment", "watch_self"}),
     (grupo_anterior, {"watch_self"}),
     (supervisor_de_outro, {"watch_self"}),
-    (admin, DO_GRUPO | DONO | {"assign_others", "unassign", "bulk"}),
+    (admin, DO_GRUPO | DONO | {"assign_others", "bulk"}),
     (auditor, set()),
 ]
 
@@ -59,12 +59,6 @@ PENDENTE = [
 @pytest.mark.parametrize(("ator", "esperado"), PENDENTE)
 def test_acoes_no_chamado_pendente(ator: Actor, esperado: set[str]) -> None:
     assert allowed_actions(ator, situacao("open", ator=ator)) == esperado
-
-
-def test_na_fila_ninguem_devolve() -> None:
-    assert "unassign" not in allowed_actions(
-        supervisor, situacao("open", ator=supervisor, assignee=None)
-    )
 
 
 # Transições permitidas por situação (docs/10 §10.5)
@@ -91,7 +85,7 @@ def test_transicoes(kind: str, ator: Actor, esperado: set[str]) -> None:
 @pytest.mark.parametrize("kind", ["closed", "canceled"])
 def test_finalizado_nao_se_atribui_nem_transfere(kind: str) -> None:
     acoes = allowed_actions(supervisor, situacao(kind, ator=supervisor))
-    assert not acoes & {"assign_self", "assign_others", "unassign", "transfer"}
+    assert not acoes & {"assign_self", "assign_others", "transfer"}
     assert {"comment", "edit", "set_status"} <= acoes  # reabrir pelo formulário
 
 

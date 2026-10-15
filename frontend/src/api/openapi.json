@@ -1385,7 +1385,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": ["unassigned", "mine", "news", "waiting", "watching", "all"],
+              "enum": ["mine", "news", "waiting", "watching", "all"],
               "type": "string",
               "description": "fila (aba da lista)",
               "default": "all",
@@ -1425,10 +1425,10 @@
                   "type": "null"
                 }
               ],
-              "description": "\"me\", \"none\" ou o id do usuário",
+              "description": "\"me\" ou o id do usuário",
               "title": "Assignee"
             },
-            "description": "\"me\", \"none\" ou o id do usuário"
+            "description": "\"me\" ou o id do usuário"
           },
           {
             "name": "status",
@@ -1603,45 +1603,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BulkResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/tickets/next": {
-      "post": {
-        "tags": ["chamados"],
-        "summary": "Take Next",
-        "operationId": "take_next_api_v1_tickets_next_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NextIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TicketOut"
                 }
               }
             }
@@ -2800,13 +2761,10 @@
               {
                 "type": "string",
                 "format": "uuid"
-              },
-              {
-                "type": "null"
               }
             ],
             "title": "Assignee",
-            "description": "\"me\" para assumir, um membro do grupo, ou nulo para devolver à fila"
+            "description": "\"me\" para assumir ou um membro do grupo"
           }
         },
         "type": "object",
@@ -4667,25 +4625,6 @@
         "required": ["user_id", "display_name", "email", "role", "is_active"],
         "title": "MemberOut"
       },
-      "NextIn": {
-        "properties": {
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id",
-            "description": "sem grupo, a fila de todos os meus grupos"
-          }
-        },
-        "type": "object",
-        "title": "NextIn"
-      },
       "OvertimeTask": {
         "properties": {
           "ticket_number": {
@@ -5205,10 +5144,6 @@
       },
       "TicketCounts": {
         "properties": {
-          "unassigned": {
-            "type": "integer",
-            "title": "Unassigned"
-          },
           "mine": {
             "type": "integer",
             "title": "Mine"
@@ -5227,7 +5162,7 @@
           }
         },
         "type": "object",
-        "required": ["unassigned", "mine", "news", "waiting", "watching"],
+        "required": ["mine", "news", "waiting", "watching"],
         "title": "TicketCounts",
         "description": "Quantos chamados há em cada fila (as abas da lista)."
       },
@@ -5296,16 +5231,10 @@
             "title": "Department Id"
           },
           "client_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Id"
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Id",
+            "description": "cliente ativo"
           },
           "beneficiary_name": {
             "anyOf": [
@@ -5354,13 +5283,10 @@
               {
                 "type": "string",
                 "format": "uuid"
-              },
-              {
-                "type": "null"
               }
             ],
             "title": "Assignee",
-            "description": "\"me\", outro membro do grupo ou nulo (fila)"
+            "description": "\"me\" ou outro membro do grupo"
           },
           "co_assignee_ids": {
             "items": {
@@ -5407,7 +5333,7 @@
           }
         },
         "type": "object",
-        "required": ["title"],
+        "required": ["title", "client_id", "assignee"],
         "title": "TicketCreate"
       },
       "TicketListItem": {
@@ -5479,14 +5405,7 @@
             "description": "contato: quem pediu (texto livre)"
           },
           "assignee": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/UserRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/UserRef"
           },
           "started_at": {
             "type": "string",
@@ -5604,14 +5523,7 @@
             "description": "contato: quem pediu (texto livre)"
           },
           "assignee": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/UserRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/UserRef"
           },
           "started_at": {
             "type": "string",
@@ -5836,7 +5748,7 @@
               }
             ],
             "title": "Client Id",
-            "description": "nulo tira o cliente"
+            "description": "outro cliente ativo"
           },
           "beneficiary_name": {
             "anyOf": [
@@ -5974,6 +5886,12 @@
             "format": "uuid",
             "title": "Team Id"
           },
+          "assignee_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignee Id",
+            "description": "novo responsável: membro ativo do grupo de destino"
+          },
           "reason": {
             "type": "string",
             "maxLength": 50000,
@@ -5982,7 +5900,7 @@
           }
         },
         "type": "object",
-        "required": ["team_id", "reason"],
+        "required": ["team_id", "assignee_id", "reason"],
         "title": "TransferIn"
       },
       "TransitionIn": {
