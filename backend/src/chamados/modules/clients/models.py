@@ -41,7 +41,7 @@ class Client(Base):
     kind: Mapped[str] = mapped_column(Text)  # person (CPF) · company (CNPJ)
     name: Mapped[str | None] = mapped_column(Text)  # nome completo ou razão social
     trade_name: Mapped[str | None] = mapped_column(Text)  # nome fantasia
-    document: Mapped[str | None] = mapped_column(Text)  # CPF ou CNPJ (pode repetir)
+    document: Mapped[str | None] = mapped_column(Text, unique=True)  # CPF ou CNPJ
     id_number: Mapped[str | None] = mapped_column(Text)  # RG
     birth_date: Mapped[date | None] = mapped_column(Date)
     state_registration: Mapped[str | None] = mapped_column(Text)  # inscrição estadual
