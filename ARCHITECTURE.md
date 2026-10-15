@@ -198,7 +198,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - Obrigatórios: nome completo e CPF (PF) ou razão social, nome fantasia e CNPJ (PJ), mais CEP, cidade e UF (a API confere; o banco aceita cadastros antigos sem eles). O CPF/CNPJ é validado e único (restrição no banco); o nome também não repete (a API compara sem maiúsculas, acentos e espaços a mais).
 - Documentos, telefones e CEP são gravados sem pontuação; a interface formata (`composables/documentos.ts`). O CNPJ aceita o formato alfanumérico (julho de 2026): mesmo cálculo dos dígitos, com o valor de cada caractere = ASCII − 48.
 - A validação fica no router (`_clean`), com mensagens do catálogo de idiomas. O formulário envia o cadastro inteiro (`PUT`).
-- Permissões: `client.view` (agente, admin, auditor) e `client.manage` (agente, admin). A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
+- Permissões: `client.view` (agente, admin, auditor) e `client.manage`, que nenhum papel tem: vale só para membros do grupo **Administradores** (ativo; nome comparado sem maiúsculas, `CLIENT_MANAGERS_TEAM` em `core/permissions.py`), mesmo com papel Administrador. Renomear o grupo tira a permissão de todos. A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
 - Ligação com os chamados: `tickets.client_id` (3.5).
 
 ### 3.7.2 Relatórios (`modules/reports/`)
@@ -247,6 +247,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0024` | `users.display_name`: o nome que aparece no sistema (o completo fica no cadastro) |
 | `0025` | Sai a restrição única de `clients.document`: o mesmo CPF/CNPJ pode estar em mais de um cadastro |
 | `0026` | Volta a restrição única de `clients.document` (desfaz a `0025`) |
+| `0027` | `client.manage` sai dos papéis (passa a vir do grupo Administradores) |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).

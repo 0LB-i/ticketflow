@@ -4,11 +4,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.clients.documents import valid_cnpj, valid_cpf
+from chamados.modules.organization.models import Team
 from tests.conftest import criar_usuario, entrar
 
 API = "/api/v1/clients"
@@ -48,7 +49,7 @@ EMPRESA = {
 
 @pytest.fixture
 def agente(client: TestClient, db: Session) -> None:
-    criar_usuario(db, "ana@x.com")
+    criar_usuario(db, "ana@x.com", grupos={"Administradores": "member"})
     entrar(client, "ana@x.com")
 
 
@@ -199,4 +200,31 @@ def test_permissoes(client: TestClient, db: Session) -> None:
     criar_usuario(db, "auditor@x.com", "auditor")
     entrar(client, "auditor@x.com")
     assert client.get(API).status_code == 200
+    assert client.post(API, json=PESSOA).status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("papel", "grupos", "pode"),
+    [
+        ("agent", {"SUPORTE": "supervisor"}, False),
+        ("admin", {}, False),  # o papel Administrador sozinho não basta
+        ("agent", {"administradores": "member"}, True),
+        ("auditor", {"Administradores": "member"}, True),
+    ],
+)
+def test_so_o_grupo_administradores_gerencia(
+    client: TestClient, db: Session, papel: str, grupos: dict[str, str], pode: bool
+) -> None:
+    criar_usuario(db, "bia@x.com", papel, grupos=grupos)
+    entrar(client, "bia@x.com")
+    assert client.get(API).status_code == 200
+    assert ("client.manage" in client.get("/api/v1/me").json()["permissions"]) is pode
+    assert (client.post(API, json=PESSOA).status_code == 201) is pode
+
+
+def test_grupo_administradores_inativo_nao_vale(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "bia@x.com", grupos={"Administradores": "member"})
+    db.execute(update(Team).values(is_active=False))
+    db.commit()
+    entrar(client, "bia@x.com")
     assert client.post(API, json=PESSOA).status_code == 403
