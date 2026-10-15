@@ -162,6 +162,14 @@ export const chamadosApi = {
         body: { status_id },
       }),
     ),
+  /** Cliente do chamado; `null` tira o cliente. */
+  trocarCliente: async (numero: string, client_id: string | null) =>
+    ou(
+      await api.PATCH('/api/v1/tickets/{ticket_ref}', {
+        params: caminho(numero),
+        body: { client_id },
+      }),
+    ),
   removerComentario: async (numero: string, id: string) => {
     const r = await api.DELETE('/api/v1/tickets/{ticket_ref}/comments/{comment_id}', {
       params: { path: { ticket_ref: numero, comment_id: id } },

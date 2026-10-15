@@ -356,15 +356,11 @@
       "reopen": "Reabrir",
       "cancel": "Cancelar chamado"
     },
+    "cancelarTitulo": "Cancelar o chamado?",
+    "cancelarTexto": "Escreva o motivo do cancelamento. Um chamado cancelado não volta a ser aberto.",
+    "cancelarMotivo": "Motivo do cancelamento",
     "textoObrigatorio": {
-      "reopen": "Escreva na tarefa o motivo da reabertura.",
-      "cancel": "Escreva na tarefa o motivo do cancelamento."
-    },
-    "confirmar": {
-      "cancel": "Cancelar o chamado?"
-    },
-    "confirmarTexto": {
-      "cancel": "A tarefa vai como o motivo. Um chamado cancelado não volta a ser aberto."
+      "reopen": "Escreva na tarefa o motivo da reabertura."
     },
     "feito": {
       "resume": "Chamado retomado",
@@ -372,6 +368,7 @@
       "cancel": "Chamado cancelado",
       "assumido": "Você assumiu o chamado",
       "atribuido": "Responsável alterado",
+      "cliente": "Cliente alterado",
       "devolvido": "Chamado devolvido para a fila",
       "transferido": "Chamado transferido",
       "observador": "Observador adicionado",

@@ -254,7 +254,7 @@ describe('TicketView', () => {
     // O histórico (assumiu, devolveu, acompanha…) não aparece na tela: nem é buscado
     expect(feitas.some((r) => r.caminho.endsWith('/events'))).toBe(false)
     expect(w.text()).toContain('10/10/2026, 08:30') // início, no fuso de São Paulo
-    expect(w.text()).toContain('Padaria Pão Quente')
+    expect((campo(w, 'Cliente').element as HTMLInputElement).value).toBe('Padaria Pão Quente')
     expect(w.text()).toContain('Maria')
     const botoes = w.findAll('button').map((b) => b.text())
     expect(botoes).toContain('Assumir')
@@ -268,6 +268,77 @@ describe('TicketView', () => {
       .trigger('click')
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.caminho.endsWith('/assign'))?.corpo).toEqual({ assignee: 'me' }),
+    )
+  })
+
+  it('troca e tira o cliente na lateral', async () => {
+    const OFICINA = { ...PADARIA, id: '00000000-0000-0000-0000-0000000000e2', label: 'Oficina' }
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': [200, CHAMADO],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'GET /api/v1/clients': [200, { items: [OFICINA], total: 1 }],
+      'PATCH /api/v1/tickets/1000': [200, CHAMADO],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Impressora parada'))
+    expect(w.get('aside').find('input[role=combobox]').exists()).toBe(true)
+
+    await escolherCliente(w, 'Oficina')
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ client_id: OFICINA.id }),
+    )
+    await w.get('button[aria-label="Tirar o cliente"]').trigger('click')
+    await vi.waitFor(() =>
+      expect(feitas.filter((r) => r.metodo === 'PATCH').at(-1)?.corpo).toEqual({ client_id: null }),
+    )
+  })
+
+  it('sem edit, o cliente só aparece como texto', async () => {
+    simularApi({
+      'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment'] }],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Padaria Pão Quente'))
+    expect(w.get('aside').find('input[role=combobox]').exists()).toBe(false)
+  })
+
+  it('cancelar fica na lateral e pede o motivo', async () => {
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': [200, { ...CHAMADO, allowed_actions: ['comment', 'cancel'] }],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [200, GRUPOS],
+      'POST /api/v1/tickets/1000/transitions': [200, CHAMADO],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Cancelar chamado'))
+    expect(w.findAll('form button').map((b) => b.text())).not.toContain('Cancelar chamado')
+    await w
+      .get('aside')
+      .findAll('button')
+      .find((b) => b.text() === 'Cancelar chamado')!
+      .trigger('click')
+
+    const janela = () => document.body.querySelector('[role=dialog]')!
+    await vi.waitFor(() => expect(janela()?.textContent).toContain('Motivo do cancelamento'))
+    const confirmar = () =>
+      [...janela().querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Cancelar chamado',
+      )!
+    expect(confirmar().disabled).toBe(true) // sem motivo
+    const motivo = janela().querySelector('textarea')!
+    motivo.value = 'Cliente desistiu'
+    motivo.dispatchEvent(new Event('input'))
+    await vi.waitFor(() => expect(confirmar().disabled).toBe(false))
+    confirmar().click()
+    await vi.waitFor(() =>
+      expect(feitas.find((r) => r.metodo === 'POST')?.corpo).toEqual({
+        action: 'cancel',
+        comment: 'Cliente desistiu',
+        attachment_ids: [],
+      }),
     )
   })
 
