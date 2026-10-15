@@ -195,7 +195,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 ### 3.7.1 Clientes (`modules/clients/`)
 
 - Pessoa física (`person`: CPF, RG, nascimento) ou jurídica (`company`: CNPJ, nome fantasia, inscrições estadual e municipal, pessoa de contato). Os campos do outro tipo ficam nulos.
-- Obrigatórios: nome ou razão social, CPF/CNPJ (único), e-mail, telefone e endereço (CEP, logradouro, número, bairro, cidade, UF).
+- Obrigatórios: nome completo e CPF (PF) ou razão social, nome fantasia e CNPJ (PJ), mais CEP, cidade e UF (a API confere; o banco aceita cadastros antigos sem eles). O CPF/CNPJ é validado, mas pode repetir em mais de um cadastro.
 - Documentos, telefones e CEP são gravados sem pontuação; a interface formata (`composables/documentos.ts`). O CNPJ aceita o formato alfanumérico (julho de 2026): mesmo cálculo dos dígitos, com o valor de cada caractere = ASCII − 48.
 - A validação fica no router (`_clean`), com mensagens do catálogo de idiomas. O formulário envia o cadastro inteiro (`PUT`).
 - Permissões: `client.view` (agente, admin, auditor) e `client.manage` (agente, admin). A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
@@ -245,6 +245,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0021` | Comportamento `delivered` (Entregue), com o status de revisão como padrão dele; sai `is_review` |
 | `0022` | `users.deleted_at` (exclusão de usuário: a linha fica para o histórico, sem e-mail nem login) |
 | `0024` | `users.display_name`: o nome que aparece no sistema (o completo fica no cadastro) |
+| `0025` | Sai a restrição única de `clients.document`: o mesmo CPF/CNPJ pode estar em mais de um cadastro |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).

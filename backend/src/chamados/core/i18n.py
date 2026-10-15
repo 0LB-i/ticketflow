@@ -149,7 +149,6 @@ EN: dict[str, str] = {
     "RG inválido: só números, até 14.": "Invalid ID (RG): digits only, up to 14.",
     "CEP inválido: são 8 números.": "Invalid postal code (CEP): it has 8 digits.",
     "UF inválida.": "Invalid state.",
-    "Já existe um cliente com este CPF/CNPJ.": "A client with this CPF/CNPJ already exists.",
     "Cliente não encontrado.": "Client not found.",
     "O fim do expediente precisa ser depois do início.": "Working hours must end after they start.",
     "O período precisa terminar depois de começar.": "The period must end after it starts.",
