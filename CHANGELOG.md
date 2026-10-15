@@ -29,6 +29,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Clientes: o mesmo CPF/CNPJ pode estar em mais de um cadastro (o sistema não confere mais se o cliente já existe); o documento continua validado. Migração `0025`: sai a restrição única de `clients.document`.
 - Clientes: voltam a ser obrigatórios, além de CEP, cidade e UF, o **nome completo e o CPF** (pessoa física) e a **razão social, o nome fantasia e o CNPJ** (pessoa jurídica). Clientes já cadastrados sem esses dados continuam como estão e precisam ser completados na próxima edição.
 - Usuários: novo campo **Nome de exibição**, que é o que aparece no sistema (chamados, tarefas, horas, grupos, menções, menu e e-mails); o nome completo fica só no cadastro e na auditoria. Quem já existe começa com o nome completo. Migração `0024`: `users.display_name`. Na API, as referências a pessoas (`assignee`, `author`, `watchers`, membros dos grupos, `/me` etc.) trocam `full_name` por `display_name`.
 - Usuários: a criação pede o **usuário** (login), além do e-mail; dá para mudá-lo na edição, e a lista ganha a coluna Usuário. Entra-se com qualquer um dos dois. Só letras sem acento, números, ponto, hífen e sublinhado (2 a 50), sem diferença entre maiúsculas e minúsculas. Na API, `POST /users` exige `username` e `PATCH /users/{id}` aceita.

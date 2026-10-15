@@ -149,20 +149,27 @@ def test_campos_obrigatorios_por_tipo(client: TestClient, agente: None) -> None:
         assert r.json()["street"] is None and r.json()["emails"] == [] and r.json()["phones"] == []
 
 
-def test_documento_unico_e_edicao(client: TestClient, db: Session, agente: None) -> None:
+def test_documento_repetido_e_edicao(client: TestClient, db: Session, agente: None) -> None:
     c = client.post(API, json=PESSOA).json()
+    # O mesmo CPF (e os mesmos dados) pode estar em mais de um cadastro
     r = client.post(API, json={**PESSOA, "document": "52998224725"})
-    assert r.status_code == 409
+    assert r.status_code == 201, r.text
+    outro = client.post(API, json={**PESSOA, "document": "11144477735"}).json()
+    r = client.put(f"{API}/{outro['id']}", json=PESSOA)
+    assert r.status_code == 200 and r.json()["document"] == "52998224725"
+    assert client.get(API, params={"q": "529.982"}).json()["total"] == 3
 
     r = client.put(f"{API}/{c['id']}", json={**PESSOA, "city": "Campinas", "is_active": False})
     assert r.status_code == 200
     assert r.json()["city"] == "Campinas" and r.json()["is_active"] is False
-    log = db.scalars(select(AuditLog).where(AuditLog.action == "client.updated")).one()
+    log = db.scalars(
+        select(AuditLog).where(AuditLog.action == "client.updated", AuditLog.target_id == c["id"])
+    ).one()
     assert log.after == {"fields": ["city", "is_active"]}
 
     # Sem mudança, sem auditoria
     client.put(f"{API}/{c['id']}", json={**PESSOA, "city": "Campinas", "is_active": False})
-    assert len(db.scalars(select(AuditLog).where(AuditLog.action == "client.updated")).all()) == 1
+    assert len(db.scalars(select(AuditLog).where(AuditLog.action == "client.updated")).all()) == 2
 
 
 def test_busca_e_inativos(client: TestClient, agente: None) -> None:
