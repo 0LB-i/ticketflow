@@ -48,7 +48,7 @@ class TicketState:
     team_id: int
     kind: str
     created_by_id: int
-    assignee_id: int | None
+    assignee_id: int
     is_watcher: bool
     co_assignee_ids: frozenset[int] = frozenset()
 
@@ -89,8 +89,6 @@ def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
             actions.add("assign_self")
         if can(actor, P.TICKET_ASSIGN_OTHERS, t.team_id):
             actions.add("assign_others")
-        if t.assignee_id is not None and (mine or can(actor, P.TICKET_ASSIGN_OTHERS, t.team_id)):
-            actions.add("unassign")
         if can(actor, P.TICKET_TRANSFER):
             actions.add("transfer")
 

@@ -44,7 +44,7 @@ from chamados.modules.tickets.schemas import (
 from chamados.modules.tickets.visibility import assigned_to, ticket_visibility_filter
 
 FORBIDDEN = "Você não tem permissão para esta ação."
-Assignee = Literal["me"] | uuid.UUID | None
+Assignee = Literal["me"] | uuid.UUID
 
 
 def ref(
@@ -186,8 +186,6 @@ def view_filter(auth: Auth, view: TicketView) -> ColumnElement[bool]:
     me = auth.user.id
     my_teams = Ticket.team_id.in_(auth.actor.teams)
     match view:
-        case "unassigned":
-            return and_(my_teams, Ticket.assignee_id.is_(None), TicketStatus.kind == "open")
         case "mine":
             return and_(assigned_to(me), TicketStatus.kind.in_(ACTIVE))
         case "news":
@@ -272,13 +270,11 @@ async def list_tickets(
         stmt = stmt.where(Ticket.team.has(Team.public_id == team))
     if assignee == "me":
         stmt = stmt.where(assigned_to(auth.user.id))
-    elif assignee == "none":
-        stmt = stmt.where(Ticket.assignee_id.is_(None))
     elif assignee is not None:
         try:
             assignee_id = uuid.UUID(assignee)
         except ValueError:
-            raise HTTPException(422, 'Responsável: use "me", "none" ou o id.') from None
+            raise HTTPException(422, 'Responsável: use "me" ou o id.') from None
         stmt = stmt.where(
             or_(
                 Ticket.assignee.has(User.public_id == assignee_id),
@@ -302,7 +298,7 @@ async def list_tickets(
 
 async def counts(db: AsyncSession, auth: Auth) -> dict[str, int]:
     """Quantos chamados visíveis há em cada fila, numa consulta só."""
-    views: tuple[TicketView, ...] = ("unassigned", "mine", "news", "waiting", "watching")
+    views: tuple[TicketView, ...] = ("mine", "news", "waiting", "watching")
     row = (
         await db.execute(
             select(*(func.count().filter(view_filter(auth, v)).label(v) for v in views))
@@ -508,7 +504,7 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     if team.id not in auth.actor.teams:
         raise HTTPException(403, "Você só registra chamados nos grupos de que é membro.")
     department = await _active(db, Department, data.department_id) if data.department_id else None
-    client = await _active(db, Client, data.client_id) if data.client_id else None
+    client = await _active(db, Client, data.client_id)
     if data.watcher_ids and not can(auth.actor, P.TICKET_WATCH):
         raise HTTPException(403, FORBIDDEN)
     if data.status_id is not None and not can(auth.actor, P.TICKET_TRANSITION):
@@ -517,17 +513,14 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         _status(db, data.status_id) if data.status_id is not None else _default_status(db, "open")
     )
 
-    assignee: User | None = None
     if data.assignee == "me" or data.assignee == auth.user.public_id:
         assignee = auth.user
-    elif data.assignee is not None:
+    else:
         if not can(auth.actor, P.TICKET_ASSIGN_OTHERS, team.id):
             raise HTTPException(403, FORBIDDEN)
         assignee = await _team_member(db, data.assignee, team.id)
     co_assignees: list[User] = []
     if data.co_assignee_ids:
-        if assignee is None:
-            raise HTTPException(422, "Escolha o responsável principal antes dos demais.")
         if not can(auth.actor, P.TICKET_ASSIGN_OTHERS, team.id):
             raise HTTPException(403, FORBIDDEN)
         co_assignees = await _team_members(
@@ -540,13 +533,13 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         type=data.type or (category.default_type if category else "incident"),
         created_by_id=auth.user.id,
         department_id=department.id if department else None,
-        client_id=client.id if client else None,
+        client_id=client.id,
         beneficiary_name=optional_text(data.beneficiary_name),
         team_id=team.id,
-        assignee_id=assignee.id if assignee else None,
+        assignee_id=assignee.id,
         category_id=category.id if category else None,
         status_id=status.id,
-        first_assigned_at=func.now() if assignee else None,
+        first_assigned_at=func.now(),
     )
     _apply_status(ticket, None, status)
     if data.started_at is not None:
@@ -651,9 +644,10 @@ async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdat
         dept = await _active(db, Department, new_id) if new_id else None
         put("department_id", dept.id if dept else None, ref(ticket.department), ref(dept))
     if "client_id" in changes:
-        new_id = changes["client_id"]
-        client = await _active(db, Client, new_id) if new_id else None
-        put("client_id", client.id if client else None, ref(ticket.client), ref(client))
+        if changes["client_id"] is None:
+            raise HTTPException(422, "O chamado precisa de um cliente.")
+        client = await _active(db, Client, changes["client_id"])
+        put("client_id", client.id, ref(ticket.client), ref(client))
     if "beneficiary_name" in changes:
         put("beneficiary_name", optional_text(changes["beneficiary_name"]))
     if changes.get("started_at") is not None:
@@ -754,64 +748,35 @@ async def delete_comment(
 
 
 async def assign(db: AsyncSession, auth: Auth, ticket: Ticket, assignee: Assignee) -> None:
-    """Assumir, atribuir a outro membro (supervisor) ou devolver à fila (docs/08 §8.5)."""
-    new: User | None
+    """Assumir ou atribuir a outro membro (supervisor) (docs/08 §8.5)."""
     if assignee == "me" or assignee == auth.user.public_id:
         require(auth, ticket, "assign_self")
         new = auth.user
-    elif assignee is None:
-        require(auth, ticket, "unassign")
-        new = None
     else:
         require(auth, ticket, "assign_others")
         new = await _team_member(db, assignee, ticket.team_id)
-    if (new.id if new else None) == ticket.assignee_id:
+    if new.id == ticket.assignee_id:
         return
-    payload: dict[str, Any] = {"from": ref(ticket.assignee), "to": ref(new)}
-    if new is None:
-        # Devolver à fila tira todos os responsáveis.
-        if ticket.co_assignees:
-            payload["co_unassigned"] = [ref(c.user) for c in ticket.co_assignees]
-        ticket.co_assignees.clear()
-    else:
-        ticket.co_assignees[:] = [c for c in ticket.co_assignees if c.user_id != new.id]
-    add_event(db, ticket, "ticket.assigned", auth, **payload)
-    ticket.assignee_id = new.id if new else None
-    if new is not None and ticket.first_assigned_at is None:
-        ticket.first_assigned_at = func.now()
+    ticket.co_assignees[:] = [c for c in ticket.co_assignees if c.user_id != new.id]
+    add_event(db, ticket, "ticket.assigned", auth, **{"from": ref(ticket.assignee), "to": ref(new)})
+    ticket.assignee_id = new.id
     await db.commit()
 
 
-async def take_next(db: AsyncSession, auth: Auth, team: uuid.UUID | None) -> Ticket:
-    """Pegar o próximo: assume o primeiro da fila Não atribuídos na ordenação padrão.
-
-    SKIP LOCKED: duas pessoas clicando juntas pegam chamados diferentes.
-    """
-    stmt = _ordered(
-        select(Ticket.public_id)
-        .join(Ticket.status)
-        .where(ticket_visibility_filter(auth.actor), view_filter(auth, "unassigned"))
-        .limit(1)
-        .with_for_update(of=Ticket, skip_locked=True)
-    )
-    if team is not None:
-        stmt = stmt.where(Ticket.team.has(Team.public_id == team))
-    public_id = await db.scalar(stmt)
-    if public_id is None:
-        raise HTTPException(404, "Não há chamados na fila.")
-    ticket = await load(db, auth, str(public_id))
-    await assign(db, auth, ticket, "me")
-    return ticket
-
-
 async def transfer(
-    db: AsyncSession, auth: Auth, ticket: Ticket, team_id: uuid.UUID, reason: str
+    db: AsyncSession,
+    auth: Auth,
+    ticket: Ticket,
+    team_id: uuid.UUID,
+    assignee_id: uuid.UUID,
+    reason: str,
 ) -> None:
-    """Vai para a fila do outro grupo, sem responsável; o anterior continua vendo (docs/10)."""
+    """Vai para o outro grupo, com um responsável de lá; o anterior continua vendo (docs/10)."""
     require(auth, ticket, "transfer")
     team = await _active(db, Team, team_id)
     if team.id == ticket.team_id:
         raise HTTPException(422, "O chamado já está neste grupo.")
+    assignee = await _team_member(db, assignee_id, team.id)
     comment = await _comment(
         db, auth, ticket, required_text(reason, "Informe o motivo da transferência.")
     )
@@ -820,8 +785,7 @@ async def transfer(
         "to": ref(team),
         "comment_id": str(comment.public_id),
     }
-    if ticket.assignee is not None:
-        payload["unassigned"] = ref(ticket.assignee)
+    payload["assignee"] = {"from": ref(ticket.assignee), "to": ref(assignee)}
     if ticket.co_assignees:
         payload["co_unassigned"] = [ref(c.user) for c in ticket.co_assignees]
     if ticket.status.kind != "open":
@@ -830,7 +794,7 @@ async def transfer(
         ticket.status_id = status.id
     add_event(db, ticket, "ticket.transferred", auth, **payload)
     ticket.team_id = team.id
-    ticket.assignee_id = None
+    ticket.assignee_id = assignee.id
     ticket.co_assignees.clear()
     known = await db.get(TicketTeam, (ticket.id, team.id))
     if known is None:

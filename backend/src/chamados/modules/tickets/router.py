@@ -26,7 +26,6 @@ from chamados.modules.tickets.schemas import (
     CommentOut,
     EventList,
     EventOut,
-    NextIn,
     PersonTime,
     ResolutionRef,
     StatusKind,
@@ -72,7 +71,7 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
         else None,
         client=RefOut(id=t.client.public_id, name=t.client.label) if t.client else None,
         beneficiary_name=t.beneficiary_name,
-        assignee=_user(t.assignee),
+        assignee=UserRef(id=t.assignee.public_id, display_name=t.assignee.display_name),
         started_at=t.started_at,
         created_at=t.created_at,
         updated_at=t.updated_at,
@@ -132,7 +131,7 @@ async def list_tickets(
     db: DB,
     view: Annotated[TicketView, Query(description="fila (aba da lista)")] = "all",
     team: Annotated[uuid.UUID | None, Query(description="id do grupo atual")] = None,
-    assignee: Annotated[str | None, Query(description='"me", "none" ou o id do usuário')] = None,
+    assignee: Annotated[str | None, Query(description='"me" ou o id do usuário')] = None,
     status: Annotated[list[StatusKind] | None, Query(description="kinds de status")] = None,
     q: Annotated[
         str | None,
@@ -178,12 +177,6 @@ async def bulk_status(
         updated=updated,
         failed=[BulkFailure(number=n, detail=translate(d, locale)) for n, d in failed],
     )
-
-
-@router.post("/next", response_model=TicketOut)
-async def take_next(data: NextIn, auth: CurrentAuth, db: DB) -> TicketOut:
-    ticket = await service.take_next(db, auth, data.team_id)
-    return await _reloaded(db, auth, str(ticket.public_id))
 
 
 @router.post("", response_model=TicketOut, status_code=201)
@@ -237,7 +230,7 @@ async def transfer_ticket(
     ticket_ref: str, data: TransferIn, auth: CurrentAuth, db: DB
 ) -> TicketOut:
     ticket = await service.load(db, auth, ticket_ref)
-    await service.transfer(db, auth, ticket, data.team_id, data.reason)
+    await service.transfer(db, auth, ticket, data.team_id, data.assignee_id, data.reason)
     # Quem transferiu pode ter perdido o acesso de alteração, mas continua vendo (regra 2).
     return await _reloaded(db, auth, ticket_ref)
 

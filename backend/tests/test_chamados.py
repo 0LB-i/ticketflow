@@ -30,11 +30,17 @@ def cenario(client: TestClient, db: Session) -> dict[str, Any]:
         "infra": str(grupo(db, "Infra").public_id),
         "impressao": str(criar_categoria(db, "Impressão", grupo_padrao="TI").public_id),
         "sem_grupo": str(criar_categoria(db, "Diversos", tipo="task").public_id),
+        "cliente": criar_cliente(db, "Cliente Padrão", "33445566000186"),
     }
 
 
+def base(c: dict[str, Any]) -> dict[str, Any]:
+    """O que todo chamado precisa: cliente e responsável."""
+    return {"client_id": c["cliente"], "assignee": "me"}
+
+
 def registrar(client: TestClient, c: dict[str, Any], **extra: Any) -> dict[str, Any]:
-    dados = {"title": "Impressora não imprime", "category_id": c["impressao"], **extra}
+    dados = {**base(c), "title": "Impressora não imprime", "category_id": c["impressao"], **extra}
     r = client.post(API, json=dados)
     assert r.status_code == 201, r.text
     result: dict[str, Any] = r.json()
@@ -53,6 +59,7 @@ def test_registro_com_roteamento(client: TestClient, cenario: dict[str, Any]) ->
     r = client.post(
         API,
         json={
+            **base(cenario),
             "title": "  ERP fora do ar  ",
             "description": "O Financeiro avisou por telefone.",
             "category_id": cenario["impressao"],
@@ -81,43 +88,68 @@ def test_registro_valida_grupo_responsavel_e_perfil(
     client: TestClient, cenario: dict[str, Any], db: Session
 ) -> None:
     # Categoria sem grupo padrão: precisa escolher o grupo; tipo vem da categoria
-    r = client.post(API, json={"title": "Sem grupo", "category_id": cenario["sem_grupo"]})
+    r = client.post(
+        API, json={**base(cenario), "title": "Sem grupo", "category_id": cenario["sem_grupo"]}
+    )
     assert r.status_code == 422
     t = registrar(client, cenario, category_id=cenario["sem_grupo"], team_id=cenario["ti"])
-    assert t["type"] == "task" and t["assignee"] is None
+    assert t["type"] == "task" and t["assignee"]["display_name"] == "Ana"
+
+    # Responsável e cliente são obrigatórios
+    for falta in ("assignee", "client_id"):
+        dados = {**base(cenario), "title": "Sem", "category_id": cenario["impressao"]}
+        del dados[falta]
+        r = client.post(API, json=dados)
+        assert r.status_code == 422 and r.json()["errors"][0]["loc"] == ["body", falta]
+    r = client.post(API, json={**base(cenario), "title": "Nulo", "assignee": None})
+    assert r.status_code == 422
 
     # Título com menos de 3 letras depois de tirar os espaços
-    r = client.post(API, json={"title": "  ab  ", "category_id": cenario["impressao"]})
+    r = client.post(
+        API, json={**base(cenario), "title": "  ab  ", "category_id": cenario["impressao"]}
+    )
     assert r.status_code == 422
 
     # Só nos próprios grupos
     r = client.post(
         API,
-        json={"title": "Outro", "category_id": cenario["impressao"], "team_id": cenario["infra"]},
+        json={
+            **base(cenario),
+            "title": "Outro",
+            "category_id": cenario["impressao"],
+            "team_id": cenario["infra"],
+        },
     )
     assert r.status_code == 403
     # Qualquer membro registra para outro membro; o responsável precisa ser do grupo
     assert registrar(client, cenario, assignee=cenario["bia"])["assignee"]["display_name"] == "Bia"
     r = client.post(
         API,
-        json={"title": "Caio", "category_id": cenario["impressao"], "assignee": cenario["caio"]},
+        json={
+            **base(cenario),
+            "title": "Caio",
+            "category_id": cenario["impressao"],
+            "assignee": cenario["caio"],
+        },
     )
     assert r.status_code == 422
 
     entrar(client, "auditor@x.com")
     assert (
-        client.post(API, json={"title": "Auditor", "category_id": cenario["impressao"]}).status_code
+        client.post(
+            API, json={**base(cenario), "title": "Auditor", "category_id": cenario["impressao"]}
+        ).status_code
         == 403
     )
 
 
 def test_registro_sem_categoria(client: TestClient, cenario: dict[str, Any]) -> None:
     # Sem categoria não há grupo padrão: o grupo é obrigatório
-    r = client.post(API, json={"title": "Sem categoria"})
+    r = client.post(API, json={**base(cenario), "title": "Sem categoria"})
     assert r.status_code == 422
     assert r.json()["detail"] == "Escolha o grupo do chamado."
 
-    r = client.post(API, json={"title": "Sem categoria", "team_id": cenario["ti"]})
+    r = client.post(API, json={**base(cenario), "title": "Sem categoria", "team_id": cenario["ti"]})
     assert r.status_code == 201, r.text
     t = r.json()
     assert t["category"] is None and t["type"] == "incident" and t["team"]["name"] == "TI"
@@ -146,13 +178,20 @@ def test_inicio_do_chamado(client: TestClient, cenario: dict[str, Any]) -> None:
     assert datetime.fromisoformat(t["started_at"]) == datetime(2026, 10, 1, 11, 30, tzinfo=UTC)
     futuro = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
     r = client.post(
-        API, json={"title": "Futuro", "category_id": cenario["impressao"], "started_at": futuro}
+        API,
+        json={
+            **base(cenario),
+            "title": "Futuro",
+            "category_id": cenario["impressao"],
+            "started_at": futuro,
+        },
     )
     assert r.status_code == 422
     assert r.json()["detail"] == "O início não pode ficar no futuro."
     r = client.post(
         API,
         json={
+            **base(cenario),
             "title": "Sem fuso",
             "category_id": cenario["impressao"],
             "started_at": "2026-10-01T08:30:00",
@@ -206,7 +245,9 @@ def test_status_em_massa_so_supervisor_e_admin(client: TestClient, cenario: dict
     a = registrar(client, cenario)["number"]
     b = registrar(client, cenario)["number"]
     entrar(client, "caio@x.com")
-    infra = client.post(API, json={"title": "Switch", "team_id": cenario["infra"]}).json()["number"]
+    infra = client.post(
+        API, json={**base(cenario), "title": "Switch", "team_id": cenario["infra"]}
+    ).json()["number"]
     url = f"{API}/bulk/status"
 
     # Membro sem supervisão: nada muda
@@ -260,7 +301,13 @@ def test_status_escolhido_no_formulario(
     assert t["status"] == {"id": status["Arquivado"], "name": "Arquivado", "kind": "closed"}
     assert t["closed_at"] is not None
     r = client.post(
-        API, json={"title": "Status?", "category_id": cenario["impressao"], "status_id": 99}
+        API,
+        json={
+            **base(cenario),
+            "title": "Status?",
+            "category_id": cenario["impressao"],
+            "status_id": 99,
+        },
     )
     assert r.status_code == 422
 
@@ -361,11 +408,12 @@ def test_cliente_e_contato_do_chamado(
     r = client.patch(url, json={"client_id": sem_nome})
     assert r.json()["client"] == {"id": sem_nome, "name": "São Paulo/SP"}
     r = client.patch(url, json={"client_id": None})
-    assert r.json()["client"] is None
-    assert eventos(client, t["number"])[-1]["payload"]["changes"]["client"]["to"] is None
+    assert r.status_code == 422 and r.json()["detail"] == "O chamado precisa de um cliente."
 
     # Cliente inativo não entra em chamado novo nem numa alteração
-    r = client.post(API, json={"title": "Outro", "team_id": cenario["ti"], "client_id": antigo})
+    r = client.post(
+        API, json={**base(cenario), "title": "Outro", "team_id": cenario["ti"], "client_id": antigo}
+    )
     assert r.status_code == 422 and r.json()["detail"] == "Cliente não encontrado ou inativo."
     assert client.patch(url, json={"client_id": antigo}).status_code == 422
 
@@ -560,24 +608,25 @@ def test_tempo_gasto_nos_andamentos(client: TestClient, cenario: dict[str, Any])
 # --- atribuição e transferência -----------------------------------------------------------------
 
 
-def test_assumir_atribuir_e_devolver(client: TestClient, cenario: dict[str, Any]) -> None:
-    t = registrar(client, cenario)
+def test_assumir_e_atribuir(client: TestClient, cenario: dict[str, Any]) -> None:
+    t = registrar(client, cenario, assignee=cenario["bia"])
     url = f"{API}/{t['number']}/assign"
-    assert "assign_self" in t["allowed_actions"]
+    assert "assign_self" in t["allowed_actions"] and "unassign" not in t["allowed_actions"]
 
     r = client.post(url, json={"assignee": "me"})
     assert r.json()["assignee"]["display_name"] == "Ana"
-    assert client.post(url, json={"assignee": None}).json()["assignee"] is None
+    # Não há como deixar o chamado sem responsável
+    assert client.post(url, json={"assignee": None}).status_code == 422
 
     entrar(client, "bia@x.com")
-    r = client.post(url, json={"assignee": cenario["ana"]})
-    assert r.json()["assignee"]["display_name"] == "Ana"
+    r = client.post(url, json={"assignee": cenario["bia"]})
+    assert r.json()["assignee"]["display_name"] == "Bia"
     assert client.post(url, json={"assignee": cenario["caio"]}).status_code == 422  # de outro grupo
     atribuicoes = [
         e["payload"] for e in eventos(client, t["number"]) if e["type"] == "ticket.assigned"
     ]
-    assert [(a["from"] or {}).get("name") for a in atribuicoes] == [None, "Ana", None]
-    assert [(a["to"] or {}).get("name") for a in atribuicoes] == ["Ana", None, "Ana"]
+    assert [a["from"]["name"] for a in atribuicoes] == ["Bia", "Ana"]
+    assert [a["to"]["name"] for a in atribuicoes] == ["Ana", "Bia"]
 
 
 def test_registro_com_varios_responsaveis(client: TestClient, cenario: dict[str, Any]) -> None:
@@ -587,12 +636,15 @@ def test_registro_com_varios_responsaveis(client: TestClient, cenario: dict[str,
     criado = eventos(client, t["number"])[0]["payload"]
     assert [u["name"] for u in criado["co_assignees"]] == ["Bia"]
 
-    # Os demais exigem o principal e precisam ser membros ativos do grupo
-    sem_principal = {"title": "Sem principal", "category_id": cenario["impressao"]}
-    r = client.post(API, json={**sem_principal, "co_assignee_ids": [cenario["bia"]]})
-    assert r.status_code == 422
+    # Os demais precisam ser membros ativos do grupo
     r = client.post(
-        API, json={**sem_principal, "assignee": "me", "co_assignee_ids": [cenario["caio"]]}
+        API,
+        json={
+            **base(cenario),
+            "title": "De fora",
+            "category_id": cenario["impressao"],
+            "co_assignee_ids": [cenario["caio"]],
+        },
     )
     assert r.status_code == 422
 
@@ -611,18 +663,13 @@ def test_registro_com_varios_responsaveis(client: TestClient, cenario: dict[str,
     r = client.post(f"{url}/assign", json={"assignee": cenario["bia"]})
     assert r.json()["assignee"]["display_name"] == "Bia" and r.json()["co_assignees"] == []
 
-    # Devolver à fila tira todos
+    # Transferir tira os demais
     t = registrar(client, cenario, assignee="me", co_assignee_ids=[cenario["bia"]])
     url = f"{API}/{t['number']}"
-    r = client.post(f"{url}/assign", json={"assignee": None})
-    assert r.json()["assignee"] is None and r.json()["co_assignees"] == []
-    devolvido = eventos(client, t["number"])[-1]["payload"]
-    assert [u["name"] for u in devolvido["co_unassigned"]] == ["Bia"]
-
-    # Transferir também
-    t = registrar(client, cenario, assignee="me", co_assignee_ids=[cenario["bia"]])
-    url = f"{API}/{t['number']}"
-    r = client.post(f"{url}/transfer", json={"team_id": cenario["infra"], "reason": "Rede"})
+    r = client.post(
+        f"{url}/transfer",
+        json={"team_id": cenario["infra"], "assignee_id": cenario["caio"], "reason": "Rede"},
+    )
     assert r.json()["co_assignees"] == []
     transferido = eventos(client, t["number"])[-1]["payload"]
     assert [u["name"] for u in transferido["co_unassigned"]] == ["Bia"]
@@ -631,20 +678,22 @@ def test_registro_com_varios_responsaveis(client: TestClient, cenario: dict[str,
 def test_transferencia(client: TestClient, cenario: dict[str, Any]) -> None:
     t = registrar(client, cenario, assignee="me")
     url = f"{API}/{t['number']}"
-    assert (
-        client.post(
-            f"{url}/transfer", json={"team_id": cenario["infra"], "reason": " "}
-        ).status_code
-        == 422
-    )
-    assert (
-        client.post(f"{url}/transfer", json={"team_id": cenario["ti"], "reason": "x"}).status_code
-        == 422
-    )
+    para_o_caio = {"team_id": cenario["infra"], "assignee_id": cenario["caio"]}
 
-    r = client.post(f"{url}/transfer", json={"team_id": cenario["infra"], "reason": "É da rede"})
-    t = r.json()
-    assert t["team"]["name"] == "Infra" and t["assignee"] is None
+    def transferir(**dados: Any) -> Any:
+        return client.post(f"{url}/transfer", json=dados)
+
+    assert transferir(**para_o_caio, reason=" ").status_code == 422
+    assert (
+        transferir(team_id=cenario["ti"], assignee_id=cenario["bia"], reason="x").status_code == 422
+    )
+    # O novo responsável é obrigatório e precisa ser do grupo de destino
+    assert transferir(team_id=cenario["infra"], reason="x").status_code == 422
+    r = transferir(team_id=cenario["infra"], assignee_id=cenario["bia"], reason="x")
+    assert r.status_code == 422
+
+    t = transferir(**para_o_caio, reason="É da rede").json()
+    assert t["team"]["name"] == "Infra" and t["assignee"]["display_name"] == "Caio"
     assert t["status"]["name"] == "Pendente"
     # O grupo anterior continua vendo, mas não altera mais
     assert t["allowed_actions"] == ["watch_self"]
@@ -653,20 +702,23 @@ def test_transferencia(client: TestClient, cenario: dict[str, Any]) -> None:
     transferido = eventos(client, t["number"])[-1]
     assert transferido["type"] == "ticket.transferred"
     assert transferido["payload"]["from"]["name"] == "TI"
-    assert transferido["payload"]["unassigned"]["name"] == "Ana"
+    assert transferido["payload"]["assignee"] == {
+        "from": {"id": cenario["ana"], "name": "Ana"},
+        "to": {"id": cenario["caio"], "name": "Caio"},
+    }
 
     entrar(client, "caio@x.com")
-    assert client.post(f"{url}/assign", json={"assignee": "me"}).status_code == 200
+    assert "comment" in client.get(url).json()["allowed_actions"]
 
 
 # --- status ------------------------------------------------------------------------------------
 
 
 def test_ciclo_aguardar_concluir_reabrir(client: TestClient, cenario: dict[str, Any]) -> None:
-    t = registrar(client, cenario)
+    t = registrar(client, cenario, assignee=cenario["bia"])
     url = f"{API}/{t['number']}/transitions"
 
-    # Sem responsável, o membro não põe em espera nem conclui (só o responsável ou supervisor)
+    # Quem não é o responsável não põe em espera nem conclui (só o responsável ou supervisor)
     assert client.post(url, json={"action": "wait", "comment": "x"}).status_code == 403
     client.post(f"{API}/{t['number']}/assign", json={"assignee": "me"})
     assert client.post(url, json={"action": "wait"}).status_code == 422
@@ -726,10 +778,10 @@ def test_cancelar_pelo_registrante(client: TestClient, cenario: dict[str, Any]) 
 
 
 def test_lista_filtra_e_pagina_na_ordem_padrao(client: TestClient, cenario: dict[str, Any]) -> None:
-    baixa = registrar(client, cenario, title="Baixa")
-    critica = registrar(client, cenario, title="Crítica", assignee="me")
-    media = registrar(client, cenario, title="Média")
-    baixa2 = registrar(client, cenario, title="Baixa 2")
+    baixa = registrar(client, cenario, title="Baixa", assignee=cenario["bia"])
+    critica = registrar(client, cenario, title="Crítica")
+    media = registrar(client, cenario, title="Média", assignee=cenario["bia"])
+    baixa2 = registrar(client, cenario, title="Baixa 2", assignee=cenario["bia"])
 
     pagina = client.get(API, params={"limit": 2}).json()
     assert [t["title"] for t in pagina["items"]] == ["Baixa", "Crítica"]
@@ -741,13 +793,14 @@ def test_lista_filtra_e_pagina_na_ordem_padrao(client: TestClient, cenario: dict
         return [t["title"] for t in client.get(API, params=params).json()["items"]]
 
     assert titulos(assignee="me") == ["Crítica"]
-    assert titulos(assignee="none") == ["Baixa", "Média", "Baixa 2"]
+    assert titulos(assignee=cenario["bia"]) == ["Baixa", "Média", "Baixa 2"]
     assert titulos(team=cenario["infra"]) == []
     client.post(f"{API}/{critica['number']}/transitions", json={"action": "wait", "comment": "x"})
     assert titulos(status=["waiting"]) == ["Crítica"]
     assert titulos(status=["open", "closed"]) == ["Baixa", "Média", "Baixa 2"]
     assert client.get(API, params={"cursor": "lixo"}).status_code == 422
     assert client.get(API, params={"assignee": "lixo"}).status_code == 422
+    assert client.get(API, params={"assignee": "none"}).status_code == 422
     assert {baixa["number"], media["number"], baixa2["number"]}
 
     entrar(client, "auditor@x.com")

@@ -59,9 +59,9 @@ const PADARIA = {
   state: 'SP',
   is_active: true,
 }
-/** Campo de texto pelo rótulo. */
+/** Campo de texto pelo rótulo (sem o asterisco dos obrigatórios). */
 function campo(w: ReturnType<typeof montar>, rotulo: string) {
-  const label = w.findAll('label').find((l) => l.text() === rotulo)!
+  const label = w.findAll('label').find((l) => l.text().replace(/ \*$/, '') === rotulo)!
   return w.get(`#${CSS.escape(label.attributes('for')!)}`)
 }
 /** Digita no seletor de cliente e escolhe o resultado, como um usuário. */
@@ -95,8 +95,6 @@ describe('NewTicketView', () => {
     await w.get('input[type=text]').setValue('Impressora parada')
     await escolherCliente(w, 'Padaria Pão Quente')
     await campo(w, 'Contato').setValue('Maria')
-    await w.get('button[aria-label="Remover Ana"]').trigger('click') // ninguém: fila do grupo
-    expect(w.text()).toContain('fica na fila do grupo')
     await w.get('form').trigger('submit')
 
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1000'))
@@ -108,7 +106,7 @@ describe('NewTicketView', () => {
       started_at: null,
       client_id: PADARIA.id,
       beneficiary_name: 'Maria',
-      assignee: null,
+      assignee: 'me',
       co_assignee_ids: [],
       watcher_ids: [],
       mention_ids: [],
@@ -121,6 +119,7 @@ describe('NewTicketView', () => {
       'GET /api/v1/me': [200, ME],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS],
+      'GET /api/v1/clients': [200, { items: [PADARIA], total: 1 }],
       'POST /api/v1/tickets': [201, { number: 1001, title: 'Para o grupo' }],
     })
     const router = criarRouter()
@@ -134,6 +133,7 @@ describe('NewTicketView', () => {
     await escolher('Usuários', 'Todas as pessoas do grupo')
     await vi.waitFor(() => expect(w.find('button[aria-label="Remover Ana"]').exists()).toBe(true))
     await w.get('input[type=text]').setValue('Para o grupo')
+    await escolherCliente(w, 'Padaria Pão Quente')
     await w.get('form').trigger('submit')
 
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1001'))
@@ -161,6 +161,7 @@ describe('NewTicketView', () => {
       'GET /api/v1/me': [200, ME],
       'GET /api/v1/teams': [200, GRUPOS],
       'GET /api/v1/statuses': [200, STATUS],
+      'GET /api/v1/clients': [200, { items: [PADARIA], total: 1 }],
       'POST /api/v1/tickets': [201, { number: 1002, title: 'Começou cedo' }],
     })
     const router = criarRouter()
@@ -173,6 +174,7 @@ describe('NewTicketView', () => {
     await w.get('input[type=time]').setValue('07:45')
     expect(w.text()).toContain('Ajustado à mão')
     await w.get('input[type=text]').setValue('Começou cedo')
+    await escolherCliente(w, 'Padaria Pão Quente')
     await w.get('form').trigger('submit')
 
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/chamados/1002'))
@@ -192,7 +194,7 @@ describe('NewTicketView', () => {
     expect(w.text()).not.toContain('Status')
   })
 
-  it('não envia sem título', async () => {
+  it('não envia sem título, cliente e responsável', async () => {
     // O router faz a navegação inicial ao ser instalado, e o guard carrega o /me.
     const feitas = simularApi({
       'GET /api/v1/me': [200, ME],
@@ -200,9 +202,13 @@ describe('NewTicketView', () => {
       'GET /api/v1/statuses': [200, STATUS],
     })
     const w = montar(NewTicketView, { global: { plugins: [criarRouter()] } })
-    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    await vi.waitFor(() => expect(w.find('button[aria-label="Remover Ana"]').exists()).toBe(true))
+    await w.get('button[aria-label="Remover Ana"]').trigger('click')
     await w.get('form').trigger('submit')
     expect(w.text()).toContain('Informe um título com pelo menos 3 letras.')
+    expect(w.text()).toContain('Escolha o cliente.')
+    expect(w.text()).toContain('Escolha pelo menos uma pessoa responsável.')
+    expect(w.find('button[aria-label="Tirar o cliente"]').exists()).toBe(false)
     expect(feitas.some((r) => r.metodo === 'POST')).toBe(false)
   })
 })
@@ -218,7 +224,7 @@ const CHAMADO = {
   department: null,
   client: { id: '00000000-0000-0000-0000-0000000000e1', name: 'Padaria Pão Quente' },
   beneficiary_name: 'Maria',
-  assignee: null,
+  assignee: { id: BIA, display_name: 'Bia' },
   started_at: '2026-10-10T11:30:00Z',
   created_at: '2026-10-10T12:00:00Z',
   updated_at: '2026-10-10T12:00:00Z',
@@ -271,7 +277,7 @@ describe('TicketView', () => {
     )
   })
 
-  it('troca e tira o cliente na lateral', async () => {
+  it('troca o cliente na lateral, mas não tira', async () => {
     const OFICINA = { ...PADARIA, id: '00000000-0000-0000-0000-0000000000e2', label: 'Oficina' }
     const feitas = simularApi({
       'GET /api/v1/tickets/1000': [200, CHAMADO],
@@ -288,9 +294,60 @@ describe('TicketView', () => {
     await vi.waitFor(() =>
       expect(feitas.find((r) => r.metodo === 'PATCH')?.corpo).toEqual({ client_id: OFICINA.id }),
     )
-    await w.get('button[aria-label="Tirar o cliente"]').trigger('click')
+    expect(w.find('button[aria-label="Tirar o cliente"]').exists()).toBe(false)
+  })
+
+  it('transferir pede o grupo de destino, o novo responsável de lá e o motivo', async () => {
+    const INFRA = '00000000-0000-0000-0000-0000000000a2'
+    const CAIO = '00000000-0000-0000-0000-0000000000b3'
+    const caio = { user_id: CAIO, display_name: 'Caio', email: 'c@x.com', role: 'member' }
+    const feitas = simularApi({
+      'GET /api/v1/tickets/1000': [200, CHAMADO],
+      'GET /api/v1/tickets/1000/comments': [200, { items: [] }],
+      'GET /api/v1/teams': [
+        200,
+        {
+          items: [
+            ...GRUPOS.items,
+            {
+              ...GRUPOS.items[0],
+              id: INFRA,
+              name: 'Infra',
+              members: [{ ...caio, is_active: true }],
+            },
+          ],
+        },
+      ],
+      'POST /api/v1/tickets/1000/transfer': [200, CHAMADO],
+    })
+    const w = montar(TicketView, { props: { numero: '1000' } })
+    await vi.waitFor(() => expect(w.text()).toContain('Transferir'))
+    await w
+      .get('aside')
+      .findAll('button')
+      .find((b) => b.text() === 'Transferir')!
+      .trigger('click')
+
+    const janela = () => document.body.querySelector('[role=dialog]')!
+    await vi.waitFor(() => expect(janela()?.textContent).toContain('Novo responsável'))
+    await escolher('Grupo de destino', 'Infra')
+    await escolher('Novo responsável', 'Caio')
+    const motivo = janela().querySelector('textarea')!
+    motivo.value = 'É da rede'
+    motivo.dispatchEvent(new Event('input'))
+    await vi.waitFor(() => {
+      const botao = [...janela().querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Transferir',
+      )!
+      expect(botao.disabled).toBe(false)
+      botao.click()
+    })
     await vi.waitFor(() =>
-      expect(feitas.filter((r) => r.metodo === 'PATCH').at(-1)?.corpo).toEqual({ client_id: null }),
+      expect(feitas.find((r) => r.caminho.endsWith('/transfer'))?.corpo).toEqual({
+        team_id: INFRA,
+        assignee_id: CAIO,
+        reason: 'É da rede',
+      }),
     )
   })
 

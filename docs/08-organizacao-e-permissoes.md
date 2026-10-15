@@ -156,7 +156,7 @@ Todos os comentários e anexos são visíveis a quem vê o chamado: não existe 
 | Título, descrição, categoria, tipo | Sim | Sim | — |
 | Setor e pessoa atendidos | Sim | Sim | — |
 | Grupo (transferência) | Sim, com motivo | Sim | — |
-| Responsável | Assumir para si; devolver para a fila | Qualquer membro do grupo | — |
+| Responsável | Assumir para si (todo chamado tem responsável: não volta para a fila) | Qualquer membro do grupo | — |
 | Status | Conforme o fluxo | Conforme o fluxo + aprovar | — |
 | Observadores | Sim | Sim | Remover a si mesmo |
 | Tags | Sim | Sim | — |

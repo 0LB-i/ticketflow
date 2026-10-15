@@ -15,7 +15,7 @@ from chamados.modules.audit.models import AuditLog
 from chamados.modules.reports.service import TZ, outside_minutes
 from chamados.modules.system.work_hours import DEFAULT, WorkHours
 from tests.conftest import criar_usuario, entrar
-from tests.test_chamados import API, cenario, criar_cliente, registrar  # noqa: F401
+from tests.test_chamados import API, base, cenario, criar_cliente, registrar  # noqa: F401
 
 REPORTS = "/api/v1/reports"
 SEGUNDA = date(2026, 10, 5)
@@ -83,8 +83,8 @@ def test_horas_por_pessoa_cliente_e_dia(
         f"{API}/{t}/transitions",
         json={"action": "close", "comment": "Pronto", "resolution_code_id": 1},
     )
-    sem_cliente = registrar(client, cenario, assignee="me")["number"]
-    tarefa(client, sem_cliente, 15, em(dia, 11))
+    outro = registrar(client, cenario, assignee="me")["number"]
+    tarefa(client, outro, 15, em(dia, 11))
 
     r = relatorio(client, dia)
     assert r["totals"]["minutes"] == 135
@@ -93,7 +93,10 @@ def test_horas_por_pessoa_cliente_e_dia(
     assert [(p["name"], p["minutes"], p["overtime_minutes"]) for p in r["people"]] == [
         ("Ana", 135, 60)
     ]
-    assert [(c["name"], c["minutes"]) for c in r["clients"]] == [("Padaria", 120), (None, 15)]
+    assert [(c["name"], c["minutes"]) for c in r["clients"]] == [
+        ("Padaria", 120),
+        ("Cliente Padrão", 15),
+    ]
     assert r["days"] == [{"date": dia.isoformat(), "minutes": 135, "overtime_minutes": 60}]
     assert [(o["ticket_number"], o["overtime_minutes"]) for o in r["overtime_tasks"]] == [(t, 60)]
 
@@ -118,7 +121,9 @@ def test_cada_um_ve_o_seu_e_o_supervisor_o_grupo(
     da_ana = registrar(client, cenario, assignee="me")["number"]
     tarefa(client, da_ana, 60, em(dia, 10))
     entrar(client, "caio@x.com")
-    da_infra = client.post(API, json={"title": "Servidor", "team_id": cenario["infra"]}).json()
+    da_infra = client.post(
+        API, json={**base(cenario), "title": "Servidor", "team_id": cenario["infra"]}
+    ).json()
     tarefa(client, da_infra["number"], 30, em(dia, 10))
     criar_usuario(db, "admin@x.com", "admin", nome="Admin")
 

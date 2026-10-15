@@ -7,7 +7,7 @@ from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 TicketType = Literal["incident", "request", "task"]
 StatusKind = Literal["approval", "open", "waiting", "delivered", "closed", "canceled"]
 TransitionAction = Literal["wait", "resume", "close", "reopen", "cancel"]
-TicketView = Literal["unassigned", "mine", "news", "waiting", "watching", "all"]
+TicketView = Literal["mine", "news", "waiting", "watching", "all"]
 Body = Annotated[str, Field(min_length=1, max_length=50_000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
 # Até 1000 horas num andamento: mais que isso é erro de digitação.
@@ -64,7 +64,7 @@ class TicketSummary(BaseModel):
     department: Ref | None
     client: Ref | None
     beneficiary_name: str | None = Field(description="contato: quem pediu (texto livre)")
-    assignee: UserRef | None
+    assignee: UserRef
     started_at: datetime
     created_at: datetime
     updated_at: datetime
@@ -103,7 +103,6 @@ class TicketPage(BaseModel):
 class TicketCounts(BaseModel):
     """Quantos chamados há em cada fila (as abas da lista)."""
 
-    unassigned: int
     mine: int
     news: int
     waiting: int
@@ -125,12 +124,6 @@ class BulkResult(BaseModel):
     failed: list[BulkFailure] = Field(description="os que não mudaram, com o motivo")
 
 
-class NextIn(BaseModel):
-    team_id: uuid.UUID | None = Field(
-        default=None, description="sem grupo, a fila de todos os meus grupos"
-    )
-
-
 class TicketCreate(BaseModel):
     title: Title
     description: str = Field(default="", max_length=50_000)
@@ -142,7 +135,7 @@ class TicketCreate(BaseModel):
         default=None, description='sem tipo, usa o da categoria (sem categoria, "incident")'
     )
     department_id: uuid.UUID | None = None
-    client_id: uuid.UUID | None = None
+    client_id: uuid.UUID = Field(description="cliente ativo")
     beneficiary_name: str | None = Field(
         default=None, max_length=200, description="contato: quem pediu (texto livre)"
     )
@@ -150,9 +143,7 @@ class TicketCreate(BaseModel):
         default=None, description="início do trabalho; sem valor, a hora do registro"
     )
     status_id: int | None = Field(default=None, description="sem valor, Pendente")
-    assignee: Literal["me"] | uuid.UUID | None = Field(
-        default=None, description='"me", outro membro do grupo ou nulo (fila)'
-    )
+    assignee: Literal["me"] | uuid.UUID = Field(description='"me" ou outro membro do grupo')
     co_assignee_ids: list[uuid.UUID] = Field(
         default=[],
         max_length=200,
@@ -173,7 +164,7 @@ class TicketUpdate(BaseModel):
     category_id: uuid.UUID | None = Field(default=None, description="nula tira a categoria")
     type: TicketType | None = None
     department_id: uuid.UUID | None = None
-    client_id: uuid.UUID | None = Field(default=None, description="nulo tira o cliente")
+    client_id: uuid.UUID | None = Field(default=None, description="outro cliente ativo")
     beneficiary_name: str | None = Field(
         default=None, max_length=200, description="contato: quem pediu (texto livre)"
     )
@@ -214,13 +205,14 @@ class CommentList(BaseModel):
 
 
 class AssignIn(BaseModel):
-    assignee: Literal["me"] | uuid.UUID | None = Field(
-        description='"me" para assumir, um membro do grupo, ou nulo para devolver à fila'
+    assignee: Literal["me"] | uuid.UUID = Field(
+        description='"me" para assumir ou um membro do grupo'
     )
 
 
 class TransferIn(BaseModel):
     team_id: uuid.UUID
+    assignee_id: uuid.UUID = Field(description="novo responsável: membro ativo do grupo de destino")
     reason: Body
 
 

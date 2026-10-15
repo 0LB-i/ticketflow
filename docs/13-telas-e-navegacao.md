@@ -54,7 +54,7 @@ flowchart LR
 | `/login` | Login | Todos | 1 |
 | `/esqueci-senha` · `/redefinir-senha/:token` · `/convite/:token` | Recuperação de senha e primeiro acesso | Todos | 1 |
 | `/` | **Início** | Todos (conteúdo muda por perfil, 13.4) | 1 |
-| `/chamados` | **Filas** (abas: Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos) | Agentes, admin, auditor (só leitura) | 1 |
+| `/chamados` | **Filas** (abas: Meus, Com novidades, Aguardando, Acompanhando, Todos) | Agentes, admin, auditor (só leitura) | 1 |
 | `/chamados/novo` | **Novo chamado** ([10.4](10-chamados.md#formulário)) | Agentes, admin | 1 |
 | `/chamados/:numero` | **Detalhe do chamado**. O que aparece depende das permissões (`allowed_actions`) | Quem pode ver o chamado | 1 |
 | `/aprovacoes` | Aprovações pendentes e decididas | Supervisores, admin | 2 |
@@ -86,7 +86,7 @@ Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **
 
 | Perfil | O que aparece |
 |--------|---------------|
-| Agente | Contadores (não atribuídos, meus, com novidades, aguardando), botão "Pegar o próximo", meus chamados mais antigos |
+| Agente | Contadores (meus, com novidades, aguardando), meus chamados mais antigos |
 | Supervisor | O mesmo do agente + aprovações pendentes (Fase 2) e chamados do grupo parados há mais de 7 dias |
 | Admin | Resumo geral (abertos por grupo) e atalhos da administração |
 | Auditor | Resumo geral, só leitura |
@@ -97,8 +97,8 @@ Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **
 
 ```
 Chamados
-[Não atribuídos 7] [Meus 12] [Com novidades 3] [Aguardando 5] [Acompanhando 2] [Todos]
-Grupo: [TI – Suporte ▾]  Categoria: [Todas ▾]  Setor: [Todos ▾]   [Pegar o próximo]
+[Meus 12] [Com novidades 3] [Aguardando 5] [Acompanhando 2] [Todos]
+Grupo: [TI – Suporte ▾]  Categoria: [Todas ▾]  Setor: [Todos ▾]
 ┌───┬──────┬────────────────────────────┬──────────────┬───────────┬──────────┐
 │ ☐ │ #    │ Título                     │ Para         │ Responsáv.│ Parado há│
 ├───┼──────┼────────────────────────────┼──────────────┼───────────┼──────────┤
