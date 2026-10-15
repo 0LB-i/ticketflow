@@ -130,19 +130,12 @@ EN: dict[str, str] = {
     ),
     "Escolha o grupo do chamado.": "Choose the ticket's team.",
     "Status não encontrado.": "Status not found.",
-    "Informe o nome do cliente.": "Enter the client's name.",
-    "Informe o endereço.": "Enter the address.",
-    "Informe o número do endereço.": "Enter the address number.",
-    "Informe o bairro.": "Enter the district.",
     "Informe a cidade.": "Enter the city.",
     "CPF inválido.": "Invalid CPF.",
     "CNPJ inválido.": "Invalid CNPJ.",
     "A data de nascimento não pode ficar no futuro.": "The date of birth cannot be in the future.",
     "Telefone inválido: informe o DDD e o número.": (
         "Invalid phone: enter the area code and the number."
-    ),
-    "Celular inválido: informe o DDD e o número.": (
-        "Invalid mobile: enter the area code and the number."
     ),
     "RG inválido: só números, até 14.": "Invalid ID (RG): digits only, up to 14.",
     "CEP inválido: são 8 números.": "Invalid postal code (CEP): it has 8 digits.",

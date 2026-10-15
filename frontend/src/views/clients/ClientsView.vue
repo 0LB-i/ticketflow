@@ -67,16 +67,21 @@ const colunas = computed(() => [
       <DataTable :columns="colunas" :rows="linhas" row-key="id" :caption="t('clientes.titulo')">
         <template #cell-name="{ row }">
           <RouterLink :to="`/clientes/${row.id}`" class="font-medium hover:underline">
-            {{ row.name }}
+            {{ row.label }}
           </RouterLink>
-          <span v-if="row.trade_name" class="block text-muted">{{ row.trade_name }}</span>
+          <span v-if="row.name && row.trade_name" class="block text-muted">{{
+            row.trade_name
+          }}</span>
           <Badge v-if="!row.is_active" color="gray" class="ml-2">{{ t('comum.inativo') }}</Badge>
         </template>
         <template #cell-document="{ row }">{{
-          formatarDocumento(row.document, row.kind)
+          row.document ? formatarDocumento(row.document, row.kind) : '—'
         }}</template>
         <template #cell-kind="{ row }">{{ t(`clientes.tipos.${row.kind}`) }}</template>
-        <template #cell-phone="{ row }">{{ formatarTelefone(row.phone) }}</template>
+        <template #cell-phone="{ row }">{{
+          row.phones.length ? formatarTelefone(row.phones[0]) : '—'
+        }}</template>
+        <template #cell-email="{ row }">{{ row.emails[0] ?? '—' }}</template>
         <template #cell-cidade="{ row }">{{ row.city }}/{{ row.state }}</template>
       </DataTable>
       <p v-if="!linhas.length" class="text-muted">{{ t('comum.nenhumRegistro') }}</p>

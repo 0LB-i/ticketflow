@@ -57,6 +57,8 @@ def ref(
         return {"id": str(obj.public_id), "name": obj.full_name}
     if isinstance(obj, TicketStatus | ResolutionCode):
         return {"id": obj.id, "name": obj.name}
+    if isinstance(obj, Client):
+        return {"id": str(obj.public_id), "name": obj.label}
     return {"id": str(obj.public_id), "name": obj.name}
 
 

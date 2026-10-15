@@ -40,8 +40,24 @@ describe('ClientFormView', () => {
     await digitar(w, 'Razão social', 'Padaria Pão Quente Ltda')
     await digitar(w, 'Nome fantasia', 'Pão Quente')
     await digitar(w, 'CNPJ', '12abc34501de35')
-    await digitar(w, 'E-mail', 'contato@paoquente.com.br')
     await digitar(w, 'Telefone', '1133334444')
+    await w
+      .findAll('button')
+      .find((b) => b.text() === 'Adicionar telefone')!
+      .trigger('click')
+    await digitar(w, 'Telefone 2', '11987654321')
+    await digitar(w, 'E-mail', 'contato@paoquente.com.br')
+    await w
+      .findAll('button')
+      .find((b) => b.text() === 'Adicionar e-mail')!
+      .trigger('click')
+    await w
+      .findAll('button')
+      .find((b) => b.text() === 'Adicionar e-mail')!
+      .trigger('click')
+    await digitar(w, 'E-mail 3', 'nao-envia@x.com')
+    // Remove o terceiro; o segundo, vazio, fica de fora do envio
+    await w.findAll('button[aria-label="Remover e-mail"]')[2]!.trigger('click')
     await digitar(w, 'CEP', '01310100')
     await digitar(w, 'Logradouro', 'Avenida Paulista')
     await digitar(w, 'Número', '1000')
@@ -59,7 +75,8 @@ describe('ClientFormView', () => {
       document: '12.ABC.345/01DE-35',
       id_number: null,
       birth_date: null,
-      phone: '(11) 3333-4444',
+      phones: ['(11) 3333-4444', '(11) 98765-4321'],
+      emails: ['contato@paoquente.com.br'],
       postal_code: '01310-100',
       state: 'SP',
     })
@@ -84,16 +101,45 @@ describe('ClientFormView', () => {
     await vi.waitFor(() => expect(campo('RG').value).toBe('12345678901234'))
   })
 
-  it('não envia com CPF inválido e campos obrigatórios vazios', async () => {
+  it('não envia com CPF ou e-mail inválido e sem CEP, cidade e UF', async () => {
     const feitas = simularApi({ 'GET /api/v1/me': [200, ME] })
     const w = montar(ClientFormView, { global: { plugins: [criarRouter()] } })
     await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
     await digitar(w, 'CPF', '52998224724')
+    await digitar(w, 'E-mail', 'joao')
     await w.get('form').trigger('submit')
     expect(w.text()).toContain('CPF inválido.')
     expect(w.text()).toContain('Informe um e-mail válido.')
     expect(w.text()).toContain('O CEP tem 8 números.')
+    expect(w.text()).toContain('Campo obrigatório.')
+    expect(w.text()).toContain('Escolha a UF.')
+    expect(w.text()).not.toContain('Informe o nome.')
     expect(feitas.some((r) => r.metodo === 'POST')).toBe(false)
+  })
+
+  it('cadastra só com CEP, cidade e UF', async () => {
+    const feitas = simularApi({
+      'GET /api/v1/me': [200, ME],
+      'POST /api/v1/clients': [201, { id: ID }],
+      'GET /api/v1/clients': [200, { items: [], total: 0 }],
+    })
+    const router = criarRouter()
+    const w = montar(ClientFormView, { global: { plugins: [router] }, attachTo: document.body })
+    await router.push('/clientes/novo')
+    await vi.waitFor(() => expect(w.find('form').exists()).toBe(true))
+    await digitar(w, 'CEP', '01310100')
+    await digitar(w, 'Cidade', 'São Paulo')
+    await escolher('UF', 'SP')
+    await w.get('form').trigger('submit')
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/clientes'))
+    expect(feitas.find((r) => r.metodo === 'POST')!.corpo).toMatchObject({
+      name: null,
+      document: null,
+      street: null,
+      phones: [],
+      emails: [],
+      city: 'São Paulo',
+    })
   })
 })
 
@@ -108,11 +154,12 @@ describe('ClientsView', () => {
             {
               id: ID,
               kind: 'person',
+              label: 'João da Silva',
               name: 'João da Silva',
               trade_name: null,
               document: '52998224725',
-              email: 'joao@exemplo.com',
-              phone: '11987654321',
+              emails: ['joao@exemplo.com'],
+              phones: ['11987654321', '1133334444'],
               city: 'São Paulo',
               state: 'SP',
               is_active: true,
