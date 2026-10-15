@@ -99,6 +99,8 @@ describe('UsersView', () => {
     await vi.waitFor(() => expect(document.body.textContent).toContain('Excluir Bruno Lima?'))
     expect(feitas.some((r) => r.metodo === 'DELETE')).toBe(false)
     botao('Excluir usuário').at(-1)!.click()
-    await vi.waitFor(() => expect(feitas.some((r) => r.metodo === 'DELETE')).toBe(true))
+    // Excluído (204, sem corpo): o painel fecha, sem mensagem de erro.
+    await vi.waitFor(() => expect(document.body.querySelector('[role=dialog]')).toBeNull())
+    expect(feitas.filter((r) => r.metodo === 'DELETE')).toHaveLength(1)
   })
 })
