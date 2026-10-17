@@ -1,4 +1,5 @@
-"""Cria a aplicação FastAPI: API em /api e a SPA compilada na mesma origem (ADR 0010)."""
+"""Cria a aplicação FastAPI: API em /api, as telas do servidor (ADR 0011) e a SPA compilada na
+mesma origem (ADR 0010)."""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,7 +11,7 @@ from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
-from chamados import __version__
+from chamados import __version__, web
 from chamados.config import Settings, get_settings
 from chamados.core import health
 from chamados.core.errors import register_error_handlers
@@ -29,6 +30,8 @@ from chamados.modules.organization.router import router as organization_router
 from chamados.modules.reports.router import router as reports_router
 from chamados.modules.system.router import router as system_router
 from chamados.modules.tickets.router import router as tickets_router
+from chamados.web.page import Redirect, redirect_response
+from chamados.web.templating import STATIC_DIR
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -82,6 +85,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     async def api_not_found(path: str) -> None:
         raise HTTPException(404)
+
+    # Telas já migradas para o servidor; o que ainda não migrou continua na SPA (ADR 0011).
+    app.add_exception_handler(Redirect, redirect_response)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.include_router(web.router)
 
     _mount_spa(app, settings)
     return app

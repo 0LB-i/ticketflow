@@ -1,0 +1,76 @@
+{#- Design system das telas do servidor (docs/17): só tokens de cor (bg-surface, text-muted,
+    bg-primary…), nunca cores diretas. Mesmo visual dos componentes ui/ da SPA. -#}
+{% from "_icons.html" import icon %}
+
+{% set BUTTON_VARIANTS = {
+  "primary": "bg-primary text-on-primary hover:bg-primary-hover",
+  "secondary": "border border-border-input bg-surface text-fg hover:bg-surface-raised",
+  "danger": "bg-danger text-on-danger hover:opacity-90",
+  "ghost": "text-fg hover:bg-surface-raised",
+  "gold": "bg-gold text-on-gold hover:bg-gold-hover",
+} %}
+{% set BUTTON_SIZES = {"sm": "h-8 px-3 text-sm", "md": "h-10 px-4 text-sm"} %}
+
+{% macro button_class(variant="primary", size="md") -%}
+inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {{ BUTTON_VARIANTS[variant] }} {{ BUTTON_SIZES[size] }}
+{%- endmacro %}
+
+{#- Campo de texto com rótulo, dica e erro. Atributos extras (minlength=8…) vão para o input. -#}
+{% macro field(name, label, type="text", value="", hint=None, error=None, required=False, autocomplete=None) -%}
+{%- set id = "campo-" ~ name -%}
+{%- set described = [id ~ "-dica" if hint, id ~ "-erro" if error] | select | join(" ") -%}
+<div class="flex flex-col gap-1">
+  <label for="{{ id }}" class="font-medium">
+    {{- label }}{% if required %}<span class="text-danger" aria-hidden="true"> *</span>{% endif -%}
+  </label>
+  <input id="{{ id }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
+    {%- if required %} required{% endif %}
+    {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
+    {%- if error %} aria-invalid="true"{% endif %}
+    {%- if described %} aria-describedby="{{ described }}"{% endif %}
+    {%- for attr, attr_value in kwargs.items() %} {{ attr }}="{{ attr_value }}"{% endfor %}
+    class="h-10 rounded-md border bg-surface px-3 text-fg placeholder:text-muted {{ 'border-danger' if error else 'border-border-input' }}">
+  {%- if hint %}
+  <p id="{{ id }}-dica" class="text-muted">{{ hint }}</p>
+  {%- endif %}
+  {%- if error %}
+  <p id="{{ id }}-erro" class="text-danger">{{ error }}</p>
+  {%- endif %}
+</div>
+{%- endmacro %}
+
+{% macro alert(text, kind="error") -%}
+{%- set colors = {"error": "bg-red-bg text-red-fg", "success": "bg-green-bg text-green-fg", "info": "bg-primary-subtle text-fg"} -%}
+<p class="rounded-md p-3 {{ colors[kind] }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ text }}</p>
+{%- endmacro %}
+
+{#- Logotipo: a imagem das configurações ou o provisório (docs/17 §17.6), um quadrado na cor
+    da marca com "T", seguido do nome do sistema. -#}
+{% macro logo() -%}
+<span class="inline-flex items-center gap-2 text-base font-bold text-fg">
+  {%- if branding.logo_url %}
+  <img src="{{ branding.logo_url }}" alt="" class="h-7 max-w-24 shrink-0 object-contain">
+  {%- else %}
+  <svg viewBox="0 0 32 32" class="size-7 shrink-0" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--tf-brand)"/><path d="M9 9h14v4h-5v12h-4V13H9z" fill="#fff"/></svg>
+  {%- endif %}
+  {{ t("app.nome") }}
+</span>
+{%- endmacro %}
+
+{#- Tema claro, escuro ou automático; o comportamento está no static/js/app.js. -#}
+{% macro theme_menu() -%}
+<details data-menu class="relative">
+  <summary class="inline-flex size-10 cursor-pointer list-none items-center justify-center rounded-md text-fg hover:bg-surface-raised [&::-webkit-details-marker]:hidden" aria-label="{{ t('tema.titulo') }}">
+    {{ icon("sun", "size-5 dark:hidden") }}
+    {{ icon("moon", "hidden size-5 dark:block") }}
+  </summary>
+  <div role="menu" class="absolute right-0 z-50 mt-1 min-w-40 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
+    <p class="px-2 py-1 text-xs text-muted">{{ t("tema.titulo") }}</p>
+    {%- for value, name in [("claro", "sun"), ("escuro", "moon"), ("automatico", "monitor")] %}
+    <button type="button" role="menuitemradio" aria-checked="false" data-tema="{{ value }}" class="flex h-8 w-full items-center gap-2 rounded px-2 text-left hover:bg-surface-raised aria-checked:font-semibold">
+      {{ icon(name, "size-4") }} {{ t("tema." ~ value) }}
+    </button>
+    {%- endfor %}
+  </div>
+</details>
+{%- endmacro %}

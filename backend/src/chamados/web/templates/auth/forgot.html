@@ -1,0 +1,20 @@
+{% extends "card.html" %}
+{% from "_ui.html" import alert, button_class, field with context %}
+
+{% block title %}{{ t("esqueci.titulo") }}{% endblock %}
+
+{% block card %}
+<div class="flex flex-col gap-4">
+  <h1 class="text-lg font-semibold">{{ t("esqueci.titulo") }}</h1>
+  {%- if sent %}
+  {{ alert(t("esqueci.enviado"), "success") }}
+  {%- else %}
+  <form method="post" action="/esqueci-senha" class="flex flex-col gap-4">
+    <p class="text-muted">{{ t("esqueci.texto") }}</p>
+    {{ field("email", t("login.email"), type="email", required=True, autocomplete="email", autofocus="") }}
+    <button type="submit" class="{{ button_class() }}">{{ t("esqueci.enviar") }}</button>
+  </form>
+  {%- endif %}
+  <a href="/login" class="text-center text-primary underline">{{ t("esqueci.voltar") }}</a>
+</div>
+{% endblock %}

@@ -19,6 +19,9 @@ git pull --ff-only
 echo "== backend"
 (cd backend && uv sync -q --frozen --no-dev)
 
+echo "== CSS das telas do servidor"
+scripts/css.sh
+
 echo "== frontend"
 (cd frontend && pnpm install -s --frozen-lockfile && pnpm -s build)
 

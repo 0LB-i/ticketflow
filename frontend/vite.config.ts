@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
+// No serviço de desenvolvimento (scripts/instalar-servico-dev.sh), o uvicorn fica na 8001.
+const uvicorn = process.env.TF_HMR_PORT ? 'http://127.0.0.1:8001' : 'http://127.0.0.1:8000'
+
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
@@ -11,7 +14,11 @@ export default defineConfig({
   },
   server: {
     // Em desenvolvimento a API roda no uvicorn; em produção, na mesma origem (ADR 0010).
-    proxy: { '/api': 'http://127.0.0.1:8000' },
+    proxy: {
+      '/api': 'http://127.0.0.1:8000',
+      // Telas que já migraram para o servidor e os arquivos delas (ADR 0011).
+      '^/(static/|login|sair|esqueci-senha|convite/|redefinir-senha/|trocar-senha)': uvicorn,
+    },
     // Atrás do nginx (scripts/instalar-servico-dev.sh), o navegador abre o websocket na 443.
     hmr: process.env.TF_HMR_PORT ? { clientPort: Number(process.env.TF_HMR_PORT) } : undefined,
   },

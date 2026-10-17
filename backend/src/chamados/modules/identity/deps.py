@@ -43,14 +43,19 @@ async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
         raise HTTPException(401, "Sessão expirada ou inexistente. Entre novamente.")
     if request.method in UNSAFE and not csrf_ok(session, request.headers.get(CSRF_HEADER)):
         raise HTTPException(403, "Token CSRF ausente ou inválido.")
-    # Papel e grupos lidos a cada requisição, junto com a sessão: mudanças valem na hora
-    # (docs/09 §9.7).
-    user = session.user
     if (
-        user.must_change_password
+        session.user.must_change_password
         and (request.method, request.url.path) not in ALLOWED_BEFORE_PASSWORD_CHANGE
     ):
         raise HTTPException(403, "Troque a senha provisória antes de continuar.")
+    return session_auth(session)
+
+
+def session_auth(session: UserSession) -> Auth:
+    """Usuário e Actor de uma sessão já validada (API e telas do servidor)."""
+    # Papel e grupos lidos a cada requisição, junto com a sessão: mudanças valem na hora
+    # (docs/09 §9.7).
+    user = session.user
     actor = Actor(
         user_id=user.id,
         role=user.role.code,

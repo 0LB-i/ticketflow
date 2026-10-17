@@ -70,6 +70,9 @@ uv sync
 uv run chamados db upgrade              # cria o administrador padrão: usuário admin, senha admin
 uv run uvicorn chamados.main:create_app --factory --reload
 
+# CSS das telas do servidor (login e as que já migraram, ADR 0011), em outro terminal
+scripts/css.sh --watch
+
 # frontend, em outro terminal: http://localhost:5173 (o Vite repassa /api para o backend)
 # entre com admin / admin: o sistema pede a troca da senha no primeiro acesso
 cd frontend
@@ -79,7 +82,7 @@ pnpm dev
 
 Depois de mudar a API no backend: `pnpm gen:api` (no `frontend/`) regenera o cliente TypeScript.
 
-**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala dois serviços em modo de desenvolvimento, atrás do nginx em `https://IP` (a porta 80 redireciona para a 443): o `ticketflow-frontend.service` (o Vite em `127.0.0.1:5173`, que compila sob demanda e atualiza o navegador sozinho) e o `ticketflow.service` (o uvicorn em `127.0.0.1:8001` com `--reload`, que reinicia sozinho quando um `.py` muda). O certificado é autoassinado (`/etc/ticketflow/tls/ticketflow.crt`): instale-o como confiável no computador para o navegador não avisar. Não há build nem reinício a cada mudança; só as migrações são aplicadas à mão (`.venv/bin/chamados db upgrade`, com o `/etc/ticketflow/env`). Rodar o script de novo atualiza as dependências e aplica as migrações.
+**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala três serviços em modo de desenvolvimento, atrás do nginx em `https://IP` (a porta 80 redireciona para a 443): o `ticketflow-frontend.service` (o Vite em `127.0.0.1:5173`, que compila sob demanda e atualiza o navegador sozinho), o `ticketflow.service` (o uvicorn em `127.0.0.1:8001` com `--reload`, que reinicia sozinho quando um `.py` muda) e o `ticketflow-css.service` (o Tailwind gerando de novo o CSS das telas do servidor a cada mudança nos templates). O certificado é autoassinado (`/etc/ticketflow/tls/ticketflow.crt`): instale-o como confiável no computador para o navegador não avisar. Não há build nem reinício a cada mudança; só as migrações são aplicadas à mão (`.venv/bin/chamados db upgrade`, com o `/etc/ticketflow/env`). Rodar o script de novo atualiza as dependências e aplica as migrações.
 
 ### Verificação
 

@@ -1,0 +1,201 @@
+/*
+ * Entrada do Tailwind (binário standalone, sem Node: scripts/css.sh). Gera static/css/app.css,
+ * que não vai para o git. As classes são procuradas só nos templates e nos scripts das telas.
+ */
+@import 'tailwindcss' source(none);
+@source '../../templates';
+@source '../js/*.js';
+
+/* Inter (latim e latim estendido bastam para português e inglês), servida daqui. */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../fonts/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Modo escuro pela classe .dark no <html> (tema escolhido pelo usuário, docs/17 §17.4). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens da identidade visual (docs/17 §17.2). Os componentes usam só estes nomes
+ * (bg-surface, text-muted, bg-primary…), nunca cores diretas como bg-orange-700.
+ * Os valores são a escala orange/neutral do Tailwind até chegar o laranja oficial (questão 11).
+ */
+:root {
+  --tf-brand: #f97316;
+  --tf-primary: #c2410c;
+  --tf-primary-hover: #9a3412;
+  --tf-on-primary: #ffffff;
+  --tf-primary-subtle: #fff7ed;
+  --tf-focus: #ea580c;
+  --tf-bg: #fafafa;
+  --tf-surface: #ffffff;
+  --tf-surface-raised: #f5f5f5;
+  --tf-fg: #171717;
+  --tf-muted: #525252;
+  --tf-border: #e5e5e5;
+  --tf-border-input: #737373;
+  --tf-danger: #b91c1c;
+  --tf-on-danger: #ffffff;
+  /* Marcar como entregue: amarelo-ouro com texto escuro (11,7:1), igual nos dois modos */
+  --tf-gold: #facc15;
+  --tf-gold-hover: #eab308;
+  --tf-on-gold: #171717;
+
+  /* Status e prioridade: texto / fundo (docs/17, tabela de badges) */
+  --tf-blue-fg: #1d4ed8;
+  --tf-blue-bg: #eff6ff;
+  --tf-violet-fg: #6d28d9;
+  --tf-violet-bg: #f5f3ff;
+  --tf-teal-fg: #0f766e;
+  --tf-teal-bg: #f0fdfa;
+  --tf-green-fg: #15803d;
+  --tf-green-bg: #f0fdf4;
+  --tf-gray-fg: #404040;
+  --tf-gray-bg: #f5f5f5;
+  --tf-red-fg: #b91c1c;
+  --tf-red-bg: #fef2f2;
+}
+
+.dark {
+  --tf-primary: #fb923c;
+  --tf-primary-hover: #fdba74;
+  --tf-on-primary: #0a0a0a;
+  --tf-primary-subtle: #262626;
+  --tf-focus: #fb923c;
+  --tf-bg: #0a0a0a;
+  --tf-surface: #171717;
+  --tf-surface-raised: #262626;
+  --tf-fg: #f5f5f5;
+  --tf-muted: #a3a3a3;
+  --tf-border: #262626;
+  --tf-border-input: #737373;
+  --tf-danger: #dc2626;
+
+  --tf-blue-fg: #93c5fd;
+  --tf-violet-fg: #c4b5fd;
+  --tf-teal-fg: #5eead4;
+  --tf-green-fg: #86efac;
+  --tf-gray-fg: #d4d4d4;
+  --tf-red-fg: #fca5a5;
+  --tf-blue-bg: #262626;
+  --tf-violet-bg: #262626;
+  --tf-teal-bg: #262626;
+  --tf-green-bg: #262626;
+  --tf-gray-bg: #262626;
+  --tf-red-bg: #262626;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+
+  --color-brand: var(--tf-brand);
+  --color-primary: var(--tf-primary);
+  --color-primary-hover: var(--tf-primary-hover);
+  --color-on-primary: var(--tf-on-primary);
+  --color-primary-subtle: var(--tf-primary-subtle);
+  --color-focus: var(--tf-focus);
+  --color-bg: var(--tf-bg);
+  --color-surface: var(--tf-surface);
+  --color-surface-raised: var(--tf-surface-raised);
+  --color-fg: var(--tf-fg);
+  --color-muted: var(--tf-muted);
+  --color-border: var(--tf-border);
+  --color-border-input: var(--tf-border-input);
+  --color-danger: var(--tf-danger);
+  --color-on-danger: var(--tf-on-danger);
+  --color-gold: var(--tf-gold);
+  --color-gold-hover: var(--tf-gold-hover);
+  --color-on-gold: var(--tf-on-gold);
+
+  --color-blue-fg: var(--tf-blue-fg);
+  --color-blue-bg: var(--tf-blue-bg);
+  --color-violet-fg: var(--tf-violet-fg);
+  --color-violet-bg: var(--tf-violet-bg);
+  --color-teal-fg: var(--tf-teal-fg);
+  --color-teal-bg: var(--tf-teal-bg);
+  --color-green-fg: var(--tf-green-fg);
+  --color-green-bg: var(--tf-green-bg);
+  --color-gray-fg: var(--tf-gray-fg);
+  --color-gray-bg: var(--tf-gray-bg);
+  --color-red-fg: var(--tf-red-fg);
+  --color-red-bg: var(--tf-red-bg);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-bg font-sans text-sm text-fg antialiased;
+  }
+  /* Contorno de foco do teclado: 2 px + 2 px de afastamento (docs/17 §17.2) */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+}
+
+/* Texto formatado (Markdown) da descrição e dos comentários, e o mesmo visual no editor. */
+@layer components {
+  .texto-formatado {
+    @apply leading-relaxed break-words;
+  }
+  .texto-formatado > * + * {
+    @apply mt-2;
+  }
+  .texto-formatado ul {
+    @apply list-disc pl-6;
+  }
+  .texto-formatado ol {
+    @apply list-decimal pl-6;
+  }
+  .texto-formatado a {
+    @apply text-primary underline;
+  }
+  .texto-formatado img {
+    @apply max-h-96 max-w-full rounded border border-border;
+  }
+  .texto-formatado img.ProseMirror-selectednode {
+    @apply outline-2 outline-focus;
+  }
+  .texto-formatado code {
+    @apply rounded bg-surface-raised px-1 font-mono text-[0.85em];
+  }
+  .texto-formatado pre {
+    @apply overflow-x-auto rounded bg-surface-raised p-3;
+  }
+  .texto-formatado pre code {
+    @apply bg-transparent p-0;
+  }
+  .texto-formatado blockquote {
+    @apply border-l-2 border-border-input pl-3 text-muted;
+  }
+  .texto-formatado h1,
+  .texto-formatado h2,
+  .texto-formatado h3 {
+    @apply font-semibold;
+  }
+  .texto-formatado .mencao {
+    @apply rounded bg-primary-subtle px-1 font-medium text-primary;
+  }
+  .texto-formatado p.is-editor-empty:first-child::before {
+    @apply pointer-events-none float-left h-0 text-muted content-[attr(data-placeholder)];
+  }
+}

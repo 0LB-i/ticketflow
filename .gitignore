@@ -11,6 +11,9 @@ dist/
 build/
 *.egg-info/
 
+# Telas do servidor: CSS gerado pelo scripts/css.sh
+backend/src/chamados/web/static/css/app.css
+
 # Frontend
 node_modules/
 frontend/dist/

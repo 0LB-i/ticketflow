@@ -1,0 +1,22 @@
+{% extends "card.html" %}
+{% from "_ui.html" import alert, button_class, field with context %}
+
+{% block title %}{{ t("login.titulo") }}{% endblock %}
+
+{% block card %}
+<form method="post" action="/login" class="flex flex-col gap-4">
+  <h1 class="text-lg font-semibold">{{ t("login.titulo") }}</h1>
+  {%- if error %}
+  {{ alert(error) }}
+  {%- elif password_created %}
+  {{ alert(t("definirSenha.pronto"), "success") }}
+  {%- elif expired %}
+  {{ alert(t("login.expirou"), "info") }}
+  {%- endif %}
+  <input type="hidden" name="volta" value="{{ volta }}">
+  {{ field("login", t("login.usuario"), value=login or "", required=True, autocomplete="username", autofocus="") }}
+  {{ field("senha", t("login.senha"), type="password", required=True, autocomplete="current-password") }}
+  <button type="submit" class="{{ button_class() }}">{{ t("login.entrar") }}</button>
+  <a href="/esqueci-senha" class="text-center text-primary underline">{{ t("login.esqueci") }}</a>
+</form>
+{% endblock %}

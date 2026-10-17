@@ -67,7 +67,7 @@ class LogoIn(BaseModel):
     )
 
 
-async def _branding(db: AsyncSession) -> Branding:
+async def load_branding(db: AsyncSession) -> Branding:
     # Só o hash: a interface consulta o /branding toda vez que abre, e a imagem não é necessária.
     logo_sha = await db.scalar(
         select(SystemSetting.value["sha256"].astext).where(SystemSetting.key == "logo")
@@ -82,7 +82,7 @@ async def _branding(db: AsyncSession) -> Branding:
 
 @router.get("/branding", response_model=Branding)
 async def branding(db: DB) -> Branding:
-    return await _branding(db)
+    return await load_branding(db)
 
 
 @router.get("/branding/logo", response_class=Response)
@@ -127,7 +127,7 @@ async def update_settings(data: SettingsUpdate, auth: Admin, request: Request, d
             after=after,
         )
     await db.commit()
-    return await _branding(db)
+    return await load_branding(db)
 
 
 @router.put("/admin/settings/logo", response_model=Branding)
@@ -154,7 +154,7 @@ async def set_logo(data: LogoIn, auth: Admin, request: Request, db: DB) -> Brand
         after={"content_type": content_type, "bytes": len(raw), "sha256": sha},
     )
     await db.commit()
-    return await _branding(db)
+    return await load_branding(db)
 
 
 @router.delete("/admin/settings/logo", response_model=Branding)
@@ -172,7 +172,7 @@ async def remove_logo(auth: Admin, request: Request, db: DB) -> Branding:
         before={"sha256": logo["sha256"]},
     )
     await db.commit()
-    return await _branding(db)
+    return await load_branding(db)
 
 
 @router.get("/work-hours", response_model=WorkHours)

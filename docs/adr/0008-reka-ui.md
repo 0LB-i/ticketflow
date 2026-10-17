@@ -1,6 +1,6 @@
 # 0008. Componentes de interface com Reka UI + Tailwind CSS
 
-- **Status:** Aceita
+- **Status:** Substituída por [0011](0011-interface-web-no-servidor.md)
 - **Data:** 2026-10-09
 
 ## Contexto

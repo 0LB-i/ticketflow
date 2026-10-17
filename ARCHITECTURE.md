@@ -8,6 +8,8 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos (o "Pegar o próximo" saiu junto com a fila de não atribuídos, em 2026-10-15). A seção 10 lista o que ainda não existe.
 
+Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). O login e as telas de senha já são do servidor; as demais continuam na SPA até migrarem (3.11).
+
 ---
 
 ## 1. Visão geral
@@ -15,11 +17,12 @@ Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-
 ```
 navegador ── HTTPS ──► nginx ──► uvicorn (ticketflow.service) ──► PostgreSQL 17 (ou 16)
                                    │
-                                   ├─ /api/*  API REST (FastAPI)
-                                   └─ /*      interface web compilada (frontend/dist)
+                                   ├─ /api/*    API REST (FastAPI)
+                                   ├─ telas do servidor (Jinja2 + HTMX, web/) e /static
+                                   └─ /*        SPA compilada (frontend/dist), até o fim da migração
 ```
 
-- **Um processo**, um **monólito modular** em Python (FastAPI). Ele serve a API e também a interface web (SPA em Vue) compilada, **na mesma origem**: sem CORS e com o cookie de sessão funcionando sem configuração extra ([ADR 0010](docs/adr/0010-producao-systemd.md)).
+- **Um processo**, um **monólito modular** em Python (FastAPI). Ele serve a API e também a interface web, **na mesma origem**: sem CORS e com o cookie de sessão funcionando sem configuração extra ([ADR 0010](docs/adr/0010-producao-systemd.md)). A interface está migrando da SPA em Vue compilada para telas renderizadas pelo próprio FastAPI (3.11).
 - **Um banco**, o PostgreSQL, que guarda tudo: dados, sessões, auditoria, histórico, configurações e o logotipo. Não há Redis, fila externa nem armazenamento de objetos.
 - **API-first:** a interface só conversa com a API; toda regra de negócio e toda decisão de permissão ficam no backend.
 - **Uma instalação por empresa** ([ADR 0005](docs/adr/0005-instalacao-por-empresa.md)): não existe `tenant_id`.
@@ -39,12 +42,12 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
 │   ├── migrations/        Alembic: env.py e versions/0001…0028
-│   ├── src/chamados/      código (seção 3)
+│   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
-├── frontend/              interface (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI)
+├── frontend/              SPA (Vue 3, TypeScript, Vite, Tailwind 4, Reka UI); sai ao fim da migração
 │   ├── public/tema.js     aplica tema, idioma e cores antes da primeira pintura
 │   └── src/               código (seção 4)
-├── scripts/               check.sh, install-hooks.sh, deploy.sh, backup.sh, instalar-servico-dev.sh,
+├── scripts/               check.sh, install-hooks.sh, deploy.sh, backup.sh, instalar-servico-dev.sh, css.sh,
 │                          preparar-maquina-dev.sh (Ubuntu 24.04 novo pronto para desenvolver)
 └── deploy/                units do systemd (app, worker, backup) e nginx.conf
 ```
@@ -72,7 +75,8 @@ chamados/
 │   ├── engine.py        engine assíncrona (psycopg 3)
 │   ├── session.py       sessão por requisição: dependência DB
 │   └── models.py        importa todos os modelos (Alembic e relacionamentos por nome)
-└── modules/             um pacote por área de domínio (3.3)
+├── modules/             um pacote por área de domínio (3.3)
+└── web/                 telas renderizadas no servidor: Jinja2, HTMX, Tailwind (3.11)
 ```
 
 ### 3.1 Caminho de uma requisição
@@ -264,9 +268,36 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `chamados attachments purge` | Apaga os envios não vinculados há mais de 24 h (até o worker existir, rodar pelo cron) |
 | `chamados openapi [-o arquivo]` | Exporta o contrato OpenAPI (usado pelo `pnpm gen:api`) |
 
+### 3.11 Telas do servidor (`web/`, ADR 0011)
+
+```
+web/
+├── __init__.py          router das telas (fora do OpenAPI), incluído em main.py antes da SPA
+├── page.py              Page (sessão opcional, idioma, marca, render), LoggedPage (exige login),
+│                        Redirect, safe_next(), check_csrf()
+├── auth.py              login, sair, esqueci a senha, convite, redefinição, troca obrigatória
+├── i18n.py              translate(): os catálogos JSON da SPA (frontend/src/i18n) até a troca final
+├── palette.py           paleta derivada das 3 cores (port do tema/paleta.ts, mesmos tons)
+├── templating.py        ambiente Jinja2 e static() (endereço com a data do arquivo)
+├── templates/           base.html, card.html (cartão sem menu), _ui.html (macros), _icons.html, auth/
+└── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, vendor/htmx), fonts/
+```
+
+- **Sem regra na tela:** a rota da tela chama a função da rota da API (`identity.router.login(...)`) ou o service, e só monta o HTML. Os erros da API (`HTTPException`) viram a mensagem na tela, traduzida por `Page.api_message()`.
+- **Sessão:** `get_page` lê o cookie `tf_sessao` (`load_session` + `session_auth`, as mesmas peças do `get_auth` da API). `LoggedPageDep` exige login (sem sessão, `/login?volta=…`) e, com a senha provisória, só abre `/trocar-senha` e `/sair`.
+- **Idioma:** o da pessoa ou o padrão do sistema; nas telas sem login, o padrão. `t("chave", nome=…)` nos templates.
+- **CSRF:** formulário que altera dados manda `csrf_token` (o valor do cookie `tf_csrf`) num campo escondido, conferido por `check_csrf()` com o hash da sessão. O login não precisa (ainda não há sessão).
+- **Redirecionamento:** `raise Redirect(url)` em qualquer ponto (inclusive nas dependências) vira 303. Endereços de volta passam por `safe_next()`, que só aceita caminhos deste site.
+- **Cores:** `palette.stylesheet()` gera a folha das cores personalizadas, embutida no `<head>` (`<style id="tf-cores">`; a CSP aceita estilo embutido, não script). O tema claro/escuro fica no navegador (`tf-tema`, a mesma chave da SPA), aplicado pelo `tema.js` antes da primeira pintura.
+- **CSS:** `scripts/css.sh` roda o Tailwind standalone (`pytailwindcss`, versão fixa no script) sobre `static/css/input.css` e procura classes só em `templates/` e `static/js/`. O `app.css` não vai para o git: o `deploy.sh` o gera, e em desenvolvimento o `ticketflow-css.service` (ou `scripts/css.sh --watch`) o gera de novo a cada mudança.
+- **Convivência com a SPA:** o Vite repassa ao uvicorn os endereços já migrados (`server.proxy` no `vite.config.ts`, a lista entre parênteses), e as rotas da SPA para esses endereços usam o `ServerView.vue`, que recarrega a página. Migrar uma tela = criar a rota e o template aqui, acrescentar o endereço nessa lista e trocar o componente da rota da SPA por `NA_SERVIDOR` (ou apagar a rota, se a SPA nunca navega para ela).
+- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`.
+
 ---
 
 ## 4. Frontend (`frontend/src/`)
+
+A SPA está sendo substituída pelas telas do servidor (3.11, [ADR 0011](docs/adr/0011-interface-web-no-servidor.md)): tela nova vai para `web/`, e cada tela migrada sai daqui.
 
 ```
 src/
@@ -319,8 +350,8 @@ src/
 
 | Rota | Tela | Acesso |
 |------|------|--------|
-| `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | `views/auth/` | Público |
-| `/trocar-senha` | Troca obrigatória da senha provisória | Logado |
+| `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | No servidor (3.11): `ServerView.vue` recarrega a página | Público |
+| `/trocar-senha` | Troca obrigatória da senha provisória, no servidor (3.11) | Logado |
 | `/chamados` | Filas em abas com contadores (Meus, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), total de horas e lápis (abre o chamado) em cada linha e, para supervisor e admin, seleção de vários chamados com mudança de status (janela flutuante no pé da tela). Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
 | `/chamados/novo` | Registro | `ticket.create` |
 | `/chamados/:numero` | Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
@@ -376,7 +407,7 @@ modelos Pydantic (backend) ──chamados openapi──► openapi.json ──op
 |------|------|
 | Senhas | Argon2id; mínimo de 8 caracteres; lista de senhas comuns (`identity/senhas_comuns.txt`) |
 | Sessão | Cookie `tf_sessao` (HttpOnly, SameSite=Lax, Secure em produção); só o hash fica no banco; expira por inatividade e por prazo máximo; desativar o usuário encerra as sessões |
-| CSRF | Token sincronizado: cookie `tf_csrf` legível pela SPA + header `X-CSRF-Token` conferido com o hash da sessão |
+| CSRF | Token sincronizado: cookie `tf_csrf` legível pela SPA + header `X-CSRF-Token` conferido com o hash da sessão; nas telas do servidor, o mesmo token num campo escondido (`csrf_token`) |
 | Força bruta | Limite por IP em memória (a API roda num processo só) + espera progressiva e bloqueio da conta (`ratelimit.py`) |
 | Permissões | Sempre no backend (3.4); a interface só esconde botões |
 | Conteúdo | Markdown sem HTML bruto; logotipo sem SVG e conferido pelos bytes; `X-Content-Type-Options: nosniff` |
@@ -387,7 +418,7 @@ modelos Pydantic (backend) ──chamados openapi──► openapi.json ──op
 
 | Onde | Ferramenta | Como |
 |------|------------|------|
-| `backend/tests/` | pytest + **PostgreSQL real** (`TEST_DATABASE_URL`, banco `chamados_test`) | A sessão de testes desce as migrações até a base e sobe de novo; cada teste começa com `TRUNCATE` (`conftest.py`). Auxiliares: `criar_usuario`, `entrar`, `grupo`, `criar_categoria`, `FakeMailer` |
+| `backend/tests/` | pytest + **PostgreSQL real** (`TEST_DATABASE_URL`, banco `chamados_test`) | A sessão de testes desce as migrações até a base e sobe de novo; cada teste começa com `TRUNCATE` (`conftest.py`). Auxiliares: `criar_usuario`, `entrar`, `grupo`, `criar_categoria`, `FakeMailer`. As telas do servidor são testadas pelo HTML que devolvem (`test_web_*.py`) |
 | Regras puras | pytest parametrizado | `test_permissions` (matriz do docs/08), `test_regras_chamados` (ações × situação), `test_visibilidade` (6 regras) |
 | `frontend/src/**/*.test.ts` | Vitest + Vue Test Utils (jsdom) | `montar()` monta com os plugins da app; `simularApi()` substitui o `fetch` e registra as requisições. Com router, simule também o `GET /api/v1/me` (o guard o carrega) |
 
@@ -404,7 +435,7 @@ modelos Pydantic (backend) ──chamados openapi──► openapi.json ──op
 | Ambiente | Como |
 |----------|------|
 | **Desenvolvimento, terminais** | PostgreSQL nativo (17 na 5432, 16 na 5433; numa máquina nova, `scripts/preparar-maquina-dev.sh`); `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `pnpm dev` (porta 5173, repassa `/api` para a 8000). Ver o [README](README.md#como-rodar-desenvolvimento) |
-| **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento, sem build, atrás do nginx em `https://IP` (80 redireciona para 443; certificado autoassinado em `/etc/ticketflow/tls`). O nginx manda `/api/` para o `ticketflow.service` (a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`) e o resto, com o websocket da atualização automática, para o `ticketflow-frontend.service` (Vite em `127.0.0.1:5173`, `TF_HMR_PORT=443`). Aplica as migrações |
+| **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento, sem build, atrás do nginx em `https://IP` (80 redireciona para 443; certificado autoassinado em `/etc/ticketflow/tls`). O nginx manda `/api/` para o `ticketflow.service` (a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`) e o resto, com o websocket da atualização automática, para o `ticketflow-frontend.service` (Vite em `127.0.0.1:5173`, `TF_HMR_PORT=443`), que repassa as telas do servidor ao uvicorn (3.11). O `ticketflow-css.service` gera o CSS das telas do servidor (`scripts/css.sh --watch`). Aplica as migrações |
 | **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`; backup diário por `scripts/backup.sh` (timer). Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 
 Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o Claude Code ([CLAUDE.md](CLAUDE.md)). Na máquina de desenvolvimento não é preciso: o Vite e o `--reload` pegam as mudanças sozinhos. Na produção, o frontend compilado é servido direto da pasta e muda na hora; o backend só muda depois do `systemctl restart`.
@@ -457,11 +488,12 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 2. Linha nova nos testes tabelados de `test_regras_chamados.py`.
 3. Service + rota + evento (o histórico fica no banco e na API; a tela não mostra eventos).
 
-**Nova tela**
-1. View em `views/<área>/`; rota em `router/index.ts` com `meta.permissao`; item no `SideNav.vue`, se for de menu.
-2. Dados por composable (TanStack Query) e mutações com invalidação das chaves afetadas.
-3. Textos em `pt-BR.json` **e** `en.json`; só componentes de `ui/` e tokens de cor.
-4. Teste de componente com `montar()` e `simularApi()`.
+**Nova tela** (no servidor, 3.11)
+1. Rota em `web/<área>.py` com `PageDep` ou `LoggedPageDep`, chamando a função da API ou o service (nenhuma regra na tela); router incluído em `web/__init__.py`.
+2. Template em `web/templates/<área>/`, estendendo `base.html` ou `card.html`; só os macros de `_ui.html` e tokens de cor.
+3. Textos em `pt-BR.json` **e** `en.json` (`frontend/src/i18n/` até a troca final).
+4. Se substitui uma tela da SPA: endereço no `server.proxy` do `vite.config.ts` e `NA_SERVIDOR` na rota da SPA.
+5. Teste em `tests/test_web_<área>.py`, conferindo o HTML, os redirecionamentos e as permissões.
 
 **Nova permissão**
 1. Código em `P` (`core/permissions.py`) e nos papéis (`ROLES`); se depende de supervisão, em `SUPERVISOR`.

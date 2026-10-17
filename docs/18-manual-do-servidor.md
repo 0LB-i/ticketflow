@@ -130,7 +130,7 @@ Trocar o `SECRET_KEY` encerra todas as sessões e invalida os convites pendentes
 sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh
 ```
 
-O script faz `git pull`, `uv sync --frozen`, `pnpm install --frozen-lockfile && pnpm build` e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
+O script faz `git pull`, `uv sync --frozen`, gera o CSS das telas do servidor (`scripts/css.sh`, que na primeira vez baixa o binário do Tailwind do GitHub), `pnpm install --frozen-lockfile && pnpm build` e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
 
 ### 8. Serviços systemd
 

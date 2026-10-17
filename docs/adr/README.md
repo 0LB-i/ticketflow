@@ -10,7 +10,8 @@ Cada decisão de arquitetura relevante é registrada em um arquivo numerado, usa
 | [0004](0004-ia-api-generica-e-assistiva.md) | IA por uma API genérica, sem código por provedor ou modelo, e assistiva por padrão | Aceita |
 | [0005](0005-instalacao-por-empresa.md) | Uma instalação por empresa (single-tenant) | Aceita |
 | [0006](0006-interface-web.md) | Interface web com Jinja2 + HTMX + Tailwind CSS | Substituída por 0007 |
-| [0007](0007-interface-web-vue.md) | Interface web: SPA em Vue 3 + TypeScript + Tailwind CSS | Aceita |
-| [0008](0008-reka-ui.md) | Componentes de interface com Reka UI + Tailwind CSS | Aceita |
+| [0007](0007-interface-web-vue.md) | Interface web: SPA em Vue 3 + TypeScript + Tailwind CSS | Substituída por 0011 |
+| [0008](0008-reka-ui.md) | Componentes de interface com Reka UI + Tailwind CSS | Substituída por 0011 |
 | [0009](0009-github.md) | GitHub como plataforma do projeto | Aceita (adiada: repositório local por enquanto) |
 | [0010](0010-producao-systemd.md) | Produção com systemd + uvicorn, sem Docker | Aceita |
+| [0011](0011-interface-web-no-servidor.md) | Interface web renderizada no servidor: Jinja2 + HTMX + Tailwind CSS | Aceita (migração em andamento) |

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {#- Título da aba: "<página> · TicketFlow" (docs/17 §17.1). #}
+  <title>{% block title %}{% endblock %} · {{ t("app.nome") }}</title>
+  <link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">
+  <script src="{{ static('js/tema.js') }}"></script>
+  <link rel="stylesheet" href="{{ static('css/app.css') }}">
+  {%- if colors_css %}
+  {#- Cores personalizadas (configurações), por cima dos tokens do input.css. #}
+  <style id="tf-cores">{{ colors_css }}</style>
+  {%- endif %}
+  <script src="{{ static('js/vendor/htmx-2.0.11.min.js') }}" defer></script>
+  <script src="{{ static('js/app.js') }}" defer></script>
+</head>
+<body>
+  {% block body %}{% endblock %}
+</body>
+</html>

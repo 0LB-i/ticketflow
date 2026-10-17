@@ -19,39 +19,40 @@ declare module 'vue-router' {
   }
 }
 
+// Telas que já migraram para o servidor (ADR 0011): a SPA recarrega a página nelas.
+const NA_SERVIDOR = () => import('@/views/ServerView.vue')
+
 const routes: RouteRecordRaw[] = [
   // A tela inicial é a lista de chamados.
   { path: '/', redirect: { name: 'chamados' } },
   {
     path: '/login',
     name: 'login',
-    component: () => import('@/views/auth/LoginView.vue'),
+    component: NA_SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/esqueci-senha',
     name: 'esqueci-senha',
-    component: () => import('@/views/auth/ForgotPasswordView.vue'),
+    component: NA_SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/convite/:token',
     name: 'convite',
-    component: () => import('@/views/auth/SetPasswordView.vue'),
-    props: (r) => ({ token: r.params.token, tipo: 'convite' }),
+    component: NA_SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/redefinir-senha/:token',
     name: 'redefinir-senha',
-    component: () => import('@/views/auth/SetPasswordView.vue'),
-    props: (r) => ({ token: r.params.token, tipo: 'redefinir' }),
+    component: NA_SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/trocar-senha',
     name: 'trocar-senha',
-    component: () => import('@/views/auth/ChangePasswordView.vue'),
+    component: NA_SERVIDOR,
     meta: { cartao: true },
   },
   {

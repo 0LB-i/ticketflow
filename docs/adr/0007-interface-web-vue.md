@@ -1,6 +1,6 @@
 # 0007. Interface web: SPA em Vue 3 + TypeScript + Tailwind CSS
 
-- **Status:** Aceita
+- **Status:** Substituída por [0011](0011-interface-web-no-servidor.md)
 - **Data:** 2026-10-09
 - **Substitui:** [0006](0006-interface-web.md)
 

@@ -5,7 +5,9 @@
 #   - ticketflow.service: a unit da produção com o uvicorn em 127.0.0.1:8001 e --reload
 #     (reinicia sozinho quando um .py muda); o nginx manda /api para ele;
 #   - ticketflow-frontend.service: o Vite em 127.0.0.1:5173, que compila sob demanda e
-#     atualiza o navegador sozinho (websocket pelo nginx); o nginx manda o resto para ele.
+#     atualiza o navegador sozinho (websocket pelo nginx); o nginx manda o resto para ele;
+#   - ticketflow-css.service: gera o CSS das telas do servidor (Tailwind) a cada mudança nos
+#     templates (ADR 0011).
 # Sem domínio, o certificado é autoassinado para o IP e o nome da máquina: o navegador avisa
 # até ele ser instalado como confiável (/etc/ticketflow/tls/ticketflow.crt).
 # Roda como root:
@@ -109,8 +111,25 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 FIM
+cat >/etc/systemd/system/$SERVICO-css.service <<FIM
+# Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): o CSS das telas do
+# servidor, gerado de novo a cada mudança nos templates (ADR 0011).
+[Unit]
+Description=TicketFlow (CSS das telas do servidor em modo de desenvolvimento, Tailwind)
+
+[Service]
+User=$DONO
+ExecStart=$PWD/scripts/css.sh --watch
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+FIM
 systemctl daemon-reload
-systemctl enable -q "$SERVICO" "$SERVICO-frontend"
+systemctl enable -q "$SERVICO" "$SERVICO-frontend" "$SERVICO-css"
+# Só inicia o do CSS (não faz nada se ele já estiver rodando); ele não afeta os outros dois.
+systemctl start "$SERVICO-css"
 if systemctl is-active -q "$SERVICO"; then
   echo "O serviço já estava rodando. Para usar a configuração nova:"
   echo "  sudo systemctl restart $SERVICO $SERVICO-frontend"
@@ -193,7 +212,7 @@ cat <<FIM
 
 TicketFlow em https://$IP (documentação da API em /api/docs)
   certificado: $TLS_DIR/ticketflow.crt (instale como confiável para o navegador não avisar)
-  estado:      systemctl status $SERVICO $SERVICO-frontend nginx
-  log:         journalctl -u $SERVICO -u $SERVICO-frontend -f
+  estado:      systemctl status $SERVICO $SERVICO-frontend $SERVICO-css nginx
+  log:         journalctl -u $SERVICO -u $SERVICO-frontend -u $SERVICO-css -f
   Mudanças no código aparecem sozinhas; migrações: cd backend && .venv/bin/chamados db upgrade
 FIM

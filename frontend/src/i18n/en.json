@@ -103,7 +103,6 @@
     "esqueci": "Forgot my password",
     "expirou": "Your session has expired. Please sign in again.",
     "usuario": "Email or username",
-    "muitasTentativas": "Too many attempts. Try again later.",
     "falhou": "Could not sign in."
   },
   "esqueci": {

@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { api, mensagemDeErro, ou, type Schemas } from '@/api/client'
-import { i18n, type Idioma } from '@/i18n'
+import { api, ou, type Schemas } from '@/api/client'
+import type { Idioma } from '@/i18n'
 
 /** Usuário logado (docs/09). As permissões vêm do backend e só decidem o que mostrar. */
 export const useAuthStore = defineStore('auth', () => {
@@ -16,20 +16,6 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await api.GET('/api/v1/me')
     me.value = data ?? null
     carregado.value = true
-  }
-
-  /** `login`: e-mail ou nome de usuário (o administrador padrão entra com "admin"). */
-  async function entrar(login: string, password: string): Promise<string | null> {
-    const { error, response } = await api.POST('/api/v1/auth/login', {
-      body: { login, password },
-    })
-    if (error !== undefined) {
-      return response.status === 429
-        ? mensagemDeErro(error, i18n.global.t('login.muitasTentativas'))
-        : mensagemDeErro(error, i18n.global.t('login.falhou'))
-    }
-    await carregar()
-    return null
   }
 
   async function sair(): Promise<void> {
@@ -56,7 +42,6 @@ export const useAuthStore = defineStore('auth', () => {
     logado,
     precisaTrocarSenha,
     carregar,
-    entrar,
     sair,
     esquecer,
     mudarIdioma,
