@@ -8,7 +8,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos (o "Pegar o próximo" saiu junto com a fila de não atribuídos, em 2026-10-15). A seção 10 lista o que ainda não existe.
 
-Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). O login e as telas de senha já são do servidor; as demais continuam na SPA até migrarem (3.11).
+Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). O login, as telas de senha, o layout (menu, cabeçalho, menu do usuário) e a lista de chamados já são do servidor; as demais continuam na SPA até migrarem (3.11).
 
 ---
 
@@ -273,13 +273,16 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 ```
 web/
 ├── __init__.py          router das telas (fora do OpenAPI), incluído em main.py antes da SPA
-├── page.py              Page (sessão opcional, idioma, marca, render), LoggedPage (exige login),
-│                        Redirect, safe_next(), check_csrf()
-├── auth.py              login, sair, esqueci a senha, convite, redefinição, troca obrigatória
+├── page.py              Page (sessão opcional, idioma, marca, can(), render), LoggedPage (exige
+│                        login), Redirect, safe_next(), check_csrf(), flash()
+├── auth.py              login, sair, esqueci a senha, convite, redefinição, troca obrigatória, idioma
+├── tickets.py           / (vai para a lista), lista de chamados com as filas, status em massa
+├── formatting.py        datas, "há 3 dias" e duração como o formato.ts (fuso de São Paulo)
 ├── i18n.py              translate(): os catálogos JSON da SPA (frontend/src/i18n) até a troca final
 ├── palette.py           paleta derivada das 3 cores (port do tema/paleta.ts, mesmos tons)
 ├── templating.py        ambiente Jinja2 e static() (endereço com a data do arquivo)
-├── templates/           base.html, card.html (cartão sem menu), _ui.html (macros), _icons.html, auth/
+├── templates/           base.html, card.html (cartão sem menu), app.html (menu e cabeçalho),
+│                        _ui.html (macros), _icons.html, auth/, tickets/
 └── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, vendor/htmx), fonts/
 ```
 
@@ -287,11 +290,14 @@ web/
 - **Sessão:** `get_page` lê o cookie `tf_sessao` (`load_session` + `session_auth`, as mesmas peças do `get_auth` da API). `LoggedPageDep` exige login (sem sessão, `/login?volta=…`) e, com a senha provisória, só abre `/trocar-senha` e `/sair`.
 - **Idioma:** o da pessoa ou o padrão do sistema; nas telas sem login, o padrão. `t("chave", nome=…)` nos templates.
 - **CSRF:** formulário que altera dados manda `csrf_token` (o valor do cookie `tf_csrf`) num campo escondido, conferido por `check_csrf()` com o hash da sessão. O login não precisa (ainda não há sessão).
+- **Avisos:** `flash(response, ("success", texto))` antes de redirecionar; a próxima tela os mostra no canto (`toasts()` do `app.html`) e apaga o cookie `tf_aviso`. Os de sucesso somem em 5 s.
+- **Botões por permissão:** `page.can("ticket.create")` só mostra ou esconde (menu lateral, Novo chamado, seleção em massa); quem decide é a rota.
+- **JavaScript (`static/js/app.js`):** comportamento por atributos `data-*`, sem build: menus em `<details data-menu>`, `<dialog>` (`data-abre-dialogo`), formulário que aplica ao mudar (`data-envia-ao-mudar`), avisos e a seleção do status em massa. O HTMX busca trechos (`hx-select` sobre a página inteira que a rota devolve, sem templates parciais), como o "Carregar mais" da lista.
 - **Redirecionamento:** `raise Redirect(url)` em qualquer ponto (inclusive nas dependências) vira 303. Endereços de volta passam por `safe_next()`, que só aceita caminhos deste site.
 - **Cores:** `palette.stylesheet()` gera a folha das cores personalizadas, embutida no `<head>` (`<style id="tf-cores">`; a CSP aceita estilo embutido, não script). O tema claro/escuro fica no navegador (`tf-tema`, a mesma chave da SPA), aplicado pelo `tema.js` antes da primeira pintura.
 - **CSS:** `scripts/css.sh` roda o Tailwind standalone (`pytailwindcss`, versão fixa no script) sobre `static/css/input.css` e procura classes só em `templates/` e `static/js/`. O `app.css` não vai para o git: o `deploy.sh` o gera, e em desenvolvimento o `ticketflow-css.service` (ou `scripts/css.sh --watch`) o gera de novo a cada mudança.
 - **Convivência com a SPA:** o Vite repassa ao uvicorn os endereços já migrados (`server.proxy` no `vite.config.ts`, a lista entre parênteses), e as rotas da SPA para esses endereços usam o `ServerView.vue`, que recarrega a página. Migrar uma tela = criar a rota e o template aqui, acrescentar o endereço nessa lista e trocar o componente da rota da SPA por `NA_SERVIDOR` (ou apagar a rota, se a SPA nunca navega para ela).
-- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`.
+- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/` e `/chamados` (com `/chamados/status-em-massa`).
 
 ---
 
@@ -352,7 +358,7 @@ src/
 |------|------|--------|
 | `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | No servidor (3.11): `ServerView.vue` recarrega a página | Público |
 | `/trocar-senha` | Troca obrigatória da senha provisória, no servidor (3.11) | Logado |
-| `/chamados` | Filas em abas com contadores (Meus, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), total de horas e lápis (abre o chamado) em cada linha e, para supervisor e admin, seleção de vários chamados com mudança de status (janela flutuante no pé da tela). Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
+| `/chamados` | No servidor (3.11). Filas em abas com contadores (Meus, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), total de horas e lápis (abre o chamado) em cada linha e, para supervisor e admin, seleção de vários chamados com mudança de status (janela flutuante no pé da tela). Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
 | `/chamados/novo` | Registro | `ticket.create` |
 | `/chamados/:numero` | Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
 | `/admin/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail), no menu Administração | `client.view` (grupo Administradores) |

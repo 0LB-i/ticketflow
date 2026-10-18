@@ -1,26 +1,13 @@
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/vue-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { api, erroInesperado, mensagemDeErro, ou, type Schemas } from '@/api/client'
-import type { operations } from '@/api/schema'
 import { compararTexto } from '@/i18n'
 import type { Pessoa } from '@/components/editor/MentionList.vue'
 
 import { useGrupos } from './admin'
 
 export type Chamado = Schemas['TicketOut']
-/** Fila e filtros da lista, como a API recebe (sem o cursor). */
-export type FiltroChamados = Omit<
-  NonNullable<operations['list_tickets_api_v1_tickets_get']['parameters']['query']>,
-  'cursor' | 'limit'
->
-export type Fila = NonNullable<FiltroChamados['view']>
 export type Comentario = Schemas['CommentOut']
 export type Acao = Schemas['TransitionIn']['action']
 
@@ -46,31 +33,6 @@ export function usePessoas() {
       }
     }
     return [...vistos.values()].sort((a, b) => compararTexto(a.label, b.label))
-  })
-}
-
-/** Uma fila da lista com os filtros. As chaves começam por 'chamados': toda ação as recarrega. */
-export function useChamados(filtro: MaybeRefOrGetter<FiltroChamados>) {
-  return useInfiniteQuery({
-    queryKey: computed(() => ['chamados', toValue(filtro)]),
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) =>
-      ou(
-        await api.GET('/api/v1/tickets', {
-          params: { query: { ...toValue(filtro), cursor: pageParam } },
-        }),
-      ),
-    getNextPageParam: (pagina) => pagina.next_cursor,
-    // Ao trocar de aba ou de filtro, as linhas anteriores ficam até as novas chegarem.
-    placeholderData: keepPreviousData,
-  })
-}
-
-/** Quantos chamados há em cada fila (as abas). */
-export function useContagens() {
-  return useQuery({
-    queryKey: ['chamados', 'contagens'],
-    queryFn: async () => ou(await api.GET('/api/v1/tickets/counts')),
   })
 }
 
@@ -103,19 +65,6 @@ export function useComentarios(numero: MaybeRefOrGetter<string>) {
 }
 
 /** Mesmo status em vários chamados (supervisor ou admin): recarrega as listas e os detalhes. */
-export function useStatusEmMassa() {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: (a: { numeros: number[]; status: number }) =>
-      chamadosApi.statusEmMassa(a.numeros, a.status),
-    onSuccess: () =>
-      Promise.all([
-        client.invalidateQueries({ queryKey: ['chamados'] }),
-        client.invalidateQueries({ queryKey: ['chamado'] }),
-      ]),
-  })
-}
-
 /** Ação num chamado: ao terminar, recarrega o detalhe, os comentários e a lista. */
 export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a: A) => Promise<R>) {
   const client = useQueryClient()
@@ -130,8 +79,6 @@ export function useAcaoNoChamado<A, R>(numero: MaybeRefOrGetter<string>, fn: (a:
 }
 
 export const chamadosApi = {
-  statusEmMassa: async (numbers: number[], status_id: number) =>
-    ou(await api.POST('/api/v1/tickets/bulk/status', { body: { numbers, status_id } })),
   registrar: async (body: Schemas['TicketCreate']) =>
     ou(await api.POST('/api/v1/tickets', { body })),
   comentar: async (numero: string, body: Schemas['CommentIn']) =>

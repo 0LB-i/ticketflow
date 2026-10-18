@@ -1,0 +1,129 @@
+{#- Filas (docs/10 §10.6, docs/13 §13.5): uma aba por fila, o mais antigo primeiro. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import button_class, select_field, status_badge with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ t("chamados.titulo") }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-7xl flex-col gap-4" data-em-massa-espaco>
+  <h1 class="text-xl font-semibold">{{ t("chamados.titulo") }}</h1>
+
+  <nav aria-label="{{ t('chamados.filas') }}" class="flex flex-wrap gap-1 border-b border-border">
+    {%- for slug, fila in tabs.items() %}
+    {%- set count = counts[fila] if fila != "all" else 0 %}
+    <a href="{{ tab_url(slug) }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>
+      {{ t("chamados.abas." ~ fila) }}
+      {%- if count %}
+      <span class="rounded-full bg-surface-raised px-2 text-sm tabular-nums">{{ count }}</span>
+      {%- endif %}
+    </a>
+    {%- endfor %}
+  </nav>
+
+  {#- Os filtros são aplicados ao escolher (static/js/app.js); a aba e a busca continuam. #}
+  <form method="get" action="/chamados" data-envia-ao-mudar class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <input type="hidden" name="aba" value="{{ tab }}">
+    {%- if filters.q %}
+    <input type="hidden" name="q" value="{{ filters.q }}">
+    {%- endif %}
+    {{ select_field("grupo", t("chamado.grupo"), [("", t("chamados.filtros.todosOsGrupos"))] + team_options, filters.grupo or "") }}
+    {%- if view == "all" %}
+    {{ select_field("status", t("chamados.status"), [("", t("chamados.filtros.todos"))] + kind_options, filters.status or "") }}
+    {{ select_field("responsavel", t("chamado.responsavel"), [("", t("chamados.filtros.todos")), ("eu", t("chamados.filtros.eu"))], filters.responsavel or "") }}
+    {%- endif %}
+  </form>
+
+  {%- if filters.q %}
+  <div class="flex flex-wrap items-center gap-2">
+    <span>{{ t("chamados.resultadosPara", q=filters.q) }}</span>
+    <a href="{{ url(q=None) }}" class="{{ button_class('ghost', 'sm') }}">{{ t("chamados.limparBusca") }}</a>
+  </div>
+  {%- endif %}
+
+  <div class="overflow-x-auto rounded-lg border border-border bg-surface">
+    <table class="w-full border-collapse text-left">
+      <caption class="sr-only">{{ t("chamados.abas." ~ view) }}</caption>
+      <thead class="bg-surface-raised text-muted">
+        <tr>
+          {%- if bulk %}
+          <th scope="col" class="w-px px-3 py-2 font-medium">
+            <label class="inline-flex cursor-pointer items-center gap-2">
+              <input type="checkbox" data-marca-todos class="size-4 accent-(--tf-primary)">
+              <span class="sr-only">{{ t("chamados.selecionarTodos") }}</span>
+            </label>
+          </th>
+          {%- endif %}
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.numero") }}</th>
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.tituloColuna") }}</th>
+          <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("chamado.cliente") }}</th>
+          <th scope="col" class="hidden px-3 py-2 font-medium xl:table-cell">{{ t("chamado.inicio") }}</th>
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.status") }}</th>
+          <th scope="col" class="hidden px-3 py-2 font-medium sm:table-cell">{{ t("chamado.responsavel") }}</th>
+          <th scope="col" class="hidden px-3 py-2 font-medium lg:table-cell">{{ t("chamado.grupo") }}</th>
+          <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("chamados.ultimaMovimentacao") }}</th>
+          <th scope="col" class="hidden px-3 py-2 text-right font-medium md:table-cell">{{ t("chamados.totalHoras") }}</th>
+          <th scope="col" class="w-px px-3 py-2 text-right font-medium"><span class="sr-only">{{ t("chamados.editarColuna") }}</span></th>
+        </tr>
+      </thead>
+      <tbody id="linhas">
+        {%- for ticket in tickets %}
+        <tr class="border-t border-border">
+          {%- if bulk %}
+          <td class="w-px px-3 py-2">
+            <label class="inline-flex cursor-pointer items-center gap-2">
+              <input type="checkbox" name="numeros" value="{{ ticket.number }}" form="em-massa" data-seleciona class="size-4 accent-(--tf-primary)">
+              <span class="sr-only">{{ t("chamados.selecionar", numero=ticket.number) }}</span>
+            </label>
+          </td>
+          {%- endif %}
+          <td class="px-3 py-2 tabular-nums"><a href="/chamados/{{ ticket.number }}" class="text-primary underline">{{ ticket.number }}</a></td>
+          <td class="px-3 py-2">
+            <span class="inline-flex items-center gap-2">
+              <a href="/chamados/{{ ticket.number }}" class="font-medium hover:underline">{{ ticket.title }}</a>
+              {%- if ticket.has_news %}
+              <span role="img" aria-label="{{ t('chamados.novidade') }}" title="{{ t('chamados.novidade') }}">{{ icon("message-circle", "size-4 shrink-0 text-primary") }}</span>
+              {%- endif %}
+            </span>
+          </td>
+          <td class="hidden px-3 py-2 md:table-cell">{{ ticket.client.name if ticket.client else "—" }}</td>
+          <td class="hidden px-3 py-2 tabular-nums xl:table-cell">{{ datetime(ticket.started_at) }}</td>
+          <td class="px-3 py-2">{{ status_badge(ticket.status.kind, ticket.status.name) }}</td>
+          <td class="hidden px-3 py-2 sm:table-cell">{{ ticket.assignee.display_name }}</td>
+          <td class="hidden px-3 py-2 lg:table-cell">{{ ticket.team.name }}</td>
+          <td class="hidden px-3 py-2 md:table-cell"><span title="{{ datetime(ticket.updated_at) }}">{{ ago(ticket.updated_at) }}</span></td>
+          <td class="hidden px-3 py-2 text-right tabular-nums md:table-cell">{{ duration(ticket.time_spent_minutes) if ticket.time_spent_minutes else "—" }}</td>
+          <td class="w-px px-3 py-2 text-right">
+            <a href="/chamados/{{ ticket.number }}" class="inline-flex size-8 items-center justify-center rounded-md border border-border-input text-fg hover:bg-surface-raised" aria-label="{{ t('chamados.editar', numero=ticket.number) }}">{{ icon("pencil", "size-4") }}</a>
+          </td>
+        </tr>
+        {%- else %}
+        <tr>
+          <td colspan="{{ 11 if bulk else 10 }}" class="px-3 py-6 text-center text-muted">{{ t("chamados.vazio.busca") if filters.q else t("chamados.vazio." ~ view) }}</td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {#- Próxima página: o HTMX acrescenta as linhas e troca este botão pelo da página seguinte. #}
+  <div id="carregar-mais" class="flex justify-center">
+    {%- if next_cursor %}
+    <a href="{{ url(cursor=next_cursor) }}" hx-get="{{ url(cursor=next_cursor) }}" hx-target="#linhas" hx-swap="beforeend" hx-select="#linhas > tr" hx-select-oob="#carregar-mais" class="{{ button_class('secondary') }}">{{ t("chamados.carregarMais") }}</a>
+    {%- endif %}
+  </div>
+
+  {%- if bulk %}
+  {#- Mudar o status dos selecionados (docs/10 §10.6): janela flutuante no pé da tela, que
+      aparece com a primeira seleção (static/js/app.js). #}
+  <form id="em-massa" method="post" action="/chamados/status-em-massa" hidden aria-label="{{ t('chamados.mudarStatus') }}" class="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-4 shadow-xl">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="volta" value="{{ current_url }}">
+    <span class="self-center font-medium" data-contagem="{{ t('chamados.selecionados', n='{n}') }}"></span>
+    <div class="w-56">{{ select_field("status_id", t("chamados.novoStatus"), status_options, placeholder=t("comum.selecione"), required=True) }}</div>
+    <button type="submit" class="{{ button_class() }}">{{ t("chamados.mudarStatus") }}</button>
+    <button type="button" data-limpa-selecao class="ml-auto {{ button_class('ghost') }}">{{ t("chamados.limparSelecao") }}</button>
+  </form>
+  {%- endif %}
+</div>
+{% endblock %}

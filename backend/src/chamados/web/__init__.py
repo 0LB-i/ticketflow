@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter
 
-from chamados.web import auth
+from chamados.web import auth, tickets
 
 router = APIRouter(include_in_schema=False)
 router.include_router(auth.router)
+router.include_router(tickets.router)

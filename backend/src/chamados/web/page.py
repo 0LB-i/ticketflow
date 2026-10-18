@@ -1,19 +1,25 @@
 """O que toda tela do servidor precisa: sessão (opcional), idioma, marca e o render."""
 
+import base64
+import binascii
+import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import partial
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 from urllib.parse import urlencode
 
 from fastapi import Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from chamados.core.i18n import LOCALES
 from chamados.core.i18n import translate as translate_api
+from chamados.core.permissions import effective_permissions
 from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, SettingsDep, session_auth
 from chamados.modules.identity.sessions import CSRF_COOKIE, SESSION_COOKIE, csrf_ok, load_session
 from chamados.modules.system.router import Branding, load_branding
+from chamados.web.formatting import format_ago, format_datetime, format_duration
 from chamados.web.i18n import translate
 from chamados.web.palette import stylesheet
 from chamados.web.templating import templates
@@ -21,6 +27,8 @@ from chamados.web.templating import templates
 HOME = "/chamados"
 # Com a senha provisória, só isto abre até a troca (docs/09 §9.2).
 ALLOWED_BEFORE_PASSWORD_CHANGE = {"/trocar-senha", "/sair"}
+FLASH_COOKIE = "tf_aviso"
+FlashKind = Literal["success", "error"]
 
 
 class Redirect(Exception):
@@ -41,6 +49,23 @@ def safe_next(url: str | None) -> str:
     return HOME
 
 
+def flash(response: Response, *messages: tuple[FlashKind, str]) -> None:
+    """Avisos (docs/13 §13.6) que a próxima tela mostra no canto, depois de um redirecionamento."""
+    raw = json.dumps(messages).encode()
+    response.set_cookie(FLASH_COOKIE, base64.urlsafe_b64encode(raw).decode(), httponly=True)
+
+
+def _read_flash(request: Request) -> list[tuple[str, str]]:
+    raw = request.cookies.get(FLASH_COOKIE)
+    if not raw:
+        return []
+    try:
+        messages = json.loads(base64.urlsafe_b64decode(raw))
+        return [(str(kind), str(text)) for kind, text in messages]
+    except (binascii.Error, ValueError, TypeError):
+        return []
+
+
 @dataclass
 class Page:
     request: Request
@@ -55,9 +80,14 @@ class Page:
         """Mensagem de erro de uma rota da API (em português no código), no idioma da tela."""
         return translate_api(str(exc.detail), self.locale)
 
+    def can(self, permission: str) -> bool:
+        """Só para mostrar ou esconder botões: quem decide é a rota (ARCHITECTURE 3.4)."""
+        return self.auth is not None and permission in effective_permissions(self.auth.actor)
+
     def render(self, name: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         colors = self.branding.colors
-        return templates.TemplateResponse(
+        flashes = _read_flash(self.request)
+        response = templates.TemplateResponse(
             self.request,
             name,
             {
@@ -67,10 +97,17 @@ class Page:
                 "branding": self.branding,
                 "colors_css": stylesheet(colors.model_dump() if colors else None),
                 "csrf_token": self.request.cookies.get(CSRF_COOKIE, ""),
+                "flashes": flashes,
+                "datetime": partial(format_datetime, self.locale),
+                "ago": partial(format_ago, self.locale, now=datetime.now(UTC)),
+                "duration": format_duration,
                 **context,
             },
             status_code=status_code,
         )
+        if flashes:
+            response.delete_cookie(FLASH_COOKIE)
+        return response
 
 
 async def get_page(request: Request, db: DB, settings: SettingsDep) -> Page:

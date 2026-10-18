@@ -74,3 +74,117 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
   </div>
 </details>
 {%- endmacro %}
+
+{#- Lista de opções nativa, no visual dos campos. `options`: pares (valor, rótulo). -#}
+{% macro select_field(name, label, options, selected="", placeholder=None, required=False) -%}
+{%- set id = "campo-" ~ name -%}
+<div class="flex flex-col gap-1">
+  <label for="{{ id }}" class="font-medium">
+    {{- label }}{% if required %}<span class="text-danger" aria-hidden="true"> *</span>{% endif -%}
+  </label>
+  <select id="{{ id }}" name="{{ name }}"{% if required %} required{% endif %} class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+    {%- if placeholder %}
+    <option value="" disabled{% if not selected %} selected{% endif %}>{{ placeholder }}</option>
+    {%- endif %}
+    {%- for value, text in options %}
+    <option value="{{ value }}"{% if value == selected %} selected{% endif %}>{{ text }}</option>
+    {%- endfor %}
+  </select>
+</div>
+{%- endmacro %}
+
+{#- A cor vem do `kind`; o texto é o nome do status (renomeável pelo admin), docs/10 §10.5. -#}
+{% macro status_badge(kind, label) -%}
+{%- set colors = {"open": "bg-blue-bg text-blue-fg", "waiting": "bg-violet-bg text-violet-fg", "approval": "bg-teal-bg text-teal-fg", "delivered": "bg-teal-bg text-teal-fg", "closed": "bg-green-bg text-green-fg", "canceled": "bg-gray-bg text-gray-fg"} -%}
+<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium {{ colors[kind] }}">{{ label }}</span>
+{%- endmacro %}
+
+{#- Menu lateral: os itens aparecem conforme a permissão (só esconde; a rota é que decide). -#}
+{% macro side_nav() -%}
+{%- set path = page.request.url.path -%}
+{%- set sections = [
+  (None, [
+    ("/chamados", "menu.chamados", "ticket", None),
+    ("/relatorios", "menu.relatorios", "chart-column", None),
+  ]),
+  ("menu.administracao", [
+    ("/admin/clientes", "menu.clientes", "contact", "client.view"),
+    ("/admin/usuarios", "menu.usuarios", "users", "admin.users"),
+    ("/admin/grupos", "menu.grupos", "users-round", "admin.organization"),
+    ("/admin/setores", "menu.setores", "building-2", "admin.organization"),
+    ("/admin/configuracoes", "menu.configuracoes", "settings", "admin.settings"),
+  ]),
+] -%}
+<nav aria-label="{{ t('menu.titulo') }}" class="flex flex-col gap-4 p-3">
+  {%- for title, items in sections %}
+  {%- set visible = namespace(items=[]) %}
+  {%- for item in items if not item[3] or page.can(item[3]) %}{% set visible.items = visible.items + [item] %}{% endfor %}
+  {%- if visible.items %}
+  <div class="flex flex-col gap-1">
+    {%- if title %}
+    <p class="px-3 pb-1 text-xs font-semibold text-muted uppercase">{{ t(title) }}</p>
+    {%- endif %}
+    {%- for to, label, name, _ in visible.items %}
+    {%- set active = path == to or path.startswith(to ~ "/") %}
+    <a href="{{ to }}" class="flex h-10 items-center gap-3 rounded-md px-3 font-medium {{ 'bg-primary-subtle text-primary' if active else 'text-fg hover:bg-surface-raised' }}"{% if active %} aria-current="page"{% endif %}>
+      {{ icon(name) }} {{ t(label) }}
+    </a>
+    {%- endfor %}
+  </div>
+  {%- endif %}
+  {%- endfor %}
+</nav>
+{%- endmacro %}
+
+{#- Menu do usuário: nome, idioma e sair. -#}
+{% macro user_menu() -%}
+{%- set user = page.auth.user -%}
+{%- set here = page.request.url.path ~ ("?" ~ page.request.url.query if page.request.url.query else "") -%}
+{%- set current = user.locale or "padrao" -%}
+<details data-menu class="relative">
+  <summary class="inline-flex h-10 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-fg hover:bg-surface-raised [&::-webkit-details-marker]:hidden" aria-label="{{ t('usuario.menu') }}">
+    <span class="inline-flex size-8 items-center justify-center rounded-full bg-primary-subtle font-semibold text-primary" aria-hidden="true">{{ user.display_name[:1] }}</span>
+    <span class="hidden max-w-40 truncate sm:inline">{{ user.display_name }}</span>
+    {{ icon("chevron-down", "size-4 text-muted") }}
+  </summary>
+  <div role="menu" class="absolute right-0 z-50 mt-1 min-w-48 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
+    <div class="px-2 py-1">
+      <span class="block font-medium">{{ user.display_name }}</span>
+      <span class="block text-xs text-muted">{{ user.email or user.username }}</span>
+    </div>
+    <div class="my-1 h-px bg-border" role="separator"></div>
+    <p class="flex items-center gap-2 px-2 py-1 text-xs text-muted">{{ icon("languages", "size-4") }} {{ t("idioma.titulo") }}</p>
+    <form method="post" action="/idioma">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="volta" value="{{ here }}">
+      {%- set system = t("idioma.padraoDoSistema", idioma=t("idioma.nomes." ~ branding.default_locale)) %}
+      {%- for value, label in [("padrao", system), ("pt-BR", t("idioma.nomes.pt-BR")), ("en", t("idioma.nomes.en"))] %}
+      <button type="submit" name="locale" value="{{ value }}" role="menuitemradio" aria-checked="{{ 'true' if value == current else 'false' }}" class="relative flex h-8 w-full items-center rounded px-2 pl-8 text-left hover:bg-surface-raised aria-checked:font-semibold">
+        {%- if value == current %}{{ icon("check", "absolute left-2 size-4") }}{% endif %}
+        {{ label }}
+      </button>
+      {%- endfor %}
+    </form>
+    <div class="my-1 h-px bg-border" role="separator"></div>
+    <form method="post" action="/sair">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 text-left hover:bg-surface-raised">
+        {{ icon("log-out", "size-4") }} {{ t("usuario.sair") }}
+      </button>
+    </form>
+  </div>
+</details>
+{%- endmacro %}
+
+{#- Avisos no canto da tela (docs/13 §13.6), vindos do flash() da rota. Os de sucesso somem
+    sozinhos (static/js/app.js); os de erro ficam até serem fechados. -#}
+{% macro toasts() -%}
+<div class="fixed right-0 bottom-0 z-50 flex w-full max-w-sm flex-col gap-2 p-4" aria-live="polite">
+  {%- for kind, text in flashes %}
+  <div data-aviso="{{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}" class="relative rounded-lg border bg-surface p-4 pr-10 text-fg shadow-lg {{ 'border-danger' if kind == 'error' else 'border-border' }}">
+    <p class="font-semibold">{{ text }}</p>
+    <button type="button" data-fecha-aviso class="absolute top-3 right-3 rounded p-1 text-muted hover:bg-surface-raised" aria-label="{{ t('comum.fechar') }}">{{ icon("x", "size-4") }}</button>
+  </div>
+  {%- endfor %}
+</div>
+{%- endmacro %}

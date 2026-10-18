@@ -17,6 +17,7 @@ from chamados.modules.identity.schemas import (
     ChangePasswordIn,
     ForgotIn,
     LoginIn,
+    MeUpdate,
     TokenInfo,
     TokenPasswordIn,
 )
@@ -79,6 +80,25 @@ async def logout(
     response = RedirectResponse("/login", status_code=303)
     await api.logout(page.auth, request, response, db, settings)
     return response
+
+
+@router.post("/idioma")
+async def change_locale(
+    page: LoggedPageDep,
+    db: DB,
+    csrf_token: Field = "",
+    locale: Field = "",
+    volta: Field = HOME,
+) -> RedirectResponse:
+    """Idioma da pessoa (menu do usuário); "padrao" volta ao padrão do sistema."""
+    check_csrf(page, csrf_token)
+    try:
+        data = MeUpdate.model_validate({"locale": None if locale == "padrao" else locale})
+    except ValidationError:
+        pass
+    else:
+        await api.update_me(data, page.auth, db)
+    return RedirectResponse(safe_next(volta), status_code=303)
 
 
 @router.get("/esqueci-senha")

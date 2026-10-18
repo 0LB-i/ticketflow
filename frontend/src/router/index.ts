@@ -58,7 +58,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/chamados',
     name: 'chamados',
-    component: () => import('@/views/tickets/TicketsView.vue'),
+    component: NA_SERVIDOR,
   },
   {
     path: '/chamados/novo',
