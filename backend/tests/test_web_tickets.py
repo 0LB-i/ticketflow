@@ -33,6 +33,10 @@ def test_sessao_expirada_no_meio_do_uso(client: TestClient, db: Session) -> None
     # O HTMX ("Carregar mais") troca a página inteira em vez de encaixar o login na tabela.
     r = client.get("/chamados?cursor=x", headers={"HX-Request": "true"}, follow_redirects=False)
     assert r.headers["hx-redirect"] == "/login?volta=%2Fchamados%3Fcursor%3Dx"
+    # Com a página de origem (HX-Current-URL), a volta é ela, não o trecho.
+    headers = {"HX-Request": "true", "HX-Current-URL": "https://x/chamados?aba=todos"}
+    r = client.get("/clientes/opcoes?q=ab", headers=headers, follow_redirects=False)
+    assert r.headers["hx-redirect"] == "/login?volta=%2Fchamados%3Faba%3Dtodos"
 
 
 def test_parametro_invalido_mostra_uma_pagina(client: TestClient, db: Session) -> None:
@@ -41,6 +45,9 @@ def test_parametro_invalido_mostra_uma_pagina(client: TestClient, db: Session) -
     r = client.get("/chamados?cursor=lixo")
     assert r.status_code == 422
     assert r.headers["content-type"].startswith("text/html")
+    # No idioma da pessoa.
+    client.post("/idioma", data={"csrf_token": client.cookies["tf_csrf"], "locale": "en"})
+    assert '<html lang="en">' in client.get("/chamados?cursor=lixo").text
     assert client.get("/api/v1/tickets?cursor=lixo").headers["content-type"] == (
         "application/problem+json"
     )

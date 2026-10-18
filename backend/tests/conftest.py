@@ -49,6 +49,13 @@ def _argon2_rapido() -> None:
 @pytest.fixture(scope="session")
 def database_url() -> Iterator[str]:
     """Banco de teste limpo e migrado até a última revisão."""
+    # O que o último teste deixou (ex.: chamado sem categoria) pode impedir o downgrade: a
+    # migração 0006 volta a exigir a categoria. Num banco novo, as tabelas ainda não existem.
+    engine = create_engine(TEST_DATABASE_URL)
+    with engine.begin() as conn:
+        if conn.scalar(text("SELECT to_regclass('tickets')")) is not None:
+            conn.execute(text(f"TRUNCATE {TABELAS} RESTART IDENTITY CASCADE"))
+    engine.dispose()
     cfg = alembic_config(TEST_DATABASE_URL)
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import partial
 from typing import Annotated, Any, Literal, cast
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -147,9 +147,15 @@ async def get_logged_page(page: PageDep) -> LoggedPage:
     request = page.request
     if page.auth is None:
         # Depois do login, o navegador abre a "volta" com GET: num POST (sessão expirada no
-        # meio do uso), volta para a tela inicial.
+        # meio do uso), volta para a tela inicial. Num trecho do HTMX, volta para a página em
+        # que a pessoa estava, não para o trecho.
         url = request.url.path + (f"?{request.url.query}" if request.url.query else "")
-        if request.method != "GET" or url == HOME:
+        if current := request.headers.get("HX-Current-URL"):
+            parts = urlsplit(current)
+            url = safe_next(parts.path + (f"?{parts.query}" if parts.query else ""))
+        elif request.method != "GET":
+            url = HOME
+        if url == HOME:
             raise Redirect("/login")
         raise Redirect(f"/login?{urlencode({'volta': url})}")
     path = request.url.path

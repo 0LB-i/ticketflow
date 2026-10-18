@@ -13,8 +13,7 @@ from starlette.responses import Response
 
 from chamados.core import errors as api_errors
 from chamados.core.i18n import translate
-from chamados.modules.system.router import load_branding
-from chamados.web.page import Page
+from chamados.web.page import get_page
 
 
 def _is_api(request: Request) -> bool:
@@ -22,9 +21,9 @@ def _is_api(request: Request) -> bool:
 
 
 async def _error_page(request: Request, status: int, detail: str | None) -> Response:
+    # A mesma montagem das telas: o idioma da pessoa, se houver sessão, ou o do sistema.
     async with request.app.state.sessionmaker() as db:
-        branding = await load_branding(db)
-    page = Page(request=request, auth=None, branding=branding, locale=branding.default_locale)
+        page = await get_page(request, db, request.app.state.settings)
     return page.render(
         "error.html",
         status_code=status,

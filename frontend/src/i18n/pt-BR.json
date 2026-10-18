@@ -332,6 +332,7 @@
     "grupoDestino": "Grupo de destino",
     "novoResponsavel": "Novo responsável",
     "motivo": "Motivo",
+    "informeMotivo": "Informe o motivo da transferência.",
     "linhaDoTempo": "Linha do tempo",
     "semDescricao": "Sem descrição.",
     "editado": "editado",
@@ -518,7 +519,8 @@
     "data": "Data",
     "hora": "Hora",
     "agora": "Agora",
-    "ajustado": "Ajustado à mão. Agora volta para a hora atual."
+    "ajustado": "Ajustado à mão. Agora volta para a hora atual.",
+    "invalida": "Informe uma data e hora válidas."
   },
   "statusConfig": {
     "titulo": "Status dos chamados",

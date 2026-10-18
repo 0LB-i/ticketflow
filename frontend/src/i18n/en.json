@@ -332,6 +332,7 @@
     "grupoDestino": "Destination team",
     "novoResponsavel": "New assignee",
     "motivo": "Reason",
+    "informeMotivo": "Enter the reason for the transfer.",
     "linhaDoTempo": "Timeline",
     "semDescricao": "No description.",
     "editado": "edited",
@@ -518,7 +519,8 @@
     "data": "Date",
     "hora": "Time",
     "agora": "Now",
-    "ajustado": "Set by hand. Now goes back to the current time."
+    "ajustado": "Set by hand. Now goes back to the current time.",
+    "invalida": "Enter a valid date and time."
   },
   "statusConfig": {
     "titulo": "Ticket statuses",

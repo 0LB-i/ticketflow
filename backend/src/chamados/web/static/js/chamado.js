@@ -133,7 +133,7 @@ function criarEditor(caixa) {
   const area = caixa.querySelector('[data-editor-area]')
   const enviando = caixa.querySelector('[data-editor-enviando]')
   const erro = caixa.querySelector('[data-editor-erro]')
-  let subindo = 0
+  let imagensSubindo = 0
 
   const extensoes = [
     StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false } }),
@@ -162,7 +162,9 @@ function criarEditor(caixa) {
   async function inserirImagens(arquivos) {
     erro.hidden = true
     for (const arquivo of arquivos) {
-      subindo++
+      imagensSubindo++
+      caixa.dataset.subindo = String(imagensSubindo)
+      atualizarBotoes(caixa.closest('form'))
       enviando.hidden = false
       try {
         const anexo = await enviarArquivo(arquivo)
@@ -175,9 +177,10 @@ function criarEditor(caixa) {
         erro.textContent = e.message
         erro.hidden = false
       } finally {
-        subindo--
-        enviando.hidden = subindo === 0
-        caixa.dataset.subindo = String(subindo)
+        imagensSubindo--
+        enviando.hidden = imagensSubindo === 0
+        caixa.dataset.subindo = String(imagensSubindo)
+        atualizarBotoes(caixa.closest('form'))
       }
     }
   }
@@ -235,20 +238,41 @@ function criarEditor(caixa) {
   caixa.dataset.pronto = ''
 }
 
-/** Ids das pessoas mencionadas no editor (o texto guarda só "@Nome"). */
+/**
+ * Ids das pessoas mencionadas. O texto guarda só "@Nome": quando o formulário volta com erro,
+ * o editor recomeça do Markdown e as menções viram texto, por isso "@Nome" de um colega
+ * também conta.
+ */
 function mencionados(caixa) {
   const ids = new Set()
   editores.get(caixa)?.state.doc.descendants((node) => {
     if (node.type.name === 'mention' && node.attrs.id) ids.add(String(node.attrs.id))
   })
+  const texto = caixa.querySelector('textarea').value
+  for (const pessoa of pessoas()) {
+    if (texto.includes(`@${pessoa.label}`)) ids.add(pessoa.id)
+  }
   return [...ids]
 }
 
-/** "Adicionar tarefa" e "Salvar" só com texto. */
+/** Arquivo ainda subindo (anexo ou imagem colada): o formulário espera. */
+function subindo(form) {
+  return (
+    !!form.querySelector('[data-item][data-enviando]') ||
+    [...form.querySelectorAll('[data-editor]')].some((c) => Number(c.dataset.subindo || 0) > 0)
+  )
+}
+
+/** Os botões de envio esperam os arquivos; "Adicionar tarefa" e "Salvar", também o texto. */
 function atualizarBotoes(form) {
   if (!form) return
+  const ocupado = subindo(form)
   const vazio = [...form.querySelectorAll('[data-editor] textarea')].every((t) => !t.value.trim())
-  for (const botao of form.querySelectorAll('[data-exige-texto]')) botao.disabled = vazio
+  const botoes = [...form.querySelectorAll('button[type=submit]')]
+  if (form.id) botoes.push(...document.querySelectorAll(`button[type=submit][form="${form.id}"]`))
+  for (const botao of botoes) {
+    botao.disabled = ocupado || ('exigeTexto' in botao.dataset && vazio)
+  }
 }
 
 htmx.onLoad((raiz) => {
@@ -260,10 +284,7 @@ htmx.onLoad((raiz) => {
 // No envio: os ids das menções vão junto; com arquivo ainda subindo, o formulário espera.
 document.addEventListener('submit', (e) => {
   const form = e.target
-  const subindo =
-    form.querySelector('[data-item][data-enviando]') ||
-    [...form.querySelectorAll('[data-editor]')].some((c) => Number(c.dataset.subindo || 0) > 0)
-  if (subindo) {
+  if (subindo(form)) {
     e.preventDefault()
     return
   }
@@ -298,6 +319,7 @@ function adicionarArquivos(anexador, arquivos) {
     const remover = item.querySelector('[data-remove-item]')
     remover.setAttribute('aria-label', remover.dataset.rotulo.replace('{nome}', arquivo.name))
     lista.append(item)
+    atualizarBotoes(anexador.closest('form'))
     enviarArquivo(arquivo)
       .then((anexo) => {
         const campo = document.createElement('input')
@@ -315,6 +337,7 @@ function adicionarArquivos(anexador, arquivos) {
       .finally(() => {
         delete item.dataset.enviando
         item.querySelector('[data-icone-enviando]').hidden = true
+        atualizarBotoes(anexador.closest('form'))
       })
   }
 }
@@ -322,7 +345,12 @@ function adicionarArquivos(anexador, arquivos) {
 document.addEventListener('click', (e) => {
   const escolher = e.target.closest('[data-escolhe-arquivo]')
   if (escolher) escolher.closest('[data-anexador]').querySelector('input[type=file]').click()
-  e.target.closest('[data-remove-item]')?.closest('[data-item]').remove()
+  const item = e.target.closest('[data-remove-item]')?.closest('[data-item]')
+  if (item) {
+    const form = item.closest('form')
+    item.remove()
+    atualizarBotoes(form)
+  }
 })
 document.addEventListener('change', (e) => {
   if (!e.target.matches('[data-anexador] input[type=file]')) return
@@ -495,11 +523,19 @@ document.addEventListener('keydown', (e) => {
     opcoes.forEach((o, i) => o.setAttribute('aria-selected', String(i === proxima)))
     campo.setAttribute('aria-activedescendant', opcoes[proxima].id)
     opcoes[proxima].scrollIntoView({ block: 'nearest' })
-  } else if (e.key === 'Enter' && !lista.hidden) {
-    // Enter escolhe a opção marcada, sem enviar o formulário.
+  } else if (e.key === 'Enter') {
+    // Enter escolhe a opção marcada; nunca envia o formulário (como na SPA).
     e.preventDefault()
-    if (atual >= 0) escolherCliente(caixa, opcoes[atual])
+    if (atual >= 0 && !lista.hidden) escolherCliente(caixa, opcoes[atual])
   }
+})
+// Ao receber o foco, a lista abre com todos os clientes (não só o já escolhido) e o texto fica
+// selecionado: digitar já começa uma busca nova.
+document.addEventListener('focusin', (e) => {
+  const campo = e.target.closest?.('[data-cliente] [role=combobox]')
+  if (!campo) return
+  campo.select()
+  htmx.ajax('GET', '/clientes/opcoes', { target: campo.closest('[data-cliente]').querySelector('[data-opcoes]') })
 })
 document.addEventListener('focusout', (e) => {
   const caixa = e.target.closest?.('[data-cliente]')

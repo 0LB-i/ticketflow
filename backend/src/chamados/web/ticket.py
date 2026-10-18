@@ -98,6 +98,11 @@ class DateTimeInput:
     def from_form(cls, date: str, time: str, adjusted: str) -> "DateTimeInput":
         return cls(date, time, adjusted == "1") if adjusted == "1" else cls.now()
 
+    @property
+    def invalid(self) -> bool:
+        """Ajustado à mão, mas com a data ou a hora apagada ou inválida."""
+        return self.adjusted and parse_local(self.date, self.time) is None
+
     def value(self) -> datetime | None:
         """None: a hora atual (a API usa a do registro)."""
         return parse_local(self.date, self.time) if self.adjusted else None
@@ -230,7 +235,9 @@ async def create_ticket(
             "assignees": "novoChamado.escolhaResponsavel" if not form.assignees else "",
             "client": "novoChamado.escolhaCliente" if not client_id else "",
             # A API aceita até 5 minutos adiantado (relógio do computador); aqui, qualquer futuro.
-            "started": "novoChamado.inicioNoFuturo"
+            "started": "dataHora.invalida"
+            if form.started.invalid
+            else "novoChamado.inicioNoFuturo"
             if started and started > datetime.now(UTC)
             else "",
         }.items()
@@ -249,7 +256,7 @@ async def create_ticket(
                 "description": descricao,
                 "team_id": form.team,
                 "status_id": int(status_id)
-                if page.can("ticket.transition") and status_id.isdigit()
+                if page.can("ticket.transition") and status_id.isascii() and status_id.isdigit()
                 else None,
                 "started_at": started,
                 "client_id": client_id,
@@ -311,7 +318,12 @@ async def _ticket_page(
     auth = page.auth
     ref = str(number)
     try:
-        ticket = await tickets_api.get_ticket(ref, auth, db, request)
+        # Os trechos pedidos pelo HTMX (editar, remover, grupo de destino) não contam como nova
+        # visita nem vão de novo para a auditoria do confidencial.
+        if request.headers.get("HX-Request"):
+            ticket = await tickets_api.load_detail(db, auth, ref)
+        else:
+            ticket = await tickets_api.get_ticket(ref, auth, db, request)
     except HTTPException as exc:
         if exc.status_code not in (403, 404):
             raise
@@ -498,7 +510,9 @@ async def deliver(number: int, page: LoggedPageDep, db: DB, csrf_token: Field = 
 
     async def action() -> None:
         statuses = (await catalog_api.list_statuses(page.auth, db)).items
-        delivered = next(s for s in statuses if s.kind == "delivered" and s.is_default)
+        delivered = next((s for s in statuses if s.kind == "delivered" and s.is_default), None)
+        if delivered is None:  # o admin mudou os status com a página aberta
+            raise HTTPException(404, "Status não encontrado.")
         await tickets_api.update_ticket(
             str(number), TicketUpdate(status_id=delivered.id), page.auth, db
         )
@@ -531,6 +545,11 @@ async def transfer(
     assignee_id: Field = "",
     motivo: Field = "",
 ) -> Response:
+    if not motivo.strip():
+        check_csrf(page, csrf_token)
+        response = RedirectResponse(f"/chamados/{number}", status_code=303)
+        page.flash(response, ("error", page.t("chamado.informeMotivo")))
+        return response
     return await _act(
         page,
         number,
@@ -681,11 +700,24 @@ async def edit_comment(
         done=DateTimeInput.from_form(feita_data, feita_hora, feita_ajustado),
         comment_id=comment_id,
     )
+
+    def back(message: str) -> RedirectResponse:
+        """Tarefa que não existe ou não é de quem pediu: não há formulário onde mostrar."""
+        response = RedirectResponse(f"/chamados/{number}", status_code=303)
+        page.flash(response, ("error", message))
+        return response
+
     try:
+        comment_uuid = UUID.validate_python(comment_id)
         minutes = parse_duration(tempo)
+    except ValidationError:
+        return back(page.t("comum.erroInesperado"))
     except ValueError:
         form.error = page.t("chamado.tempoInvalido")
     else:
+        if form.done.invalid:
+            form.error = page.t("dataHora.invalida")
+    if form.error is None:
         try:
             data = CommentIn.model_validate(
                 {
@@ -696,12 +728,12 @@ async def edit_comment(
                     "attachment_ids": attachments_in_text(texto),
                 }
             )
-            await tickets_api.edit_comment(
-                str(number), UUID.validate_python(comment_id), data, page.auth, db
-            )
+            await tickets_api.edit_comment(str(number), comment_uuid, data, page.auth, db)
         except ValidationError:
             form.error = page.t("comum.erroInesperado")
         except HTTPException as exc:
+            if exc.status_code in (403, 404):
+                return back(page.api_message(exc))
             form.error = page.api_message(exc)
         else:
             return RedirectResponse(f"/chamados/{number}#tarefa-{comment_id}", status_code=303)

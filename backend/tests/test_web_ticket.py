@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from tests.conftest import entrar
 from tests.test_chamados import API, base, cenario, criar_cliente, registrar  # noqa: F401
@@ -234,7 +235,7 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     )
     dados = {"team_id": cenario["infra"], "assignee_id": cenario["caio"], "motivo": ""}
     r = client.post(f"{lateral}/transferir", data=_form(client, **dados))
-    assert _aviso(client, numero, r.text) == "Algo deu errado. Tente de novo."  # sem motivo
+    assert _aviso(client, numero, r.text) == "Informe o motivo da transferência."
     client.post(f"{lateral}/transferir", data=_form(client, **{**dados, "motivo": "É de rede"}))
     assert client.get(f"{API}/{numero}").json()["team"]["name"] == "Infra"
 
@@ -242,3 +243,51 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     r = client.post(f"{lateral}/cancelar", data=_form(client))
     assert _aviso(client, numero, r.text) == "Chamado cancelado"
     assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "canceled"
+
+
+def test_casos_de_borda_das_acoes(client: TestClient, cenario: dict[str, Any], db: Any) -> None:  # noqa: F811
+    numero = registrar(client, cenario)["number"]
+    chamado = f"/chamados/{numero}"
+
+    r = client.post(
+        f"{chamado}/transferir", data=_form(client, team_id=cenario["infra"], motivo="  ")
+    )
+    assert _aviso(client, numero, r.text) == "Informe o motivo da transferência."
+
+    # Status "Entregue" padrão removido com a página aberta: aviso, não erro 500.
+    db.execute(
+        text("UPDATE ticket_statuses SET is_default_for_kind = false WHERE kind = 'delivered'")
+    )
+    db.commit()
+    try:
+        r = client.post(f"{chamado}/entregar", data=_form(client))
+        assert _aviso(client, numero, r.text) == "Status não encontrado."
+    finally:
+        db.execute(
+            text(
+                "UPDATE ticket_statuses SET is_default_for_kind = true WHERE id = "
+                "(SELECT min(id) FROM ticket_statuses WHERE kind = 'delivered')"
+            )
+        )
+        db.commit()
+
+    # Tarefa de outra pessoa ou id inválido: volta ao chamado com o aviso.
+    tarefa = client.post(f"{API}/{numero}/comments", json={"body": "Da Ana"}).json()["id"]
+    entrar(client, "bia@x.com")
+    r = client.post(f"{chamado}/tarefas/{tarefa}", data=_form(client, texto="Forjado"))
+    assert r.url.path == chamado
+    assert 'data-aviso="error"' in r.text
+    assert "Forjado" not in r.text
+    r = client.post(f"{chamado}/tarefas/invalido", data=_form(client, texto="x"))
+    assert _aviso(client, numero, r.text) == "Algo deu errado. Tente de novo."
+
+
+def test_data_ajustada_invalida(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa: F811
+    dados = _novo(cenario, inicio_data="", inicio_hora="10:00", inicio_ajustado="1")
+    r = client.post("/chamados/novo", data=_form(client, **dados))
+    assert r.status_code == 422
+    assert "Informe uma data e hora válidas." in r.text
+    # Status com algarismo que não é ASCII: ignorado, sem erro 500.
+    r = client.post("/chamados/novo", data=_form(client, **_novo(cenario, status_id="²")))
+    assert r.status_code == 200  # seguiu para o chamado registrado
+    assert r.url.path.startswith("/chamados/")

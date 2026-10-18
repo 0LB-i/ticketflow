@@ -123,7 +123,7 @@
   <input type="hidden" name="client_id" value="{{ selected_id }}">
   <input type="hidden" name="cliente_nome" value="{{ selected_name }}">
   <div class="inline-flex h-10 items-center gap-1 rounded-md border bg-surface pr-2 pl-3 {{ 'border-danger' if error else 'border-border-input' }}">
-    <input id="campo-cliente" type="text" name="q" value="{{ selected_name }}" role="combobox" aria-expanded="false" aria-controls="clientes-opcoes" aria-autocomplete="list" autocomplete="off" placeholder="{{ t('chamado.buscarCliente') }}"{% if error %} aria-invalid="true" aria-describedby="campo-cliente-erro"{% endif %} hx-get="/clientes/opcoes" hx-trigger="input changed delay:300ms, focus" hx-target="#clientes-opcoes" hx-sync="this:replace" class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted">
+    <input id="campo-cliente" type="text" name="q" value="{{ selected_name }}" role="combobox" aria-expanded="false" aria-controls="clientes-opcoes" aria-autocomplete="list" autocomplete="off" placeholder="{{ t('chamado.buscarCliente') }}"{% if error %} aria-invalid="true" aria-describedby="campo-cliente-erro"{% endif %} hx-get="/clientes/opcoes" hx-trigger="input changed delay:300ms" hx-target="#clientes-opcoes" hx-sync="this:replace" class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted">
     {{ icon("chevron-down", "size-4 shrink-0 text-muted") }}
   </div>
   <ul id="clientes-opcoes" role="listbox" data-opcoes hidden class="absolute top-full z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-border bg-surface p-1 text-fg shadow-lg"></ul>
