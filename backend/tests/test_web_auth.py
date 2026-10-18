@@ -156,3 +156,12 @@ def test_arquivos_estaticos(client: TestClient) -> None:
     r = client.get("/static/js/app.js")
     assert r.status_code == 200
     assert "tf-tema" in r.text
+
+
+def test_paginas_com_sessao_nao_ficam_no_navegador(client: TestClient, db: Session) -> None:
+    assert "cache-control" not in client.get("/login").headers
+    criar_usuario(db, grupos={"TI": "member"})
+    _entrar(client)
+    r = client.get("/chamados")
+    assert r.headers["cache-control"] == "no-store"
+    assert '"historyCacheSize": 0' in r.text  # o HTMX não guarda páginas no sessionStorage

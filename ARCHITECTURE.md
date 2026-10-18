@@ -279,13 +279,14 @@ web/
 ├── tickets.py           / (vai para a lista), lista de chamados com as filas, status em massa
 ├── ticket.py            registro, detalhe, ações da lateral, tarefas e a busca de clientes
 ├── clients.py           cadastro de clientes (lista e formulário)
+├── admin.py             usuários, grupos (e membros) e setores atendidos, com o painel lateral
 ├── formatting.py        datas, "há 3 dias", duração, tamanho e os campos de data e hora (São Paulo)
 ├── markdown.py          render_markdown(): markdown-it-py com as regras do antigo markdown.ts
 ├── i18n.py              translate(): os catálogos JSON da SPA (frontend/src/i18n) até a troca final
 ├── palette.py           paleta derivada das 3 cores (port do tema/paleta.ts, mesmos tons)
 ├── templating.py        ambiente Jinja2 e static() (endereço com a data do arquivo)
 ├── templates/           base.html, card.html (cartão sem menu), app.html (menu e cabeçalho),
-│                        _ui.html (macros), _fields.html (campos das telas de chamado), clients/,
+│                        _ui.html (macros), _fields.html (campos das telas de chamado), clients/, admin/,
 │                        _icons.html, auth/, tickets/
 └── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, chamado.js, clientes.js,
                          vendor/htmx, vendor/tiptap), fonts/
@@ -308,8 +309,9 @@ web/
 - **Editor e Markdown:** descrição e tarefas são **Markdown** no banco. O `static/js/chamado.js` monta o Tiptap (empacotado num arquivo só em `static/js/vendor/`, gerado por `scripts/vendor-tiptap.sh`, que é o único passo com Node e só roda para trocar a versão) sobre o `<textarea>` do macro `editor()`, que continua levando o texto; sem JavaScript, fica o `<textarea>`. O `@` abre os colegas (JSON em `<script type="application/json" id="pessoas">`) e, no envio, os ids viram campos `mention_ids`. Imagem colada ou arrastada sobe para `POST /api/v1/uploads` e entra no texto como `![nome](/api/v1/attachments/<id>)`; a rota junta esses ids (`attachments_in_text`) aos do "Anexar" (campos `attachment_ids`). A exibição é do filtro `markdown` (`web/markdown.py`): `html: False`, links em outra aba, sem `javascript:`, e só imagens desse endereço (uma de fora aparece como texto, para não rastrear quem abre o chamado).
 - **Campos com comportamento** (`_fields.html` + `chamado.js`, por atributos `data-*`): data e hora que acompanham o relógio até o ajuste (`*_ajustado`), tempo hh:mm com a lista de horários sugeridos (`<datalist>`), anexos que sobem na hora (a 1ª etapa do docs/11 §11.4), pessoas em etiquetas e o cliente buscado por HTMX (`/clientes/opcoes`).
 - **Trechos por HTMX sem templates parciais:** a rota devolve a página inteira e o `hx-select` escolhe o trecho: os responsáveis do grupo escolhido no registro (`/chamados/novo?grupo=`), a tarefa em edição ou a confirmação da remoção (`/chamados/{n}?editar=` / `?remover=`) e os membros do grupo de destino da transferência (`?team_id=`). A única parcial é a lista de clientes.
+- **Painel lateral das telas de administração:** lista ou árvore, botão **Novo** e edição no macro `side_panel()` (`_ui.html`), um `<dialog>` aberto pelo endereço (`?novo=1`, `?editar=<id>`). Os links (`panel_link()`) trocam só o `#painel` pelo HTMX e põem o endereço na barra; o `app.js` abre o painel quando ele chega (`data-abre-ao-carregar`) e, ao fechar, volta o endereço ao da lista (`data-volta`). Salvar recarrega a lista com o aviso; erro devolve a página com o painel aberto e o que foi digitado.
 - **Ações do chamado:** cada botão da lateral é um formulário (POST com `csrf_token`) que chama a função da API e volta ao chamado com o aviso (`_act`). Erro numa tarefa nova ou na edição devolve a página com o texto preenchido (422), sem perder o que foi escrito.
-- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes`, `/admin/clientes/novo` e `/admin/clientes/{id}`.
+- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/grupos` e `/admin/setores` (com as ações de cada um).
 
 ---
 
@@ -328,14 +330,14 @@ src/
 ├── router/index.ts      rotas, meta (publica, permissao, cartao) e o guard
 ├── stores/              Pinia: auth (usuário logado), branding (cores, logotipo, idioma padrão), theme
 ├── composables/         consultas e mutações (TanStack Query) e utilidades
-│   ├── admin.ts         usuários, grupos, setores, status (admin)
+│   ├── admin.ts         status dos chamados e useAlteracao (Configurações)
 │   ├── chamados.ts      status dos chamados (Configurações)
 │   ├── clientes.ts      opções de cliente (o filtro dos relatórios)
 │   ├── relatorios.ts    relatórios, opções dos filtros, download do PDF e expediente
 │   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
 ├── views/               uma pasta por área: reports/, admin/
 ├── components/
-│   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, Modal, SidePanel, DataTable, badges…
+│   ├── ui/              design system: Button, TextField, SelectField, Modal, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
 │   ├── admin/           StatusSettings (status dos chamados) e WorkHoursSettings (expediente), dentro de Configurações
 │   ├── reports/         BarChart (barras horizontais) e ColumnChart (colunas no tempo): uma série, só tokens
@@ -373,7 +375,7 @@ src/
 | `/chamados/:numero` | No servidor (3.11). Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
 | `/admin/clientes` | No servidor (3.11). Lista com busca (nome, CPF/CNPJ, e-mail), no menu Administração | `client.view` (grupo Administradores) |
 | `/admin/clientes/novo`, `/admin/clientes/:id` | No servidor (3.11). Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
-| `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | Cadastros | `admin.users` / `admin.organization` |
+| `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | No servidor (3.11). Cadastros | `admin.users` / `admin.organization` |
 | `/relatorios` | Relatórios: totais, abas Produtividade, Clientes e Horas extras (gráficos + tabelas), filtros de período, grupo, pessoa e cliente, botão Baixar PDF. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
 | `/admin/configuracoes` | Idioma, cores, logotipo, status dos chamados e expediente | `admin.settings` |
 | `/dev/componentes` | Vitrine do design system | Só em desenvolvimento |
@@ -383,7 +385,6 @@ Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão
 ### 4.4 Componentes
 
 - `components/ui/` é o **design system** ([docs/17](docs/17-identidade-visual.md), [ADR 0008](docs/adr/0008-reka-ui.md)): componentes acessíveis sobre o Reka UI e estilizados só com os tokens (`bg-surface`, `text-muted`, `bg-primary`…), **nunca com cores diretas**.
-- Telas de administração seguem o mesmo padrão: lista ou árvore, botão **Novo** e edição num `SidePanel`.
 
 ### 4.5 Editor e Markdown
 

@@ -119,6 +119,10 @@ class Page:
         )
         if flashes:
             response.delete_cookie(FLASH_COOKIE)
+        # Com sessão, nada fica guardado no navegador: depois de Sair, o Voltar não mostra os
+        # dados (clientes, chamados) a quem usar o computador em seguida.
+        if self.auth is not None:
+            response.headers["Cache-Control"] = "no-store"
         return response
 
 

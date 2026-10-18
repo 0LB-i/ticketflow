@@ -100,19 +100,19 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/admin/usuarios',
     name: 'admin-usuarios',
-    component: () => import('@/views/admin/UsersView.vue'),
+    ...SERVIDOR,
     meta: { permissao: 'admin.users' },
   },
   {
     path: '/admin/grupos',
     name: 'admin-grupos',
-    component: () => import('@/views/admin/TeamsView.vue'),
+    ...SERVIDOR,
     meta: { permissao: 'admin.organization' },
   },
   {
     path: '/admin/setores',
     name: 'admin-setores',
-    component: () => import('@/views/admin/DepartmentsView.vue'),
+    ...SERVIDOR,
     meta: { permissao: 'admin.organization' },
   },
   {

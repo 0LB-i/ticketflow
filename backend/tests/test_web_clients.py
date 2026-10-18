@@ -106,3 +106,23 @@ def test_documento_repetido_mostra_o_erro_da_api(client: TestClient, db: Session
     r = client.post("/admin/clientes/novo", data=_form(client, outro))
     assert r.status_code == 422
     assert "Já existe um cliente com este CPF/CNPJ." in r.text
+
+
+def test_campos_do_outro_tipo_nao_bloqueiam_o_envio(client: TestClient, db: Session) -> None:
+    """O nome fantasia é obrigatório só para PJ: no formulário de PF ele fica num fieldset
+    desativado, que o navegador não valida nem envia."""
+    _admin_de_clientes(client, db)
+    r = client.get("/admin/clientes/novo")
+    assert '<fieldset data-se-tipo="company" hidden disabled>' in r.text
+    assert '<fieldset data-se-tipo="person">' in r.text
+
+
+def test_id_invalido_e_email_recusado(client: TestClient, db: Session) -> None:
+    _admin_de_clientes(client, db)
+    assert client.get("/admin/clientes/abc").status_code == 404
+    dados = {**PESSOA, "emails": ["ok@exemplo.com", "", "a@b..com"]}
+    r = client.post("/admin/clientes/novo", data=_form(client, dados))
+    assert r.status_code == 422
+    # A 3ª linha (a 2ª está vazia) é a marcada.
+    assert r.text.count("Informe um e-mail válido.") == 1
+    assert 'value="a@b..com" autocomplete="off" aria-invalid="true"' in r.text

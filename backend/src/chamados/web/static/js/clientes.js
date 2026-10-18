@@ -3,10 +3,16 @@
 
 const tipo = (form) => form.querySelector('input[name=kind]:checked')?.value ?? 'person'
 
-/** Mostra só os campos do tipo escolhido; os do outro tipo a API ignora. */
+/**
+ * Mostra só os campos do tipo escolhido. Os do outro tipo ficam num <fieldset disabled>: o
+ * navegador não os valida (o nome fantasia é obrigatório só para PJ) nem os envia.
+ */
 function mostrarTipo(form) {
   const atual = tipo(form)
-  for (const el of form.querySelectorAll('[data-se-tipo]')) el.hidden = el.dataset.seTipo !== atual
+  for (const el of form.querySelectorAll('[data-se-tipo]')) {
+    el.hidden = el.dataset.seTipo !== atual
+    if (el instanceof HTMLFieldSetElement) el.disabled = el.hidden
+  }
 }
 
 const soDigitos = (v) => v.replace(/\D/g, '')

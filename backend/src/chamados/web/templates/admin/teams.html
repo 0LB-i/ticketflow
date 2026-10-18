@@ -1,0 +1,107 @@
+{#- Grupos (Administração): lista, edição e membros no painel lateral. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, badge, button_class, checkbox, field, panel_link, select_field, side_panel with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ t("grupos.titulo") }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-5xl flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-xl font-semibold">{{ t("grupos.titulo") }}</h1>
+    {{ panel_link("/admin/grupos?novo=1", t("grupos.novo"), button_class()) }}
+  </div>
+  <form method="get" action="/admin/grupos" data-envia-ao-mudar>{{ checkbox("inativos", t("comum.mostrarInativos"), inactive, "true") }}</form>
+
+  <div class="overflow-x-auto rounded-lg border border-border bg-surface">
+    <table class="w-full border-collapse text-left">
+      <caption class="sr-only">{{ t("grupos.titulo") }}</caption>
+      <thead class="bg-surface-raised text-muted">
+        <tr>
+          {%- for key in ("nome", "supervisores", "membros", "situacao") %}
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("grupos." ~ key) }}</th>
+          {%- endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {%- for g in teams %}
+        <tr class="border-t border-border">
+          <td class="px-3 py-2">{{ panel_link("/admin/grupos?editar=" ~ g.id, g.name) }}</td>
+          <td class="px-3 py-2">{{ g.members | selectattr("role", "equalto", "supervisor") | map(attribute="display_name") | join(", ") or "—" }}</td>
+          <td class="px-3 py-2 tabular-nums">{{ g.members | length }}</td>
+          <td class="px-3 py-2">{{ badge(t("comum.ativo"), "green") if g.is_active else badge(t("comum.inativo")) }}</td>
+        </tr>
+        {%- else %}
+        <tr><td colspan="4" class="px-3 py-6 text-center text-muted">{{ t("comum.nenhumRegistro") }}</td></tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="painel">
+  {%- if edited or creating %}
+  {% call side_panel(t("grupos.editar") if edited else t("grupos.novo"), "/admin/grupos") %}
+  <div class="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
+    <form id="form-grupo" method="post" action="/admin/grupos/{{ edited.id if edited else 'novo' }}" class="flex flex-col gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {%- if error %}
+      {{ alert(error) }}
+      {%- endif %}
+      {{ field("name", t("grupos.nome"), value=form.name or "", required=True, minlength="2") }}
+      {{ field("description", t("grupos.descricao"), value=form.description or "") }}
+      {{ select_field("notify_on_new", t("grupos.aviso"), notify_options, form.notify_on_new) }}
+      {%- if edited %}
+      {{ checkbox("is_active", t("comum.ativo"), form.is_active) }}
+      {%- endif %}
+    </form>
+
+    <section class="flex flex-col gap-3 border-t border-border pt-4" aria-labelledby="membros">
+      <h3 id="membros" class="font-semibold">{{ t("grupos.membros") }}</h3>
+      {%- if not edited %}
+      <p class="text-muted">{{ t("grupos.salveAntes") }}</p>
+      {%- else %}
+      {%- if not edited.members %}
+      <p class="text-muted">{{ t("grupos.semMembros") }}</p>
+      {%- endif %}
+      <ul class="flex flex-col divide-y divide-border">
+        {%- for m in edited.members %}
+        <li class="flex items-center gap-2 py-2">
+          <span class="min-w-0 flex-1">
+            <span class="block truncate font-medium">{{ m.display_name }}</span>
+            <span class="block truncate text-xs text-muted">{{ m.email or "" }}</span>
+          </span>
+          {#- Mudar a função já grava. #}
+          <form method="post" action="/admin/grupos/{{ edited.id }}/membros" data-envia-ao-mudar>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="user_id" value="{{ m.user_id }}">
+            <select name="role" aria-label="{{ t('grupos.funcao') }}" class="h-8 rounded-md border border-border-input bg-surface px-2">
+              {%- for value, text in role_options %}
+              <option value="{{ value }}"{% if value == m.role %} selected{% endif %}>{{ text }}</option>
+              {%- endfor %}
+            </select>
+          </form>
+          <form method="post" action="/admin/grupos/{{ edited.id }}/membros/{{ m.user_id }}/remover">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" aria-label="{{ t('comum.remover') }} {{ m.display_name }}" class="{{ button_class('ghost', 'sm') }}">{{ icon("trash", "size-4") }}</button>
+          </form>
+        </li>
+        {%- endfor %}
+      </ul>
+      <form method="post" action="/admin/grupos/{{ edited.id }}/membros" class="flex flex-col gap-2 rounded-md bg-surface-raised p-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ select_field("user_id", t("grupos.adicionarMembro"), candidates, placeholder=t("comum.selecione"), required=True) }}
+        {{ select_field("role", t("grupos.funcao"), role_options, "member") }}
+        <button type="submit" class="{{ button_class('secondary') }}">{{ t("comum.adicionar") }}</button>
+      </form>
+      {%- endif %}
+    </section>
+  </div>
+  <div class="flex justify-end gap-2 border-t border-border p-4">
+    <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.fechar") }}</button>
+    <button type="submit" form="form-grupo" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
+  </div>
+  {% endcall %}
+  {%- endif %}
+</div>
+{% endblock %}

@@ -193,11 +193,19 @@ async def new_client_page(page: Manager) -> HTMLResponse:
     return _form_page(page, ClientForm(), None, page.t("clientes.novo"))
 
 
+def _client_id(raw: str) -> uuid.UUID:
+    """Id da URL: um endereço inválido é "não encontrado", como na SPA (não "dados inválidos")."""
+    try:
+        return uuid.UUID(raw)
+    except ValueError:
+        raise HTTPException(404, "Cliente não encontrado.") from None
+
+
 @router.get("/admin/clientes/{client_id}")
-async def client_page(client_id: uuid.UUID, page: Viewer, db: DB) -> HTMLResponse:
+async def client_page(client_id: str, page: Viewer, db: DB) -> HTMLResponse:
     """Sem client.manage, o formulário só mostra os dados."""
-    client = await clients_api.get_client(client_id, page.auth, db)
-    return _form_page(page, ClientForm.of(client), client_id, client.label)
+    client = await clients_api.get_client(_client_id(client_id), page.auth, db)
+    return _form_page(page, ClientForm.of(client), client.id, client.label)
 
 
 Field = Annotated[str, Form()]
@@ -219,7 +227,9 @@ async def _save(
     emails = values.pop("emails") or [""]
     values["state"] = values["state"].strip().upper()  # como a API, aceita "sp"
     form = ClientForm(**values, is_active=active, phones=phones, emails=emails)
-    title = page.t("clientes.editar") if client_id else page.t("clientes.novo")
+    # Como na primeira abertura: o nome do cliente (na edição) ou "Novo cliente".
+    title = (form.name or form.trade_name or page.t("clientes.editar")) if client_id else ""
+    title = title or page.t("clientes.novo")
     if errors := form.errors():
         return _form_page(page, form, client_id, title, errors=errors, status_code=422)
     try:
@@ -228,7 +238,17 @@ async def _save(
             await clients_api.update_client(client_id, data, page.auth, request, db)
         else:
             await clients_api.create_client(data, page.auth, request, db)
-    except ValidationError:
+    except ValidationError as exc:
+        # E-mail que passa no formato simples mas não na validação da API: marca o campo.
+        # O índice é o da lista sem as linhas vazias (payload): volta para a linha da tela.
+        lines = [i for i, email in enumerate(form.emails) if email.strip()]
+        emails = {
+            f"emails.{lines[int(e['loc'][1])]}": "clientes.erros.email"
+            for e in exc.errors()
+            if e["loc"][0] == "emails" and len(e["loc"]) > 1
+        }
+        if emails:
+            return _form_page(page, form, client_id, title, errors=emails, status_code=422)
         error = page.t("comum.erroInesperado")
     except HTTPException as exc:
         error = page.api_message(exc)
@@ -277,6 +297,6 @@ async def create_client(page: Manager, request: Request, db: DB, values: Values)
 
 @router.post("/admin/clientes/{client_id}")
 async def update_client(
-    client_id: uuid.UUID, page: Manager, request: Request, db: DB, values: Values
+    client_id: str, page: Manager, request: Request, db: DB, values: Values
 ) -> Response:
-    return await _save(page, request, db, client_id, values)
+    return await _save(page, request, db, _client_id(client_id), values)

@@ -1,6 +1,7 @@
 {#- Cadastro e edição de cliente, em três colunas (dados, contato, endereço) para caber na tela
     do computador sem rolar. Sem client.manage, o formulário só mostra os dados. Os campos de
-    pessoa física ou jurídica aparecem conforme o tipo (static/js/clientes.js). -#}
+    pessoa física ou jurídica aparecem conforme o tipo (static/js/clientes.js); os do outro tipo
+    ficam num <fieldset disabled>, que o navegador não valida nem envia. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, button_class, field, select_field with context %}
 {% from "_icons.html" import icon %}
@@ -83,7 +84,7 @@
           <p class="text-danger">{{ err("name") }}</p>
           {%- endif %}
         </div>
-        <div data-se-tipo="company"{% if pf %} hidden{% endif %}>{{ field("trade_name", t("clientes.nomeFantasia"), value=form.trade_name, error=err("trade_name") or None, required=True) }}</div>
+        <fieldset data-se-tipo="company"{% if pf %} hidden disabled{% endif %}>{{ field("trade_name", t("clientes.nomeFantasia"), value=form.trade_name, error=err("trade_name") or None, required=True) }}</fieldset>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="flex flex-col gap-1">
             <label for="campo-document" class="font-medium"><span data-se-tipo="person"{% if not pf %} hidden{% endif %}>CPF</span><span data-se-tipo="company"{% if pf %} hidden{% endif %}>CNPJ</span><span class="text-danger" aria-hidden="true"> *</span></label>
@@ -92,14 +93,14 @@
             <p class="text-danger">{{ err("document") }}</p>
             {%- endif %}
           </div>
-          <div data-se-tipo="person"{% if not pf %} hidden{% endif %}>{{ field("id_number", t("clientes.rg"), value=form.id_number, inputmode="numeric", maxlength="14", **{"data-mascara": "rg"}) }}</div>
-          <div data-se-tipo="company"{% if pf %} hidden{% endif %}>{{ field("state_registration", t("clientes.inscricaoEstadual"), value=form.state_registration, hint=t("clientes.inscricaoEstadualDica")) }}</div>
+          <fieldset data-se-tipo="person"{% if not pf %} hidden disabled{% endif %}>{{ field("id_number", t("clientes.rg"), value=form.id_number, inputmode="numeric", maxlength="14", **{"data-mascara": "rg"}) }}</fieldset>
+          <fieldset data-se-tipo="company"{% if pf %} hidden disabled{% endif %}>{{ field("state_registration", t("clientes.inscricaoEstadual"), value=form.state_registration, hint=t("clientes.inscricaoEstadualDica")) }}</fieldset>
         </div>
-        <div data-se-tipo="person"{% if not pf %} hidden{% endif %}>{{ field("birth_date", t("clientes.nascimento"), type="date", value=form.birth_date) }}</div>
-        <div data-se-tipo="company" class="grid gap-4 sm:grid-cols-2"{% if pf %} hidden{% endif %}>
+        <fieldset data-se-tipo="person"{% if not pf %} hidden disabled{% endif %}>{{ field("birth_date", t("clientes.nascimento"), type="date", value=form.birth_date) }}</fieldset>
+        <fieldset data-se-tipo="company" class="grid gap-4 sm:grid-cols-2"{% if pf %} hidden disabled{% endif %}>
           {{ field("municipal_registration", t("clientes.inscricaoMunicipal"), value=form.municipal_registration) }}
           {{ field("contact_name", t("clientes.pessoaDeContato"), value=form.contact_name) }}
-        </div>
+        </fieldset>
         {%- if client_id %}
         <label class="inline-flex cursor-pointer items-center gap-2">
           <input type="checkbox" name="is_active" value="1"{% if form.is_active %} checked{% endif %} class="size-4 accent-(--tf-primary)">

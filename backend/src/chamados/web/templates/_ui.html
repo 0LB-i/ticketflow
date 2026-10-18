@@ -188,3 +188,40 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
   {%- endfor %}
 </div>
 {%- endmacro %}
+
+{#- Painel lateral de edição das telas de administração (docs/13 §13.5), aberto pelo endereço
+    (?novo=1, ?editar=<id>). Ao fechar, o endereço volta para `back` (static/js/app.js). O
+    conteúdo (caller) traz o formulário com o rodapé de botões (panel_footer). -#}
+{% macro side_panel(title, back, description=None) -%}
+<dialog data-abre-ao-carregar data-volta="{{ back }}" aria-labelledby="painel-titulo" class="ml-auto mr-0 h-dvh max-h-none w-full max-w-md border-l border-border bg-surface p-0 text-fg shadow-xl backdrop:bg-black/40">
+  <div class="flex h-full flex-col">
+    <div class="flex items-start justify-between gap-4 border-b border-border p-4">
+      <div>
+        <h2 id="painel-titulo" class="text-lg font-semibold">{{ title }}</h2>
+        {%- if description %}
+        <p class="mt-1 text-muted">{{ description }}</p>
+        {%- endif %}
+      </div>
+      <button type="button" data-fecha-dialogo class="rounded p-1 text-muted hover:bg-surface-raised" aria-label="{{ t('comum.fechar') }}">{{ icon("x") }}</button>
+    </div>
+    <div class="flex min-h-0 flex-1 flex-col">{{ caller() }}</div>
+  </div>
+</dialog>
+{%- endmacro %}
+
+{#- Abre o painel de uma linha da lista: o HTMX troca só o #painel e põe o endereço na barra. -#}
+{% macro panel_link(url, text, class="font-medium text-primary underline") -%}
+<a href="{{ url }}" hx-get="{{ url }}" hx-select="#painel" hx-target="#painel" hx-swap="outerHTML" hx-push-url="true" class="{{ class }}">{{ text }}</a>
+{%- endmacro %}
+
+{% macro badge(text, color="gray") -%}
+{%- set colors = {"green": "bg-green-bg text-green-fg", "teal": "bg-teal-bg text-teal-fg", "gray": "bg-gray-bg text-gray-fg", "blue": "bg-blue-bg text-blue-fg", "violet": "bg-violet-bg text-violet-fg", "red": "bg-red-bg text-red-fg"} -%}
+<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium {{ colors[color] }}">{{ text }}</span>
+{%- endmacro %}
+
+{% macro checkbox(name, label, checked=False, value="1") -%}
+<label class="inline-flex cursor-pointer items-center gap-2">
+  <input type="checkbox" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %} class="size-4 accent-(--tf-primary)">
+  {{ label }}
+</label>
+{%- endmacro %}

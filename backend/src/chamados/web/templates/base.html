@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {#- O HTMX não guarda páginas no sessionStorage (teriam dados pessoais); o Voltar pede de novo. #}
+  <meta name="htmx-config" content='{"historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
   {#- Título da aba: "<página> · TicketFlow" (docs/17 §17.1). #}
   <title>{% block title %}{% endblock %} · {{ t("app.nome") }}</title>
   <link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">

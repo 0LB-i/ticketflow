@@ -106,3 +106,25 @@ document.addEventListener('click', (e) => {
 document.addEventListener('htmx:afterSettle', atualizarSelecao)
 // O navegador pode restaurar as caixas marcadas ao voltar para a página.
 addEventListener('pageshow', atualizarSelecao)
+
+// Painéis e janelas abertos pelo endereço (data-abre-ao-carregar): abrem quando a página ou o
+// trecho trocado pelo HTMX chega; ao fechar, o endereço volta ao da lista (data-volta).
+function abrirAoCarregar(raiz) {
+  for (const janela of raiz.querySelectorAll('dialog[data-abre-ao-carregar]:not([open])')) {
+    janela.showModal()
+    if (janela.dataset.volta) {
+      janela.addEventListener('close', () => history.replaceState(null, '', janela.dataset.volta))
+    }
+  }
+}
+htmx.onLoad(abrirAoCarregar)
+
+// Copiar (o link de acesso para repassar quando não há e-mail configurado).
+document.addEventListener('click', async (e) => {
+  const botao = e.target.closest('[data-copia]')
+  if (!botao) return
+  await navigator.clipboard.writeText(document.getElementById(botao.dataset.copia).value)
+  const texto = botao.textContent
+  botao.textContent = botao.dataset.copiado
+  setTimeout(() => (botao.textContent = texto), 2000)
+})
