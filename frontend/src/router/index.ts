@@ -19,8 +19,11 @@ declare module 'vue-router' {
   }
 }
 
-// Telas que já migraram para o servidor (ADR 0011): a SPA recarrega a página nelas.
+// Telas que já migraram para o servidor (ADR 0011): a SPA recarrega a página nelas. Com
+// `strict` e `sensitive`, "/chamados/" e "/Chamados" (que o servidor não atende) caem no "não
+// encontrado" da SPA em vez de recarregar a página sem parar.
 const NA_SERVIDOR = () => import('@/views/ServerView.vue')
+const SERVIDOR = { component: NA_SERVIDOR, strict: true, sensitive: true }
 
 const routes: RouteRecordRaw[] = [
   // A tela inicial é a lista de chamados.
@@ -28,49 +31,48 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'login',
-    component: NA_SERVIDOR,
+    ...SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/esqueci-senha',
     name: 'esqueci-senha',
-    component: NA_SERVIDOR,
+    ...SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/convite/:token',
     name: 'convite',
-    component: NA_SERVIDOR,
+    ...SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/redefinir-senha/:token',
     name: 'redefinir-senha',
-    component: NA_SERVIDOR,
+    ...SERVIDOR,
     meta: { publica: true, cartao: true },
   },
   {
     path: '/trocar-senha',
     name: 'trocar-senha',
-    component: NA_SERVIDOR,
+    ...SERVIDOR,
     meta: { cartao: true },
   },
   {
     path: '/chamados',
     name: 'chamados',
-    component: NA_SERVIDOR,
+    ...SERVIDOR,
   },
   {
     path: '/chamados/novo',
     name: 'novo-chamado',
-    component: () => import('@/views/tickets/NewTicketView.vue'),
+    ...SERVIDOR,
     meta: { permissao: 'ticket.create' },
   },
   {
     path: '/chamados/:numero(\\d+)',
     name: 'chamado',
-    component: () => import('@/views/tickets/TicketView.vue'),
-    props: true,
+    ...SERVIDOR,
   },
   {
     path: '/admin/clientes',

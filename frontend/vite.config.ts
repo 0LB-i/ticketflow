@@ -16,11 +16,10 @@ export default defineConfig({
     // Em desenvolvimento a API roda no uvicorn; em produção, na mesma origem (ADR 0010).
     proxy: {
       '/api': 'http://127.0.0.1:8000',
-      // Telas que já migraram para o servidor e os arquivos delas (ADR 0011).
-      '^/(static/|login|sair|esqueci-senha|convite/|redefinir-senha/|trocar-senha|idioma)': uvicorn,
-      // A raiz e a lista de chamados, mas não /chamados/123 nem /chamados/novo.
-      '^/(chamados)?(\\?|$)': uvicorn,
-      '^/chamados/status-em-massa': uvicorn,
+      // Telas que já migraram para o servidor e os arquivos delas (ADR 0011): a raiz, o login e
+      // as telas de senha, o idioma e tudo de /chamados e /clientes.
+      '^/(static/|convite/|redefinir-senha/|chamados/|clientes/|(chamados|login|sair|esqueci-senha|trocar-senha|idioma)?(\\?|$))':
+        uvicorn,
     },
     // Atrás do nginx (scripts/instalar-servico-dev.sh), o navegador abre o websocket na 443.
     hmr: process.env.TF_HMR_PORT ? { clientPort: Number(process.env.TF_HMR_PORT) } : undefined,

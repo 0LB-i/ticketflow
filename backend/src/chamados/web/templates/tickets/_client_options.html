@@ -1,0 +1,6 @@
+{#- Opções do campo de cliente (_fields.html: client_picker), pedidas pelo HTMX. -#}
+{%- for o in options %}
+<li role="option" id="cliente-{{ o.id }}" data-id="{{ o.id }}" data-nome="{{ o.label }}" aria-selected="false" class="flex cursor-default rounded px-2 py-1.5 select-none hover:bg-surface-raised aria-selected:bg-surface-raised">{{ o.label }}</li>
+{%- else %}
+<li class="px-2 py-1.5 text-muted">{{ t("chamado.nenhumCliente") }}</li>
+{%- endfor %}

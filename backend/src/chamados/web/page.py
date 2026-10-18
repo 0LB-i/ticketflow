@@ -19,7 +19,7 @@ from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, SettingsDep, session_auth
 from chamados.modules.identity.sessions import CSRF_COOKIE, SESSION_COOKIE, csrf_ok, load_session
 from chamados.modules.system.router import Branding, load_branding
-from chamados.web.formatting import format_ago, format_datetime, format_duration
+from chamados.web.formatting import format_ago, format_datetime, format_duration, format_size
 from chamados.web.i18n import translate
 from chamados.web.palette import stylesheet
 from chamados.web.templating import templates
@@ -101,6 +101,7 @@ class Page:
                 "datetime": partial(format_datetime, self.locale),
                 "ago": partial(format_ago, self.locale, now=datetime.now(UTC)),
                 "duration": format_duration,
+                "size": partial(format_size, self.locale),
                 **context,
             },
             status_code=status_code,

@@ -45,3 +45,47 @@ def format_duration(minutes: int) -> str:
     if not h:
         return f"{m}min"
     return f"{h}h{m:02d}" if m else f"{h}h"
+
+
+def format_size(locale: str, size: int) -> str:
+    """Tamanho de arquivo: "512 B", "1,5 KB", "12 MB" (vírgula decimal em português)."""
+    if size < 1024:
+        return f"{size} B"
+    value, unit = (size / 1024, "KB") if size < 1024 * 1024 else (size / 1024 / 1024, "MB")
+    text = f"{value:.1f}".removesuffix(".0")
+    return f"{text.replace('.', ',') if locale == 'pt-BR' else text} {unit}"
+
+
+def local_parts(value: datetime) -> tuple[str, str]:
+    """Data ("2026-10-17") e hora ("14:05") no fuso de São Paulo, como os campos usam."""
+    t = value.astimezone(TIMEZONE)
+    return t.strftime("%Y-%m-%d"), t.strftime("%H:%M")
+
+
+def parse_local(date: str, time: str) -> datetime | None:
+    """O instante de uma data e hora digitadas no fuso de São Paulo; inválidas dão None."""
+    try:
+        return datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M").replace(tzinfo=TIMEZONE)
+    except ValueError:
+        return None
+
+
+def parse_duration(text: str) -> int | None:
+    """Minutos de um "hh:mm" (vazio dá None). Minutos acima de 59 ou zero dão ValueError."""
+    if not text:
+        return None
+    hours, sep, minutes = text.partition(":")
+    if not (sep and len(hours) == len(minutes) == 2 and hours.isdigit() and minutes.isdigit()):
+        raise ValueError(text)
+    total = int(hours) * 60 + int(minutes)
+    if int(minutes) > 59 or total == 0:
+        raise ValueError(text)
+    return total
+
+
+# Horários sugeridos no campo de tempo: 20 e 30 min, de 15 em 15 até 3 h, de hora em hora
+# até 24 h (como TEMPOS_SUGERIDOS do formato.ts).
+SUGGESTED_TIMES = [
+    f"{m // 60:02d}:{m % 60:02d}"
+    for m in [20, 30, *range(45, 181, 15), *range(4 * 60, 24 * 60 + 1, 60)]
+]

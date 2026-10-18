@@ -1,0 +1,82 @@
+{#- Registro de chamado (docs/10 §10.4). Pensada para computador: texto à esquerda e campos à
+    direita, sem rolar a página. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class, field, select_field with context %}
+{% from "_fields.html" import chips, client_picker, datetime_field, editor, suggested_times_list, uploader with context %}
+
+{% block title %}{{ t("novoChamado.titulo") }}{% endblock %}
+
+{% block head %}
+<script src="{{ static('js/vendor/tiptap-3.31.4.js') }}" defer></script>
+<script src="{{ static('js/chamado.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-7xl flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-xl font-semibold">{{ t("novoChamado.titulo") }}</h1>
+    {%- if my_teams %}
+    <div class="flex gap-2">
+      <a href="/chamados" class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</a>
+      <button type="submit" form="form-novo-chamado" class="{{ button_class() }}">{{ t("novoChamado.registrar") }}</button>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if not my_teams %}
+  {{ alert(t("novoChamado.semGrupo")) }}
+  {%- else %}
+  <form id="form-novo-chamado" method="post" action="/chamados/novo" class="flex flex-col gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {%- if error %}
+    {{ alert(error) }}
+    {%- endif %}
+
+    <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6">
+        {{ field("titulo", t("novoChamado.tituloCampo"), value=form.title, hint=t("novoChamado.tituloDica"), error=t(errors.title) if errors.title else None, required=True) }}
+        {{ editor("descricao", "descricao", t("novoChamado.descricao"), value=form.description, placeholder=t("novoChamado.descricaoDica"), mentions=True, attach=True, tall=True) }}
+        {{ uploader(pending) }}
+      </div>
+
+      <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+        {{ datetime_field("inicio", t("chamado.inicio"), form.started, error=t(errors.started) if errors.started else None) }}
+        {#- Trocar de grupo recomeça a lista de responsáveis (HTMX troca só esse trecho). #}
+        <div class="flex flex-col gap-1">
+          <label for="campo-grupo" class="font-medium">{{ t("novoChamado.grupo") }}<span class="text-danger" aria-hidden="true"> *</span></label>
+          <select id="campo-grupo" name="grupo" hx-get="/chamados/novo" hx-select="#responsaveis" hx-target="#responsaveis" hx-swap="outerHTML"{% if errors.team %} aria-invalid="true" aria-describedby="campo-grupo-erro"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg {{ 'border-danger' if errors.team else 'border-border-input' }}">
+            <option value="" disabled{% if not form.team %} selected{% endif %}>{{ t("comum.selecione") }}</option>
+            {%- for value, text in my_teams %}
+            <option value="{{ value }}"{% if value == form.team %} selected{% endif %}>{{ text }}</option>
+            {%- endfor %}
+          </select>
+          {%- if errors.team %}
+          <p id="campo-grupo-erro" class="text-danger">{{ t(errors.team) }}</p>
+          {%- endif %}
+        </div>
+        <div id="responsaveis">
+          {%- if form.team %}
+          {{ chips("responsaveis", t("novoChamado.usuarios"), members, form.assignees, names, t("novoChamado.adicionarUsuario"), "novoChamado.removerUsuario", all_label=t("novoChamado.todosDoGrupo"), required=True, error=t(errors.assignees) if errors.assignees else None) }}
+          {%- endif %}
+        </div>
+        {%- if can_choose_status %}
+        {{ select_field("status_id", t("chamados.status"), status_options, form.status) }}
+        {%- endif %}
+
+        <div class="flex flex-col gap-4 border-t border-border pt-4">
+          {{ client_picker(t("chamado.cliente"), form.client_id, form.client_name, error=t(errors.client) if errors.client else None) }}
+          {{ field("contato", t("chamado.contato"), value=form.contact, hint=t("chamado.contatoDica")) }}
+        </div>
+
+        <div class="border-t border-border pt-4">
+          {{ chips("observadores", t("chamado.observadores"), watcher_options, form.watchers, names, t("chamado.adicionarColega"), "chamado.removerObservador") }}
+        </div>
+      </div>
+    </div>
+  </form>
+  {%- endif %}
+</div>
+{#- Colegas para o @ do editor. #}
+<script type="application/json" id="pessoas">{{ people | tojson }}</script>
+{{ suggested_times_list() }}
+{% endblock %}

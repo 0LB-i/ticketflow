@@ -54,6 +54,14 @@ describe('proteção das rotas (docs/13 §13.3)', () => {
     expect(router.currentRoute.value.name).toBe('chamados')
   })
 
+  it('com barra final ou maiúsculas, as telas do servidor não recarregam a página', async () => {
+    simularApi({ 'GET /api/v1/me': [200, ME_AGENTE] })
+    await router.push('/chamados/')
+    expect(router.currentRoute.value.name).toBe('nao-encontrado')
+    await router.push('/Chamados')
+    expect(router.currentRoute.value.name).toBe('nao-encontrado')
+  })
+
   it('convite continua acessível mesmo logado', async () => {
     simularApi({ 'GET /api/v1/me': [200, ME_AGENTE] })
     await router.push('/convite/abc')

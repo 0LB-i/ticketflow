@@ -1,0 +1,11 @@
+{#- Chamado que existe mas não é visível (403) ou que não existe (404). -#}
+{% extends "app.html" %}
+
+{% block title %}{{ t("chamado.titulo") }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-6xl flex-col gap-2">
+  <h1 class="text-xl font-semibold">{{ t("chamado.semAcesso") if forbidden else t("chamado.naoEncontrado") }}</h1>
+  <a href="/chamados" class="text-primary underline">{{ t("chamado.voltarParaLista") }}</a>
+</div>
+{% endblock %}

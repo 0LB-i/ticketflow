@@ -8,7 +8,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos (o "Pegar o próximo" saiu junto com a fila de não atribuídos, em 2026-10-15). A seção 10 lista o que ainda não existe.
 
-Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). O login, as telas de senha, o layout (menu, cabeçalho, menu do usuário) e a lista de chamados já são do servidor; as demais continuam na SPA até migrarem (3.11).
+Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). O login, as telas de senha, o layout (menu, cabeçalho, menu do usuário), a lista, o registro e o detalhe dos chamados já são do servidor; a administração e os relatórios continuam na SPA até migrarem (3.11).
 
 ---
 
@@ -156,7 +156,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Status personalizados:** o admin cria (nome + `kind`: open, waiting, delivered, closed, canceled), renomeia, ordena (`PUT /statuses/order`) e remove em Configurações (`admin.settings`). O `kind` não muda depois de criado. Cada `kind` precisa de ao menos um status; ao remover, os chamados vão para o padrão do mesmo `kind`, e se o removido era o padrão o próximo da lista assume. O primeiro status criado de um `kind` vira o padrão. Ações em `audit_log` (`ticket_status.*`).
 - **Status no formulário:** além das transições do fluxo, a ação `set_status` (quem tem `ticket.transition` no grupo) escolhe qualquer status no registro (`status_id`, padrão Pendente) e na edição, sem comentário nem código de resolução. `_apply_status` acerta `closed_at` e conta a reabertura ao sair de um `closed`. O evento é `ticket.status_changed` sem `action`. Para um status `closed`, a ação também exige `set_status_closed`, que todo `set_status` tem, menos quando o status atual é de revisão (`kind` `delivered`, "Entregue"): aí só o supervisor do grupo ou o admin.
 - **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
-- **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, `DateTimeField` acompanha a hora atual até ser mudado.
+- **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, o campo de data e hora acompanha a hora atual até ser mudado.
 - **Cliente e contato:** para quem é o trabalho. `client_id` é **obrigatório** no registro e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); no PATCH troca, mas `null` é recusado (422). A obrigação fica só na API: o banco aceita chamados antigos sem cliente (os relatórios os agrupam como "sem cliente"). O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o `ClientPicker` busca em `GET /clients/options` (qualquer pessoa logada; só clientes ativos, só o id e o nome, busca pelo nome ou nome fantasia). O setor atendido (`department_id`) continua na API, mas saiu da interface.
 - **Histórico:** fica só no banco e em `GET /tickets/{id}/events`; a linha do tempo da tela mostra só o registro e os comentários (decisão do usuário, 2026-10-13). Cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
 - **Responsável obrigatório:** todo chamado tem responsável (`tickets.assignee_id` NOT NULL desde a migração 0028); não há fila de não atribuídos nem "devolver à fila". O registro exige `assignee` (`"me"` ou um membro ativo do grupo), `POST /assign` só troca de responsável, e a transferência exige `assignee_id`, um membro ativo do grupo de destino.
@@ -277,13 +277,17 @@ web/
 │                        login), Redirect, safe_next(), check_csrf(), flash()
 ├── auth.py              login, sair, esqueci a senha, convite, redefinição, troca obrigatória, idioma
 ├── tickets.py           / (vai para a lista), lista de chamados com as filas, status em massa
-├── formatting.py        datas, "há 3 dias" e duração como o formato.ts (fuso de São Paulo)
+├── ticket.py            registro, detalhe, ações da lateral, tarefas e a busca de clientes
+├── formatting.py        datas, "há 3 dias", duração, tamanho e os campos de data e hora (São Paulo)
+├── markdown.py          render_markdown(): markdown-it-py com as regras do antigo markdown.ts
 ├── i18n.py              translate(): os catálogos JSON da SPA (frontend/src/i18n) até a troca final
 ├── palette.py           paleta derivada das 3 cores (port do tema/paleta.ts, mesmos tons)
 ├── templating.py        ambiente Jinja2 e static() (endereço com a data do arquivo)
 ├── templates/           base.html, card.html (cartão sem menu), app.html (menu e cabeçalho),
-│                        _ui.html (macros), _icons.html, auth/, tickets/
-└── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, vendor/htmx), fonts/
+│                        _ui.html (macros), _fields.html (campos das telas de chamado),
+│                        _icons.html, auth/, tickets/
+└── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, chamado.js,
+                         vendor/htmx, vendor/tiptap), fonts/
 ```
 
 - **Sem regra na tela:** a rota da tela chama a função da rota da API (`identity.router.login(...)`) ou o service, e só monta o HTML. Os erros da API (`HTTPException`) viram a mensagem na tela, traduzida por `Page.api_message()`.
@@ -297,7 +301,11 @@ web/
 - **Cores:** `palette.stylesheet()` gera a folha das cores personalizadas, embutida no `<head>` (`<style id="tf-cores">`; a CSP aceita estilo embutido, não script). O tema claro/escuro fica no navegador (`tf-tema`, a mesma chave da SPA), aplicado pelo `tema.js` antes da primeira pintura.
 - **CSS:** `scripts/css.sh` roda o Tailwind standalone (`pytailwindcss`, versão fixa no script) sobre `static/css/input.css` e procura classes só em `templates/` e `static/js/`. O `app.css` não vai para o git: o `deploy.sh` o gera, e em desenvolvimento o `ticketflow-css.service` (ou `scripts/css.sh --watch`) o gera de novo a cada mudança.
 - **Convivência com a SPA:** o Vite repassa ao uvicorn os endereços já migrados (`server.proxy` no `vite.config.ts`, a lista entre parênteses), e as rotas da SPA para esses endereços usam o `ServerView.vue`, que recarrega a página. Migrar uma tela = criar a rota e o template aqui, acrescentar o endereço nessa lista e trocar o componente da rota da SPA por `NA_SERVIDOR` (ou apagar a rota, se a SPA nunca navega para ela).
-- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/` e `/chamados` (com `/chamados/status-em-massa`).
+- **Editor e Markdown:** descrição e tarefas são **Markdown** no banco. O `static/js/chamado.js` monta o Tiptap (empacotado num arquivo só em `static/js/vendor/`, gerado por `scripts/vendor-tiptap.sh`, que é o único passo com Node e só roda para trocar a versão) sobre o `<textarea>` do macro `editor()`, que continua levando o texto; sem JavaScript, fica o `<textarea>`. O `@` abre os colegas (JSON em `<script type="application/json" id="pessoas">`) e, no envio, os ids viram campos `mention_ids`. Imagem colada ou arrastada sobe para `POST /api/v1/uploads` e entra no texto como `![nome](/api/v1/attachments/<id>)`; a rota junta esses ids (`attachments_in_text`) aos do "Anexar" (campos `attachment_ids`). A exibição é do filtro `markdown` (`web/markdown.py`): `html: False`, links em outra aba, sem `javascript:`, e só imagens desse endereço (uma de fora aparece como texto, para não rastrear quem abre o chamado).
+- **Campos com comportamento** (`_fields.html` + `chamado.js`, por atributos `data-*`): data e hora que acompanham o relógio até o ajuste (`*_ajustado`), tempo hh:mm com a lista de horários sugeridos (`<datalist>`), anexos que sobem na hora (a 1ª etapa do docs/11 §11.4), pessoas em etiquetas e o cliente buscado por HTMX (`/clientes/opcoes`).
+- **Trechos por HTMX sem templates parciais:** a rota devolve a página inteira e o `hx-select` escolhe o trecho: os responsáveis do grupo escolhido no registro (`/chamados/novo?grupo=`), a tarefa em edição ou a confirmação da remoção (`/chamados/{n}?editar=` / `?remover=`) e os membros do grupo de destino da transferência (`?team_id=`). A única parcial é a lista de clientes.
+- **Ações do chamado:** cada botão da lateral é um formulário (POST com `csrf_token`) que chama a função da API e volta ao chamado com o aviso (`_act`). Erro numa tarefa nova ou na edição devolve a página com o texto preenchido (422), sem perder o que foi escrito.
+- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`) e `/clientes/opcoes`.
 
 ---
 
@@ -317,19 +325,17 @@ src/
 ├── stores/              Pinia: auth (usuário logado), branding (cores, logotipo, idioma padrão), theme
 ├── composables/         consultas e mutações (TanStack Query) e utilidades
 │   ├── admin.ts         usuários, grupos, setores, status (admin)
-│   ├── chamados.ts      chamados, comentários, histórico, status, pessoas
+│   ├── chamados.ts      status dos chamados (Configurações)
 │   ├── clientes.ts      clientes; documentos.ts formata e valida CPF, CNPJ, telefone e CEP
 │   ├── relatorios.ts    relatórios, opções dos filtros, download do PDF e expediente
 │   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
 ├── views/               uma pasta por área: auth/, tickets/, clients/, reports/, admin/
 ├── components/
-│   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, DateTimeField, DurationField (hh:mm com lista), Modal, SidePanel, DataTable, badges…
+│   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, Modal, SidePanel, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
 │   ├── admin/           StatusSettings (status dos chamados) e WorkHoursSettings (expediente), dentro de Configurações
 │   ├── reports/         BarChart (barras horizontais) e ColumnChart (colunas no tempo): uma série, só tokens
-│   ├── editor/          RichEditor (Tiptap → Markdown, @menções, imagens coladas), MarkdownView, markdown.ts
-│   └── tickets/         TicketTimeline, CommentBox, TicketDetails, DeliverTicket, ClientPicker,
-│                        AttachmentUploader (Anexar, arrastar e soltar), AttachmentList
+│   └── tickets/         ClientPicker (o filtro de cliente dos relatórios)
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
 ├── i18n/                index.ts, pt-BR.json, en.json
 ├── assets/main.css      Tailwind 4 + tokens de cor (--tf-*) dos modos claro e escuro
@@ -348,8 +354,8 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['chamados', filtro]` (uma por fila e filtros), `['chamados', 'contagens']`, `['chamado', numero]`, `['chamado', numero, 'comentarios']`, `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['relatorios', filtro]`, `['relatorios', 'opcoes']`, `['expediente']`.
-- **Escrita:** `useAlteracao(fn, chaves)` (admin) e `useAcaoNoChamado(numero, fn)` (chamados) fazem a mutação e invalidam as chaves afetadas.
+- **Leitura** com TanStack Query: as chaves são `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['relatorios', filtro]`, `['relatorios', 'opcoes']`, `['expediente']`.
+- **Escrita:** `useAlteracao(fn, chaves)` (admin) faz a mutação e invalida as chaves afetadas.
 - **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
 
 ### 4.3 Telas
@@ -359,8 +365,8 @@ src/
 | `/login`, `/esqueci-senha`, `/convite/:token`, `/redefinir-senha/:token` | No servidor (3.11): `ServerView.vue` recarrega a página | Público |
 | `/trocar-senha` | Troca obrigatória da senha provisória, no servidor (3.11) | Logado |
 | `/chamados` | No servidor (3.11). Filas em abas com contadores (Meus, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), total de horas e lápis (abre o chamado) em cada linha e, para supervisor e admin, seleção de vários chamados com mudança de status (janela flutuante no pé da tela). Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
-| `/chamados/novo` | Registro | `ticket.create` |
-| `/chamados/:numero` | Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
+| `/chamados/novo` | No servidor (3.11). Registro | `ticket.create` |
+| `/chamados/:numero` | No servidor (3.11). Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
 | `/admin/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail), no menu Administração | `client.view` (grupo Administradores) |
 | `/admin/clientes/novo`, `/admin/clientes/:id` | Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
 | `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | Cadastros | `admin.users` / `admin.organization` |
@@ -374,14 +380,10 @@ Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão
 
 - `components/ui/` é o **design system** ([docs/17](docs/17-identidade-visual.md), [ADR 0008](docs/adr/0008-reka-ui.md)): componentes acessíveis sobre o Reka UI e estilizados só com os tokens (`bg-surface`, `text-muted`, `bg-primary`…), **nunca com cores diretas**.
 - Telas de administração seguem o mesmo padrão: lista ou árvore, botão **Novo** e edição num `SidePanel`.
-- Os componentes de chamado (`components/tickets/`) recebem o chamado por prop e decidem os botões só por `chamado.allowed_actions`.
 
 ### 4.5 Editor e Markdown
 
-- Descrição e comentários são **Markdown** no banco. `RichEditor.vue` (Tiptap + `@tiptap/markdown`) edita visualmente e grava Markdown. Com `pessoas`, o `@` abre a lista de colegas, e `mencionados()` devolve os ids para `mention_ids`.
-- `MarkdownView.vue` mostra o texto com `markdown-it` em `html: false`: HTML digitado aparece como texto e links `javascript:` são recusados. É o único `v-html` do projeto.
-- **Imagens:** com `anexar`, o `RichEditor` envia a imagem colada ou arrastada (`POST /uploads`) e a insere como `![nome](/api/v1/attachments/<id>)`. Quem envia o formulário junta os ids do texto (`anexosNoTexto`) aos do `AttachmentUploader` em `attachment_ids`. O `MarkdownView` só mostra imagens desse endereço; uma imagem de fora aparece como texto (não é carregada, para não rastrear quem abre o chamado).
-- O Tiptap (~150 kB gzip) fica num pedaço carregado só nas telas de chamado.
+Saíram da SPA junto com as telas de chamado: estão nas telas do servidor (3.11).
 
 ### 4.6 Tema e cores
 

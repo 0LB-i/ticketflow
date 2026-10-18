@@ -1,0 +1,318 @@
+{#- Detalhe do chamado (docs/10 §10.6). O que aparece depende de `allowed_actions`. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class, select_field, status_badge with context %}
+{% from "_fields.html" import attachment_list, chip, client_picker, datetime_field, dialog, duration_field, editor, suggested_times_list, uploader with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}#{{ ticket.number }} {{ ticket.title }}{% endblock %}
+
+{% block head %}
+<script src="{{ static('js/vendor/tiptap-3.31.4.js') }}" defer></script>
+<script src="{{ static('js/chamado.js') }}" defer></script>
+{% endblock %}
+
+{%- set base = "/chamados/" ~ ticket.number %}
+
+{#- Uma tarefa da linha do tempo. Editar e remover trocam só este trecho (HTMX sobre a página
+    com ?editar= ou ?remover=). -#}
+{% macro comment_item(c) -%}
+{%- set mine = c.author.id | string == me %}
+{%- set target = "#tarefa-" ~ c.id %}
+<li id="tarefa-{{ c.id }}" class="rounded-lg border border-border bg-surface p-4">
+  <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted">
+    <span class="font-medium text-fg">{{ c.author.display_name }}</span>
+    <span>· {{ datetime(c.done_at) }}</span>
+    {%- if c.edited_at %}
+    <span>· {{ t("chamado.editado") }}</span>
+    {%- endif %}
+    {%- if c.is_solution %}
+    <span class="inline-flex items-center gap-1 rounded-full bg-green-bg px-2 py-0.5 text-xs font-medium text-green-fg">{{ t("chamado.solucao") }}</span>
+    {%- endif %}
+    {%- if c.time_spent_minutes %}
+    <span class="inline-flex items-center gap-1 rounded-full bg-gray-bg px-2 py-0.5 text-xs font-medium text-gray-fg">
+      {{ icon("clock", "size-3.5") }}
+      <span class="sr-only">{{ t("chamado.tempoGasto") }}:</span>
+      <span class="tabular-nums">{{ duration(c.time_spent_minutes) }}</span>
+    </span>
+    {%- endif %}
+    {%- if mine and not (edit_form and edit_form.comment_id == c.id | string) %}
+    {%- if removing == c.id | string %}
+    <form method="post" action="{{ base }}/tarefas/{{ c.id }}/remover" role="group" aria-label="{{ t('chamado.removerTarefaPergunta') }}" class="ml-auto flex items-center gap-1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <span class="text-fg">{{ t("chamado.removerTarefaPergunta") }}</span>
+      <a href="{{ base }}#tarefa-{{ c.id }}" hx-get="{{ base }}" hx-select="{{ target }}" hx-target="{{ target }}" hx-swap="outerHTML" class="{{ button_class('secondary', 'sm') }}">{{ t("comum.cancelar") }}</a>
+      <button type="submit" class="{{ button_class('danger', 'sm') }}">{{ t("chamado.removerTarefa") }}</button>
+    </form>
+    {%- else %}
+    <div class="ml-auto flex items-center gap-1">
+      <a href="{{ base }}?editar={{ c.id }}#tarefa-{{ c.id }}" hx-get="{{ base }}?editar={{ c.id }}" hx-select="{{ target }}" hx-target="{{ target }}" hx-swap="outerHTML" class="{{ button_class('ghost', 'sm') }}">{{ t("chamado.editarComentario") }}</a>
+      <a href="{{ base }}?remover={{ c.id }}#tarefa-{{ c.id }}" hx-get="{{ base }}?remover={{ c.id }}" hx-select="{{ target }}" hx-target="{{ target }}" hx-swap="outerHTML" class="{{ button_class('ghost', 'sm') }}">{{ t("chamado.removerTarefa") }}</a>
+    </div>
+    {%- endif %}
+    {%- endif %}
+  </div>
+  {%- if edit_form and edit_form.comment_id == c.id | string %}
+  <form method="post" action="{{ base }}/tarefas/{{ c.id }}" class="mt-2 flex flex-col gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {%- if edit_form.error %}
+    {{ alert(edit_form.error) }}
+    {%- endif %}
+    {{ editor("texto", "editar-" ~ c.id, t("chamado.editarComentario"), value=edit_form.body, mentions=True, attach=True) }}
+    <div class="flex flex-wrap items-start gap-4">
+      {{ duration_field("tempo", "tempo-" ~ c.id, t("chamado.tempoGasto"), edit_form.time) }}
+      {{ datetime_field("feita", t("chamado.feitaEm"), edit_form.done) }}
+    </div>
+    <div class="flex justify-end gap-2">
+      <a href="{{ base }}#tarefa-{{ c.id }}" hx-get="{{ base }}" hx-select="{{ target }}" hx-target="{{ target }}" hx-swap="outerHTML" class="{{ button_class('secondary', 'sm') }}">{{ t("comum.cancelar") }}</a>
+      <button type="submit" data-exige-texto class="{{ button_class('primary', 'sm') }}">{{ t("comum.salvar") }}</button>
+    </div>
+  </form>
+  {%- else %}
+  <div class="mt-2 texto-formatado">{{ c.body | markdown }}</div>
+  {%- if attachments[c.id | string] %}
+  {{ attachment_list(attachments[c.id | string], "mt-3") }}
+  {%- endif %}
+  {%- endif %}
+</li>
+{%- endmacro %}
+
+{% block content %}
+<div class="mx-auto flex max-w-6xl flex-col gap-4">
+  <header class="flex flex-col gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="min-w-0 text-xl font-semibold break-words">
+        <span class="text-muted tabular-nums">#{{ ticket.number }}</span>
+        {{ ticket.title }}
+      </h1>
+      {{ status_badge(ticket.status.kind, ticket.status.name) }}
+    </div>
+    <p class="text-muted">{{ t("chamado.registradoPor", quando=datetime(ticket.created_at), quem=ticket.created_by.display_name) }}</p>
+  </header>
+
+  <div class="grid items-start gap-4 lg:grid-cols-[1fr_20rem]">
+    <div class="flex min-w-0 flex-col gap-4">
+      {#- Linha do tempo: o registro e as tarefas, pela data em que foram feitas. #}
+      <ol class="flex flex-col gap-3" aria-label="{{ t('chamado.linhaDoTempo') }}">
+        <li class="rounded-lg border border-border bg-surface p-4">
+          <p class="text-muted">
+            <span class="font-medium text-fg">{{ ticket.created_by.display_name }}</span>
+            · {{ datetime(ticket.created_at) }}
+          </p>
+          {%- if ticket.description %}
+          <div class="mt-2 texto-formatado">{{ ticket.description | markdown }}</div>
+          {%- else %}
+          <p class="mt-2 text-muted italic">{{ t("chamado.semDescricao") }}</p>
+          {%- endif %}
+          {%- if attachments[None] %}
+          {{ attachment_list(attachments[None], "mt-3") }}
+          {%- endif %}
+        </li>
+        {%- for c in comments %}
+        {{ comment_item(c) }}
+        {%- endfor %}
+      </ol>
+
+      {%- if "comment" in actions %}
+      {#- Tarefa nova (um comentário na API) e, na mesma ação, retomar ou reabrir. #}
+      <form id="nova-tarefa" method="post" action="{{ base }}/tarefas" class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {%- if new_comment.error %}
+        {{ alert(new_comment.error) }}
+        {%- endif %}
+        {{ editor("texto", "nova-tarefa-texto", t("chamado.novoComentario"), value=new_comment.body, placeholder=t("chamado.comentarioDica"), mentions=True, attach=True) }}
+        <div class="flex items-start justify-between gap-3">
+          {{ duration_field("tempo", "nova-tarefa-tempo", t("chamado.tempoGasto"), new_comment.time) }}
+          {#- mt-8: na altura do campo de tempo, abaixo do rótulo #}
+          <div class="mt-8 min-w-0">{{ uploader(new_pending, simple=True) }}</div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" name="acao" value="" data-exige-texto class="{{ button_class() }}">{{ t("chamado.comentar") }}</button>
+          {#- Aguardar não aparece na tela (decisão de 2026-10-14); entregar e cancelar ficam na lateral. #}
+          {%- for action in ("resume", "reopen") if action in actions %}
+          <button type="submit" name="acao" value="{{ action }}" class="{{ button_class('secondary') }}">{{ t("chamado.acoes." ~ action) }}</button>
+          {%- endfor %}
+        </div>
+      </form>
+      {%- endif %}
+    </div>
+
+    {#- Dados do chamado e as ações sobre eles. #}
+    <aside class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-label="{{ t('chamado.dados') }}">
+      {%- if "edit" in actions %}
+      {#- Cliente: obrigatório, troca mas não sai. #}
+      <form method="post" action="{{ base }}/cliente">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ client_picker(t("chamado.cliente"), ticket.client.id if ticket.client else "", ticket.client.name if ticket.client else "", submit_on_pick=True) }}
+      </form>
+      {%- endif %}
+
+      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+        {%- if ticket.client and "edit" not in actions %}
+        <dt class="text-muted">{{ t("chamado.cliente") }}</dt>
+        <dd class="font-medium">{{ ticket.client.name }}</dd>
+        {%- endif %}
+        {%- if ticket.beneficiary_name %}
+        <dt class="text-muted">{{ t("chamado.contato") }}</dt>
+        <dd>{{ ticket.beneficiary_name }}</dd>
+        {%- endif %}
+        <dt class="text-muted">{{ t("chamado.grupo") }}</dt>
+        <dd class="font-medium">{{ ticket.team.name }}</dd>
+        <dt class="text-muted">{{ t("chamado.responsavel") }}</dt>
+        <dd class="font-medium">{{ ([ticket.assignee] + ticket.co_assignees) | map(attribute="display_name") | join(", ") }}</dd>
+        <dt class="text-muted">{{ t("chamado.tipo") }}</dt>
+        <dd>{{ t("tipos." ~ ticket.type) }}</dd>
+        <dt class="text-muted">{{ t("chamado.inicio") }}</dt>
+        <dd class="tabular-nums">{{ datetime(ticket.started_at) }}</dd>
+        {%- if ticket.resolution_code %}
+        <dt class="text-muted">{{ t("chamado.resolucao") }}</dt>
+        <dd>{{ ticket.resolution_code.name }} · {{ datetime(ticket.closed_at) }}</dd>
+        {%- endif %}
+      </dl>
+
+      {%- if "set_status" in actions %}
+      <form method="post" action="{{ base }}/status" data-envia-ao-mudar>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ select_field("status_id", t("chamados.status"), status_options, ticket.status.id | string) }}
+      </form>
+      {%- endif %}
+
+      <div class="flex flex-wrap gap-2">
+        {%- if "assign_self" in actions %}
+        <form method="post" action="{{ base }}/assumir">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="{{ button_class('primary', 'sm') }}">{{ t("chamado.assumir") }}</button>
+        </form>
+        {%- endif %}
+        {%- if "transfer" in actions %}
+        <button type="button" data-abre-dialogo="transferir" class="{{ button_class('secondary', 'sm') }}">{{ t("chamado.transferir") }}</button>
+        {%- endif %}
+        {%- if "cancel" in actions %}
+        <button type="button" data-abre-dialogo="cancelar" class="{{ button_class('danger', 'sm') }}">{{ t("chamado.acoes.cancel") }}</button>
+        {%- endif %}
+      </div>
+      {%- if "assign_others" in actions %}
+      <form method="post" action="{{ base }}/atribuir" data-envia-ao-mudar>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ select_field("assignee", t("chamado.atribuirA"), assign_options, placeholder=t("chamado.escolhaMembro")) }}
+      </form>
+      {%- endif %}
+
+      <section class="flex flex-col gap-2 border-t border-border pt-4" aria-labelledby="tempo-titulo">
+        <div class="flex items-baseline justify-between gap-2">
+          <h2 id="tempo-titulo" class="font-semibold">{{ t("chamado.tempoGasto") }}</h2>
+          {%- if ticket.time_spent_minutes %}
+          <p class="text-lg font-semibold tabular-nums"><span class="sr-only">{{ t("chamado.tempoTotal") }}:</span> {{ duration(ticket.time_spent_minutes) }}</p>
+          {%- endif %}
+        </div>
+        {%- if not ticket.time_by_person %}
+        <p class="text-muted">{{ t("chamado.semTempo") }}</p>
+        {%- else %}
+        <dl class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+          {%- for p in ticket.time_by_person %}
+          <dt>{{ p.display_name }}</dt>
+          <dd class="text-right tabular-nums">{{ duration(p.minutes) }}</dd>
+          {%- endfor %}
+        </dl>
+        {%- endif %}
+      </section>
+
+      <section class="flex flex-col gap-2 border-t border-border pt-4" aria-labelledby="observadores-titulo">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="observadores-titulo" class="font-semibold">{{ t("chamado.observadores") }}</h2>
+          {%- if "watch_self" in actions %}
+          <form method="post" action="{{ base }}/observadores">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="user_id" value="{{ me }}">
+            <input type="hidden" name="observar" value="{{ '0' if watching else '1' }}">
+            <button type="submit" class="{{ button_class('ghost', 'sm') }}">{{ t("chamado.deixarDeAcompanhar") if watching else t("chamado.acompanhar") }}</button>
+          </form>
+          {%- endif %}
+        </div>
+        {%- if not ticket.watchers %}
+        <p class="text-muted">{{ t("chamado.semObservadores") }}</p>
+        {%- else %}
+        <ul class="flex flex-wrap gap-2">
+          {%- for w in ticket.watchers %}
+          <li class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">
+            {{ w.display_name }}
+            {%- if "manage_watchers" in actions or (w.id | string == me and "watch_self" in actions) %}
+            <form method="post" action="{{ base }}/observadores" class="inline-flex">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="user_id" value="{{ w.id }}">
+              <input type="hidden" name="observar" value="0">
+              <button type="submit" class="rounded-full p-0.5 text-muted hover:bg-border" aria-label="{{ t('chamado.removerObservador', nome=w.display_name) }}">{{ icon("x", "size-4") }}</button>
+            </form>
+            {%- else %}
+            <span class="pr-2"></span>
+            {%- endif %}
+          </li>
+          {%- endfor %}
+        </ul>
+        {%- endif %}
+        {%- if "manage_watchers" in actions %}
+        <form method="post" action="{{ base }}/observadores" data-envia-ao-mudar>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="observar" value="1">
+          {{ select_field("user_id", t("chamado.adicionarObservador"), watcher_options, placeholder=t("chamado.adicionarColega")) }}
+        </form>
+        {%- endif %}
+      </section>
+
+      {%- if ticket.attachments %}
+      <section class="flex flex-col gap-2 border-t border-border pt-4" aria-labelledby="anexos-titulo">
+        <h2 id="anexos-titulo" class="font-semibold">{{ t("anexos.tituloComTotal", n=ticket.attachments | length) }}</h2>
+        {{ attachment_list(ticket.attachments) }}
+      </section>
+      {%- endif %}
+
+      {%- if delivered %}
+      {#- Marcar como entregue: um clique leva à revisão do supervisor. #}
+      <form method="post" action="{{ base }}/entregar">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="w-full {{ button_class('gold') }}">{{ t("chamado.entregue.marcar") }}</button>
+      </form>
+      {%- endif %}
+    </aside>
+  </div>
+</div>
+
+{%- if "transfer" in actions %}
+{% call dialog("transferir", t("chamado.transferirTitulo"), t("chamado.transferirTexto")) %}
+<form method="post" action="{{ base }}/transferir" class="mt-4 flex flex-col gap-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {#- Os membros do grupo escolhido chegam pelo HTMX (a página com ?team_id=). #}
+  <div class="flex flex-col gap-1">
+    <label for="campo-team_id" class="font-medium">{{ t("chamado.grupoDestino") }}<span class="text-danger" aria-hidden="true"> *</span></label>
+    <select id="campo-team_id" name="team_id" required hx-get="{{ base }}" hx-select="#membros-destino" hx-target="#membros-destino" hx-swap="outerHTML" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+      <option value="" disabled{% if not destination %} selected{% endif %}>{{ t("comum.selecione") }}</option>
+      {%- for value, text in transfer_teams %}
+      <option value="{{ value }}"{% if value == destination %} selected{% endif %}>{{ text }}</option>
+      {%- endfor %}
+    </select>
+  </div>
+  <div id="membros-destino">{{ select_field("assignee_id", t("chamado.novoResponsavel"), destination_members, placeholder=t("chamado.escolhaMembro"), required=True) }}</div>
+  <div class="flex flex-col gap-1">
+    <label for="campo-motivo" class="font-medium">{{ t("chamado.motivo") }}<span class="text-danger" aria-hidden="true"> *</span></label>
+    <textarea id="campo-motivo" name="motivo" rows="3" required class="rounded-md border border-border-input bg-surface px-3 py-2 text-fg"></textarea>
+  </div>
+  <div class="mt-2 flex justify-end gap-2">
+    <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
+    <button type="submit" class="{{ button_class() }}">{{ t("chamado.transferir") }}</button>
+  </div>
+</form>
+{% endcall %}
+{%- endif %}
+
+{%- if "cancel" in actions %}
+{% call dialog("cancelar", t("chamado.cancelarTitulo"), t("chamado.cancelarTexto")) %}
+<form method="post" action="{{ base }}/cancelar" class="mt-6 flex justify-end gap-2">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("chamado.naoCancelar") }}</button>
+  <button type="submit" class="{{ button_class('danger') }}">{{ t("chamado.acoes.cancel") }}</button>
+</form>
+{% endcall %}
+{%- endif %}
+
+<script type="application/json" id="pessoas">{{ people | tojson }}</script>
+{{ suggested_times_list() }}
+{% endblock %}
