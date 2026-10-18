@@ -36,20 +36,6 @@ export const TOKENS = [
 
 export const CORES_PADRAO: Cores = { brand: '#F97316', neutral: '#737373', background: '#FFFFFF' }
 
-/**
- * Combinações prontas da tela de Configurações; a primeira é o padrão. Sem vermelho nem rosa
- * na marca: confundiriam com o botão destrutivo (docs/17 §17.2).
- */
-export const PREDEFINIDAS: { id: string; cores: Cores }[] = [
-  { id: 'padrao', cores: CORES_PADRAO },
-  { id: 'azul', cores: { brand: '#2563EB', neutral: '#64748B', background: '#FFFFFF' } },
-  { id: 'verde', cores: { brand: '#16A34A', neutral: '#71717A', background: '#FFFFFF' } },
-  { id: 'petroleo', cores: { brand: '#0D9488', neutral: '#64748B', background: '#FFFFFF' } },
-  { id: 'roxo', cores: { brand: '#7C3AED', neutral: '#71717A', background: '#FFFFFF' } },
-  { id: 'ambar', cores: { brand: '#D97706', neutral: '#78716C', background: '#FFFBF5' } },
-  { id: 'grafite', cores: { brand: '#374151', neutral: '#6B7280', background: '#F9FAFB' } },
-]
-
 /** Paleta original, escolhida à mão (docs/17 §17.2 e assets/main.css). */
 export const PALETA_PADRAO: Paleta = {
   claro: {
@@ -259,11 +245,6 @@ const iguais = (a: Cores, b: Cores) =>
 export function paleta(cores: Cores | null): Paleta {
   if (!cores || iguais(cores, CORES_PADRAO)) return PALETA_PADRAO
   return { claro: derivar(cores, 'claro'), escuro: derivar(cores, 'escuro') }
-}
-
-/** Variáveis CSS (--tf-*) de um modo, para o atributo style de uma prévia. */
-export function variaveis(tokens: Tokens): Record<string, string> {
-  return Object.fromEntries(TOKENS.map((t) => [`--tf-${t}`, tokens[t]]))
 }
 
 /**

@@ -168,3 +168,51 @@ def test_setores_em_arvore(client: TestClient, db: Session) -> None:
     client.post(f"/admin/setores/{fin.public_id}", data=_form(client, **dados))
     db.refresh(fin)
     assert not fin.is_active
+
+
+def test_setor_acima_inativo_continua_nas_opcoes(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    client.post("/admin/setores/novo", data=_form(client, name="Financeiro"))
+    fin = db.scalar(select(Department).where(Department.name == "Financeiro"))
+    assert fin is not None
+    client.post(
+        "/admin/setores/novo", data=_form(client, name="Contas", parent_id=str(fin.public_id))
+    )
+    contas = db.scalar(select(Department).where(Department.name == "Contas"))
+    assert contas is not None
+    client.post(f"/admin/setores/{fin.public_id}", data=_form(client, name="Financeiro"))  # inativa
+    r = client.get(f"/admin/setores?editar={contas.public_id}")
+    # Sem a opção, o navegador escolheria "Nenhum" e salvar apagaria o vínculo.
+    assert f'<option value="{fin.public_id}" selected>Financeiro (Inativo)</option>' in r.text
+
+
+def test_filtros_da_lista_continuam(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    bia = criar_usuario(db, "bia@x.com", nome="Bia")
+    r = client.get(f"/admin/usuarios?situacao=ativo&editar={bia.public_id}")
+    assert 'data-volta="/admin/usuarios?situacao=ativo"' in r.text
+    assert 'name="volta" value="/admin/usuarios?situacao=ativo"' in r.text
+    assert f'href="/admin/usuarios?situacao=ativo&amp;editar={bia.public_id}"' in r.text
+    dados = {"full_name": "Bia", "display_name": "Bia", "role": "agent"}
+    r = client.post(
+        f"/admin/usuarios/{bia.public_id}",
+        data=_form(client, **dados, volta="/admin/usuarios?situacao=ativo"),
+        follow_redirects=False,
+    )
+    assert r.headers["location"] == "/admin/usuarios?situacao=ativo"
+    # Só volta para a mesma tela.
+    r = client.post(
+        f"/admin/usuarios/{bia.public_id}",
+        data=_form(client, **dados, volta="/chamados"),
+        follow_redirects=False,
+    )
+    assert r.headers["location"] == "/admin/usuarios"
+
+
+def test_pagina_do_link_troca_o_endereco(client: TestClient, db: Session) -> None:
+    """A resposta do POST vira o endereço da tela: um F5 não gera outro link (que invalidaria o
+    já enviado)."""
+    _admin(client, db)
+    bia = criar_usuario(db, "bia@x.com", nome="Bia", senha=None)
+    r = client.post(f"/admin/usuarios/{bia.public_id}/link", data=_form(client))
+    assert f'data-endereco="/admin/usuarios?editar={bia.public_id}"' in r.text

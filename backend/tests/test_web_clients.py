@@ -126,3 +126,11 @@ def test_id_invalido_e_email_recusado(client: TestClient, db: Session) -> None:
     # A 3ª linha (a 2ª está vazia) é a marcada.
     assert r.text.count("Informe um e-mail válido.") == 1
     assert 'value="a@b..com" autocomplete="off" aria-invalid="true"' in r.text
+
+
+def test_texto_longo_demais_marca_o_campo(client: TestClient, db: Session) -> None:
+    _admin_de_clientes(client, db)
+    r = client.post("/admin/clientes/novo", data=_form(client, {**PESSOA, "street": "x" * 201}))
+    assert r.status_code == 422
+    assert "Texto longo demais." in r.text
+    assert "Algo deu errado" not in r.text

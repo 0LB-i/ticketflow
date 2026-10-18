@@ -9,6 +9,7 @@ por `requires`, porque a da API fica numa dependência que não roda nesta chama
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -30,7 +31,7 @@ from chamados.modules.organization.router import (
     TeamUpdate,
 )
 from chamados.web.formatting import format_datetime
-from chamados.web.page import LoggedPage, check_csrf, requires
+from chamados.web.page import LoggedPage, check_csrf, requires, safe_next
 
 router = APIRouter()
 
@@ -42,6 +43,27 @@ UUID = TypeAdapter(uuid.UUID)
 
 ROLES = ("agent", "admin", "auditor")
 STATUSES = ("ativo", "convite_pendente", "inativo")
+
+
+def _list_url(base: str, params: dict[str, Any]) -> str:
+    """A lista com os filtros em uso: abrir, fechar e salvar no painel não os perde."""
+    query = urlencode({k: v for k, v in params.items() if v})
+    return f"{base}?{query}" if query else base
+
+
+def _back(volta: str, base: str) -> str:
+    """O endereço da lista que o formulário trouxe (campo volta), só se for da mesma tela."""
+    url = safe_next(volta)
+    return url if url.split("?")[0] == base else base
+
+
+def _with(url: str, **params: object) -> str:
+    return f"{url}{'&' if '?' in url else '?'}{urlencode(params)}"
+
+
+def _list_context(base: str, filters: dict[str, Any]) -> dict[str, Any]:
+    back = _list_url(base, filters)
+    return {"back": back, "panel_url": lambda **params: _with(back, **params)}
 
 
 async def _run(
@@ -104,6 +126,9 @@ async def _users_page(
     return page.render(
         "admin/users.html",
         status_code=status_code,
+        **_list_context(
+            "/admin/usuarios", {"q": q, "papel": papel, "grupo": grupo, "situacao": situacao}
+        ),
         users=[u for u in users if _user_matches(u, q, papel, grupo, situacao)],
         filters={"q": q, "papel": papel, "grupo": grupo, "situacao": situacao},
         role_options=[(r, page.t(f"usuarios.papeis.{r}")) for r in ROLES],
@@ -146,6 +171,7 @@ async def create_user(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
     full_name: Field = "",
     display_name: Field = "",
     email: Field = "",
@@ -171,7 +197,7 @@ async def create_user(
     except HTTPException as exc:
         error = page.api_message(exc)
     else:
-        response = RedirectResponse("/admin/usuarios", status_code=303)
+        response = RedirectResponse(_back(volta, "/admin/usuarios"), status_code=303)
         page.flash(response, ("success", page.t("usuarios.criado")))
         return response
     return await _users_page(page, db, creating=True, form=form, error=error, status_code=422)
@@ -184,6 +210,7 @@ async def update_user(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
     full_name: Field = "",
     display_name: Field = "",
     email: Field = "",
@@ -214,7 +241,7 @@ async def update_user(
     except HTTPException as exc:
         error = page.api_message(exc)
     else:
-        response = RedirectResponse("/admin/usuarios", status_code=303)
+        response = RedirectResponse(_back(volta, "/admin/usuarios"), status_code=303)
         page.flash(response, ("success", page.t("comum.salvo")))
         return response
     return await _users_page(
@@ -224,13 +251,18 @@ async def update_user(
 
 @router.post("/admin/usuarios/{user_id}/reativar")
 async def reactivate_user(
-    user_id: uuid.UUID, page: UsersAdmin, request: Request, db: DB, csrf_token: Field = ""
+    user_id: uuid.UUID,
+    page: UsersAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    volta: Field = "",
 ) -> Response:
     """Quem foi desativado antes de existir a exclusão ainda pode ser reativado."""
     check_csrf(page, csrf_token)
     return await _run(
         page,
-        f"/admin/usuarios?editar={user_id}",
+        _with(_back(volta, "/admin/usuarios"), editar=user_id),
         lambda: users_api.update_user(user_id, UserUpdate(is_active=True), page.auth, request, db),
         None,
     )
@@ -238,12 +270,17 @@ async def reactivate_user(
 
 @router.post("/admin/usuarios/{user_id}/excluir")
 async def delete_user(
-    user_id: uuid.UUID, page: UsersAdmin, request: Request, db: DB, csrf_token: Field = ""
+    user_id: uuid.UUID,
+    page: UsersAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    volta: Field = "",
 ) -> Response:
     check_csrf(page, csrf_token)
     return await _run(
         page,
-        "/admin/usuarios",
+        _back(volta, "/admin/usuarios"),
         lambda: users_api.delete_user(user_id, page.auth, request, db),
         page.t("usuarios.excluido"),
     )
@@ -258,10 +295,11 @@ async def send_link(
     settings: SettingsDep,
     tasks: BackgroundTasks,
     csrf_token: Field = "",
+    volta: Field = "",
 ) -> Response:
     """Convite ou redefinição. Sem SMTP, a tela mostra o link para o administrador repassar."""
     check_csrf(page, csrf_token)
-    back = f"/admin/usuarios?editar={user_id}"
+    back = _with(_back(volta, "/admin/usuarios"), editar=user_id)
     try:
         link = await users_api.send_access_link(user_id, page.auth, request, db, settings, tasks)
     except HTTPException as exc:
@@ -313,6 +351,7 @@ async def _teams_page(
     return page.render(
         "admin/teams.html",
         status_code=status_code,
+        **_list_context("/admin/grupos", {"inativos": "true" if inactive else ""}),
         teams=[t for t in teams if inactive or t.is_active],
         inactive=inactive,
         edited=edited,
@@ -344,6 +383,7 @@ async def create_team(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
     name: Field = "",
     description: Field = "",
     notify_on_new: Field = "queue_only",
@@ -361,7 +401,9 @@ async def create_team(
     except HTTPException as exc:
         error = page.api_message(exc)
     else:
-        response = RedirectResponse(f"/admin/grupos?editar={team.id}", status_code=303)
+        response = RedirectResponse(
+            _with(_back(volta, "/admin/grupos"), editar=team.id), status_code=303
+        )
         page.flash(response, ("success", page.t("grupos.criado")))
         return response
     return await _teams_page(page, db, creating=True, form=form, error=error, status_code=422)
@@ -374,6 +416,7 @@ async def update_team(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
     name: Field = "",
     description: Field = "",
     notify_on_new: Field = "queue_only",
@@ -396,7 +439,7 @@ async def update_team(
     except HTTPException as exc:
         error = page.api_message(exc)
     else:
-        response = RedirectResponse("/admin/grupos", status_code=303)
+        response = RedirectResponse(_back(volta, "/admin/grupos"), status_code=303)
         page.flash(response, ("success", page.t("comum.salvo")))
         return response
     return await _teams_page(
@@ -411,6 +454,7 @@ async def put_member(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
     user_id: Field = "",
     role: Field = "member",
 ) -> Response:
@@ -418,7 +462,7 @@ async def put_member(
     check_csrf(page, csrf_token)
     return await _run(
         page,
-        f"/admin/grupos?editar={team_id}",
+        _with(_back(volta, "/admin/grupos"), editar=team_id),
         lambda: organization_api.put_member(
             team_id,
             UUID.validate_python(user_id),
@@ -439,11 +483,12 @@ async def remove_member(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
 ) -> Response:
     check_csrf(page, csrf_token)
     return await _run(
         page,
-        f"/admin/grupos?editar={team_id}",
+        _with(_back(volta, "/admin/grupos"), editar=team_id),
         lambda: organization_api.remove_member(team_id, user_id, page.auth, request, db),
         None,
     )
@@ -472,9 +517,11 @@ def _tree(departments: list[DepartmentOut], inactive: bool) -> list[tuple[Depart
 
 
 def _parent_options(
-    departments: list[DepartmentOut], edited: DepartmentOut | None
+    departments: list[DepartmentOut], edited: DepartmentOut | None, inactive_label: str
 ) -> list[tuple[str, str]]:
-    """Opções de "setor acima": nunca o próprio setor nem os subsetores dele."""
+    """Opções de "setor acima": nunca o próprio setor nem os subsetores dele. O setor acima
+    atual entra mesmo inativo: sem a opção, o navegador escolheria "Nenhum" e salvar apagaria
+    o vínculo."""
     blocked: set[uuid.UUID] = set()
     if edited:
         blocked.add(edited.id)
@@ -485,7 +532,12 @@ def _parent_options(
                 if d.parent_id in blocked and d.id not in blocked:
                     blocked.add(d.id)
                     changed = True
-    return [(str(d.id), d.name) for d in departments if d.is_active and d.id not in blocked]
+    current = edited.parent_id if edited else None
+    return [
+        (str(d.id), d.name if d.is_active else f"{d.name} ({inactive_label})")
+        for d in departments
+        if (d.is_active or d.id == current) and d.id not in blocked
+    ]
 
 
 async def _departments_page(
@@ -511,13 +563,17 @@ async def _departments_page(
     return page.render(
         "admin/departments.html",
         status_code=status_code,
+        **_list_context("/admin/setores", {"inativos": "true" if inactive else ""}),
         tree=_tree(departments, inactive),
         inactive=inactive,
         edited=edited,
         creating=creating and edited is None,
         form=form or {"parent_id": "", "is_active": True},
         error=error,
-        parent_options=[("", page.t("setores.nenhumAcima")), *_parent_options(departments, edited)],
+        parent_options=[
+            ("", page.t("setores.nenhumAcima")),
+            *_parent_options(departments, edited, page.t("comum.inativo")),
+        ],
     )
 
 
@@ -538,6 +594,7 @@ async def _save_department(
     db: DB,
     dept_id: uuid.UUID | None,
     form: dict[str, Any],
+    volta: str,
 ) -> Response:
     payload = {
         "name": form["name"],
@@ -558,7 +615,7 @@ async def _save_department(
     except HTTPException as exc:
         error = page.api_message(exc)
     else:
-        response = RedirectResponse("/admin/setores", status_code=303)
+        response = RedirectResponse(_back(volta, "/admin/setores"), status_code=303)
         page.flash(response, ("success", page.t("comum.salvo" if dept_id else "setores.criado")))
         return response
     return await _departments_page(
@@ -578,13 +635,14 @@ async def create_department(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
     name: Field = "",
     code: Field = "",
     parent_id: Field = "",
 ) -> Response:
     check_csrf(page, csrf_token)
     form = {"name": name, "code": code, "parent_id": parent_id, "is_active": True}
-    return await _save_department(page, request, db, None, form)
+    return await _save_department(page, request, db, None, form, volta)
 
 
 @router.post("/admin/setores/{dept_id}")
@@ -594,6 +652,7 @@ async def update_department(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    volta: Field = "",
     name: Field = "",
     code: Field = "",
     parent_id: Field = "",
@@ -601,4 +660,4 @@ async def update_department(
 ) -> Response:
     check_csrf(page, csrf_token)
     form = {"name": name, "code": code, "parent_id": parent_id, "is_active": is_active == "1"}
-    return await _save_department(page, request, db, dept_id, form)
+    return await _save_department(page, request, db, dept_id, form, volta)

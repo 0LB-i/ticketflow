@@ -93,13 +93,13 @@
             <p class="text-danger">{{ err("document") }}</p>
             {%- endif %}
           </div>
-          <fieldset data-se-tipo="person"{% if not pf %} hidden disabled{% endif %}>{{ field("id_number", t("clientes.rg"), value=form.id_number, inputmode="numeric", maxlength="14", **{"data-mascara": "rg"}) }}</fieldset>
-          <fieldset data-se-tipo="company"{% if pf %} hidden disabled{% endif %}>{{ field("state_registration", t("clientes.inscricaoEstadual"), value=form.state_registration, hint=t("clientes.inscricaoEstadualDica")) }}</fieldset>
+          <fieldset data-se-tipo="person"{% if not pf %} hidden disabled{% endif %}>{{ field("id_number", t("clientes.rg"), value=form.id_number, inputmode="numeric", maxlength="14", error=err("id_number") or None, **{"data-mascara": "rg"}) }}</fieldset>
+          <fieldset data-se-tipo="company"{% if pf %} hidden disabled{% endif %}>{{ field("state_registration", t("clientes.inscricaoEstadual"), value=form.state_registration, hint=t("clientes.inscricaoEstadualDica"), error=err("state_registration") or None) }}</fieldset>
         </div>
         <fieldset data-se-tipo="person"{% if not pf %} hidden disabled{% endif %}>{{ field("birth_date", t("clientes.nascimento"), type="date", value=form.birth_date) }}</fieldset>
         <fieldset data-se-tipo="company" class="grid gap-4 sm:grid-cols-2"{% if pf %} hidden disabled{% endif %}>
-          {{ field("municipal_registration", t("clientes.inscricaoMunicipal"), value=form.municipal_registration) }}
-          {{ field("contact_name", t("clientes.pessoaDeContato"), value=form.contact_name) }}
+          {{ field("municipal_registration", t("clientes.inscricaoMunicipal"), value=form.municipal_registration, error=err("municipal_registration") or None) }}
+          {{ field("contact_name", t("clientes.pessoaDeContato"), value=form.contact_name, error=err("contact_name") or None) }}
         </fieldset>
         {%- if client_id %}
         <label class="inline-flex cursor-pointer items-center gap-2">
@@ -116,18 +116,21 @@
         <div class="flex flex-col gap-1">
           <label for="campo-notes" class="font-medium">{{ t("clientes.observacoes") }}</label>
           <textarea id="campo-notes" name="notes" rows="5" class="rounded-md border border-border-input bg-surface px-3 py-2 text-fg">{{ form.notes }}</textarea>
+          {%- if "notes" in errors %}
+          <p class="text-danger">{{ err("notes") }}</p>
+          {%- endif %}
         </div>
       </section>
 
       <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="endereco-titulo">
         <h2 id="endereco-titulo" class="font-semibold">{{ t("clientes.endereco") }}</h2>
         <div class="max-w-40">{{ field("postal_code", t("clientes.cep"), value=form.postal_code, error=err("postal_code") or None, required=True, inputmode="numeric", **{"data-mascara": "cep"}) }}</div>
-        {{ field("street", t("clientes.logradouro"), value=form.street) }}
+        {{ field("street", t("clientes.logradouro"), value=form.street, error=err("street") or None) }}
         <div class="grid grid-cols-[8rem_1fr] gap-4">
-          {{ field("number", t("clientes.numero"), value=form.number) }}
-          {{ field("complement", t("clientes.complemento"), value=form.complement) }}
+          {{ field("number", t("clientes.numero"), value=form.number, error=err("number") or None) }}
+          {{ field("complement", t("clientes.complemento"), value=form.complement, error=err("complement") or None) }}
         </div>
-        {{ field("district", t("clientes.bairro"), value=form.district) }}
+        {{ field("district", t("clientes.bairro"), value=form.district, error=err("district") or None) }}
         <div class="grid grid-cols-[1fr_6rem] gap-4">
           {{ field("city", t("clientes.cidade"), value=form.city, error=err("city") or None, required=True) }}
           <div>

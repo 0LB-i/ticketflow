@@ -280,6 +280,7 @@ web/
 ├── ticket.py            registro, detalhe, ações da lateral, tarefas e a busca de clientes
 ├── clients.py           cadastro de clientes (lista e formulário)
 ├── admin.py             usuários, grupos (e membros) e setores atendidos, com o painel lateral
+├── settings.py          Configurações: idioma, cores (prévia pelo HTMX), logotipo, status, expediente
 ├── formatting.py        datas, "há 3 dias", duração, tamanho e os campos de data e hora (São Paulo)
 ├── markdown.py          render_markdown(): markdown-it-py com as regras do antigo markdown.ts
 ├── i18n.py              translate(): os catálogos JSON da SPA (frontend/src/i18n) até a troca final
@@ -289,7 +290,7 @@ web/
 │                        _ui.html (macros), _fields.html (campos das telas de chamado), clients/, admin/,
 │                        _icons.html, auth/, tickets/
 └── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, chamado.js, clientes.js,
-                         vendor/htmx, vendor/tiptap), fonts/
+                         configuracoes.js, vendor/htmx, vendor/tiptap), fonts/
 ```
 
 - **Sem regra na tela:** a rota da tela chama a função da rota da API (`identity.router.login(...)`) ou o service, e só monta o HTML. Os erros da API (`HTTPException`) viram a mensagem na tela, traduzida por `Page.api_message()`.
@@ -310,8 +311,9 @@ web/
 - **Campos com comportamento** (`_fields.html` + `chamado.js`, por atributos `data-*`): data e hora que acompanham o relógio até o ajuste (`*_ajustado`), tempo hh:mm com a lista de horários sugeridos (`<datalist>`), anexos que sobem na hora (a 1ª etapa do docs/11 §11.4), pessoas em etiquetas e o cliente buscado por HTMX (`/clientes/opcoes`).
 - **Trechos por HTMX sem templates parciais:** a rota devolve a página inteira e o `hx-select` escolhe o trecho: os responsáveis do grupo escolhido no registro (`/chamados/novo?grupo=`), a tarefa em edição ou a confirmação da remoção (`/chamados/{n}?editar=` / `?remover=`) e os membros do grupo de destino da transferência (`?team_id=`). A única parcial é a lista de clientes.
 - **Painel lateral das telas de administração:** lista ou árvore, botão **Novo** e edição no macro `side_panel()` (`_ui.html`), um `<dialog>` aberto pelo endereço (`?novo=1`, `?editar=<id>`). Os links (`panel_link()`) trocam só o `#painel` pelo HTMX e põem o endereço na barra; o `app.js` abre o painel quando ele chega (`data-abre-ao-carregar`) e, ao fechar, volta o endereço ao da lista (`data-volta`). Salvar recarrega a lista com o aviso; erro devolve a página com o painel aberto e o que foi digitado.
+- **Prévia das cores (Configurações):** o formulário pede a própria página com as três cores digitadas (`hx-get` com `hx-params`, sem o token CSRF na URL) e troca só a `#previa`; a paleta sai do `palette.py`, sem outra cópia em JavaScript.
 - **Ações do chamado:** cada botão da lateral é um formulário (POST com `csrf_token`) que chama a função da API e volta ao chamado com o aviso (`_act`). Erro numa tarefa nova ou na edição devolve a página com o texto preenchido (422), sem perder o que foi escrito.
-- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/grupos` e `/admin/setores` (com as ações de cada um).
+- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/grupos` `/admin/setores` e `/admin/configuracoes` (com as ações de cada um).
 
 ---
 
@@ -330,16 +332,13 @@ src/
 ├── router/index.ts      rotas, meta (publica, permissao, cartao) e o guard
 ├── stores/              Pinia: auth (usuário logado), branding (cores, logotipo, idioma padrão), theme
 ├── composables/         consultas e mutações (TanStack Query) e utilidades
-│   ├── admin.ts         status dos chamados e useAlteracao (Configurações)
-│   ├── chamados.ts      status dos chamados (Configurações)
 │   ├── clientes.ts      opções de cliente (o filtro dos relatórios)
-│   ├── relatorios.ts    relatórios, opções dos filtros, download do PDF e expediente
+│   ├── relatorios.ts    relatórios, opções dos filtros e download do PDF
 │   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
-├── views/               uma pasta por área: reports/, admin/
+├── views/               uma pasta por área: reports/
 ├── components/
 │   ├── ui/              design system: Button, TextField, SelectField, Modal, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
-│   ├── admin/           StatusSettings (status dos chamados) e WorkHoursSettings (expediente), dentro de Configurações
 │   ├── reports/         BarChart (barras horizontais) e ColumnChart (colunas no tempo): uma série, só tokens
 │   └── tickets/         ClientPicker (o filtro de cliente dos relatórios)
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
@@ -377,7 +376,7 @@ src/
 | `/admin/clientes/novo`, `/admin/clientes/:id` | No servidor (3.11). Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
 | `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | No servidor (3.11). Cadastros | `admin.users` / `admin.organization` |
 | `/relatorios` | Relatórios: totais, abas Produtividade, Clientes e Horas extras (gráficos + tabelas), filtros de período, grupo, pessoa e cliente, botão Baixar PDF. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
-| `/admin/configuracoes` | Idioma, cores, logotipo, status dos chamados e expediente | `admin.settings` |
+| `/admin/configuracoes` | No servidor (3.11). Idioma, cores, logotipo, status dos chamados e expediente | `admin.settings` |
 | `/dev/componentes` | Vitrine do design system | Só em desenvolvimento |
 
 Os itens do menu lateral (`SideNav.vue`) aparecem conforme `auth.pode(permissão)`. O botão "Novo chamado" e a busca global ficam no cabeçalho (`AppLayout.vue`): `1234` ou `#1234` abre o chamado, texto abre a aba Todos com `q`.

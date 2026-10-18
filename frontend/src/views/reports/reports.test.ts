@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import WorkHoursSettings from '@/components/admin/WorkHoursSettings.vue'
 import { escolher, montar, simularApi } from '@/test/setup'
 
 import ReportsView from './ReportsView.vue'
@@ -103,44 +102,5 @@ describe('ReportsView', () => {
     })
     const w = montar(ReportsView)
     await vi.waitFor(() => expect(w.text()).toContain('Você só pode ver os seus próprios números.'))
-  })
-})
-
-describe('WorkHoursSettings', () => {
-  it('carrega, acrescenta um feriado e salva', async () => {
-    const feitas = simularApi({
-      'GET /api/v1/work-hours': [200, EXPEDIENTE],
-      'PUT /api/v1/admin/settings/work-hours': [200, EXPEDIENTE],
-    })
-    const w = montar(WorkHoursSettings)
-    await vi.waitFor(() =>
-      expect((w.get('input[type=time]').element as HTMLInputElement).value).toBe('08:00'),
-    )
-    const sabado = w.findAll('input[type=checkbox]')[5]!
-    await sabado.setValue(true)
-    await w.get('input[type=date]').setValue('2026-12-25')
-    await w
-      .findAll('button')
-      .find((b) => b.text() === 'Adicionar')!
-      .trigger('click')
-    await w.get('form').trigger('submit')
-    await vi.waitFor(() => expect(feitas.some((r) => r.metodo === 'PUT')).toBe(true))
-    expect(feitas.find((r) => r.metodo === 'PUT')!.corpo).toEqual({
-      weekdays: [0, 1, 2, 3, 4, 5],
-      start: '08:00',
-      end: '18:00',
-      holidays: ['2026-12-25'],
-    })
-  })
-
-  it('não salva com o fim antes do início', async () => {
-    simularApi({ 'GET /api/v1/work-hours': [200, EXPEDIENTE] })
-    const w = montar(WorkHoursSettings)
-    await vi.waitFor(() =>
-      expect((w.get('input[type=time]').element as HTMLInputElement).value).toBe('08:00'),
-    )
-    await w.findAll('input[type=time]')[1]!.setValue('07:00')
-    expect(w.text()).toContain('O fim precisa ser depois do início.')
-    expect(w.get('button[type=submit]').attributes('disabled')).toBeDefined()
   })
 })

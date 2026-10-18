@@ -616,7 +616,8 @@
       "telefone": "Informe o DDD e o número.",
       "cep": "O CEP tem 8 números.",
       "obrigatorio": "Campo obrigatório.",
-      "uf": "Escolha a UF."
+      "uf": "Escolha a UF.",
+      "longo": "Texto longo demais."
     }
   },
   "anexos": {

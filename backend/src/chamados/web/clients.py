@@ -166,6 +166,26 @@ class ClientForm:
         }
 
 
+def _field_errors(form: ClientForm, exc: ValidationError) -> dict[str, str]:
+    """Erros da validação da API (e-mail, tamanhos) no campo da tela."""
+    # Nas listas, o índice é o da lista sem as linhas vazias (payload): volta para a da tela.
+    lines = {
+        "emails": [i for i, v in enumerate(form.emails) if v.strip()],
+        "phones": [i for i, v in enumerate(form.phones) if v.strip()],
+    }
+    found: dict[str, str] = {}
+    for e in exc.errors():
+        field, *rest = e["loc"]
+        message = "clientes.erros.longo" if e["type"] == "string_too_long" else None
+        if field in lines and rest and isinstance(rest[0], int):
+            found[f"{field}.{lines[str(field)][rest[0]]}"] = message or (
+                "clientes.erros.email" if field == "emails" else "clientes.erros.telefone"
+            )
+        elif isinstance(field, str) and message:
+            found[field] = message
+    return found
+
+
 def _form_page(
     page: LoggedPage,
     form: ClientForm,
@@ -240,15 +260,8 @@ async def _save(
             await clients_api.create_client(data, page.auth, request, db)
     except ValidationError as exc:
         # E-mail que passa no formato simples mas não na validação da API: marca o campo.
-        # O índice é o da lista sem as linhas vazias (payload): volta para a linha da tela.
-        lines = [i for i, email in enumerate(form.emails) if email.strip()]
-        emails = {
-            f"emails.{lines[int(e['loc'][1])]}": "clientes.erros.email"
-            for e in exc.errors()
-            if e["loc"][0] == "emails" and len(e["loc"]) > 1
-        }
-        if emails:
-            return _form_page(page, form, client_id, title, errors=emails, status_code=422)
+        if fields := _field_errors(form, exc):
+            return _form_page(page, form, client_id, title, errors=fields, status_code=422)
         error = page.t("comum.erroInesperado")
     except HTTPException as exc:
         error = page.api_message(exc)

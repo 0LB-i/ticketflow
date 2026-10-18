@@ -1,0 +1,239 @@
+{#- Configurações da instalação: idioma, cores, logotipo, status dos chamados e expediente. O
+    comportamento (combinações prontas, seletor de cor, feriados) está no static/js/configuracoes.js. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import badge, button_class, checkbox, field, logo, select_field, status_badge with context %}
+{% from "_fields.html" import dialog with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ t("configuracoes.titulo") }}{% endblock %}
+
+{% block head %}
+<script src="{{ static('js/configuracoes.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-4xl flex-col gap-6">
+  <div>
+    <h1 class="text-xl font-semibold">{{ t("configuracoes.titulo") }}</h1>
+    <p class="mt-1 text-muted">{{ t("configuracoes.descricao") }}</p>
+  </div>
+
+  {#- Idioma e cores. A prévia é pedida ao servidor enquanto se digita (HTMX troca só #previa). #}
+  <form method="post" action="/admin/configuracoes" hx-get="/admin/configuracoes" hx-trigger="input changed delay:200ms" hx-params="brand,neutral,background" hx-target="#previa" hx-select="#previa" hx-swap="outerHTML" class="flex flex-col gap-6 rounded-lg border border-border bg-surface p-4 md:p-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="flex max-w-sm flex-col gap-1">
+      {{ select_field("default_locale", t("configuracoes.idiomaPadrao"), locale_options, default_locale) }}
+      <p class="text-muted">{{ t("configuracoes.idiomaDica") }}</p>
+    </div>
+
+    <section class="flex flex-col gap-4" aria-labelledby="cores-titulo">
+      <div>
+        <h2 id="cores-titulo" class="font-semibold">{{ t("configuracoes.cores") }}</h2>
+        <p class="mt-1 text-muted">{{ t("configuracoes.coresDescricao") }}</p>
+      </div>
+      <div class="flex flex-col gap-2" role="group" aria-labelledby="predefinidas-titulo">
+        <p id="predefinidas-titulo" class="font-medium">{{ t("configuracoes.predefinidas") }}</p>
+        <p class="text-muted">{{ t("configuracoes.predefinidasDica") }}</p>
+        <div class="flex flex-wrap gap-2">
+          {%- for id, preset in presets.items() %}
+          <button type="button" data-predefinida="{{ preset | tojson | forceescape }}" aria-pressed="{{ 'true' if preset == colors else 'false' }}" class="inline-flex items-center gap-2 rounded-md border border-border-input bg-surface px-3 py-2 text-fg hover:bg-surface-raised aria-pressed:border-primary aria-pressed:bg-primary-subtle aria-pressed:font-semibold">
+            <span class="flex" aria-hidden="true">
+              {%- for key in color_fields %}
+              <span class="-ml-1 size-5 rounded-full border border-border-input first:ml-0" style="background-color: {{ preset[key] }}"></span>
+              {%- endfor %}
+            </span>
+            {{ t("configuracoes.predefinida." ~ id) }}
+          </button>
+          {%- endfor %}
+        </div>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3">
+        {%- for key, label, hint in [("brand", "configuracoes.corMarca", "configuracoes.corMarcaDica"), ("neutral", "configuracoes.corNeutra", "configuracoes.corNeutraDica"), ("background", "configuracoes.corFundo", "configuracoes.corFundoDica")] %}
+        <div class="flex flex-col gap-1">
+          <label for="cor-{{ key }}" class="font-medium">{{ t(label) }}</label>
+          <div class="flex items-center gap-2">
+            <input type="color" value="{{ colors[key] | lower }}" data-seletor-de="cor-{{ key }}" aria-label="{{ t(label) }}" class="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-border-input bg-surface p-1">
+            <input id="cor-{{ key }}" name="{{ key }}" value="{{ colors[key] }}" maxlength="7" spellcheck="false" required pattern="#[0-9A-Fa-f]{6}" aria-describedby="cor-{{ key }}-dica" class="h-10 w-full rounded-md border border-border-input bg-surface px-3 font-mono text-fg uppercase invalid:border-danger">
+          </div>
+          <p id="cor-{{ key }}-dica" class="text-muted">{{ t(hint) }} {{ t("configuracoes.hexInvalido") }}</p>
+        </div>
+        {%- endfor %}
+      </div>
+
+      <div id="previa" class="flex flex-col gap-4">
+        {%- if adjusted %}
+        <p class="text-muted">{{ t("configuracoes.ajustada", cor=adjusted) }}</p>
+        {%- endif %}
+        <div class="grid gap-4 md:grid-cols-2" role="group" aria-label="{{ t('configuracoes.previa') }}">
+          {%- for mode, label in [("light", "configuracoes.previaClaro"), ("dark", "configuracoes.previaEscuro")] %}
+          <div class="rounded-lg border border-border bg-bg p-4 text-fg{% if mode == 'dark' %} dark{% endif %}" style="{{ preview[mode] }}">
+            <p class="mb-3 text-xs font-semibold text-muted uppercase">{{ t(label) }}</p>
+            <div class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+              {{ logo() }}
+              <span class="inline-flex w-fit rounded-md bg-primary-subtle px-3 py-1.5 font-medium text-primary">{{ t("menu.chamados") }}</span>
+              <p class="font-semibold">#1234 {{ t("configuracoes.previaTitulo") }}</p>
+              <p class="text-muted">{{ t("configuracoes.previaTexto") }}</p>
+              <span class="w-fit text-primary underline">{{ t("configuracoes.previaLink") }}</span>
+              <input type="text" placeholder="{{ t('configuracoes.previaCampo') }}" tabindex="-1" aria-hidden="true" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg placeholder:text-muted">
+              <div class="flex flex-wrap gap-2">
+                <span class="{{ button_class() }}">{{ t("configuracoes.previaBotao") }}</span>
+                <span class="{{ button_class('secondary') }}">{{ t("configuracoes.previaSecundario") }}</span>
+              </div>
+              <div class="rounded-md bg-surface-raised p-2 text-muted">{{ t("comum.carregando") }}</div>
+            </div>
+          </div>
+          {%- endfor %}
+        </div>
+      </div>
+    </section>
+
+    <div class="flex justify-end border-t border-border pt-4">
+      <button type="submit" class="{{ button_class() }}">{{ t("configuracoes.salvar") }}</button>
+    </div>
+  </form>
+
+  <section id="logotipo" class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 md:p-6" aria-labelledby="logotipo-titulo">
+    <div>
+      <h2 id="logotipo-titulo" class="font-semibold">{{ t("configuracoes.logotipo") }}</h2>
+      <p class="mt-1 text-muted">{{ t("configuracoes.logotipoDescricao") }}</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="rounded-md border border-border p-3">{{ logo() }}</div>
+      {%- if not branding.logo_url %}
+      <p class="text-muted">{{ t("configuracoes.semLogotipo") }}</p>
+      {%- endif %}
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {#- Escolher a imagem já envia. #}
+      <form method="post" action="/admin/configuracoes/logo" enctype="multipart/form-data" data-envia-ao-mudar>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus {{ button_class('secondary') }}">
+          {{ t("configuracoes.enviarLogotipo") }}
+          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="sr-only">
+        </label>
+      </form>
+      {%- if branding.logo_url %}
+      <form method="post" action="/admin/configuracoes/logo/remover">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="{{ button_class('ghost') }}">{{ t("configuracoes.removerLogotipo") }}</button>
+      </form>
+      {%- endif %}
+    </div>
+  </section>
+
+  {#- Status dos chamados: criar, renomear, ordenar e remover. #}
+  <section id="status" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6" aria-labelledby="status-titulo">
+    <div>
+      <h2 id="status-titulo" class="font-semibold">{{ t("statusConfig.titulo") }}</h2>
+      <p class="mt-1 text-muted">{{ t("statusConfig.descricao") }}</p>
+    </div>
+    <ul class="flex flex-col divide-y divide-border rounded-md border border-border">
+      {%- for s in statuses %}
+      <li id="status-{{ s.id }}" class="flex flex-wrap items-center gap-3 px-3 py-2">
+        {%- if renaming == s.id %}
+        <form method="post" action="/admin/configuracoes/status/{{ s.id }}" class="flex flex-1 flex-wrap items-end gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="flex min-w-48 flex-1 flex-col gap-1">
+            <label for="renomear-{{ s.id }}" class="font-medium">{{ t("statusConfig.nome") }}<span class="text-danger" aria-hidden="true"> *</span></label>
+            <input id="renomear-{{ s.id }}" name="name" value="{{ s.name }}" required autofocus class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+          </div>
+          <button type="submit" class="{{ button_class('primary', 'sm') }}">{{ t("comum.salvar") }}</button>
+          <a href="/admin/configuracoes#status-{{ s.id }}" hx-get="/admin/configuracoes" hx-select="#status-{{ s.id }}" hx-target="#status-{{ s.id }}" hx-swap="outerHTML" class="{{ button_class('ghost', 'sm') }}">{{ t("comum.cancelar") }}</a>
+        </form>
+        {%- else %}
+        <div class="flex min-w-48 flex-1 flex-wrap items-center gap-2">
+          {{ status_badge(s.kind, s.name) }}
+          <span class="text-muted">{{ t("statusConfig.comportamentos." ~ s.kind) }}</span>
+          {%- if s.is_default %}{{ badge(t("statusConfig.padrao")) }}{% endif %}
+        </div>
+        <span class="text-muted tabular-nums">{{ counts[s.id] }}</span>
+        <div class="flex gap-1">
+          {%- for direction, name, label_key, disabled in [("cima", "arrow-up", "statusConfig.subir", loop.first), ("baixo", "arrow-down", "statusConfig.descer", loop.last)] %}
+          <form method="post" action="/admin/configuracoes/status/{{ s.id }}/mover">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="para" value="{{ direction }}">
+            <button type="submit"{% if disabled %} disabled{% endif %} aria-label="{{ t(label_key, nome=s.name) }}" title="{{ t(label_key, nome=s.name) }}" class="{{ button_class('ghost', 'sm') }}">{{ icon(name, "size-4") }}</button>
+          </form>
+          {%- endfor %}
+          <a href="/admin/configuracoes?renomear={{ s.id }}#status-{{ s.id }}" hx-get="/admin/configuracoes?renomear={{ s.id }}" hx-select="#status-{{ s.id }}" hx-target="#status-{{ s.id }}" hx-swap="outerHTML" aria-label="{{ t('statusConfig.renomear', nome=s.name) }}" title="{{ t('statusConfig.renomear', nome=s.name) }}" class="{{ button_class('ghost', 'sm') }}">{{ icon("pencil", "size-4") }}</a>
+          <button type="button" data-abre-dialogo="remover-status-{{ s.id }}"{% if not same_kind[s.id] %} disabled{% endif %} aria-label="{{ t('statusConfig.remover', nome=s.name) }}" title="{{ t('statusConfig.remover', nome=s.name) if same_kind[s.id] else t('statusConfig.unico') }}" class="{{ button_class('ghost', 'sm') }}">{{ icon("trash", "size-4") }}</button>
+        </div>
+        {%- endif %}
+      </li>
+      {%- endfor %}
+    </ul>
+
+    <form method="post" action="/admin/configuracoes/status/novo" class="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="min-w-48 flex-1">{{ field("name", t("statusConfig.novo"), required=True) }}</div>
+      <div class="w-64">{{ select_field("kind", t("statusConfig.comportamento"), kind_options, "open") }}</div>
+      <button type="submit" class="{{ button_class() }}">{{ t("comum.adicionar") }}</button>
+    </form>
+    {#- A explicação acompanha o comportamento escolhido (configuracoes.js). #}
+    {%- for value, _ in kind_options %}
+    <p data-explica="{{ value }}" class="text-muted"{% if value != "open" %} hidden{% endif %}>{{ t("statusConfig.explicacoes." ~ value) }}</p>
+    {%- endfor %}
+
+    {%- for s in statuses if same_kind[s.id] %}
+    {% call dialog("remover-status-" ~ s.id, t("statusConfig.removerTitulo", nome=s.name), removal[s.id]) %}
+    <form method="post" action="/admin/configuracoes/status/{{ s.id }}/remover" class="mt-6 flex justify-end gap-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
+      <button type="submit" class="{{ button_class('danger') }}">{{ t("comum.remover") }}</button>
+    </form>
+    {% endcall %}
+    {%- endfor %}
+  </section>
+
+  {#- Expediente: dias, horário e feriados. #}
+  <form id="expediente" method="post" action="/admin/configuracoes/expediente" aria-labelledby="expediente-titulo" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div>
+      <h2 id="expediente-titulo" class="font-semibold">{{ t("expediente.titulo") }}</h2>
+      <p class="mt-1 text-muted">{{ t("expediente.descricao") }}</p>
+    </div>
+    <fieldset class="flex flex-col gap-2">
+      <legend class="pb-2 font-medium">{{ t("expediente.dias") }}</legend>
+      <div class="flex flex-wrap gap-4">
+        {%- for day in days %}
+        {{ checkbox("weekdays", t("expediente.diasCurtos." ~ day), loop.index0 in hours.weekdays, loop.index0) }}
+        {%- endfor %}
+      </div>
+    </fieldset>
+    <div class="grid max-w-md gap-4 sm:grid-cols-2">
+      {{ field("start", t("expediente.inicio"), type="time", value=hours.start.strftime("%H:%M"), required=True) }}
+      {{ field("end", t("expediente.fim"), type="time", value=hours.end.strftime("%H:%M"), hint=t("expediente.horarioInvalido"), required=True) }}
+    </div>
+    <div data-feriados data-remover="{{ t('expediente.removerFeriado', data='{data}') }}" class="flex flex-col gap-2">
+      <p class="font-medium">{{ t("expediente.feriados") }}</p>
+      <p class="text-muted">{{ t("expediente.feriadosDica") }}</p>
+      <ul data-lista class="flex flex-wrap gap-2">
+        {%- for iso, text in holidays %}
+        <li data-data="{{ iso }}" class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-1 pr-1 pl-3">
+          <span>{{ text }}</span>
+          <input type="hidden" name="holidays" value="{{ iso }}">
+          <button type="button" data-remove-feriado aria-label="{{ t('expediente.removerFeriado', data=text) }}" class="rounded-full p-1 text-muted hover:text-fg">{{ icon("x", "size-4") }}</button>
+        </li>
+        {%- endfor %}
+      </ul>
+      <div class="flex max-w-md items-end gap-2">
+        <div class="flex flex-col gap-1">
+          <label for="novo-feriado" class="font-medium">{{ t("expediente.novoFeriado") }}</label>
+          <input id="novo-feriado" type="date" data-novo-feriado class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+        </div>
+        <button type="button" data-adiciona-feriado class="{{ button_class('secondary') }}">{{ t("comum.adicionar") }}</button>
+      </div>
+      <template>
+        <li data-data="" class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-1 pr-1 pl-3">
+          <span></span>
+          <input type="hidden" name="holidays" value="">
+          <button type="button" data-remove-feriado aria-label="" class="rounded-full p-1 text-muted hover:text-fg">{{ icon("x", "size-4") }}</button>
+        </li>
+      </template>
+    </div>
+    <div class="flex justify-end border-t border-border pt-4">
+      <button type="submit" class="{{ button_class() }}">{{ t("expediente.salvar") }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

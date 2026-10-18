@@ -111,6 +111,9 @@ addEventListener('pageshow', atualizarSelecao)
 // trecho trocado pelo HTMX chega; ao fechar, o endereço volta ao da lista (data-volta).
 function abrirAoCarregar(raiz) {
   for (const janela of raiz.querySelectorAll('dialog[data-abre-ao-carregar]:not([open])')) {
+    // Resposta de um POST (ex.: o link de acesso): o endereço passa a ser o da tela, para um
+    // F5 não enviar de novo.
+    if (janela.dataset.endereco) history.replaceState(null, '', janela.dataset.endereco)
     janela.showModal()
     if (janela.dataset.volta) {
       janela.addEventListener('close', () => history.replaceState(null, '', janela.dataset.volta))
@@ -123,7 +126,14 @@ htmx.onLoad(abrirAoCarregar)
 document.addEventListener('click', async (e) => {
   const botao = e.target.closest('[data-copia]')
   if (!botao) return
-  await navigator.clipboard.writeText(document.getElementById(botao.dataset.copia).value)
+  const campo = document.getElementById(botao.dataset.copia)
+  try {
+    await navigator.clipboard.writeText(campo.value)
+  } catch {
+    // Sem permissão (ou sem HTTPS): o texto fica selecionado para o Ctrl+C.
+    campo.select()
+    return
+  }
   const texto = botao.textContent
   botao.textContent = botao.dataset.copiado
   setTimeout(() => (botao.textContent = texto), 2000)

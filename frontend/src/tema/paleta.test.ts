@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  contraste,
-  CORES_PADRAO,
-  type Cores,
-  paleta,
-  PALETA_PADRAO,
-  PREDEFINIDAS,
-  type Tokens,
-} from './paleta'
+import { contraste, CORES_PADRAO, type Cores, paleta, PALETA_PADRAO, type Tokens } from './paleta'
 
 /** Contrastes exigidos pelo docs/17 §17.3 (WCAG 2.1 AA). */
 function conferir(t: Tokens) {
@@ -62,18 +54,6 @@ describe('paleta', () => {
     conferir(p.escuro)
     expect(p.claro.brand).toBe(cores.brand)
     expect(p.claro.surface).toBe(cores.background)
-  })
-
-  it.each(PREDEFINIDAS.map((p) => [p.id, p.cores] as const))(
-    'combinação pronta %s cumpre os contrastes',
-    (_, cores) => {
-      conferir(paleta(cores).claro)
-      conferir(paleta(cores).escuro)
-    },
-  )
-
-  it('a primeira combinação pronta é o padrão', () => {
-    expect(PREDEFINIDAS[0]!.cores).toEqual(CORES_PADRAO)
   })
 
   it('cor já legível fica como foi escolhida', () => {

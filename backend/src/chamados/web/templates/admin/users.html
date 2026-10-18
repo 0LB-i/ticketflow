@@ -11,7 +11,7 @@
 <div class="mx-auto flex max-w-6xl flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-xl font-semibold">{{ t("usuarios.titulo") }}</h1>
-    {{ panel_link("/admin/usuarios?novo=1", t("usuarios.novo"), button_class()) }}
+    {{ panel_link(panel_url(novo=1), t("usuarios.novo"), button_class()) }}
   </div>
 
   {#- Os filtros são aplicados enquanto se digita (HTMX troca só a lista). #}
@@ -35,7 +35,7 @@
       <tbody>
         {%- for u in users %}
         <tr class="border-t border-border">
-          <td class="px-3 py-2">{{ panel_link("/admin/usuarios?editar=" ~ u.id, u.display_name) }}</td>
+          <td class="px-3 py-2">{{ panel_link(panel_url(editar=u.id), u.display_name) }}</td>
           <td class="px-3 py-2">{{ u.full_name }}</td>
           <td class="px-3 py-2">{{ u.email or "" }}</td>
           <td class="px-3 py-2">{{ u.username or "" }}</td>
@@ -58,9 +58,9 @@
 <div id="painel">
   {%- if edited or creating %}
   {%- set description = (edited.email or t("usuarios.usuarioLogin", usuario=edited.username)) if edited else None %}
-  {% call side_panel(t("usuarios.editar") if edited else t("usuarios.novo"), "/admin/usuarios", description) %}
+  {% call side_panel(t("usuarios.editar") if edited else t("usuarios.novo"), back, description) %}
   <form id="form-usuario" method="post" action="/admin/usuarios/{{ edited.id if edited else 'novo' }}" class="flex min-h-0 flex-1 flex-col">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}">
     <div class="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
       {%- if error %}
       {{ alert(error) }}
@@ -103,15 +103,15 @@
     </div>
   </form>
   {%- if edited %}
-  <form id="enviar-link" method="post" action="/admin/usuarios/{{ edited.id }}/link"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"></form>
-  <form id="reativar" method="post" action="/admin/usuarios/{{ edited.id }}/reativar"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"></form>
+  <form id="enviar-link" method="post" action="/admin/usuarios/{{ edited.id }}/link"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}"></form>
+  <form id="reativar" method="post" action="/admin/usuarios/{{ edited.id }}/reativar"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}"></form>
   {%- endif %}
   {% endcall %}
 
   {%- if edited and edited.id | string != me %}
   {% call dialog("confirmar-exclusao", t("usuarios.excluirTitulo", nome=edited.full_name), t("usuarios.excluirAviso")) %}
   <form method="post" action="/admin/usuarios/{{ edited.id }}/excluir" class="mt-6 flex justify-end gap-2">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}">
     <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
     <button type="submit" class="{{ button_class('danger') }}">{{ t("usuarios.excluir") }}</button>
   </form>
@@ -120,7 +120,7 @@
 
   {%- if link and link.url %}
   {#- Sem SMTP: o link para o administrador copiar e repassar. #}
-  <dialog data-abre-ao-carregar aria-labelledby="link-titulo" class="m-auto w-[calc(100vw-2rem)] max-w-md rounded-lg border border-border bg-surface p-6 text-fg shadow-xl backdrop:bg-black/50">
+  <dialog data-abre-ao-carregar data-endereco="{{ panel_url(editar=edited.id) }}" aria-labelledby="link-titulo" class="m-auto w-[calc(100vw-2rem)] max-w-md rounded-lg border border-border bg-surface p-6 text-fg shadow-xl backdrop:bg-black/50">
     <h2 id="link-titulo" class="text-lg font-semibold">{{ t("usuarios.linkTitulo", nome=link_name) }}</h2>
     <p class="mt-2 text-muted">{{ t("usuarios.linkTextoConvite") if link.purpose == "invite" else t("usuarios.linkTextoRedefinir") }}</p>
     <div class="mt-4 flex gap-2">

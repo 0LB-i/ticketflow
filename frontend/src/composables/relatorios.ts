@@ -4,8 +4,6 @@ import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 import { api, mensagemDeErro, ou, type Schemas } from '@/api/client'
 
 export type Relatorio = Schemas['Report']
-export type Expediente = Schemas['WorkHours']
-
 /** Período (datas "AAAA-MM-DD", o fim incluído) e filtros; vazio = todos. */
 export interface FiltroRelatorio {
   start: string
@@ -46,11 +44,4 @@ export async function baixarPdf(filtro: FiltroRelatorio) {
   link.download = `relatorio-${filtro.start}-a-${filtro.end}.pdf`
   link.click()
   URL.revokeObjectURL(url)
-}
-
-export function useExpediente() {
-  return useQuery({
-    queryKey: ['expediente'],
-    queryFn: async () => ou(await api.GET('/api/v1/work-hours')),
-  })
 }

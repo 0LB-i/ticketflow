@@ -616,7 +616,8 @@
       "telefone": "Enter the area code and the number.",
       "cep": "The postal code has 8 digits.",
       "obrigatorio": "Required field.",
-      "uf": "Choose the state."
+      "uf": "Choose the state.",
+      "longo": "Text too long."
     }
   },
   "anexos": {
