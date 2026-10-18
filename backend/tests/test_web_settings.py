@@ -49,6 +49,8 @@ def test_previa_das_cores(client: TestClient, db: Session) -> None:
     r = client.get(URL)
     assert r.status_code == 200
     assert 'aria-pressed="true"' in r.text  # a combinação padrão
+    # A prévia só é pedida com as três cores válidas (não volta às gravadas a cada tecla).
+    assert 'hx-trigger="input changed[this.checkValidity()] delay:200ms"' in r.text
     # A prévia segue as cores digitadas (o HTMX pede a página e troca só #previa).
     r = client.get(URL, params={"brand": "#FDE047", "neutral": "#A3A3A3", "background": "#FFFFFF"})
     assert "--tf-brand:#FDE047" in r.text
@@ -99,6 +101,9 @@ def test_status(client: TestClient, db: Session) -> None:
 
     r = client.post(f"{URL}/status/{novo.id}", data=_form(client, name="Analisando"))
     assert _aviso(r.text) == "Alterações salvas"
+    # Mesmo nome: nada a gravar, nem aviso.
+    r = client.post(f"{URL}/status/{novo.id}", data=_form(client, name="Analisando"))
+    assert _aviso(r.text) == ""
     # O último sobe um lugar.
     antes = [s.id for s in db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order))]
     client.post(f"{URL}/status/{novo.id}/mover", data=_form(client, para="cima"))

@@ -9,7 +9,7 @@ por `requires`, porque a da API fica numa dependência que não roda nesta chama
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -57,6 +57,25 @@ def _back(volta: str, base: str) -> str:
     return url if url.split("?")[0] == base else base
 
 
+def _filters(volta: str, base: str) -> dict[str, str]:
+    """Os filtros da lista que o formulário trouxe (volta): a tela que volta com erro, ou a do
+    link de acesso, continua filtrada."""
+    query = parse_qs(urlsplit(_back(volta, base)).query)
+    return {k: v[0] for k, v in query.items() if k not in ("editar", "novo")}
+
+
+def _inactive(volta: str, base: str) -> bool:
+    return _filters(volta, base).get("inativos") == "true"
+
+
+USER_FILTERS = ("q", "papel", "grupo", "situacao")
+
+
+def _user_filters(volta: str) -> dict[str, str]:
+    found = _filters(volta, "/admin/usuarios")
+    return {k: found.get(k, "") for k in USER_FILTERS}
+
+
 def _with(url: str, **params: object) -> str:
     return f"{url}{'&' if '?' in url else '?'}{urlencode(params)}"
 
@@ -100,10 +119,7 @@ async def _users_page(
     page: LoggedPage,
     db: DB,
     *,
-    q: str = "",
-    papel: str = "",
-    grupo: str = "",
-    situacao: str = "",
+    filters: dict[str, str] | None = None,
     editing: str | None = None,
     creating: bool = False,
     form: dict[str, Any] | None = None,
@@ -112,6 +128,8 @@ async def _users_page(
     link_name: str = "",
     status_code: int = 200,
 ) -> HTMLResponse:
+    filters = {k: (filters or {}).get(k, "") for k in USER_FILTERS}
+    q, papel, grupo, situacao = (filters[k] for k in USER_FILTERS)
     users = (await users_api.list_users(page.auth, db)).items
     teams = [t for t in (await organization_api.list_teams(page.auth, db)).items if t.is_active]
     edited = next((u for u in users if str(u.id) == editing), None)
@@ -161,7 +179,11 @@ async def users_page(
     novo: bool = False,
 ) -> HTMLResponse:
     return await _users_page(
-        page, db, q=q, papel=papel, grupo=grupo, situacao=situacao, editing=editar, creating=novo
+        page,
+        db,
+        filters={"q": q, "papel": papel, "grupo": grupo, "situacao": situacao},
+        editing=editar,
+        creating=novo,
     )
 
 
@@ -200,7 +222,15 @@ async def create_user(
         response = RedirectResponse(_back(volta, "/admin/usuarios"), status_code=303)
         page.flash(response, ("success", page.t("usuarios.criado")))
         return response
-    return await _users_page(page, db, creating=True, form=form, error=error, status_code=422)
+    return await _users_page(
+        page,
+        db,
+        filters=_user_filters(volta),
+        creating=True,
+        form=form,
+        error=error,
+        status_code=422,
+    )
 
 
 @router.post("/admin/usuarios/{user_id}")
@@ -245,7 +275,13 @@ async def update_user(
         page.flash(response, ("success", page.t("comum.salvo")))
         return response
     return await _users_page(
-        page, db, editing=str(user_id), form=form, error=error, status_code=422
+        page,
+        db,
+        filters=_user_filters(volta),
+        editing=str(user_id),
+        form=form,
+        error=error,
+        status_code=422,
     )
 
 
@@ -309,7 +345,12 @@ async def send_link(
     if link.url:
         user = await users_api.get_user(user_id, page.auth, db)
         return await _users_page(
-            page, db, editing=str(user_id), link=link, link_name=user.full_name
+            page,
+            db,
+            filters=_user_filters(volta),
+            editing=str(user_id),
+            link=link,
+            link_name=user.full_name,
         )
     response = RedirectResponse(back, status_code=303)
     page.flash(response, ("success", page.t("usuarios.linkEnviado")))
@@ -406,7 +447,15 @@ async def create_team(
         )
         page.flash(response, ("success", page.t("grupos.criado")))
         return response
-    return await _teams_page(page, db, creating=True, form=form, error=error, status_code=422)
+    return await _teams_page(
+        page,
+        db,
+        inactive=_inactive(volta, "/admin/grupos"),
+        creating=True,
+        form=form,
+        error=error,
+        status_code=422,
+    )
 
 
 @router.post("/admin/grupos/{team_id}")
@@ -443,7 +492,13 @@ async def update_team(
         page.flash(response, ("success", page.t("comum.salvo")))
         return response
     return await _teams_page(
-        page, db, editing=str(team_id), form=form, error=error, status_code=422
+        page,
+        db,
+        inactive=_inactive(volta, "/admin/grupos"),
+        editing=str(team_id),
+        form=form,
+        error=error,
+        status_code=422,
     )
 
 
@@ -621,6 +676,7 @@ async def _save_department(
     return await _departments_page(
         page,
         db,
+        inactive=_inactive(volta, "/admin/setores"),
         editing=str(dept_id) if dept_id else None,
         creating=dept_id is None,
         form=form,

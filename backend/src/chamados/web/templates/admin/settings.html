@@ -19,7 +19,7 @@
   </div>
 
   {#- Idioma e cores. A prévia é pedida ao servidor enquanto se digita (HTMX troca só #previa). #}
-  <form method="post" action="/admin/configuracoes" hx-get="/admin/configuracoes" hx-trigger="input changed delay:200ms" hx-params="brand,neutral,background" hx-target="#previa" hx-select="#previa" hx-swap="outerHTML" class="flex flex-col gap-6 rounded-lg border border-border bg-surface p-4 md:p-6">
+  <form method="post" action="/admin/configuracoes" hx-get="/admin/configuracoes" hx-trigger="input changed[this.checkValidity()] delay:200ms" hx-params="brand,neutral,background" hx-target="#previa" hx-select="#previa" hx-swap="outerHTML" class="flex flex-col gap-6 rounded-lg border border-border bg-surface p-4 md:p-6">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="flex max-w-sm flex-col gap-1">
       {{ select_field("default_locale", t("configuracoes.idiomaPadrao"), locale_options, default_locale) }}

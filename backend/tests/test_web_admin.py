@@ -216,3 +216,15 @@ def test_pagina_do_link_troca_o_endereco(client: TestClient, db: Session) -> Non
     bia = criar_usuario(db, "bia@x.com", nome="Bia", senha=None)
     r = client.post(f"/admin/usuarios/{bia.public_id}/link", data=_form(client))
     assert f'data-endereco="/admin/usuarios?editar={bia.public_id}"' in r.text
+
+
+def test_filtros_continuam_na_volta_com_erro_e_no_link(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    bia = criar_usuario(db, "bia@x.com", nome="Bia", senha=None)
+    volta = "/admin/usuarios?situacao=convite_pendente"
+    dados = {**NOVO, "full_name": "x", "volta": volta}  # nome curto demais
+    r = client.post("/admin/usuarios/novo", data=_form(client, **dados))
+    assert r.status_code == 422
+    assert f'name="volta" value="{volta}"' in r.text
+    r = client.post(f"/admin/usuarios/{bia.public_id}/link", data=_form(client, volta=volta))
+    assert f'data-endereco="{volta}&amp;editar={bia.public_id}"' in r.text

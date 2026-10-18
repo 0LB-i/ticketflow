@@ -236,6 +236,9 @@ async def rename_status(
 ) -> Response:
     """Só o nome muda: o comportamento não muda depois de criado."""
     check_csrf(page, csrf_token)
+    statuses = (await catalog_api.list_statuses(page.auth, db)).items
+    if any(st.id == status_id and st.name == name.strip() for st in statuses):
+        return RedirectResponse(f"{HOME}#status", status_code=303)  # nome igual: nada a gravar
     return await _run(
         page,
         f"{HOME}#status",
