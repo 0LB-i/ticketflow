@@ -98,9 +98,12 @@
           </td>
         </tr>
         {%- else %}
+        {#- Numa página seguinte ("Carregar mais"), a lista vazia não ganha a linha de aviso. #}
+        {%- if not paging %}
         <tr>
           <td colspan="{{ 11 if bulk else 10 }}" class="px-3 py-6 text-center text-muted">{{ t("chamados.vazio.busca") if filters.q else t("chamados.vazio." ~ view) }}</td>
         </tr>
+        {%- endif %}
         {%- endfor %}
       </tbody>
     </table>

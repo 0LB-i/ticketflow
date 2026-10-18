@@ -38,8 +38,13 @@ class Redirect(Exception):
         self.url = url
 
 
-def redirect_response(request: Request, error: Exception) -> RedirectResponse:
-    return RedirectResponse(cast(Redirect, error).url, status_code=303)
+def redirect_response(request: Request, error: Exception) -> Response:
+    url = cast(Redirect, error).url
+    # Num pedido do HTMX (ex.: "Carregar mais" com a sessão expirada), o 303 seria seguido por
+    # baixo e a página de login não caberia no trecho: o HTMX troca a página inteira.
+    if request.headers.get("HX-Request"):
+        return Response(headers={"HX-Redirect": url})
+    return RedirectResponse(url, status_code=303)
 
 
 def safe_next(url: str | None) -> str:
@@ -47,12 +52,6 @@ def safe_next(url: str | None) -> str:
     if url and url.startswith("/") and not url.startswith(("//", "/\\")):
         return url
     return HOME
-
-
-def flash(response: Response, *messages: tuple[FlashKind, str]) -> None:
-    """Avisos (docs/13 §13.6) que a próxima tela mostra no canto, depois de um redirecionamento."""
-    raw = json.dumps(messages).encode()
-    response.set_cookie(FLASH_COOKIE, base64.urlsafe_b64encode(raw).decode(), httponly=True)
 
 
 def _read_flash(request: Request) -> list[tuple[str, str]]:
@@ -79,6 +78,18 @@ class Page:
     def api_message(self, exc: HTTPException) -> str:
         """Mensagem de erro de uma rota da API (em português no código), no idioma da tela."""
         return translate_api(str(exc.detail), self.locale)
+
+    def flash(self, response: Response, *messages: tuple[FlashKind, str]) -> None:
+        """Avisos (docs/13 §13.6) que a próxima tela mostra no canto, depois de um
+        redirecionamento. Sem escapar os acentos: o cookie tem limite de 4 KB."""
+        raw = json.dumps(messages, ensure_ascii=False).encode()
+        response.set_cookie(
+            FLASH_COOKIE,
+            base64.urlsafe_b64encode(raw).decode(),
+            httponly=True,
+            secure=self.request.app.state.settings.cookie_secure,
+            samesite="lax",
+        )
 
     def can(self, permission: str) -> bool:
         """Só para mostrar ou esconder botões: quem decide é a rota (ARCHITECTURE 3.4)."""
@@ -135,8 +146,12 @@ async def get_logged_page(page: PageDep) -> LoggedPage:
     """Tela que exige login: sem sessão, vai para o login e depois volta."""
     request = page.request
     if page.auth is None:
+        # Depois do login, o navegador abre a "volta" com GET: num POST (sessão expirada no
+        # meio do uso), volta para a tela inicial.
         url = request.url.path + (f"?{request.url.query}" if request.url.query else "")
-        raise Redirect("/login" if url == HOME else f"/login?{urlencode({'volta': url})}")
+        if request.method != "GET" or url == HOME:
+            raise Redirect("/login")
+        raise Redirect(f"/login?{urlencode({'volta': url})}")
     path = request.url.path
     if page.auth.user.must_change_password and path not in ALLOWED_BEFORE_PASSWORD_CHANGE:
         raise Redirect("/trocar-senha")
@@ -144,6 +159,13 @@ async def get_logged_page(page: PageDep) -> LoggedPage:
 
 
 LoggedPageDep = Annotated[LoggedPage, Depends(get_logged_page)]
+
+
+def reject_cross_site(request: Request) -> None:
+    """Formulários sem sessão (login, senhas): um envio vindo de outro site é recusado, para
+    ninguém fazer o navegador de outra pessoa entrar numa conta alheia."""
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(403, "Você não tem permissão para esta ação.")
 
 
 def check_csrf(page: LoggedPage, token: str) -> None:

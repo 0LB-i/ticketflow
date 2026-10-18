@@ -45,7 +45,7 @@ def problem(
     return JSONResponse(body, status_code=status, media_type=PROBLEM_JSON)
 
 
-async def _http_error(request: Request, error: Exception) -> JSONResponse:
+async def http_error(request: Request, error: Exception) -> JSONResponse:
     exc = cast(HTTPException, error)
     # Sem detalhe próprio, o Starlette repete a frase padrão em inglês ("Not Found"): omitir.
     default = HTTPStatus(exc.status_code).phrase
@@ -56,7 +56,7 @@ async def _http_error(request: Request, error: Exception) -> JSONResponse:
     return response
 
 
-async def _validation_error(request: Request, error: Exception) -> JSONResponse:
+async def validation_error(request: Request, error: Exception) -> JSONResponse:
     exc = cast(RequestValidationError, error)
     errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
     return problem(HTTP_422_UNPROCESSABLE_CONTENT, locale=request_locale(request), errors=errors)
@@ -68,6 +68,6 @@ async def _unhandled_error(request: Request, exc: Exception) -> JSONResponse:
 
 
 def register_error_handlers(app: FastAPI) -> None:
-    app.add_exception_handler(HTTPException, _http_error)
-    app.add_exception_handler(RequestValidationError, _validation_error)
+    app.add_exception_handler(HTTPException, http_error)
+    app.add_exception_handler(RequestValidationError, validation_error)
     app.add_exception_handler(Exception, _unhandled_error)

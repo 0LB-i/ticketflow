@@ -40,6 +40,17 @@ def test_login_nao_volta_para_outro_site(client: TestClient, db: Session) -> Non
     assert _entrar(client, volta="//outro.site/x") == "/chamados"
     client.cookies.clear()
     assert _entrar(client, volta="https://outro.site") == "/chamados"
+    client.cookies.clear()
+    assert _entrar(client, volta="/\\outro.site") == "/chamados"
+
+
+def test_login_recusa_envio_de_outro_site(client: TestClient, db: Session) -> None:
+    criar_usuario(db)
+    dados = {"login": "ana@exemplo.com", "senha": SENHA}
+    r = client.post("/login", data=dados, headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 403
+    assert r.headers["content-type"].startswith("text/html")
+    assert "tf_sessao" not in client.cookies
 
 
 def test_login_com_senha_errada_mostra_o_erro(client: TestClient, db: Session) -> None:
@@ -70,7 +81,11 @@ def test_cores_personalizadas_no_html(client: TestClient, db: Session) -> None:
 def test_sair_exige_o_token_csrf(client: TestClient, db: Session) -> None:
     criar_usuario(db)
     _entrar(client)
-    assert client.post("/sair", data={"csrf_token": "outro"}).status_code == 403
+    r = client.post("/sair", data={"csrf_token": "outro"})
+    assert r.status_code == 403
+    # Uma página, não o JSON da API (ex.: o token de uma aba antiga).
+    assert r.headers["content-type"].startswith("text/html")
+    assert "<title>Acesso negado · TicketFlow</title>" in r.text
     r = client.post("/sair", data={"csrf_token": client.cookies["tf_csrf"]}, follow_redirects=False)
     assert r.headers["location"] == "/login"
     assert client.get("/api/v1/me").status_code == 401
@@ -130,6 +145,7 @@ def test_troca_obrigatoria_da_senha_provisoria(client: TestClient, db: Session) 
 
     r = client.post("/trocar-senha", data={**nova, "csrf_token": csrf}, follow_redirects=False)
     assert r.headers["location"] == "/chamados"
+    assert "Senha trocada" in client.get("/chamados").text
     db.refresh(user)
     assert not user.must_change_password
     # Depois da troca, a tela não abre mais.

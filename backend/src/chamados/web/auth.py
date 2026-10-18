@@ -28,6 +28,7 @@ from chamados.web.page import (
     PageDep,
     Redirect,
     check_csrf,
+    reject_cross_site,
     safe_next,
 )
 
@@ -58,6 +59,7 @@ async def login(
     senha: Field = "",
     volta: Field = HOME,
 ) -> Response:
+    reject_cross_site(request)
     response = RedirectResponse(safe_next(volta), status_code=303)
     try:
         await api.login(LoginIn(login=login, password=senha), request, response, db, settings)
@@ -115,6 +117,7 @@ async def forgot(
     tasks: BackgroundTasks,
     email: Field = "",
 ) -> HTMLResponse:
+    reject_cross_site(request)
     # A resposta é sempre a mesma, exista o e-mail ou não (docs/09 §9.4); um endereço mal
     # escrito também não muda nada na tela.
     try:
@@ -155,6 +158,7 @@ async def _set_password_page(
 async def _set_password(
     page: Page, purpose: Purpose, token: str, senha: str, confirmar: str, request: Request, db: DB
 ) -> Response:
+    reject_cross_site(request)
     if senha != confirmar:
         return await _set_password_page(
             page, purpose, token, db, page.t("definirSenha.naoConfere"), 422
@@ -225,5 +229,7 @@ async def change_password(
         except HTTPException as exc:
             error, status = page.api_message(exc), exc.status_code
         else:
-            return RedirectResponse(HOME, status_code=303)
+            response = RedirectResponse(HOME, status_code=303)
+            page.flash(response, ("success", page.t("trocarSenha.pronto")))
+            return response
     return page.render("auth/change_password.html", status_code=status, error=error)

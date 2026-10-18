@@ -30,6 +30,7 @@ from chamados.modules.organization.router import router as organization_router
 from chamados.modules.reports.router import router as reports_router
 from chamados.modules.system.router import router as system_router
 from chamados.modules.tickets.router import router as tickets_router
+from chamados.web.errors import register_web_error_handlers
 from chamados.web.page import Redirect, redirect_response
 from chamados.web.templating import STATIC_DIR
 
@@ -88,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Telas já migradas para o servidor; o que ainda não migrou continua na SPA (ADR 0011).
     app.add_exception_handler(Redirect, redirect_response)
+    register_web_error_handlers(app)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(web.router)
 

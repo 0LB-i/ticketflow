@@ -280,7 +280,9 @@
     "mudarStatus": "Change status",
     "limparSelecao": "Clear selection",
     "alteradosEmMassa": "Tickets changed: {n}",
-    "naoMudaram": "Not changed: {lista}"
+    "naoMudaram": "Not changed: {lista}",
+    "eMais": "and {n} more",
+    "demaisParaMudar": "Select at most {n} tickets at a time."
   },
   "novoChamado": {
     "titulo": "New ticket",

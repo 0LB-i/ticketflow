@@ -20,7 +20,7 @@ from chamados.modules.organization import router as organization_api
 from chamados.modules.tickets import router as tickets_api
 from chamados.modules.tickets import service
 from chamados.modules.tickets.schemas import BulkStatusIn, StatusKind, TicketView
-from chamados.web.page import HOME, FlashKind, LoggedPageDep, Redirect, check_csrf, flash, safe_next
+from chamados.web.page import HOME, FlashKind, LoggedPageDep, Redirect, check_csrf, safe_next
 
 router = APIRouter()
 
@@ -33,6 +33,10 @@ TABS: dict[str, TicketView] = {
     "todos": "all",
 }
 KINDS: tuple[StatusKind, ...] = ("open", "waiting", "delivered", "closed", "canceled")
+# Limite do status em massa (BulkStatusIn) e quantas falhas o aviso lista: o resto vira
+# "e mais N", para o cookie do aviso não passar de 4 KB.
+BULK_MAX = 200
+FAILURES_SHOWN = 10
 # Busca do cabeçalho (docs/13 §13.1): "1234" ou "#1234" abre o chamado.
 NUMBER = re.compile(r"^#?(\d+)$")
 
@@ -109,6 +113,7 @@ async def tickets_page(
         current_url=url(),
         tickets=result.items,
         next_cursor=result.next_cursor,
+        paging=bool(cursor),
         counts=await tickets_api.ticket_counts(auth, db),
         team_options=[(str(t.id), t.name) for t in teams if t.is_active],
         kind_options=[(k, page.t(f"chamados.filtros.kinds.{k}")) for k in KINDS],
@@ -133,17 +138,23 @@ async def bulk_status(
     try:
         data = BulkStatusIn.model_validate({"numbers": numeros or [], "status_id": status_id})
     except ValidationError:
+        if len(numeros or []) > BULK_MAX:
+            page.flash(response, ("error", page.t("chamados.demaisParaMudar", n=BULK_MAX)))
         return response
     try:
         updated, failed = await service.bulk_status(db, page.auth, data.numbers, data.status_id)
     except HTTPException as exc:  # status inexistente
-        flash(response, ("error", page.api_message(exc)))
+        page.flash(response, ("error", page.api_message(exc)))
         return response
     messages: list[tuple[FlashKind, str]] = []
     if updated:
         messages.append(("success", page.t("chamados.alteradosEmMassa", n=len(updated))))
     if failed:
-        items = "; ".join(f"#{n} ({translate_api(d, page.locale)})" for n, d in failed)
+        items = "; ".join(
+            f"#{n} ({translate_api(d, page.locale)})" for n, d in failed[:FAILURES_SHOWN]
+        )
+        if len(failed) > FAILURES_SHOWN:
+            items += " " + page.t("chamados.eMais", n=len(failed) - FAILURES_SHOWN)
         messages.append(("error", page.t("chamados.naoMudaram", lista=items)))
-    flash(response, *messages)
+    page.flash(response, *messages)
     return response

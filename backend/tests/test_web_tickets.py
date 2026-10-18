@@ -26,6 +26,26 @@ def test_sem_login_vai_para_o_login(client: TestClient, db: Session) -> None:
     assert r.headers["location"] == "/login?volta=%2Fchamados%3Faba%3Dtodos"
 
 
+def test_sessao_expirada_no_meio_do_uso(client: TestClient, db: Session) -> None:
+    # Num POST, a "volta" seria aberta com GET depois do login: vai para a tela inicial.
+    r = client.post("/chamados/status-em-massa", data={"numeros": [1]}, follow_redirects=False)
+    assert r.headers["location"] == "/login"
+    # O HTMX ("Carregar mais") troca a página inteira em vez de encaixar o login na tabela.
+    r = client.get("/chamados?cursor=x", headers={"HX-Request": "true"}, follow_redirects=False)
+    assert r.headers["hx-redirect"] == "/login?volta=%2Fchamados%3Fcursor%3Dx"
+
+
+def test_parametro_invalido_mostra_uma_pagina(client: TestClient, db: Session) -> None:
+    criar_usuario(db, grupos={"TI": "member"})
+    entrar(client)
+    r = client.get("/chamados?cursor=lixo")
+    assert r.status_code == 422
+    assert r.headers["content-type"].startswith("text/html")
+    assert client.get("/api/v1/tickets?cursor=lixo").headers["content-type"] == (
+        "application/problem+json"
+    )
+
+
 def test_senha_provisoria_leva_a_troca(client: TestClient, db: Session) -> None:
     criar_usuario(db, trocar_senha=True)
     entrar(client)
@@ -134,8 +154,16 @@ def test_status_em_massa(client: TestClient, cenario: dict[str, Any]) -> None:  
     assert "Chamados alterados" not in client.get("/chamados?aba=todos").text  # aviso some
     assert client.get(f"{API}/{a}").json()["status"]["name"] == "Concluído"
 
-    client.post("/chamados/status-em-massa", data={**dados, "status_id": 99})
-    assert "Chamados alterados" not in client.get("/chamados").text
+    r = client.post("/chamados/status-em-massa", data={**dados, "status_id": 99})
+    assert 'data-aviso="error"' in r.text
+    assert "Chamados alterados" not in r.text
+
+    # Mais de 200 de uma vez: a API recusa, e a tela avisa.
+    r = client.post("/chamados/status-em-massa", data={**dados, "numeros": list(range(1, 202))})
+    assert "Selecione no máximo 200 chamados de cada vez." in r.text
+    # Muitas falhas: o aviso lista as 10 primeiras (o cookie do aviso tem limite de 4 KB).
+    r = client.post("/chamados/status-em-massa", data={**dados, "numeros": list(range(1, 16))})
+    assert "#10 (Chamado não encontrado.) e mais 5" in r.text
 
 
 def test_idioma_da_pessoa(client: TestClient, db: Session) -> None:

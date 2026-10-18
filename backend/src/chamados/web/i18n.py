@@ -6,7 +6,6 @@ divergirem enquanto convivem (ADR 0011). Na troca final eles passam para `web/lo
 
 import json
 import re
-from functools import cache
 from typing import Any
 
 from chamados.config import REPO_ROOT
@@ -16,11 +15,20 @@ LOCALES_DIR = REPO_ROOT / "frontend" / "src" / "i18n"
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 
-@cache
+_catalogs: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
 def catalog(locale: str) -> dict[str, Any]:
-    with (LOCALES_DIR / f"{locale}.json").open(encoding="utf-8") as f:
-        data: dict[str, Any] = json.load(f)
-    return data
+    """O catálogo do idioma, lido de novo quando o arquivo muda (o --reload do uvicorn só olha
+    os .py)."""
+    path = LOCALES_DIR / f"{locale}.json"
+    mtime = path.stat().st_mtime
+    cached = _catalogs.get(locale)
+    if cached is None or cached[0] != mtime:
+        with path.open(encoding="utf-8") as f:
+            cached = (mtime, json.load(f))
+        _catalogs[locale] = cached
+    return cached[1]
 
 
 def _lookup(messages: dict[str, Any], key: str) -> str | None:

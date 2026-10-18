@@ -280,7 +280,9 @@
     "mudarStatus": "Mudar status",
     "limparSelecao": "Limpar seleção",
     "alteradosEmMassa": "Chamados alterados: {n}",
-    "naoMudaram": "Não mudaram: {lista}"
+    "naoMudaram": "Não mudaram: {lista}",
+    "eMais": "e mais {n}",
+    "demaisParaMudar": "Selecione no máximo {n} chamados de cada vez."
   },
   "novoChamado": {
     "titulo": "Novo chamado",

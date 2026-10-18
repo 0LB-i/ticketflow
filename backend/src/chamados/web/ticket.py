@@ -38,7 +38,7 @@ from chamados.web.formatting import (
     parse_duration,
     parse_local,
 )
-from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf, flash
+from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
 
 router = APIRouter()
 
@@ -270,7 +270,7 @@ async def create_ticket(
         error = page.api_message(exc)
     else:
         response = RedirectResponse(f"/chamados/{ticket.number}", status_code=303)
-        flash(response, ("success", page.t("novoChamado.registrado", numero=ticket.number)))
+        page.flash(response, ("success", page.t("novoChamado.registrado", numero=ticket.number)))
         return response
     return await _new_ticket_page(page, db, form, error=error, status_code=422)
 
@@ -442,12 +442,12 @@ async def _act(
     try:
         await action()
     except ValidationError:
-        flash(response, ("error", page.t("comum.erroInesperado")))
+        page.flash(response, ("error", page.t("comum.erroInesperado")))
     except HTTPException as exc:
-        flash(response, ("error", page.api_message(exc)))
+        page.flash(response, ("error", page.api_message(exc)))
     else:
         if done:
-            flash(response, ("success", page.t(done)))
+            page.flash(response, ("success", page.t(done)))
     return response
 
 
@@ -652,7 +652,9 @@ async def add_comment(
     except HTTPException as exc:
         return await fail(page.api_message(exc))
     response = RedirectResponse(f"/chamados/{number}", status_code=303)
-    flash(response, ("success", page.t(f"chamado.feito.{acao}" if acao else "chamado.comentado")))
+    page.flash(
+        response, ("success", page.t(f"chamado.feito.{acao}" if acao else "chamado.comentado"))
+    )
     return response
 
 
