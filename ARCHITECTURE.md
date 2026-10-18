@@ -8,7 +8,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos (o "Pegar o próximo" saiu junto com a fila de não atribuídos, em 2026-10-15). A seção 10 lista o que ainda não existe.
 
-Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). O login, as telas de senha, o layout (menu, cabeçalho, menu do usuário), a lista, o registro e o detalhe dos chamados já são do servidor; a administração e os relatórios continuam na SPA até migrarem (3.11).
+Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Em 2026-10-18, tudo já é do servidor menos os relatórios: login e senhas, layout, chamados (lista, registro e detalhe) e toda a administração. Faltam a WEB-05 (relatórios) e a WEB-06 (troca final, quando sai a SPA). A situação, o roteiro do que falta e as pendências estão no [docs/19](docs/19-migracao-da-interface.md); a estrutura, na seção 3.11.
 
 ---
 

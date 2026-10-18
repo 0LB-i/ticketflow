@@ -3,6 +3,7 @@
 - **Status:** Aceita (migração em andamento)
 - **Data:** 2026-10-17
 - **Substitui:** [0007](0007-interface-web-vue.md) e [0008](0008-reka-ui.md)
+- **Andamento:** [docs/19](../19-migracao-da-interface.md)
 
 ## Contexto
 
