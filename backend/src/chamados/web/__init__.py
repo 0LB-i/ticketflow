@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter
 
-from chamados.web import auth, ticket, tickets
+from chamados.web import auth, clients, ticket, tickets
 
 router = APIRouter(include_in_schema=False)
 router.include_router(auth.router)
 router.include_router(tickets.router)
 # Depois da lista: /chamados/novo antes do /chamados/{número}.
 router.include_router(ticket.router)
+router.include_router(clients.router)

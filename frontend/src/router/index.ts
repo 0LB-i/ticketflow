@@ -77,20 +77,19 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/admin/clientes',
     name: 'clientes',
-    component: () => import('@/views/clients/ClientsView.vue'),
+    ...SERVIDOR,
     meta: { permissao: 'client.view' },
   },
   {
     path: '/admin/clientes/novo',
     name: 'novo-cliente',
-    component: () => import('@/views/clients/ClientFormView.vue'),
+    ...SERVIDOR,
     meta: { permissao: 'client.manage' },
   },
   {
     path: '/admin/clientes/:id([0-9a-f-]{36})',
     name: 'cliente',
-    component: () => import('@/views/clients/ClientFormView.vue'),
-    props: true,
+    ...SERVIDOR,
     meta: { permissao: 'client.view' },
   },
   {

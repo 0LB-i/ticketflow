@@ -1,0 +1,76 @@
+{#- Clientes atendidos, pessoa física e jurídica. A busca é aplicada enquanto se digita (HTMX
+    troca só a lista e guarda os filtros na URL). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import button_class, select_field with context %}
+
+{% block title %}{{ t("clientes.titulo") }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-7xl flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-xl font-semibold">{{ t("clientes.titulo") }}</h1>
+    {%- if page.can("client.manage") %}
+    <a href="/admin/clientes/novo" class="{{ button_class() }}">{{ t("clientes.novo") }}</a>
+    {%- endif %}
+  </div>
+
+  <form method="get" action="/admin/clientes" hx-get="/admin/clientes" hx-trigger="input changed delay:300ms, change" hx-target="#lista-clientes" hx-select="#lista-clientes" hx-swap="outerHTML" hx-push-url="true" class="flex flex-wrap items-end gap-4">
+    <div class="flex w-full max-w-md flex-col gap-1">
+      <label for="campo-q" class="font-medium">{{ t("comum.buscar") }}</label>
+      <input id="campo-q" type="search" name="q" value="{{ filters.q }}" aria-describedby="campo-q-dica" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+      <p id="campo-q-dica" class="text-muted">{{ t("clientes.buscaDica") }}</p>
+    </div>
+    <div class="w-48 pb-7">{{ select_field("tipo", t("clientes.tipo"), [("", t("clientes.filtros.todosOsTipos")), ("person", t("clientes.tipos.person")), ("company", t("clientes.tipos.company"))], filters.tipo) }}</div>
+    <div class="w-36 pb-7">{{ select_field("uf", t("clientes.uf"), [("", t("clientes.filtros.todasAsUfs"))] + uf_options, filters.uf) }}</div>
+    <label class="inline-flex cursor-pointer items-center gap-2 pb-9">
+      <input type="checkbox" name="inativos" value="true"{% if filters.inativos %} checked{% endif %} class="size-4 accent-(--tf-primary)">
+      {{ t("comum.mostrarInativos") }}
+    </label>
+  </form>
+
+  <div id="lista-clientes" class="flex flex-col gap-4">
+    <div class="overflow-x-auto rounded-lg border border-border bg-surface">
+      <table class="w-full border-collapse text-left">
+        <caption class="sr-only">{{ t("clientes.titulo") }}</caption>
+        <thead class="bg-surface-raised text-muted">
+          <tr>
+            <th scope="col" class="px-3 py-2 font-medium">{{ t("clientes.nome") }}</th>
+            <th scope="col" class="px-3 py-2 font-medium">{{ t("clientes.documento") }}</th>
+            <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("clientes.tipo") }}</th>
+            <th scope="col" class="px-3 py-2 font-medium">{{ t("clientes.telefone") }}</th>
+            <th scope="col" class="hidden px-3 py-2 font-medium lg:table-cell">{{ t("clientes.email") }}</th>
+            <th scope="col" class="hidden px-3 py-2 font-medium lg:table-cell">{{ t("clientes.cidade") }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for c in clients %}
+          <tr class="border-t border-border">
+            <td class="px-3 py-2">
+              <a href="/admin/clientes/{{ c.id }}" class="font-medium hover:underline">{{ c.label }}</a>
+              {%- if c.name and c.trade_name %}
+              <span class="block text-muted">{{ c.trade_name }}</span>
+              {%- endif %}
+              {%- if not c.is_active %}
+              <span class="ml-2 inline-flex items-center gap-1 rounded-full bg-gray-bg px-2 py-0.5 text-xs font-medium text-gray-fg">{{ t("comum.inativo") }}</span>
+              {%- endif %}
+            </td>
+            <td class="px-3 py-2 tabular-nums">{{ format_document(c.document, c.kind) or "—" }}</td>
+            <td class="hidden px-3 py-2 md:table-cell">{{ t("clientes.tipos." ~ c.kind) }}</td>
+            <td class="px-3 py-2 tabular-nums">{{ format_phone(c.phones[0]) if c.phones else "—" }}</td>
+            <td class="hidden px-3 py-2 lg:table-cell">{{ c.emails[0] if c.emails else "—" }}</td>
+            <td class="hidden px-3 py-2 lg:table-cell">{{ c.city }}/{{ c.state }}</td>
+          </tr>
+          {%- else %}
+          <tr>
+            <td colspan="6" class="px-3 py-6 text-center text-muted">{{ t("comum.nenhumRegistro") }}</td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- if clients %}
+    <p class="text-muted">{{ t("clientes.mostrandoDe", n=clients | length, total=total) if total > clients | length else t("clientes.total", n=clients | length) }}</p>
+    {%- endif %}
+  </div>
+</div>
+{% endblock %}

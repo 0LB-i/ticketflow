@@ -8,7 +8,10 @@ from chamados.web.formatting import (
     SUGGESTED_TIMES,
     format_ago,
     format_datetime,
+    format_document,
     format_duration,
+    format_phone,
+    format_postal_code,
     format_size,
     local_parts,
     parse_duration,
@@ -102,3 +105,14 @@ def test_so_imagens_anexadas_no_proprio_sistema() -> None:
     assert f'<img src="/api/v1/attachments/{ANEXO}" alt="print" loading="lazy">' in html
     assert '<img src="https://rastreio.com' not in html
     assert "https://rastreio.com/a.png" in html  # aparece como texto
+
+
+def test_documentos_dos_clientes() -> None:
+    """As máscaras do antigo documentos.ts (o banco guarda só os dígitos)."""
+    assert format_document("52998224725", "person") == "529.982.247-25"
+    assert format_document("5299", "person") == "529.9"
+    assert format_document("12abc34501de35", "company") == "12.ABC.345/01DE-35"
+    assert format_document(None, "person") == ""
+    assert format_phone("11987654321") == "(11) 98765-4321"
+    assert format_phone("+55 11 3333-4444") == "(11) 3333-4444"
+    assert format_postal_code("01310100") == "01310-100"

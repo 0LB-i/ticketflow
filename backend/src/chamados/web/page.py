@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from chamados.core.i18n import LOCALES
 from chamados.core.i18n import translate as translate_api
-from chamados.core.permissions import effective_permissions
+from chamados.core.permissions import P, can, effective_permissions
 from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, SettingsDep, session_auth
 from chamados.modules.identity.sessions import CSRF_COOKIE, SESSION_COOKIE, csrf_ok, load_session
@@ -165,6 +165,19 @@ async def get_logged_page(page: PageDep) -> LoggedPage:
 
 
 LoggedPageDep = Annotated[LoggedPage, Depends(get_logged_page)]
+
+
+def requires(permission: P) -> Any:
+    """Tela que exige uma permissão global. As rotas de administração da API a conferem numa
+    dependência (`require`), que não roda quando a tela chama a função direto: ela é conferida
+    aqui."""
+
+    async def dependency(page: LoggedPageDep) -> LoggedPage:
+        if not can(page.auth.actor, permission):
+            raise HTTPException(403, "Você não tem permissão para esta ação.")
+        return page
+
+    return Depends(dependency)
 
 
 def reject_cross_site(request: Request) -> None:

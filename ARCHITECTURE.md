@@ -200,7 +200,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 
 - Pessoa física (`person`: CPF, RG, nascimento) ou jurídica (`company`: CNPJ, nome fantasia, inscrições estadual e municipal, pessoa de contato). Os campos do outro tipo ficam nulos.
 - Obrigatórios: nome completo e CPF (PF) ou razão social, nome fantasia e CNPJ (PJ), mais CEP, cidade e UF (a API confere; o banco aceita cadastros antigos sem eles). O CPF/CNPJ é validado e único (restrição no banco); o nome também não repete (a API compara sem maiúsculas, acentos e espaços a mais).
-- Documentos, telefones e CEP são gravados sem pontuação; a interface formata (`composables/documentos.ts`). O CNPJ aceita o formato alfanumérico (julho de 2026): mesmo cálculo dos dígitos, com o valor de cada caractere = ASCII − 48.
+- Documentos, telefones e CEP são gravados sem pontuação; a interface formata (`web/formatting.py` na tela e `static/js/clientes.js` enquanto se digita). O CNPJ aceita o formato alfanumérico (julho de 2026): mesmo cálculo dos dígitos, com o valor de cada caractere = ASCII − 48.
 - A validação fica no router (`_clean`), com mensagens do catálogo de idiomas. O formulário envia o cadastro inteiro (`PUT`).
 - Permissões: `client.view` e `client.manage`, que nenhum papel tem: valem só para membros do grupo **Administradores** (ativo; nome comparado sem maiúsculas, `CLIENT_MANAGERS_TEAM` em `core/permissions.py`), mesmo com papel Administrador. Renomear o grupo tira a permissão de todos. Os demais só escolhem o cliente pelo nome (`GET /clients/options`). A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
 - Ligação com os chamados: `tickets.client_id` (3.5).
@@ -278,20 +278,22 @@ web/
 ├── auth.py              login, sair, esqueci a senha, convite, redefinição, troca obrigatória, idioma
 ├── tickets.py           / (vai para a lista), lista de chamados com as filas, status em massa
 ├── ticket.py            registro, detalhe, ações da lateral, tarefas e a busca de clientes
+├── clients.py           cadastro de clientes (lista e formulário)
 ├── formatting.py        datas, "há 3 dias", duração, tamanho e os campos de data e hora (São Paulo)
 ├── markdown.py          render_markdown(): markdown-it-py com as regras do antigo markdown.ts
 ├── i18n.py              translate(): os catálogos JSON da SPA (frontend/src/i18n) até a troca final
 ├── palette.py           paleta derivada das 3 cores (port do tema/paleta.ts, mesmos tons)
 ├── templating.py        ambiente Jinja2 e static() (endereço com a data do arquivo)
 ├── templates/           base.html, card.html (cartão sem menu), app.html (menu e cabeçalho),
-│                        _ui.html (macros), _fields.html (campos das telas de chamado),
+│                        _ui.html (macros), _fields.html (campos das telas de chamado), clients/,
 │                        _icons.html, auth/, tickets/
-└── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, chamado.js,
+└── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, chamado.js, clientes.js,
                          vendor/htmx, vendor/tiptap), fonts/
 ```
 
 - **Sem regra na tela:** a rota da tela chama a função da rota da API (`identity.router.login(...)`) ou o service, e só monta o HTML. Os erros da API (`HTTPException`) viram a mensagem na tela, traduzida por `Page.api_message()`.
 - **Sessão:** `get_page` lê o cookie `tf_sessao` (`load_session` + `session_auth`, as mesmas peças do `get_auth` da API). `LoggedPageDep` exige login (sem sessão, `/login?volta=…`) e, com a senha provisória, só abre `/trocar-senha` e `/sair`.
+- **Permissão das telas de administração:** as rotas de administração da API conferem a permissão numa dependência (`require(P.X)`), que **não roda** quando a tela chama a função direto. Por isso a tela usa `requires(P.X)` (`page.py`), que confere a mesma permissão antes; as ações de chamado não precisam, porque a regra fica no service (`allowed_actions`).
 - **Idioma:** o da pessoa ou o padrão do sistema; nas telas sem login, o padrão. `t("chave", nome=…)` nos templates. O catálogo é lido de novo quando o JSON muda (o `--reload` do uvicorn só olha os `.py`).
 - **Atualização:** como acontecia com a SPA compilada, os templates e o `app.css` novos valem assim que o `deploy.sh` termina; o código Python, só depois do `systemctl restart`. Reinicie logo depois do deploy.
 - **CSRF:** formulário que altera dados manda `csrf_token` (o valor do cookie `tf_csrf`) num campo escondido, conferido por `check_csrf()` com o hash da sessão. O login não precisa (ainda não há sessão).
@@ -307,7 +309,7 @@ web/
 - **Campos com comportamento** (`_fields.html` + `chamado.js`, por atributos `data-*`): data e hora que acompanham o relógio até o ajuste (`*_ajustado`), tempo hh:mm com a lista de horários sugeridos (`<datalist>`), anexos que sobem na hora (a 1ª etapa do docs/11 §11.4), pessoas em etiquetas e o cliente buscado por HTMX (`/clientes/opcoes`).
 - **Trechos por HTMX sem templates parciais:** a rota devolve a página inteira e o `hx-select` escolhe o trecho: os responsáveis do grupo escolhido no registro (`/chamados/novo?grupo=`), a tarefa em edição ou a confirmação da remoção (`/chamados/{n}?editar=` / `?remover=`) e os membros do grupo de destino da transferência (`?team_id=`). A única parcial é a lista de clientes.
 - **Ações do chamado:** cada botão da lateral é um formulário (POST com `csrf_token`) que chama a função da API e volta ao chamado com o aviso (`_act`). Erro numa tarefa nova ou na edição devolve a página com o texto preenchido (422), sem perder o que foi escrito.
-- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`) e `/clientes/opcoes`.
+- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes`, `/admin/clientes/novo` e `/admin/clientes/{id}`.
 
 ---
 
@@ -328,10 +330,10 @@ src/
 ├── composables/         consultas e mutações (TanStack Query) e utilidades
 │   ├── admin.ts         usuários, grupos, setores, status (admin)
 │   ├── chamados.ts      status dos chamados (Configurações)
-│   ├── clientes.ts      clientes; documentos.ts formata e valida CPF, CNPJ, telefone e CEP
+│   ├── clientes.ts      opções de cliente (o filtro dos relatórios)
 │   ├── relatorios.ts    relatórios, opções dos filtros, download do PDF e expediente
 │   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
-├── views/               uma pasta por área: auth/, tickets/, clients/, reports/, admin/
+├── views/               uma pasta por área: reports/, admin/
 ├── components/
 │   ├── ui/              design system: Button, TextField, SelectField, RadioGroup, Modal, SidePanel, DataTable, badges…
 │   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
@@ -369,8 +371,8 @@ src/
 | `/chamados` | No servidor (3.11). Filas em abas com contadores (Meus, Aguardando, Acompanhando, Todos), filtro de grupo (status e responsável na aba Todos), total de horas e lápis (abre o chamado) em cada linha e, para supervisor e admin, seleção de vários chamados com mudança de status (janela flutuante no pé da tela). Aba e filtros na URL (`?aba=todos&grupo=…&status=…&responsavel=…&q=…`); sem aba, abre em Meus (ou em Todos, para quem não tem grupo). É a tela inicial: `/` redireciona para cá | Logado |
 | `/chamados/novo` | No servidor (3.11). Registro | `ticket.create` |
 | `/chamados/:numero` | No servidor (3.11). Detalhe: linha do tempo, comentários, ações | Quem vê o chamado (403/404 na própria tela) |
-| `/admin/clientes` | Lista com busca (nome, CPF/CNPJ, e-mail), no menu Administração | `client.view` (grupo Administradores) |
-| `/admin/clientes/novo`, `/admin/clientes/:id` | Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
+| `/admin/clientes` | No servidor (3.11). Lista com busca (nome, CPF/CNPJ, e-mail), no menu Administração | `client.view` (grupo Administradores) |
+| `/admin/clientes/novo`, `/admin/clientes/:id` | No servidor (3.11). Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
 | `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | Cadastros | `admin.users` / `admin.organization` |
 | `/relatorios` | Relatórios: totais, abas Produtividade, Clientes e Horas extras (gráficos + tabelas), filtros de período, grupo, pessoa e cliente, botão Baixar PDF. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
 | `/admin/configuracoes` | Idioma, cores, logotipo, status dos chamados e expediente | `admin.settings` |
@@ -459,7 +461,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 3. **Toda alteração de chamado** (campos, status, responsável, grupo, observadores, edição e remoção de tarefa) **gera um evento** em `ticket_events`, na mesma transação. O histórico nunca é alterado. Os comentários novos já são o próprio registro.
 4. **Administração e login vão para o `audit_log`** com antes e depois.
 5. **Cadastros não são apagados**, só desativados.
-6. **A interface não decide permissões**; usa `allowed_actions` e `me.permissions` só para mostrar botões.
+6. **A interface não decide permissões**; usa `allowed_actions` e `me.permissions` só para mostrar botões. Tela do servidor que chama rota de administração da API exige a permissão com `requires(P.X)`.
 7. **Nada de cor direta** nos componentes: só tokens. Nada de texto fixo: só i18n, nos dois idiomas.
 8. **O contrato da API é gerado**: `schema.d.ts` não se edita à mão.
 9. **Mensagens de erro da API em português**, com a tradução no catálogo de `core/i18n.py`.

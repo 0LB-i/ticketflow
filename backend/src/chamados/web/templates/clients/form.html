@@ -1,0 +1,143 @@
+{#- Cadastro e edição de cliente, em três colunas (dados, contato, endereço) para caber na tela
+    do computador sem rolar. Sem client.manage, o formulário só mostra os dados. Os campos de
+    pessoa física ou jurídica aparecem conforme o tipo (static/js/clientes.js). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class, field, select_field with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<script src="{{ static('js/clientes.js') }}" defer></script>
+{% endblock %}
+
+{%- set pf = form.kind == "person" %}
+
+{#- Telefones e e-mails: listas em que se acrescenta e remove linhas. #}
+{% macro list_field(name, label, values, type, add_key, remove_key) -%}
+<div data-repetivel class="flex flex-col gap-4">
+  <div data-linhas class="flex flex-col gap-4">
+    {%- for value in values %}
+    {{ list_line(name, label, loop.index if values | length > 1 else None, value, type, remove_key, errors.get(name ~ "." ~ loop.index0)) }}
+    {%- endfor %}
+  </div>
+  {%- if can_edit %}
+  <button type="button" data-adiciona-linha class="self-start {{ button_class('ghost', 'sm') }}">{{ icon("plus", "size-4") }} {{ t(add_key) }}</button>
+  <template>{{ list_line(name, label, None, "", type, remove_key, None) }}</template>
+  {%- endif %}
+</div>
+{%- endmacro %}
+
+{% macro list_line(name, label, number, value, type, remove_key, error) -%}
+<div data-linha class="flex items-start gap-2">
+  <div class="flex flex-1 flex-col gap-1">
+    <label class="font-medium" data-rotulo="{{ label }}">{{ label }}{% if number %} {{ number }}{% endif %}</label>
+    <input name="{{ name }}" type="{{ type }}" value="{{ value }}" autocomplete="off"{% if type == "tel" %} data-mascara="telefone"{% endif %}{% if error %} aria-invalid="true"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg {{ 'border-danger' if error else 'border-border-input' }}">
+    {%- if error %}
+    <p class="text-danger">{{ t(error) }}</p>
+    {%- endif %}
+  </div>
+  {%- if can_edit %}
+  <button type="button" data-remove-linha aria-label="{{ t(remove_key) }}" title="{{ t(remove_key) }}" class="mt-7 {{ button_class('ghost', 'sm') }}">{{ icon("trash", "size-4") }}</button>
+  {%- endif %}
+</div>
+{%- endmacro %}
+
+{% block content %}
+{%- macro err(name) %}{{ t(errors[name]) if name in errors else "" }}{% endmacro %}
+<div class="mx-auto flex max-w-7xl flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-xl font-semibold">{{ title }}</h1>
+    <div class="flex gap-2">
+      <a href="/admin/clientes" class="{{ button_class('secondary') }}">{{ t("comum.cancelar") if can_edit else t("comum.fechar") }}</a>
+      {%- if can_edit %}
+      <button type="submit" form="form-cliente" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
+      {%- endif %}
+    </div>
+  </div>
+
+  <form id="form-cliente" method="post" action="/admin/clientes/{{ client_id or 'novo' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {%- if error %}
+    <div class="mb-4">{{ alert(error) }}</div>
+    {%- endif %}
+    <fieldset{% if not can_edit %} disabled{% endif %} class="grid items-start gap-4 lg:grid-cols-3">
+      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="dados-titulo">
+        <h2 id="dados-titulo" class="font-semibold">{{ t("clientes.dados") }}</h2>
+        <fieldset class="flex flex-col gap-1">
+          <legend class="mb-1 font-medium">{{ t("clientes.tipo") }}</legend>
+          <div class="flex flex-wrap gap-x-5 gap-y-2">
+            {%- for value in ("person", "company") %}
+            <label class="inline-flex cursor-pointer items-center gap-2">
+              <input type="radio" name="kind" value="{{ value }}"{% if form.kind == value %} checked{% endif %} class="size-4 accent-(--tf-primary)">
+              {{ t("clientes.tiposLongos." ~ value) }}
+            </label>
+            {%- endfor %}
+          </div>
+        </fieldset>
+        {#- Nome completo (PF) ou razão social (PJ): o mesmo campo, o rótulo muda. #}
+        <div class="flex flex-col gap-1">
+          <label for="campo-name" class="font-medium"><span data-se-tipo="person"{% if not pf %} hidden{% endif %}>{{ t("clientes.nomeCompleto") }}</span><span data-se-tipo="company"{% if pf %} hidden{% endif %}>{{ t("clientes.razaoSocial") }}</span><span class="text-danger" aria-hidden="true"> *</span></label>
+          <input id="campo-name" name="name" value="{{ form.name }}"{% if "name" in errors %} aria-invalid="true"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg {{ 'border-danger' if 'name' in errors else 'border-border-input' }}">
+          {%- if "name" in errors %}
+          <p class="text-danger">{{ err("name") }}</p>
+          {%- endif %}
+        </div>
+        <div data-se-tipo="company"{% if pf %} hidden{% endif %}>{{ field("trade_name", t("clientes.nomeFantasia"), value=form.trade_name, error=err("trade_name") or None, required=True) }}</div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-1">
+            <label for="campo-document" class="font-medium"><span data-se-tipo="person"{% if not pf %} hidden{% endif %}>CPF</span><span data-se-tipo="company"{% if pf %} hidden{% endif %}>CNPJ</span><span class="text-danger" aria-hidden="true"> *</span></label>
+            <input id="campo-document" name="document" value="{{ form.document }}" data-mascara="documento"{% if "document" in errors %} aria-invalid="true"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg tabular-nums {{ 'border-danger' if 'document' in errors else 'border-border-input' }}">
+            {%- if "document" in errors %}
+            <p class="text-danger">{{ err("document") }}</p>
+            {%- endif %}
+          </div>
+          <div data-se-tipo="person"{% if not pf %} hidden{% endif %}>{{ field("id_number", t("clientes.rg"), value=form.id_number, inputmode="numeric", maxlength="14", **{"data-mascara": "rg"}) }}</div>
+          <div data-se-tipo="company"{% if pf %} hidden{% endif %}>{{ field("state_registration", t("clientes.inscricaoEstadual"), value=form.state_registration, hint=t("clientes.inscricaoEstadualDica")) }}</div>
+        </div>
+        <div data-se-tipo="person"{% if not pf %} hidden{% endif %}>{{ field("birth_date", t("clientes.nascimento"), type="date", value=form.birth_date) }}</div>
+        <div data-se-tipo="company" class="grid gap-4 sm:grid-cols-2"{% if pf %} hidden{% endif %}>
+          {{ field("municipal_registration", t("clientes.inscricaoMunicipal"), value=form.municipal_registration) }}
+          {{ field("contact_name", t("clientes.pessoaDeContato"), value=form.contact_name) }}
+        </div>
+        {%- if client_id %}
+        <label class="inline-flex cursor-pointer items-center gap-2">
+          <input type="checkbox" name="is_active" value="1"{% if form.is_active %} checked{% endif %} class="size-4 accent-(--tf-primary)">
+          {{ t("clientes.ativo") }}
+        </label>
+        {%- endif %}
+      </section>
+
+      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="contato-titulo">
+        <h2 id="contato-titulo" class="font-semibold">{{ t("clientes.contato") }}</h2>
+        {{ list_field("phones", t("clientes.telefone"), form.phones, "tel", "clientes.adicionarTelefone", "clientes.removerTelefone") }}
+        {{ list_field("emails", t("clientes.email"), form.emails, "email", "clientes.adicionarEmail", "clientes.removerEmail") }}
+        <div class="flex flex-col gap-1">
+          <label for="campo-notes" class="font-medium">{{ t("clientes.observacoes") }}</label>
+          <textarea id="campo-notes" name="notes" rows="5" class="rounded-md border border-border-input bg-surface px-3 py-2 text-fg">{{ form.notes }}</textarea>
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="endereco-titulo">
+        <h2 id="endereco-titulo" class="font-semibold">{{ t("clientes.endereco") }}</h2>
+        <div class="max-w-40">{{ field("postal_code", t("clientes.cep"), value=form.postal_code, error=err("postal_code") or None, required=True, inputmode="numeric", **{"data-mascara": "cep"}) }}</div>
+        {{ field("street", t("clientes.logradouro"), value=form.street) }}
+        <div class="grid grid-cols-[8rem_1fr] gap-4">
+          {{ field("number", t("clientes.numero"), value=form.number) }}
+          {{ field("complement", t("clientes.complemento"), value=form.complement) }}
+        </div>
+        {{ field("district", t("clientes.bairro"), value=form.district) }}
+        <div class="grid grid-cols-[1fr_6rem] gap-4">
+          {{ field("city", t("clientes.cidade"), value=form.city, error=err("city") or None, required=True) }}
+          <div>
+            {{ select_field("state", t("clientes.uf"), uf_options, form.state, placeholder="—", required=True) }}
+            {%- if "state" in errors %}
+            <p class="text-danger">{{ err("state") }}</p>
+            {%- endif %}
+          </div>
+        </div>
+      </section>
+    </fieldset>
+  </form>
+</div>
+{% endblock %}
