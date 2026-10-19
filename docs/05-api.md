@@ -62,7 +62,7 @@ Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de 
 | `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores (respondem `204`: quem se retira de um chamado de outro grupo deixa de vê-lo) |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
 | `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir (id de um membro do grupo); o chamado nunca fica sem responsável |
-| `PUT` | `/tickets/{id}/assignees` | Vários responsáveis (ou o grupo todo): `{"assignee_ids": [...]}`, a lista inteira, membros ativos do grupo; o principal continua se estiver nela, senão o primeiro assume |
+| `PUT` | `/tickets/{id}/assignees` | Vários responsáveis (ou o grupo todo): `{"assignee_ids": [...]}`, a lista inteira; quem entra é membro ativo do grupo (quem já estava e saiu do grupo pode ficar ou sair); o principal continua se estiver nela, senão o primeiro assume |
 | `POST` | `/tickets/{id}/transfer` | Transferir: `{"team_id", "assignee_id", "reason"}`; o novo responsável é um membro ativo do grupo de destino |
 | `POST` | `/tickets/{id}/merge` | Mesclar em outro chamado |
 | `GET` / `POST` | `/tickets/{id}/approvals` | Aprovações do chamado |

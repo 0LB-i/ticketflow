@@ -771,13 +771,17 @@ async def set_assignees(
 ) -> None:
     """Troca a lista inteira de responsáveis (várias pessoas ou o grupo todo).
 
-    O principal continua se estiver na lista; senão, o primeiro da lista assume."""
+    O principal continua se estiver na lista; senão, o primeiro da lista assume. Só quem entra
+    precisa ser membro ativo do grupo: quem já é responsável e saiu do grupo pode ficar ou sair."""
     require(auth, ticket, "assign_others")
     ids = list(dict.fromkeys(assignee_ids))
-    found = {u.public_id: u for u in await _team_members(db, set(ids), ticket.team_id)}
+    current = [ticket.assignee, *(c.user for c in ticket.co_assignees)]
+    found = {u.public_id: u for u in current}
+    new_ids = {i for i in ids if i not in found}
+    if new_ids:
+        found |= {u.public_id: u for u in await _team_members(db, new_ids, ticket.team_id)}
     users = [found[i] for i in ids]
     keep = {u.id for u in users}
-    current = [ticket.assignee, *(c.user for c in ticket.co_assignees)]
     added = [u for u in users if u.id not in {c.id for c in current}]
     removed = [u for u in current if u.id not in keep]
     if not added and not removed:

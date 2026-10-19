@@ -291,13 +291,26 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "canceled"
 
 
+def _forms_de_responsaveis(html: str, url: str) -> list[tuple[list[str], str]]:
+    """Os formulários da lateral que mandam a lista de responsáveis: (o que enviam, o rótulo do
+    botão X, ou "" no "Atribuir a")."""
+    forms = re.findall(rf'<form method="post" action="{url}"[^>]*>(.*?)</form>', html, re.S)
+    return [
+        (
+            re.findall(r'<input type="hidden" name="responsaveis" value="([^"]+)">', f),
+            next(iter(re.findall(r'aria-label="(Remover [^"]+)"', f)), ""),
+        )
+        for f in forms
+    ]
+
+
 def test_varios_responsaveis_na_lateral(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa: F811
     numero = registrar(client, cenario)["number"]
     url = f"/chamados/{numero}/responsaveis"
     r = client.get(f"/chamados/{numero}")
     # Quem atribui vê as etiquetas, e não a linha "Responsável"; a única não tem o X.
     assert '<dt class="text-muted">Responsável</dt>' not in r.text
-    assert 'aria-label="Remover Ana"' not in r.text
+    assert _forms_de_responsaveis(r.text, url) == [([cenario["ana"]], "")]  # a única, sem X
     assert '<option value="*">Todas as pessoas do grupo</option>' in r.text
     assert f'<option value="{cenario["bia"]}">Bia</option>' in r.text
 
@@ -308,7 +321,13 @@ def test_varios_responsaveis_na_lateral(client: TestClient, cenario: dict[str, A
     assert chamado["assignee"]["display_name"] == "Ana"
     assert [u["display_name"] for u in chamado["co_assignees"]] == ["Bia"]
     r = client.get(f"/chamados/{numero}")
-    assert 'aria-label="Remover Ana"' in r.text and 'aria-label="Remover Bia"' in r.text
+    # O "Atribuir a" reenvia todos; o X de cada um envia os demais.
+    ana, bia = cenario["ana"], cenario["bia"]
+    assert _forms_de_responsaveis(r.text, url) == [
+        ([ana, bia], ""),
+        ([bia], "Remover Ana"),
+        ([ana], "Remover Bia"),
+    ]
     assert '<option value="*">' not in r.text  # não sobrou ninguém de fora
 
     # Tirar a Ana: a Bia vira a principal.

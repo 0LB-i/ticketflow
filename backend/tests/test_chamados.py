@@ -726,6 +726,31 @@ def test_atribuir_a_varios_responsaveis(client: TestClient, cenario: dict[str, A
     assert client.put(url, json={"assignee_ids": [cenario["bia"]]}).status_code == 403
 
 
+def test_responsavel_que_saiu_do_grupo(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    # A Bia é a única responsável e sai do TI: dá para acrescentar outra pessoa sem tirá-la, e
+    # depois tirá-la. Só quem entra precisa ser membro ativo do grupo.
+    t = registrar(client, cenario, assignee=cenario["bia"])
+    url = f"{API}/{t['number']}/assignees"
+    db.execute(
+        text(
+            "DELETE FROM team_members WHERE user_id = "
+            "(SELECT id FROM users WHERE email = 'bia@x.com')"
+        )
+    )
+    db.commit()
+    r = client.put(url, json={"assignee_ids": [cenario["bia"], cenario["ana"]]})
+    assert r.status_code == 200, r.text
+    assert r.json()["assignee"]["display_name"] == "Bia"
+    assert [u["display_name"] for u in r.json()["co_assignees"]] == ["Ana"]
+    r = client.put(url, json={"assignee_ids": [cenario["ana"]]})
+    assert r.json()["assignee"]["display_name"] == "Ana" and r.json()["co_assignees"] == []
+    # Fora do grupo, ela não volta.
+    r = client.put(url, json={"assignee_ids": [cenario["ana"], cenario["bia"]]})
+    assert r.status_code == 422
+
+
 def test_transferencia(client: TestClient, cenario: dict[str, Any]) -> None:
     t = registrar(client, cenario, assignee="me")
     url = f"{API}/{t['number']}"

@@ -213,8 +213,8 @@ class AssigneesIn(BaseModel):
     assignee_ids: list[uuid.UUID] = Field(
         min_length=1,
         max_length=200,
-        description="todos os responsáveis, membros ativos do grupo; o principal continua se "
-        "estiver na lista, senão o primeiro assume",
+        description="todos os responsáveis; quem entra é membro ativo do grupo; o principal "
+        "continua se estiver na lista, senão o primeiro assume",
     )
 
 

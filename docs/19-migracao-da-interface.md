@@ -17,7 +17,7 @@ A SPA em Vue + TypeScript obrigava a manter duas stacks. Cada mudança na API ex
 | **WEB-05** | **Relatórios** (gráficos em SVG e o PDF) | **a fazer: é a próxima** | |
 | WEB-06 | Troca final: sai a SPA, o Node e o serviço do Vite | a fazer | |
 
-Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado tinha tirado do `main` (`0ca1055`, `19ce9eb` e `3d78a76`, guardadas no tag local `remoto-antes-do-force`): o backend veio como estava (`PUT /tickets/{id}/assignees` e o registro do admin em qualquer grupo ativo), e as telas Vue foram refeitas no servidor (vários responsáveis na lateral do chamado; registro só em grupos ativos). O `19ce9eb` era cache da SPA e não precisou ser portado.
+Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado tinha tirado do `main` (`0ca1055`, `19ce9eb` e `3d78a76`, guardadas no tag local `remoto-antes-do-force`): o backend veio como estava (`PUT /tickets/{id}/assignees` e o registro do admin em qualquer grupo ativo), e as telas Vue foram refeitas no servidor (vários responsáveis na lateral do chamado; registro só em grupos ativos). Do `19ce9eb`, só valeu para o servidor o registro sem grupo inativo; o resto era cache da SPA e não precisou ser portado.
 
 **Hoje, na SPA, só restam os relatórios (`/relatorios`).** Todo o resto vem do servidor, com o mesmo visual. Os commits `5194367`, `087d68b`, `a5776a9` e parte do `4a89058` e do `a041d99` são correções de uma revisão independente feita a cada etapa (19.6).
 
@@ -70,4 +70,5 @@ Depois da WEB-05 não sobra tela na SPA. Lista do que muda:
 | `frontend/dist` antigo em dev | Endereços que o servidor não conhece (ex.: `/chamados/`) são respondidos pelo dist. Um build de antes do `strict`/`sensitive` traria de volta a recarga infinita. Some na WEB-06 |
 | Primeiro deploy em produção | Precisa de acesso ao GitHub para baixar o binário do Tailwind (CHANGELOG, docs/18) |
 | Templates novos no deploy | Valem assim que o `deploy.sh` termina; o código Python, só depois do restart. Reiniciar logo depois do deploy |
+| Select que envia ao mudar, pelo teclado | Status, observadores e "Atribuir a" da lateral do chamado são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |
 | Validação dos formulários | O servidor confere tudo. Campo `required` escondido bloqueia o envio no navegador sem avisar (aconteceu nos clientes). Campos de um tipo que não está em uso vão num `<fieldset disabled>` |
