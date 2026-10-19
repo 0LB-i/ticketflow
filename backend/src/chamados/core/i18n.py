@@ -151,6 +151,7 @@ EN: dict[str, str] = {
     "Cliente não encontrado.": "Client not found.",
     "O fim do expediente precisa ser depois do início.": "Working hours must end after they start.",
     "O período precisa terminar depois de começar.": "The period must end after it starts.",
+    "Data inválida.": "Invalid date.",
     "O período pode ter no máximo 366 dias.": "The period can have at most 366 days.",
     "Você só pode ver os seus próprios números.": "You can only see your own numbers.",
     "Informe o nome do status.": "Enter the status name.",

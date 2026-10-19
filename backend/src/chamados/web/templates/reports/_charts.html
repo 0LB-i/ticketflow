@@ -26,7 +26,8 @@
 
 {#- Colunas ao longo do tempo (horas por dia ou por semana). Passar o mouse ou o foco numa coluna
     mostra a data e o valor; o eixo tem três marcas em horas cheias e pares (0, metade, topo), e
-    o de baixo, o primeiro rótulo e mais uns cinco. -#}
+    o de baixo, o primeiro rótulo e mais uns cinco. A dica abre com o foco só pelo teclado: um
+    clique não a deixa presa. -#}
 {% macro column_chart(title, points, fmt) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list) | max %}
 {%- set top = [120, ((highest / 120) | round(0, "ceil") | int) * 120] | max %}
@@ -51,9 +52,9 @@
         {%- for p in points %}
         <li tabindex="0" aria-label="{{ p.label }}: {{ fmt(p.value) }}" class="group relative flex h-full flex-1 items-end justify-center">
           {%- if p.value %}
-          <svg width="100%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-6 fill-primary group-hover:opacity-80 group-focus:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          <svg width="100%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-6 fill-primary group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- endif %}
-          <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus:block">
+          <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus-visible:block">
             <strong class="tabular-nums">{{ fmt(p.value) }}</strong>
             <span class="text-muted"> · {{ p.label }}</span>
           </span>

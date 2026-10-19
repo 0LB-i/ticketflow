@@ -59,6 +59,8 @@
     {%- if period == "personalizado" %}
     {{ field("de", t("relatorios.de"), type="date", value=start) }}
     {{ field("ate", t("relatorios.ate"), type="date", value=end, error=None if period_ok else t("relatorios.periodoInvalido")) }}
+    {#- As datas não aplicam ao mudar (app.js): o botão ou o Enter. mt-7: na linha dos campos. #}
+    <div><button type="submit" class="mt-7 {{ button_class('secondary') }}">{{ t("relatorios.aplicar") }}</button></div>
     {%- endif %}
     {%- if team_options %}
     {{ select_field("grupo", t("relatorios.grupo"), [("", t("relatorios.todosOsGrupos"))] + team_options, team) }}

@@ -159,6 +159,9 @@ def test_periodo_invalido(client: TestClient, cenario: dict[str, Any]) -> None: 
     assert r.status_code == 422
     r = client.get(REPORTS, params={"start": "2025-01-01", "end": "2026-10-01"})
     assert r.status_code == 422
+    # O último dia do calendário: o fim do período (o dia seguinte) não existe.
+    r = client.get(REPORTS, params={"start": "9999-12-31", "end": "9999-12-31"})
+    assert r.status_code == 422 and r.json()["detail"] == "Data inválida."
 
 
 def test_pdf(client: TestClient, cenario: dict[str, Any], db: Session) -> None:  # noqa: F811

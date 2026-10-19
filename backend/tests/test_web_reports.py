@@ -123,6 +123,8 @@ def test_filtro_de_cliente(client: TestClient, cenario: dict[str, Any], db: Sess
     assert 'value="Outro"' not in r.text
     assert 'aria-label="Tirar o cliente"' in r.text and "data-limpa-cliente hidden" not in r.text
     assert _pdf(r.text)["client"] == [padaria]
+    # A busca fica fora do formulário de filtros: não vai no envio nem o dispara.
+    assert 'name="q" form="sem-formulario"' in r.text
     # Sem cliente, o X fica escondido.
     assert "data-limpa-cliente hidden" in client.get("/relatorios").text
 
@@ -136,6 +138,9 @@ def test_periodo_personalizado(client: TestClient, cenario: dict[str, Any]) -> N
     )
     assert f'id="campo-ate" name="ate" type="date" value="{hoje.isoformat()}"' in r.text
     assert _pdf(r.text)["end"] == [hoje.isoformat()]
+    # As datas não aplicam ao mudar: o botão Aplicar envia.
+    assert '<button type="submit"' in r.text and ">Aplicar</button>" in r.text
+    assert ">Aplicar</button>" not in client.get("/relatorios").text
 
     r = client.get(
         "/relatorios", params={"periodo": "personalizado", "de": "2026-10-10", "ate": "2026-10-01"}

@@ -397,6 +397,7 @@
   "relatorios": {
     "titulo": "Reports",
     "descricao": "Hours worked, clients and overtime. You see your own work; supervisors see their team's.",
+    "aplicar": "Apply",
     "baixarPdf": "Download PDF",
     "periodo": "Period",
     "personalizado": "Custom",

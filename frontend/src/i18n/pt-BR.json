@@ -397,6 +397,7 @@
   "relatorios": {
     "titulo": "Relatórios",
     "descricao": "Horas trabalhadas, clientes e horas extras. Você vê o seu trabalho; o supervisor vê o do grupo.",
+    "aplicar": "Aplicar",
     "baixarPdf": "Baixar PDF",
     "periodo": "Período",
     "personalizado": "Personalizado",

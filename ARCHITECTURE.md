@@ -333,8 +333,7 @@ src/
 │   └── schema.d.ts      tipos TypeScript do contrato       ┘ nunca editar à mão
 ├── router/index.ts      rotas, meta (publica, permissao, cartao) e o guard
 ├── stores/              Pinia: auth (usuário logado), branding (cores, logotipo, idioma padrão), theme
-├── composables/         consultas e mutações (TanStack Query) e utilidades
-│   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
+├── composables/         useHead.ts (título da aba), useToast.ts
 ├── views/               ServerView (telas do servidor), ForbiddenView, NotFoundView, ComponentsView
 ├── components/
 │   ├── ui/              design system: Button, TextField, SelectField, Modal, DataTable, badges…
@@ -357,8 +356,7 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['expediente']`.
-- **Escrita:** `useAlteracao(fn, chaves)` (admin) faz a mutação e invalida as chaves afetadas.
+- **TanStack Query:** desde a WEB-05 não há mais consultas; sobram o plugin (`main.ts`) e a limpeza do cache ao trocar de usuário (`App.vue`), que saem com a SPA na WEB-06.
 - **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
 
 ### 4.3 Telas
@@ -398,7 +396,7 @@ Saíram da SPA junto com as telas de chamado: estão nas telas do servidor (3.11
 
 - `i18n/pt-BR.json` e `i18n/en.json` têm **as mesmas chaves**: o tipo do `createI18n` exige isso, e um teste confere chaves e marcadores (`{nome}`).
 - **Nenhum texto fixo** nas telas: tudo via `$t()`/`t()`. Nas mensagens, não use `@` nem `|`, que são sintaxe do vue-i18n.
-- `definirIdioma()` troca o idioma da interface, o `lang` do `<html>` e o idioma das chamadas à API. Datas (`formato.ts`) e ordenação alfabética (`compararTexto`) seguem o idioma atual; o fuso é sempre America/Sao_Paulo.
+- `definirIdioma()` troca o idioma da interface, o `lang` do `<html>` e o idioma das chamadas à API. As datas e os números das telas são formatados no servidor (`web/formatting.py`).
 
 ---
 

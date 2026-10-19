@@ -108,6 +108,8 @@ async def resolve(
         raise HTTPException(422, "O período precisa terminar depois de começar.")
     if (end - start).days >= MAX_DAYS:
         raise HTTPException(422, "O período pode ter no máximo 366 dias.")
+    if end == date.max:  # o fim do período é o começo do dia seguinte (_bounds)
+        raise HTTPException(422, "Data inválida.")
     f = Filters(start=start, end=end)
     if team:
         f.team = await db.scalar(select(Team).where(Team.public_id == team))

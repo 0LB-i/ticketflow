@@ -71,10 +71,11 @@ for (const aviso of document.querySelectorAll('[data-aviso="success"]')) {
   setTimeout(() => aviso.remove(), 5000)
 }
 
-// Formulários de filtro: aplicam ao escolher uma opção.
+// Formulários de filtro: aplicam ao escolher uma opção. Datas não: o Chrome dispara o change a
+// cada parte digitada (vão com o botão Aplicar ou o Enter).
 document.addEventListener('change', (e) => {
-  const form = e.target.closest('form[data-envia-ao-mudar]')
-  if (form) form.requestSubmit()
+  const form = e.target.form
+  if (form?.matches('[data-envia-ao-mudar]') && e.target.type !== 'date') form.requestSubmit()
 })
 
 // Status em massa (lista de chamados): a janela do pé da tela aparece com a primeira seleção.

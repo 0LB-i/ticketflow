@@ -14,7 +14,7 @@ A SPA em Vue + TypeScript obrigava a manter duas stacks. Cada mudança na API ex
 | WEB-02 | Layout (menu, cabeçalho, menu do usuário) e lista de chamados com as filas | feito | `87a4244`, `5194367` |
 | WEB-03 | Registro e detalhe do chamado (tarefas, anexos, Tiptap, ações da lateral) | feito | `bd1614a`, `087d68b` |
 | WEB-04 | Administração: clientes, usuários, grupos, setores e Configurações | feito | `073b0f2`, `4a89058`, `a041d99`, `a5776a9` |
-| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | |
+| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | `b6c5e5a` e a correção seguinte |
 | **WEB-06** | **Troca final**: sai a SPA, o Node e o serviço do Vite | **a fazer: é a próxima** | |
 
 Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado tinha tirado do `main` (`0ca1055`, `19ce9eb` e `3d78a76`, guardadas no tag local `remoto-antes-do-force`): o backend veio como estava (`PUT /tickets/{id}/assignees` e o registro do admin em qualquer grupo ativo), e as telas Vue foram refeitas no servidor (vários responsáveis na lateral do chamado; registro só em grupos ativos). Do `19ce9eb`, só valeu para o servidor o registro sem grupo inativo; o resto era cache da SPA e não precisou ser portado.
@@ -34,8 +34,10 @@ Como ficou: `web/reports.py` e `templates/reports/` (`index.html` e os gráficos
 
 - O PDF sai no idioma da pessoa: um link não escolhe o `Accept-Language`, por isso a rota da API ganhou o parâmetro opcional `locale`, e o link o manda.
 - O link do PDF só aparece com o relatório na tela (período válido e sem erro da API); senão, o botão fica desabilitado.
-- O campo de cliente do macro `client_picker` ganhou `required=False`: sem asterisco e com o X para tirar o cliente.
-- Saíram da SPA as views e os componentes de relatórios, o `ClientPicker`, os composables `relatorios.ts` e `clientes.ts` e a chave `relatorios.gerandoPdf`. O `tests/test_spa.py` passou a usar `/sem-acesso`.
+- O campo de cliente do macro `client_picker` ganhou `required=False`: sem asterisco e com o X para tirar o cliente. A busca do campo ficou fora do formulário (`form` sem dono): digitar e sair dele não recarrega a página, e o `q` não vai no endereço.
+- As datas do período personalizado não aplicam ao mudar (o Chrome dispara o `change` a cada parte digitada): o botão **Aplicar** ou o Enter.
+- O link do PDF não avisa se o download falhar (ex.: sessão expirada entre abrir a tela e clicar); a SPA mostrava a mensagem da API.
+- Saíram da SPA as views e os componentes de relatórios, o `ClientPicker`, os composables `relatorios.ts`, `clientes.ts` e `formato.ts` e a chave `relatorios.gerandoPdf`. O TanStack Query ficou sem consultas e sai com a SPA na WEB-06. O `tests/test_spa.py` passou a usar `/sem-acesso`.
 
 O roteiro, como estava. O que existia na SPA: `frontend/src/views/reports/ReportsView.vue` (383 linhas), `components/reports/BarChart.vue` e `ColumnChart.vue` (SVG, uma série, só tokens de cor), `composables/relatorios.ts` e `components/tickets/ClientPicker.vue` (o filtro de cliente). A API é `reports/router.py`: `GET /reports/options`, `GET /reports` e `GET /reports/pdf`. Essas rotas usam `CurrentAuth` e o escopo é decidido no service (`service.resolve`). Por isso a tela **não precisa** de `requires`, mas precisa repassar os filtros como a SPA.
 
@@ -77,5 +79,5 @@ Depois da WEB-05 não sobra tela na SPA. Lista do que muda:
 | `frontend/dist` antigo em dev | Endereços que o servidor não conhece (ex.: `/chamados/`) são respondidos pelo dist. Um build de antes do `strict`/`sensitive` traria de volta a recarga infinita. Some na WEB-06 |
 | Primeiro deploy em produção | Precisa de acesso ao GitHub para baixar o binário do Tailwind (CHANGELOG, docs/18) |
 | Templates novos no deploy | Valem assim que o `deploy.sh` termina; o código Python, só depois do restart. Reiniciar logo depois do deploy |
-| Select que envia ao mudar, pelo teclado | Status, observadores e "Atribuir a" da lateral do chamado são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |
+| Select que envia ao mudar, pelo teclado | Status, observadores e "Atribuir a" da lateral do chamado, os filtros da lista de chamados e o período, o grupo e a pessoa dos relatórios são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |
 | Validação dos formulários | O servidor confere tudo. Campo `required` escondido bloqueia o envio no navegador sem avisar (aconteceu nos clientes). Campos de um tipo que não está em uso vão num `<fieldset disabled>` |
