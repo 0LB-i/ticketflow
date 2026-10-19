@@ -17,6 +17,8 @@ A SPA em Vue + TypeScript obrigava a manter duas stacks. Cada mudança na API ex
 | **WEB-05** | **Relatórios** (gráficos em SVG e o PDF) | **a fazer: é a próxima** | |
 | WEB-06 | Troca final: sai a SPA, o Node e o serviço do Vite | a fazer | |
 
+Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado tinha tirado do `main` (`0ca1055`, `19ce9eb` e `3d78a76`, guardadas no tag local `remoto-antes-do-force`): o backend veio como estava (`PUT /tickets/{id}/assignees` e o registro do admin em qualquer grupo ativo), e as telas Vue foram refeitas no servidor (vários responsáveis na lateral do chamado; registro só em grupos ativos). O `19ce9eb` era cache da SPA e não precisou ser portado.
+
 **Hoje, na SPA, só restam os relatórios (`/relatorios`).** Todo o resto vem do servidor, com o mesmo visual. Os commits `5194367`, `087d68b`, `a5776a9` e parte do `4a89058` e do `a041d99` são correções de uma revisão independente feita a cada etapa (19.6).
 
 ## 19.3 Como as duas interfaces convivem até a troca final

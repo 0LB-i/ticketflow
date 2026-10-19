@@ -9,7 +9,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from tests.conftest import entrar
+from tests.conftest import criar_usuario, entrar, grupo
 from tests.test_chamados import API, base, cenario, criar_cliente, registrar  # noqa: F401
 
 
@@ -55,6 +55,52 @@ def test_tela_de_registro(client: TestClient, cenario: dict[str, Any]) -> None: 
 
     entrar(client, "auditor@x.com")
     assert "Você ainda não é membro de nenhum grupo" in client.get("/chamados/novo").text
+
+
+def test_registro_em_grupos_ativos(client: TestClient, cenario: dict[str, Any], db: Any) -> None:  # noqa: F811
+    # Ana também está num grupo inativo: ele não aparece, e o TI continua vindo escolhido.
+    criar_usuario(db, "dani@x.com", nome="Dani", grupos={"Antigo": "member"})
+    db.execute(text("UPDATE teams SET is_active = false WHERE name = 'Antigo'"))
+    db.execute(
+        text(
+            "INSERT INTO team_members (team_id, user_id, role) SELECT t.id, u.id, 'member' "
+            "FROM teams t, users u WHERE t.name = 'Antigo' AND u.email = 'ana@x.com'"
+        )
+    )
+    db.commit()
+    r = client.get("/chamados/novo")
+    assert ">Antigo</option>" not in r.text
+    assert f'<option value="{cenario["ti"]}" selected>TI</option>' in r.text
+    # Grupo de que não é membro: não aparece, e o endereço não o escolhe.
+    r = client.get(f"/chamados/novo?grupo={cenario['infra']}")
+    assert ">Infra</option>" not in r.text
+    assert f'<option value="{cenario["ti"]}" selected>TI</option>' in r.text
+
+
+def test_admin_registra_em_qualquer_grupo_ativo(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Any,
+) -> None:
+    adm = str(criar_usuario(db, "adm@x.com", "admin", nome="Adm").public_id)
+    grupo(db, "Antigo").is_active = False
+    db.commit()
+    entrar(client, "adm@x.com")
+    r = client.get("/chamados/novo")
+    assert ">TI</option>" in r.text and ">Infra</option>" in r.text
+    assert ">Antigo</option>" not in r.text
+    assert "Você ainda não é membro" not in r.text
+    # Fora dos próprios grupos, quem registra não começa como responsável.
+    r = client.get(f"/chamados/novo?grupo={cenario['infra']}")
+    assert f'name="responsaveis" value="{adm}"' not in r.text
+    assert f'<option value="{cenario["caio"]}">Caio</option>' in r.text
+
+    dados = _novo(cenario, grupo=cenario["infra"], responsaveis=[cenario["caio"]])
+    r = client.post("/chamados/novo", data=_form(client, **dados), follow_redirects=False)
+    assert r.status_code == 303, r.text
+    chamado = client.get(f"{API}/{r.headers['location'].rsplit('/', 1)[1]}").json()
+    assert chamado["team"]["name"] == "Infra"
+    assert chamado["assignee"]["display_name"] == "Caio"
 
 
 def test_registro_confere_os_campos(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa: F811
@@ -203,7 +249,7 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     lateral = f"/chamados/{numero}"
 
     assert client.post(f"{lateral}/status", data={"status_id": "1"}).status_code == 403  # sem CSRF
-    r = client.post(f"{lateral}/atribuir", data=_form(client, assignee=cenario["bia"]))
+    r = client.post(f"{lateral}/responsaveis", data=_form(client, responsaveis=[cenario["bia"]]))
     assert _aviso(client, numero, r.text) == "Responsável alterado"
     client.post(f"{lateral}/assumir", data=_form(client))
     assert client.get(f"{API}/{numero}").json()["assignee"]["display_name"] == "Ana"
@@ -243,6 +289,46 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     r = client.post(f"{lateral}/cancelar", data=_form(client))
     assert _aviso(client, numero, r.text) == "Chamado cancelado"
     assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "canceled"
+
+
+def test_varios_responsaveis_na_lateral(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa: F811
+    numero = registrar(client, cenario)["number"]
+    url = f"/chamados/{numero}/responsaveis"
+    r = client.get(f"/chamados/{numero}")
+    # Quem atribui vê as etiquetas, e não a linha "Responsável"; a única não tem o X.
+    assert '<dt class="text-muted">Responsável</dt>' not in r.text
+    assert 'aria-label="Remover Ana"' not in r.text
+    assert '<option value="*">Todas as pessoas do grupo</option>' in r.text
+    assert f'<option value="{cenario["bia"]}">Bia</option>' in r.text
+
+    # O grupo todo entra sem tirar quem já está.
+    r = client.post(url, data=_form(client, responsaveis=[cenario["ana"], "*"]))
+    assert _aviso(client, numero, r.text) == "Responsável alterado"
+    chamado = client.get(f"{API}/{numero}").json()
+    assert chamado["assignee"]["display_name"] == "Ana"
+    assert [u["display_name"] for u in chamado["co_assignees"]] == ["Bia"]
+    r = client.get(f"/chamados/{numero}")
+    assert 'aria-label="Remover Ana"' in r.text and 'aria-label="Remover Bia"' in r.text
+    assert '<option value="*">' not in r.text  # não sobrou ninguém de fora
+
+    # Tirar a Ana: a Bia vira a principal.
+    client.post(url, data=_form(client, responsaveis=[cenario["bia"]]))
+    chamado = client.get(f"{API}/{numero}").json()
+    assert chamado["assignee"]["display_name"] == "Bia" and chamado["co_assignees"] == []
+
+    r = client.post(url, data=_form(client))  # lista vazia
+    assert _aviso(client, numero, r.text) == "Algo deu errado. Tente de novo."
+    r = client.post(url, data=_form(client, responsaveis=[cenario["caio"]]))  # de outro grupo
+    assert _aviso(client, numero, r.text) == "O responsável precisa ser um membro ativo do grupo."
+
+    # Sem assign_others (o auditor): a linha "Responsável", sem o formulário.
+    entrar(client, "auditor@x.com")
+    r = client.get(f"/chamados/{numero}")
+    assert '<dt class="text-muted">Responsável</dt>' in r.text
+    assert f'action="{url}"' not in r.text
+    r = client.post(url, data=_form(client, responsaveis=[cenario["ana"]]))
+    assert 'data-aviso="error"' in r.text
+    assert client.get(f"{API}/{numero}").json()["assignee"]["display_name"] == "Bia"
 
 
 def test_casos_de_borda_das_acoes(client: TestClient, cenario: dict[str, Any], db: Any) -> None:  # noqa: F811

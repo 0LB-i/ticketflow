@@ -24,6 +24,7 @@ from chamados.modules.organization import router as organization_api
 from chamados.modules.organization.router import TeamOut
 from chamados.modules.tickets import router as tickets_api
 from chamados.modules.tickets.schemas import (
+    AssigneesIn,
     AssignIn,
     CommentIn,
     TicketCreate,
@@ -152,7 +153,7 @@ async def _new_ticket_page(
 ) -> HTMLResponse:
     auth = page.auth
     teams = (await organization_api.list_teams(auth, db)).items
-    my_teams = [(str(t.id), t.name) for t in teams if t.id in _my_team_ids(page, teams)]
+    team_options = [(str(t.id), t.name) for t in _registrable(page, teams)]
     statuses = (await catalog_api.list_statuses(auth, db)).items
     if not form.status:
         form.status = str(next((s.id for s in statuses if s.kind == "open"), ""))
@@ -165,7 +166,7 @@ async def _new_ticket_page(
         form=form,
         errors=errors or {},
         error=error,
-        my_teams=my_teams,
+        team_options=team_options,
         members=members,
         names={**names, **dict(members)},
         can_choose_status=page.can("ticket.transition"),
@@ -182,13 +183,25 @@ def _my_team_ids(page: LoggedPage, teams: list[TeamOut]) -> set[Any]:
     return {t.id for t in teams if any(m.user_id == me for m in t.members)}
 
 
+def _registrable(page: LoggedPage, teams: list[TeamOut]) -> list[TeamOut]:
+    """Grupos ativos em que a pessoa registra: os próprios; com ticket.view_all (admin), qualquer
+    um. O auditor também vê todos, mas não registra."""
+    mine = _my_team_ids(page, teams)
+    view_all = page.can("ticket.create") and page.can("ticket.view_all")
+    return [t for t in teams if t.is_active and (view_all or t.id in mine)]
+
+
 @router.get("/chamados/novo")
 async def new_ticket_page(page: LoggedPageDep, db: DB, grupo: str = "") -> HTMLResponse:
     teams = (await organization_api.list_teams(page.auth, db)).items
-    mine = [str(t.id) for t in teams if t.id in _my_team_ids(page, teams)]
+    available = [str(t.id) for t in _registrable(page, teams)]
     # Com um grupo só, ele já vem escolhido; trocar de grupo recomeça a lista de responsáveis.
-    team = grupo if grupo in mine else (mine[0] if len(mine) == 1 else "")
-    form = NewTicketForm(team=team, assignees=[str(page.auth.user.public_id)])
+    team = grupo if grupo in available else (available[0] if len(available) == 1 else "")
+    # Quem registra começa como responsável, menos fora dos próprios grupos (só membros ativos
+    # do grupo podem ser responsáveis).
+    mine = {str(i) for i in _my_team_ids(page, teams)}
+    me = str(page.auth.user.public_id)
+    form = NewTicketForm(team=team, assignees=[me] if team in mine else [])
     return await _new_ticket_page(page, db, form)
 
 
@@ -340,6 +353,9 @@ async def _ticket_page(
     people = _people(teams)
     watcher_ids = {str(w.id) for w in ticket.watchers}
     delivered = next((s for s in statuses if s.kind == "delivered" and s.is_default), None)
+    assignees = [ticket.assignee, *ticket.co_assignees]
+    assigned = {str(u.id) for u in assignees}
+    outside = [m for m in _members(teams, str(ticket.team.id)) if m[0] not in assigned]
     comment = comment or CommentForm()
     editing = comment.comment_id
     if editing is None:
@@ -362,9 +378,9 @@ async def _ticket_page(
             for s in statuses
             if s.kind != "closed" or s.id == ticket.status.id or "set_status_closed" in actions
         ],
-        assign_options=[
-            m for m in _members(teams, str(ticket.team.id)) if m[0] != str(ticket.assignee.id)
-        ],
+        assignees=assignees,
+        # "Atribuir a" acrescenta uma pessoa de fora da lista ou o grupo todo ("*").
+        assign_options=[("*", page.t("novoChamado.todosDoGrupo")), *outside] if outside else [],
         transfer_teams=[
             (str(t.id), t.name) for t in teams if t.is_active and t.id != ticket.team.id
         ],
@@ -474,19 +490,25 @@ async def take(number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "")
     )
 
 
-@router.post("/chamados/{number:int}/atribuir")
-async def assign(
-    number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "", assignee: Field = ""
+@router.post("/chamados/{number:int}/responsaveis")
+async def set_assignees(
+    number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "", responsaveis: Ids = None
 ) -> Response:
-    return await _act(
-        page,
-        number,
-        csrf_token,
-        lambda: tickets_api.assign_ticket(
-            str(number), AssignIn.model_validate({"assignee": assignee}), page.auth, db
-        ),
-        "chamado.feito.atribuido",
-    )
+    """A lista inteira de responsáveis (`PUT /assignees`): acrescentar uma pessoa, o grupo todo
+    ("*") ou tirar alguém. O principal continua se estiver na lista."""
+
+    async def action() -> None:
+        ids = responsaveis or []
+        if "*" in ids:
+            ticket = await tickets_api.load_detail(db, page.auth, str(number))
+            teams = (await organization_api.list_teams(page.auth, db)).items
+            ids = [*ids, *(m[0] for m in _members(teams, str(ticket.team.id)))]
+        data = AssigneesIn.model_validate(
+            {"assignee_ids": list(dict.fromkeys(i for i in ids if i != "*"))}
+        )
+        await tickets_api.set_ticket_assignees(str(number), data, page.auth, db)
+
+    return await _act(page, number, csrf_token, action, "chamado.feito.atribuido")
 
 
 @router.post("/chamados/{number:int}/status")

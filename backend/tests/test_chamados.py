@@ -143,6 +143,25 @@ def test_registro_valida_grupo_responsavel_e_perfil(
     )
 
 
+def test_admin_registra_em_qualquer_grupo(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    # O admin (ticket.view_all) registra num grupo de que não é membro; o responsável continua
+    # sendo um membro do grupo, então ele próprio não pode ficar.
+    criar_usuario(db, "adm@x.com", "admin", nome="Adm")
+    entrar(client, "adm@x.com")
+    dados = {**base(cenario), "title": "Na Infra", "team_id": cenario["infra"]}
+    r = client.post(API, json=dados)
+    assert r.status_code == 422
+    assert r.json()["detail"] == "O responsável precisa ser um membro ativo do grupo."
+
+    r = client.post(API, json={**dados, "assignee": cenario["caio"]})
+    assert r.status_code == 201, r.text
+    t = r.json()
+    assert t["team"]["name"] == "Infra" and t["assignee"]["display_name"] == "Caio"
+    assert t["created_by"]["display_name"] == "Adm"
+
+
 def test_registro_sem_categoria(client: TestClient, cenario: dict[str, Any]) -> None:
     # Sem categoria não há grupo padrão: o grupo é obrigatório
     r = client.post(API, json={**base(cenario), "title": "Sem categoria"})
@@ -673,6 +692,38 @@ def test_registro_com_varios_responsaveis(client: TestClient, cenario: dict[str,
     assert r.json()["co_assignees"] == []
     transferido = eventos(client, t["number"])[-1]["payload"]
     assert [u["name"] for u in transferido["co_unassigned"]] == ["Bia"]
+
+
+def test_atribuir_a_varios_responsaveis(client: TestClient, cenario: dict[str, Any]) -> None:
+    t = registrar(client, cenario, assignee="me")
+    url = f"{API}/{t['number']}/assignees"
+
+    # Acrescenta a Bia: a Ana continua como principal
+    r = client.put(url, json={"assignee_ids": [cenario["ana"], cenario["bia"]]})
+    assert r.json()["assignee"]["display_name"] == "Ana"
+    assert [u["display_name"] for u in r.json()["co_assignees"]] == ["Bia"]
+
+    # A mesma lista não gera evento; vazia, de outro grupo ou sem permissão, não vale
+    client.put(url, json={"assignee_ids": [cenario["bia"], cenario["ana"]]})
+    assert client.put(url, json={"assignee_ids": []}).status_code == 422
+    r = client.put(url, json={"assignee_ids": [cenario["ana"], cenario["caio"]]})
+    assert r.status_code == 422
+
+    # Sem a principal, o primeiro da lista assume
+    r = client.put(url, json={"assignee_ids": [cenario["bia"]]})
+    assert r.json()["assignee"]["display_name"] == "Bia" and r.json()["co_assignees"] == []
+
+    tipo = "ticket.assignees_changed"
+    mudancas = [e["payload"] for e in eventos(client, t["number"]) if e["type"] == tipo]
+    assert [[u["name"] for u in m["added"]] for m in mudancas] == [["Bia"], []]
+    assert [[u["name"] for u in m["removed"]] for m in mudancas] == [[], ["Ana"]]
+    assert mudancas[1]["assignee"] == {
+        "from": mudancas[1]["removed"][0],
+        "to": mudancas[0]["added"][0],
+    }
+
+    entrar(client, "caio@x.com")
+    assert client.put(url, json={"assignee_ids": [cenario["bia"]]}).status_code == 403
 
 
 def test_transferencia(client: TestClient, cenario: dict[str, Any]) -> None:

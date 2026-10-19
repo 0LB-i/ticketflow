@@ -15,7 +15,7 @@
 <div class="mx-auto flex max-w-7xl flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-xl font-semibold">{{ t("novoChamado.titulo") }}</h1>
-    {%- if my_teams %}
+    {%- if team_options %}
     <div class="flex gap-2">
       <a href="/chamados" class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</a>
       <button type="submit" form="form-novo-chamado" class="{{ button_class() }}">{{ t("novoChamado.registrar") }}</button>
@@ -23,7 +23,7 @@
     {%- endif %}
   </div>
 
-  {%- if not my_teams %}
+  {%- if not team_options %}
   {{ alert(t("novoChamado.semGrupo")) }}
   {%- else %}
   <form id="form-novo-chamado" method="post" action="/chamados/novo" class="flex flex-col gap-4">
@@ -46,7 +46,7 @@
           <label for="campo-grupo" class="font-medium">{{ t("novoChamado.grupo") }}<span class="text-danger" aria-hidden="true"> *</span></label>
           <select id="campo-grupo" name="grupo" hx-get="/chamados/novo" hx-select="#responsaveis" hx-target="#responsaveis" hx-swap="outerHTML"{% if errors.team %} aria-invalid="true" aria-describedby="campo-grupo-erro"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg {{ 'border-danger' if errors.team else 'border-border-input' }}">
             <option value="" disabled{% if not form.team %} selected{% endif %}>{{ t("comum.selecione") }}</option>
-            {%- for value, text in my_teams %}
+            {%- for value, text in team_options %}
             <option value="{{ value }}"{% if value == form.team %} selected{% endif %}>{{ text }}</option>
             {%- endfor %}
           </select>

@@ -157,8 +157,10 @@
         {%- endif %}
         <dt class="text-muted">{{ t("chamado.grupo") }}</dt>
         <dd class="font-medium">{{ ticket.team.name }}</dd>
+        {%- if "assign_others" not in actions %}
         <dt class="text-muted">{{ t("chamado.responsavel") }}</dt>
-        <dd class="font-medium">{{ ([ticket.assignee] + ticket.co_assignees) | map(attribute="display_name") | join(", ") }}</dd>
+        <dd class="font-medium">{{ assignees | map(attribute="display_name") | join(", ") }}</dd>
+        {%- endif %}
         <dt class="text-muted">{{ t("chamado.tipo") }}</dt>
         <dd>{{ t("tipos." ~ ticket.type) }}</dd>
         <dt class="text-muted">{{ t("chamado.inicio") }}</dt>
@@ -191,10 +193,35 @@
         {%- endif %}
       </div>
       {%- if "assign_others" in actions %}
-      <form method="post" action="{{ base }}/atribuir" data-envia-ao-mudar>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        {{ select_field("assignee", t("chamado.atribuirA"), assign_options, placeholder=t("chamado.escolhaMembro")) }}
-      </form>
+      {#- Cada mudança envia a lista inteira: acrescentar alguém (ou o grupo todo) ou tirar uma
+          pessoa, sem tirar as demais. Sempre fica ao menos um responsável. #}
+      <div class="flex flex-col gap-2">
+        <form method="post" action="{{ base }}/responsaveis" data-envia-ao-mudar>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          {%- for u in assignees %}
+          <input type="hidden" name="responsaveis" value="{{ u.id }}">
+          {%- endfor %}
+          {{ select_field("responsaveis", t("chamado.atribuirA"), assign_options, placeholder=t("novoChamado.adicionarUsuario")) }}
+        </form>
+        <ul class="flex flex-wrap gap-2" aria-label="{{ t('chamado.responsavel') }}">
+          {%- for u in assignees %}
+          <li class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">
+            {{ u.display_name }}
+            {%- if assignees | length > 1 %}
+            <form method="post" action="{{ base }}/responsaveis" class="inline-flex">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              {%- for o in assignees if o.id != u.id %}
+              <input type="hidden" name="responsaveis" value="{{ o.id }}">
+              {%- endfor %}
+              <button type="submit" class="rounded-full p-0.5 text-muted hover:bg-border" aria-label="{{ t('novoChamado.removerUsuario', nome=u.display_name) }}">{{ icon("x", "size-4") }}</button>
+            </form>
+            {%- else %}
+            <span class="pr-2"></span>
+            {%- endif %}
+          </li>
+          {%- endfor %}
+        </ul>
+      </div>
       {%- endif %}
 
       <section class="flex flex-col gap-2 border-t border-border pt-4" aria-labelledby="tempo-titulo">

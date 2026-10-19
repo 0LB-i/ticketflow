@@ -60,7 +60,7 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 
 | Código | Permite |
 |--------|---------|
-| `ticket.create` | Registrar chamado em um dos próprios grupos |
+| `ticket.create` | Registrar chamado em um dos próprios grupos (com `ticket.view_all`, o admin registra em qualquer grupo ativo; o responsável continua sendo membro do grupo) |
 | `ticket.view_team` | Ver chamados dos grupos de que é membro |
 | `ticket.view_all` | Ver todos os chamados (inclusive de outros grupos) |
 | `ticket.comment` | Comentar (todos os comentários são visíveis a quem vê o chamado) |
