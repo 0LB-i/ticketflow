@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
+from chamados.modules.reports import pdf
 from chamados.modules.reports.service import TZ, outside_minutes
 from chamados.modules.system.work_hours import DEFAULT, WorkHours
 from tests.conftest import criar_usuario, entrar
@@ -176,6 +177,32 @@ def test_pdf(client: TestClient, cenario: dict[str, Any], db: Session) -> None: 
         assert f"relatorio-{dia.isoformat()}" in r.headers["content-disposition"]
     acoes = db.scalars(select(AuditLog.action).where(AuditLog.action == "report.exported")).all()
     assert len(acoes) == 2
+
+
+def test_pdf_no_idioma_pedido(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Um link da tela não escolhe o Accept-Language: o idioma da pessoa vai em `locale`.
+    idiomas: list[str] = []
+
+    def render(*args: Any) -> bytes:
+        idiomas.append(args[-1])
+        return b"%PDF"
+
+    monkeypatch.setattr(pdf, "render", render)
+    dia = dia_util_passado().isoformat()
+    for params in ({}, {"locale": "en"}, {"locale": "pt-BR"}):
+        r = client.get(
+            f"{REPORTS}/pdf",
+            params={"start": dia, "end": dia, **params},
+            headers={"Accept-Language": "en"},
+        )
+        assert r.status_code == 200, r.text
+    assert idiomas == ["en", "en", "pt-BR"]
+    r = client.get(f"{REPORTS}/pdf", params={"start": dia, "end": dia, "locale": "fr"})
+    assert r.status_code == 422
 
 
 # --- expediente -----------------------------------------------------------------------------

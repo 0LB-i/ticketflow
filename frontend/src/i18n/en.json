@@ -398,7 +398,6 @@
     "titulo": "Reports",
     "descricao": "Hours worked, clients and overtime. You see your own work; supervisors see their team's.",
     "baixarPdf": "Download PDF",
-    "gerandoPdf": "Generating PDF…",
     "periodo": "Period",
     "personalizado": "Custom",
     "de": "From",

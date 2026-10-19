@@ -95,7 +95,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/relatorios',
     name: 'relatorios',
-    component: () => import('@/views/reports/ReportsView.vue'),
+    ...SERVIDOR,
   },
   {
     path: '/admin/usuarios',

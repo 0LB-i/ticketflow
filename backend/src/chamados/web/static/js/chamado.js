@@ -489,12 +489,20 @@ function fecharOpcoes(caixa, restaurar = true) {
 }
 
 function escolherCliente(caixa, opcao) {
-  caixa.querySelector('[name=client_id]').value = opcao.dataset.id
-  caixa.querySelector('[name=cliente_nome]').value = opcao.dataset.nome
-  caixa.querySelector('[role=combobox]').value = opcao.dataset.nome
+  caixa.querySelector('[name=client_id]').value = opcao ? opcao.dataset.id : ''
+  caixa.querySelector('[name=cliente_nome]').value = opcao ? opcao.dataset.nome : ''
+  caixa.querySelector('[role=combobox]').value = opcao ? opcao.dataset.nome : ''
+  const limpa = caixa.querySelector('[data-limpa-cliente]')
+  if (limpa) limpa.hidden = !opcao
   fecharOpcoes(caixa, false)
   if ('enviaAoEscolher' in caixa.dataset) caixa.closest('form').requestSubmit()
 }
+
+// Campo sem obrigação (filtro dos relatórios): o X tira o cliente.
+document.addEventListener('click', (e) => {
+  const limpa = e.target.closest('[data-limpa-cliente]')
+  if (limpa) escolherCliente(limpa.closest('[data-cliente]'), null)
+})
 
 document.addEventListener('htmx:afterSwap', (e) => {
   const lista = e.detail.target

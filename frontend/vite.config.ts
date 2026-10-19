@@ -17,8 +17,9 @@ export default defineConfig({
     proxy: {
       '/api': 'http://127.0.0.1:8000',
       // Telas que já migraram para o servidor e os arquivos delas (ADR 0011): a raiz, o login e
-      // as telas de senha, o idioma, tudo de /chamados e /clientes, e toda a administração.
-      '^/(static/|convite/|redefinir-senha/|chamados/|clientes/|admin/(clientes|usuarios|grupos|setores|configuracoes)(/|\\?|$)|(chamados|login|sair|esqueci-senha|trocar-senha|idioma)?(\\?|$))':
+      // as telas de senha, o idioma, tudo de /chamados e /clientes, toda a administração e os
+      // relatórios.
+      '^/(static/|convite/|redefinir-senha/|chamados/|clientes/|admin/(clientes|usuarios|grupos|setores|configuracoes)(/|\\?|$)|(chamados|login|sair|esqueci-senha|trocar-senha|idioma|relatorios)?(\\?|$))':
         uvicorn,
     },
     // Atrás do nginx (scripts/instalar-servico-dev.sh), o navegador abre o websocket na 443.

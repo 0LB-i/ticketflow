@@ -115,7 +115,7 @@ Tela a tela: enquanto a SPA existir, o Vite repassa ao uvicorn as telas já migr
 | WEB-02 | Layout com menu lateral, cabeçalho (novo chamado, busca), menu do usuário (idioma, sair) e a lista de chamados com as filas | feito | 87a4244 |
 | WEB-03 | Novo chamado e detalhe do chamado (linha do tempo, tarefas com o Tiptap empacotado, anexos, status, responsáveis) | feito | bd1614a |
 | WEB-04 | Administração: usuários, grupos, setores, clientes e configurações | feito | 073b0f2, 4a89058, a041d99, a5776a9 |
-| WEB-05 | Relatórios (gráficos em SVG e o PDF) | a fazer | |
+| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | |
 | WEB-06 | Troca final: o nginx de desenvolvimento manda tudo ao uvicorn; saem o `frontend/`, o serviço do Vite e o pnpm do `check.sh` e do deploy; os catálogos de idioma passam para `web/locales/` | a fazer | |
 
 ## Rotinas

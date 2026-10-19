@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 
-from chamados.core.i18n import request_locale
+from chamados.core.i18n import Locale, request_locale
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import CurrentAuth
@@ -45,10 +45,18 @@ async def report(f: Filters, auth: CurrentAuth, db: DB) -> Report:
 
 
 @router.get("/pdf", response_class=Response)
-async def report_pdf(f: Filters, auth: CurrentAuth, db: DB, request: Request) -> Response:
+async def report_pdf(
+    f: Filters,
+    auth: CurrentAuth,
+    db: DB,
+    request: Request,
+    locale: Annotated[
+        Locale | None, Query(description="idioma do PDF; sem ele, o do Accept-Language")
+    ] = None,
+) -> Response:
     data = await service.build(db, auth, f)
     content = await run_in_threadpool(
-        pdf.render, data, f, auth.user.display_name, request_locale(request)
+        pdf.render, data, f, auth.user.display_name, locale or request_locale(request)
     )
     record(
         db,

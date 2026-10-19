@@ -8,7 +8,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos (o "Pegar o próximo" saiu junto com a fila de não atribuídos, em 2026-10-15). A seção 10 lista o que ainda não existe.
 
-Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Em 2026-10-18, tudo já é do servidor menos os relatórios: login e senhas, layout, chamados (lista, registro e detalhe) e toda a administração. Faltam a WEB-05 (relatórios) e a WEB-06 (troca final, quando sai a SPA). A situação, o roteiro do que falta e as pendências estão no [docs/19](docs/19-migracao-da-interface.md); a estrutura, na seção 3.11.
+Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Em 2026-10-19, com os relatórios (WEB-05), todas as telas já são do servidor: login e senhas, layout, chamados (lista, registro e detalhe), toda a administração e os relatórios. Falta a WEB-06 (troca final, quando sai a SPA). A situação, o roteiro do que falta e as pendências estão no [docs/19](docs/19-migracao-da-interface.md); a estrutura, na seção 3.11.
 
 ---
 
@@ -157,7 +157,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Status no formulário:** além das transições do fluxo, a ação `set_status` (quem tem `ticket.transition` no grupo) escolhe qualquer status no registro (`status_id`, padrão Pendente) e na edição, sem comentário nem código de resolução. `_apply_status` acerta `closed_at` e conta a reabertura ao sair de um `closed`. O evento é `ticket.status_changed` sem `action`. Para um status `closed`, a ação também exige `set_status_closed`, que todo `set_status` tem, menos quando o status atual é de revisão (`kind` `delivered`, "Entregue"): aí só o supervisor do grupo ou o admin.
 - **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
 - **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, o campo de data e hora acompanha a hora atual até ser mudado.
-- **Cliente e contato:** para quem é o trabalho. `client_id` é **obrigatório** no registro e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); no PATCH troca, mas `null` é recusado (422). A obrigação fica só na API: o banco aceita chamados antigos sem cliente (os relatórios os agrupam como "sem cliente"). O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o `ClientPicker` busca em `GET /clients/options` (qualquer pessoa logada; só clientes ativos, só o id e o nome, busca pelo nome ou nome fantasia). O setor atendido (`department_id`) continua na API, mas saiu da interface.
+- **Cliente e contato:** para quem é o trabalho. `client_id` é **obrigatório** no registro e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); no PATCH troca, mas `null` é recusado (422). A obrigação fica só na API: o banco aceita chamados antigos sem cliente (os relatórios os agrupam como "sem cliente"). O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o campo de cliente (`client_picker` em `web/templates/_fields.html`) busca em `/clientes/opcoes`, que chama `GET /clients/options` (qualquer pessoa logada; só clientes ativos, só o id e o nome, busca pelo nome ou nome fantasia). O setor atendido (`department_id`) continua na API, mas saiu da interface.
 - **Histórico:** fica só no banco e em `GET /tickets/{id}/events`; a linha do tempo da tela mostra só o registro e os comentários (decisão do usuário, 2026-10-13). Cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
 - **Responsável obrigatório:** todo chamado tem responsável (`tickets.assignee_id` NOT NULL desde a migração 0028); não há fila de não atribuídos nem "devolver à fila". O registro exige `assignee` (`"me"` ou um membro ativo do grupo); é nos próprios grupos, e quem tem `ticket.view_all` (admin) registra em qualquer grupo ativo, mas só fica como responsável se for membro dele; `POST /assign` só troca de responsável, e a transferência exige `assignee_id`, um membro ativo do grupo de destino.
 - **Mais de um responsável:** `tickets.assignee_id` é o responsável principal e `ticket_co_assignees` guarda os demais (no registro, `co_assignee_ids`; depois, `PUT /assignees` com a lista inteira, por quem tem `assign_others`; quem entra é sempre membro ativo do grupo). No `PUT`, quem já era responsável e saiu do grupo pode ficar ou sair, o principal continua se estiver na lista, senão o primeiro assume; o evento é `ticket.assignees_changed` (`added`, `removed` e, se o principal mudou, `assignee`). Para regras, visibilidade (regra 3), fila Meus, aviso de novidade e o filtro por responsável, todos contam igual (`visibility.assigned_to`). Transferir tira os demais; trocar o principal os mantém. A interface envia quem registra como principal, se estiver na lista, senão a primeira pessoa; na lateral do chamado, "Atribuir a" acrescenta uma pessoa ou o grupo todo, e cada responsável tem um botão para sair (menos o último).
@@ -210,7 +210,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - Regras de negócio em [docs/14 §14.7](docs/14-relatorios-e-indicadores.md#147-relatórios-de-horas-pedido-do-usuário-2026-10-15). Calculado na hora, sem tabela própria: as tarefas do período vêm numa consulta e as somas (pessoa, cliente, dia) e as horas extras saem em Python (`service.build`).
 - **Escopo:** `service.resolve` confere os filtros (grupo e pessoa só os que a pessoa pode ver, senão 403) e `_own_or_supervised` restringe as linhas: `report.view_all` vê tudo; os demais, o próprio trabalho mais os chamados dos grupos supervisionados. Sempre junto com `ticket_visibility_filter`.
 - **Hora extra:** `service.outside_minutes(done_at, minutos, expediente)`: a tarefa termina em `done_at`; conta o que fica fora da faixa do dia (em São Paulo), nos dias que não são de trabalho e nos feriados.
-- **PDF:** `pdf.render` (ReportLab, fontes padrão do PDF, sem pacotes do sistema), no idioma do `Accept-Language`, gerado numa thread; cada download vai para o `audit_log` (`report.exported`).
+- **PDF:** `pdf.render` (ReportLab, fontes padrão do PDF, sem pacotes do sistema), no idioma do parâmetro `locale` (a tela manda o da pessoa, porque um link não escolhe o `Accept-Language`) ou, sem ele, no do `Accept-Language`, gerado numa thread; cada download vai para o `audit_log` (`report.exported`).
 
 ### 3.8 Auditoria × histórico
 
@@ -281,6 +281,7 @@ web/
 ├── clients.py           cadastro de clientes (lista e formulário)
 ├── admin.py             usuários, grupos (e membros) e setores atendidos, com o painel lateral
 ├── settings.py          Configurações: idioma, cores (prévia pelo HTMX), logotipo, status, expediente
+├── reports.py           relatórios: período, filtros e aba na URL; o link do PDF vai à API
 ├── formatting.py        datas, "há 3 dias", duração, tamanho e os campos de data e hora (São Paulo)
 ├── markdown.py          render_markdown(): markdown-it-py com as regras do antigo markdown.ts
 ├── i18n.py              translate(): os catálogos JSON da SPA (frontend/src/i18n) até a troca final
@@ -288,7 +289,7 @@ web/
 ├── templating.py        ambiente Jinja2 e static() (endereço com a data do arquivo)
 ├── templates/           base.html, card.html (cartão sem menu), app.html (menu e cabeçalho),
 │                        _ui.html (macros), _fields.html (campos das telas de chamado), clients/, admin/,
-│                        _icons.html, auth/, tickets/
+│                        _icons.html, auth/, tickets/, reports/ (index.html e _charts.html: gráficos em SVG)
 └── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, chamado.js, clientes.js,
                          configuracoes.js, vendor/htmx, vendor/tiptap), fonts/
 ```
@@ -308,18 +309,19 @@ web/
 - **CSS:** `scripts/css.sh` roda o Tailwind standalone (`pytailwindcss`, versão fixa no script) sobre `static/css/input.css` e procura classes só em `templates/` e `static/js/`. O `app.css` não vai para o git: o `deploy.sh` o gera, e em desenvolvimento o `ticketflow-css.service` (ou `scripts/css.sh --watch`) o gera de novo a cada mudança.
 - **Convivência com a SPA:** o Vite repassa ao uvicorn os endereços já migrados (`server.proxy` no `vite.config.ts`, a lista entre parênteses), e as rotas da SPA para esses endereços usam o `ServerView.vue`, que recarrega a página. Migrar uma tela = criar a rota e o template aqui, acrescentar o endereço nessa lista e trocar o componente da rota da SPA por `NA_SERVIDOR` (ou apagar a rota, se a SPA nunca navega para ela).
 - **Editor e Markdown:** descrição e tarefas são **Markdown** no banco. O `static/js/chamado.js` monta o Tiptap (empacotado num arquivo só em `static/js/vendor/`, gerado por `scripts/vendor-tiptap.sh`, que é o único passo com Node e só roda para trocar a versão) sobre o `<textarea>` do macro `editor()`, que continua levando o texto; sem JavaScript, fica o `<textarea>`. O `@` abre os colegas (JSON em `<script type="application/json" id="pessoas">`) e, no envio, os ids viram campos `mention_ids`. Imagem colada ou arrastada sobe para `POST /api/v1/uploads` e entra no texto como `![nome](/api/v1/attachments/<id>)`; a rota junta esses ids (`attachments_in_text`) aos do "Anexar" (campos `attachment_ids`). A exibição é do filtro `markdown` (`web/markdown.py`): `html: False`, links em outra aba, sem `javascript:`, e só imagens desse endereço (uma de fora aparece como texto, para não rastrear quem abre o chamado).
-- **Campos com comportamento** (`_fields.html` + `chamado.js`, por atributos `data-*`): data e hora que acompanham o relógio até o ajuste (`*_ajustado`), tempo hh:mm com a lista de horários sugeridos (`<datalist>`), anexos que sobem na hora (a 1ª etapa do docs/11 §11.4), pessoas em etiquetas e o cliente buscado por HTMX (`/clientes/opcoes`).
+- **Campos com comportamento** (`_fields.html` + `chamado.js`, por atributos `data-*`): data e hora que acompanham o relógio até o ajuste (`*_ajustado`), tempo hh:mm com a lista de horários sugeridos (`<datalist>`), anexos que sobem na hora (a 1ª etapa do docs/11 §11.4), pessoas em etiquetas e o cliente buscado por HTMX (`/clientes/opcoes`; sem `required`, como no filtro dos relatórios, um X tira o cliente). Os relatórios também carregam o `chamado.js`, pelo campo de cliente (sem editor, o Tiptap não vem).
 - **Trechos por HTMX sem templates parciais:** a rota devolve a página inteira e o `hx-select` escolhe o trecho: os responsáveis do grupo escolhido no registro (`/chamados/novo?grupo=`), a tarefa em edição ou a confirmação da remoção (`/chamados/{n}?editar=` / `?remover=`) e os membros do grupo de destino da transferência (`?team_id=`). A única parcial é a lista de clientes.
 - **Painel lateral das telas de administração:** lista ou árvore, botão **Novo** e edição no macro `side_panel()` (`_ui.html`), um `<dialog>` aberto pelo endereço (`?novo=1`, `?editar=<id>`). Os links (`panel_link()`) trocam só o `#painel` pelo HTMX e põem o endereço na barra; o `app.js` abre o painel quando ele chega (`data-abre-ao-carregar`) e, ao fechar, volta o endereço ao da lista (`data-volta`). Salvar recarrega a lista com o aviso; erro devolve a página com o painel aberto e o que foi digitado.
 - **Prévia das cores (Configurações):** o formulário pede a própria página com as três cores digitadas (`hx-get` com `hx-params`, sem o token CSRF na URL) e troca só a `#previa`; a paleta sai do `palette.py`, sem outra cópia em JavaScript.
+- **Relatórios:** a rota chama `reports.service.resolve` (o mesmo que a dependência da API) e `reports.router.report`; o escopo é decidido ali, então a tela não usa `requires`, e o erro da API (ex.: 403 ao forçar outra pessoa) aparece na tela. Os gráficos são macros em SVG (`reports/_charts.html`) que imitam o `BarChart`/`ColumnChart` da SPA: uma série, só o token `primary`, ponta arredondada e base reta, a dica de cada coluna em CSS (`group-hover`/`group-focus`), sem JavaScript. O PDF é um link GET para `/api/v1/reports/pdf` com os mesmos filtros e o `locale` da pessoa.
 - **Ações do chamado:** cada botão da lateral é um formulário (POST com `csrf_token`) que chama a função da API e volta ao chamado com o aviso (`_act`). Erro numa tarefa nova ou na edição devolve a página com o texto preenchido (422), sem perder o que foi escrito.
-- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/grupos` `/admin/setores` e `/admin/configuracoes` (com as ações de cada um).
+- **Telas migradas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/grupos` `/admin/setores`, `/admin/configuracoes` (com as ações de cada um) e `/relatorios`.
 
 ---
 
 ## 4. Frontend (`frontend/src/`)
 
-A SPA está sendo substituída pelas telas do servidor (3.11, [ADR 0011](docs/adr/0011-interface-web-no-servidor.md)): tela nova vai para `web/`, e cada tela migrada sai daqui.
+A SPA está sendo substituída pelas telas do servidor (3.11, [ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Desde a WEB-05 ela não tem mais telas: só o `ServerView.vue` (recarrega a página nos endereços do servidor), as páginas de erro e a vitrine de desenvolvimento. O diretório inteiro sai na WEB-06.
 
 ```
 src/
@@ -332,15 +334,11 @@ src/
 ├── router/index.ts      rotas, meta (publica, permissao, cartao) e o guard
 ├── stores/              Pinia: auth (usuário logado), branding (cores, logotipo, idioma padrão), theme
 ├── composables/         consultas e mutações (TanStack Query) e utilidades
-│   ├── clientes.ts      opções de cliente (o filtro dos relatórios)
-│   ├── relatorios.ts    relatórios, opções dos filtros e download do PDF
 │   └── formato.ts (datas no fuso de São Paulo), useHead.ts, useToast.ts
-├── views/               uma pasta por área: reports/
+├── views/               ServerView (telas do servidor), ForbiddenView, NotFoundView, ComponentsView
 ├── components/
 │   ├── ui/              design system: Button, TextField, SelectField, Modal, DataTable, badges…
-│   ├── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
-│   ├── reports/         BarChart (barras horizontais) e ColumnChart (colunas no tempo): uma série, só tokens
-│   └── tickets/         ClientPicker (o filtro de cliente dos relatórios)
+│   └── layout/          AppLayout (menu, cabeçalho), SideNav, UserMenu (idioma, sair), ThemeMenu, AppLogo
 ├── tema/paleta.ts       paleta derivada das 3 cores, com ajuste de contraste
 ├── i18n/                index.ts, pt-BR.json, en.json
 ├── assets/main.css      Tailwind 4 + tokens de cor (--tf-*) dos modos claro e escuro
@@ -359,7 +357,7 @@ src/
 - **Cliente:** `api` (openapi-fetch) é tipado pelo `schema.d.ts`. Mudar a API sem regenerar o cliente quebra o `vue-tsc`, e o `check.sh` falha se o cliente gerado não estiver commitado.
 - O **middleware** do cliente envia o `X-CSRF-Token` (lido do cookie `tf_csrf`) nas chamadas que alteram dados e o `Accept-Language` com o idioma atual. Num 401 fora de `/auth/*`, dispara o evento de sessão expirada.
 - `ou(resultado, mensagemPadrao)` devolve os dados ou lança um `Error` com o `detail` da API, já traduzido pelo backend.
-- **Leitura** com TanStack Query: as chaves são `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['relatorios', filtro]`, `['relatorios', 'opcoes']`, `['expediente']`.
+- **Leitura** com TanStack Query: as chaves são `['grupos']`, `['usuarios']`, `['setores']`, `['status']`, `['clientes', filtro]`, `['cliente', id]`, `['expediente']`.
 - **Escrita:** `useAlteracao(fn, chaves)` (admin) faz a mutação e invalida as chaves afetadas.
 - **Usuário logado:** `auth.me` vem do `/me` e guarda os grupos e as permissões. Telas que dependem dos grupos o releem (`auth.carregar()`), porque eles podem mudar depois do login.
 
@@ -375,7 +373,7 @@ src/
 | `/admin/clientes` | No servidor (3.11). Lista com busca (nome, CPF/CNPJ, e-mail), no menu Administração | `client.view` (grupo Administradores) |
 | `/admin/clientes/novo`, `/admin/clientes/:id` | No servidor (3.11). Cadastro em três colunas (dados, contato, endereço); sem `client.manage`, só leitura | `client.manage` / `client.view` |
 | `/admin/usuarios`, `/admin/grupos`, `/admin/setores` | No servidor (3.11). Cadastros | `admin.users` / `admin.organization` |
-| `/relatorios` | Relatórios: totais, abas Produtividade, Clientes e Horas extras (gráficos + tabelas), filtros de período, grupo, pessoa e cliente, botão Baixar PDF. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
+| `/relatorios` | No servidor (3.11). Relatórios: totais, abas Produtividade, Clientes e Horas extras (gráficos + tabelas), filtros de período, grupo, pessoa e cliente, botão Baixar PDF. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
 | `/admin/configuracoes` | No servidor (3.11). Idioma, cores, logotipo, status dos chamados e expediente | `admin.settings` |
 | `/dev/componentes` | Vitrine do design system | Só em desenvolvimento |
 

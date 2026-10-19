@@ -4251,6 +4251,8 @@ export interface operations {
   report_pdf_api_v1_reports_pdf_get: {
     parameters: {
       query: {
+        /** @description idioma do PDF; sem ele, o do Accept-Language */
+        locale?: ('pt-BR' | 'en') | null
         /** @description primeiro dia do período */
         start: string
         /** @description último dia do período (incluído) */

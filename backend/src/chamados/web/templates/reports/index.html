@@ -1,0 +1,158 @@
+{#- Relatórios (docs/14 §14.7): totais, abas Produtividade, Clientes e Horas extras (gráficos e
+    tabelas) e o PDF com os mesmos filtros. Quem vê o quê é decidido pela API. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class, field, select_field with context %}
+{% from "_fields.html" import client_picker with context %}
+{% from "_icons.html" import icon %}
+{% from "reports/_charts.html" import bar_chart, column_chart %}
+
+{% block title %}{{ t("relatorios.titulo") }}{% endblock %}
+
+{% block head %}
+{#- O campo de cliente (busca, escolha, X) está no chamado.js; sem editor, o Tiptap não vem. #}
+<script src="{{ static('js/chamado.js') }}" defer></script>
+{% endblock %}
+
+{#- Tabela no visual do DataTable da SPA: `columns` são (rótulo, alinhado à direita); as linhas
+    vêm do caller. #}
+{% macro table(caption, columns, empty, count) -%}
+<div class="overflow-x-auto rounded-lg border border-border bg-surface">
+  <table class="w-full border-collapse text-left">
+    <caption class="sr-only">{{ caption }}</caption>
+    <thead class="bg-surface-raised text-muted">
+      <tr>
+        {%- for label in columns %}
+        <th scope="col" class="px-3 py-2 font-medium">{{ label }}</th>
+        {%- endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {{ caller() }}
+      {%- if not count %}
+      <tr>
+        <td colspan="{{ columns | length }}" class="px-3 py-6 text-center text-muted">{{ empty }}</td>
+      </tr>
+      {%- endif %}
+    </tbody>
+  </table>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="mx-auto flex max-w-7xl flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
+      <p class="mt-1 text-muted">{{ t("relatorios.descricao") }}</p>
+    </div>
+    {%- if pdf_url %}
+    <a href="{{ pdf_url }}" download class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixarPdf") }}</a>
+    {%- else %}
+    <button type="button" disabled class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixarPdf") }}</button>
+    {%- endif %}
+  </div>
+
+  {#- Os filtros são aplicados ao mudar (static/js/app.js); a aba continua. #}
+  <form method="get" action="/relatorios" data-envia-ao-mudar class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <input type="hidden" name="aba" value="{{ tab }}">
+    {{ select_field("periodo", t("relatorios.periodo"), period_options, period) }}
+    {%- if period == "personalizado" %}
+    {{ field("de", t("relatorios.de"), type="date", value=start) }}
+    {{ field("ate", t("relatorios.ate"), type="date", value=end, error=None if period_ok else t("relatorios.periodoInvalido")) }}
+    {%- endif %}
+    {%- if team_options %}
+    {{ select_field("grupo", t("relatorios.grupo"), [("", t("relatorios.todosOsGrupos"))] + team_options, team) }}
+    {%- endif %}
+    {%- if person_options %}
+    {{ select_field("pessoa", t("relatorios.pessoa"), [("", t("relatorios.todasAsPessoas"))] + person_options, person) }}
+    {%- endif %}
+    {{ client_picker(t("relatorios.cliente"), client, client_name, submit_on_pick=True, required=False) }}
+  </form>
+
+  {%- if error %}
+  {{ alert(error) }}
+  {%- elif report %}
+  <dl class="grid grid-cols-2 gap-3 md:grid-cols-5">
+    {%- for key, value in [("horas", duration(report.totals.minutes)), ("horasExtras", duration(report.totals.overtime_minutes)), ("tarefas", number(report.totals.tasks)), ("registrados", number(report.totals.tickets_opened)), ("concluidos", number(report.totals.tickets_closed))] %}
+    <div class="rounded-lg border border-border bg-surface p-4">
+      <dt class="text-muted">{{ t("relatorios.cartoes." ~ key) }}</dt>
+      <dd class="mt-1 text-2xl font-semibold">{{ value }}</dd>
+    </div>
+    {%- endfor %}
+  </dl>
+
+  <nav aria-label="{{ t('relatorios.titulo') }}" class="flex flex-wrap gap-1 border-b border-border">
+    {%- for slug, key in tabs.items() %}
+    <a href="{{ tab_url(slug) }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ t("relatorios.abas." ~ key) }}</a>
+    {%- endfor %}
+  </nav>
+
+  {%- if tab == "produtividade" %}
+  <div class="grid gap-4 lg:grid-cols-2">
+    <div class="rounded-lg border border-border bg-surface p-4">
+      {{ column_chart(t("relatorios.horasPorSemana" if weekly else "relatorios.horasPorDia"), by_day, duration) }}
+    </div>
+    <div class="rounded-lg border border-border bg-surface p-4">
+      {{ bar_chart(t("relatorios.horasPorPessoa"), people_bars, duration) }}
+      {%- if not people_bars %}
+      <p class="text-muted">{{ t("relatorios.vazio") }}</p>
+      {%- endif %}
+    </div>
+  </div>
+  {% call table(t("relatorios.horasPorPessoa"), [t("relatorios.colunas.pessoa"), t("relatorios.colunas.horas"), t("relatorios.colunas.horasExtras"), t("relatorios.colunas.tarefas"), t("relatorios.colunas.concluidos")], t("relatorios.vazio"), report.people | length) %}
+    {%- for p in report.people %}
+    <tr class="border-t border-border">
+      <td class="px-3 py-2">{{ p.name }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ duration(p.minutes) }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ duration(p.overtime_minutes) }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ number(p.tasks) }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ number(p.tickets_closed) }}</td>
+    </tr>
+    {%- endfor %}
+  {% endcall %}
+
+  {%- elif tab == "clientes" %}
+  {%- if client_bars %}
+  <div class="rounded-lg border border-border bg-surface p-4">
+    {{ bar_chart(t("relatorios.horasPorCliente"), client_bars, duration) }}
+  </div>
+  {%- endif %}
+  {% call table(t("relatorios.horasPorCliente"), [t("relatorios.colunas.cliente"), t("relatorios.colunas.horas"), t("relatorios.colunas.registrados"), t("relatorios.colunas.concluidos")], t("relatorios.vazio"), report.clients | length) %}
+    {%- for c in report.clients %}
+    <tr class="border-t border-border">
+      <td class="px-3 py-2">{{ client_names[loop.index0] }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ duration(c.minutes) }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ number(c.tickets_opened) }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ number(c.tickets_closed) }}</td>
+    </tr>
+    {%- endfor %}
+  {% endcall %}
+
+  {%- else %}
+  <p class="text-muted">{{ work_hours }}</p>
+  <div class="grid gap-4 lg:grid-cols-2">
+    <div class="rounded-lg border border-border bg-surface p-4">
+      {{ column_chart(t("relatorios.horasExtrasPorSemana" if weekly else "relatorios.horasExtrasPorDia"), overtime_by_day, duration) }}
+    </div>
+    <div class="rounded-lg border border-border bg-surface p-4">
+      {{ bar_chart(t("relatorios.horasExtrasPorPessoa"), overtime_bars, duration) }}
+      {%- if not overtime_bars %}
+      <p class="text-muted">{{ t("relatorios.semExtras") }}</p>
+      {%- endif %}
+    </div>
+  </div>
+  {% call table(t("relatorios.tarefasForaDoExpediente"), [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], t("relatorios.semExtras"), report.overtime_tasks | length) %}
+    {%- for o in report.overtime_tasks %}
+    <tr class="border-t border-border">
+      <td class="px-3 py-2 tabular-nums">{{ datetime(o.done_at) }}</td>
+      <td class="px-3 py-2">{{ o.person }}</td>
+      <td class="px-3 py-2"><a href="/chamados/{{ o.ticket_number }}" class="text-primary underline tabular-nums">#{{ o.ticket_number }}</a> {{ o.ticket_title }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ duration(o.minutes) }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ duration(o.overtime_minutes) }}</td>
+    </tr>
+    {%- endfor %}
+  {% endcall %}
+  {%- endif %}
+  {%- endif %}
+</div>
+{% endblock %}

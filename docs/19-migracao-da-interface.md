@@ -1,6 +1,6 @@
 # 19. Migração da interface para o servidor
 
-Situação em **2026-10-18**. A decisão está no [ADR 0011](adr/0011-interface-web-no-servidor.md), e a estrutura do código na [seção 3.11 do ARCHITECTURE](../ARCHITECTURE.md#311-telas-do-servidor-web-adr-0011). Este documento registra o que já foi feito, **onde a migração parou** e como continuar.
+Situação em **2026-10-19**. A decisão está no [ADR 0011](adr/0011-interface-web-no-servidor.md), e a estrutura do código na [seção 3.11 do ARCHITECTURE](../ARCHITECTURE.md#311-telas-do-servidor-web-adr-0011). Este documento registra o que já foi feito, **onde a migração parou** e como continuar.
 
 ## 19.1 Por que
 
@@ -14,12 +14,12 @@ A SPA em Vue + TypeScript obrigava a manter duas stacks. Cada mudança na API ex
 | WEB-02 | Layout (menu, cabeçalho, menu do usuário) e lista de chamados com as filas | feito | `87a4244`, `5194367` |
 | WEB-03 | Registro e detalhe do chamado (tarefas, anexos, Tiptap, ações da lateral) | feito | `bd1614a`, `087d68b` |
 | WEB-04 | Administração: clientes, usuários, grupos, setores e Configurações | feito | `073b0f2`, `4a89058`, `a041d99`, `a5776a9` |
-| **WEB-05** | **Relatórios** (gráficos em SVG e o PDF) | **a fazer: é a próxima** | |
-| WEB-06 | Troca final: sai a SPA, o Node e o serviço do Vite | a fazer | |
+| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | |
+| **WEB-06** | **Troca final**: sai a SPA, o Node e o serviço do Vite | **a fazer: é a próxima** | |
 
 Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado tinha tirado do `main` (`0ca1055`, `19ce9eb` e `3d78a76`, guardadas no tag local `remoto-antes-do-force`): o backend veio como estava (`PUT /tickets/{id}/assignees` e o registro do admin em qualquer grupo ativo), e as telas Vue foram refeitas no servidor (vários responsáveis na lateral do chamado; registro só em grupos ativos). Do `19ce9eb`, só valeu para o servidor o registro sem grupo inativo; o resto era cache da SPA e não precisou ser portado.
 
-**Hoje, na SPA, só restam os relatórios (`/relatorios`).** Todo o resto vem do servidor, com o mesmo visual. Os commits `5194367`, `087d68b`, `a5776a9` e parte do `4a89058` e do `a041d99` são correções de uma revisão independente feita a cada etapa (19.6).
+**Desde a WEB-05, todas as telas vêm do servidor**, com o mesmo visual. Na SPA sobram só o `ServerView.vue` (recarrega a página nos endereços do servidor), as páginas de erro e a vitrine de desenvolvimento. Os commits `5194367`, `087d68b`, `a5776a9` e parte do `4a89058` e do `a041d99` são correções de uma revisão independente feita a cada etapa (19.6).
 
 ## 19.3 Como as duas interfaces convivem até a troca final
 
@@ -28,9 +28,16 @@ Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado 
 - **Idiomas:** os catálogos continuam em `frontend/src/i18n/*.json`, lidos pelo servidor (`web/i18n.py`), e as chaves novas entram nos dois idiomas.
 - **CSS:** `scripts/css.sh` gera `web/static/css/app.css`, que não vai para o git. O `deploy.sh` já o gera.
 
-## 19.4 Roteiro da WEB-05 (relatórios)
+## 19.4 Roteiro da WEB-05 (relatórios): feito
 
-O que existe hoje na SPA: `frontend/src/views/reports/ReportsView.vue` (383 linhas), `components/reports/BarChart.vue` e `ColumnChart.vue` (SVG, uma série, só tokens de cor), `composables/relatorios.ts` e `components/tickets/ClientPicker.vue` (o filtro de cliente). A API é `reports/router.py`: `GET /reports/options`, `GET /reports` e `GET /reports/pdf`. Essas rotas usam `CurrentAuth` e o escopo é decidido no service (`service.resolve`). Por isso a tela **não precisa** de `requires`, mas precisa repassar os filtros como a SPA.
+Como ficou: `web/reports.py` e `templates/reports/` (`index.html` e os gráficos em `_charts.html`). Diferenças em relação ao roteiro abaixo:
+
+- O PDF sai no idioma da pessoa: um link não escolhe o `Accept-Language`, por isso a rota da API ganhou o parâmetro opcional `locale`, e o link o manda.
+- O link do PDF só aparece com o relatório na tela (período válido e sem erro da API); senão, o botão fica desabilitado.
+- O campo de cliente do macro `client_picker` ganhou `required=False`: sem asterisco e com o X para tirar o cliente.
+- Saíram da SPA as views e os componentes de relatórios, o `ClientPicker`, os composables `relatorios.ts` e `clientes.ts` e a chave `relatorios.gerandoPdf`. O `tests/test_spa.py` passou a usar `/sem-acesso`.
+
+O roteiro, como estava. O que existia na SPA: `frontend/src/views/reports/ReportsView.vue` (383 linhas), `components/reports/BarChart.vue` e `ColumnChart.vue` (SVG, uma série, só tokens de cor), `composables/relatorios.ts` e `components/tickets/ClientPicker.vue` (o filtro de cliente). A API é `reports/router.py`: `GET /reports/options`, `GET /reports` e `GET /reports/pdf`. Essas rotas usam `CurrentAuth` e o escopo é decidido no service (`service.resolve`). Por isso a tela **não precisa** de `requires`, mas precisa repassar os filtros como a SPA.
 
 1. `web/reports.py`: `GET /relatorios` com os filtros na URL (período: mês ou datas; grupo, pessoa e cliente), chamando `reports_api.report_options` e `reports_api.report`. O link "Baixar PDF" aponta para a rota da API com os mesmos filtros (é GET e usa o cookie da sessão).
 2. `templates/reports/index.html`: totais, abas Produtividade, Clientes e Horas extras (links, como as filas) e tabelas. Os gráficos são SVG gerados no Jinja, num macro que imita o `BarChart`/`ColumnChart`. Use o skill de visualização de dados para cores e marcações.

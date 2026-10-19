@@ -4,7 +4,7 @@ O fuso é sempre o de São Paulo (docs/13 §13.6). Os textos imitam o `Intl` do 
 estilo curto, para as duas interfaces mostrarem o mesmo enquanto convivem (ADR 0011).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from math import floor
 from zoneinfo import ZoneInfo
 
@@ -47,6 +47,12 @@ def format_duration(minutes: int) -> str:
     return f"{h}h{m:02d}" if m else f"{h}h"
 
 
+def format_number(locale: str, value: int) -> str:
+    """Inteiro com separador de milhar: "1.234" ou "1,234"."""
+    text = f"{value:,}"
+    return text if locale == "en" else text.replace(",", ".")
+
+
 def format_size(locale: str, size: int) -> str:
     """Tamanho de arquivo: "512 B", "1,5 KB", "12 MB" (vírgula decimal em português)."""
     if size < 1024:
@@ -54,6 +60,29 @@ def format_size(locale: str, size: int) -> str:
     value, unit = (size / 1024, "KB") if size < 1024 * 1024 else (size / 1024 / 1024, "MB")
     text = f"{value:.1f}".removesuffix(".0")
     return f"{text.replace('.', ',') if locale == 'pt-BR' else text} {unit}"
+
+
+MONTHS = {
+    "pt-BR": [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ],
+    "en": [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ],
+}  # fmt: skip
+
+
+def format_month(locale: str, value: date) -> str:
+    """Mês e ano: "outubro de 2026" ou "October 2026"."""
+    name = MONTHS["en" if locale == "en" else "pt-BR"][value.month - 1]
+    return f"{name} {value.year}" if locale == "en" else f"{name} de {value.year}"
+
+
+def format_day(locale: str, value: date) -> str:
+    """Dia e mês curtos, como no eixo dos gráficos: "05/10" ou "10/05"."""
+    return f"{value:%m/%d}" if locale == "en" else f"{value:%d/%m}"
 
 
 def local_parts(value: datetime) -> tuple[str, str]:

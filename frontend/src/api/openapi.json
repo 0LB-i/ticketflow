@@ -2528,6 +2528,25 @@
         "operationId": "report_pdf_api_v1_reports_pdf_get",
         "parameters": [
           {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["pt-BR", "en"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "idioma do PDF; sem ele, o do Accept-Language",
+              "title": "Locale"
+            },
+            "description": "idioma do PDF; sem ele, o do Accept-Language"
+          },
+          {
             "name": "start",
             "in": "query",
             "required": true,

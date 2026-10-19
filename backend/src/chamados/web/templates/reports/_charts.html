@@ -1,0 +1,72 @@
+{#- Gráficos dos relatórios em SVG, de uma série só e só com tokens de cor (como o BarChart.vue e
+    o ColumnChart.vue da SPA). A tabela da mesma aba traz os mesmos números. Cada barra é um
+    <svg> com a ponta arredondada (4px) e o lado da base reto: o retângulo arredondado inteiro
+    mais um reto cobrindo a metade da base. `fmt`: formata o valor (duration). -#}
+
+{#- Barras horizontais (horas por pessoa, por cliente): o rótulo à esquerda e o valor na ponta. -#}
+{% macro bar_chart(title, items, fmt) -%}
+{%- set top = ([1] + items | map(attribute="value") | list) | max %}
+<figure class="flex flex-col gap-3">
+  <figcaption class="font-medium">{{ title }}</figcaption>
+  <ul class="flex flex-col gap-2">
+    {%- for item in items %}
+    <li class="grid grid-cols-[minmax(0,10rem)_1fr] items-center gap-3">
+      <span class="truncate text-muted" title="{{ item.label }}">{{ item.label }}</span>
+      <span class="flex items-center gap-2">
+        {%- if item.value %}
+        <svg width="{{ '%.2f' | format(item.value / top * 85) }}%" height="16" class="shrink-0 fill-primary" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
+        {%- endif %}
+        <span class="text-sm whitespace-nowrap tabular-nums">{{ fmt(item.value) }}</span>
+      </span>
+    </li>
+    {%- endfor %}
+  </ul>
+</figure>
+{%- endmacro %}
+
+{#- Colunas ao longo do tempo (horas por dia ou por semana). Passar o mouse ou o foco numa coluna
+    mostra a data e o valor; o eixo tem três marcas em horas cheias e pares (0, metade, topo), e
+    o de baixo, o primeiro rótulo e mais uns cinco. -#}
+{% macro column_chart(title, points, fmt) -%}
+{%- set highest = ([0] + points | map(attribute="value") | list) | max %}
+{%- set top = [120, ((highest / 120) | round(0, "ceil") | int) * 120] | max %}
+{%- set ticks = [top, top // 2, 0] %}
+{%- set step = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
+<figure class="flex flex-col gap-3">
+  <figcaption class="font-medium">{{ title }}</figcaption>
+  <div class="grid grid-cols-[auto_1fr] gap-x-2">
+    <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
+      {%- for m in ticks %}
+      <span class="-my-2 text-right">{{ fmt(m) }}</span>
+      {%- endfor %}
+    </div>
+    <div class="relative h-40">
+      <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+        {%- for m in ticks %}
+        {%- set y = "%.2f" | format(100 - m / top * 100) %}
+        <line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-border" stroke-width="1" shape-rendering="crispEdges"/>
+        {%- endfor %}
+      </svg>
+      <ul class="absolute inset-0 flex items-end gap-0.5">
+        {%- for p in points %}
+        <li tabindex="0" aria-label="{{ p.label }}: {{ fmt(p.value) }}" class="group relative flex h-full flex-1 items-end justify-center">
+          {%- if p.value %}
+          <svg width="100%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-6 fill-primary group-hover:opacity-80 group-focus:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          {%- endif %}
+          <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus:block">
+            <strong class="tabular-nums">{{ fmt(p.value) }}</strong>
+            <span class="text-muted"> · {{ p.label }}</span>
+          </span>
+        </li>
+        {%- endfor %}
+      </ul>
+    </div>
+    <div></div>
+    <div class="flex gap-0.5 pt-1 text-xs text-muted" aria-hidden="true">
+      {%- for p in points %}
+      <span class="flex-1 overflow-visible">{% if loop.index0 % step == 0 %}<span class="whitespace-nowrap">{{ p.label }}</span>{% endif %}</span>
+      {%- endfor %}
+    </div>
+  </div>
+</figure>
+{%- endmacro %}
