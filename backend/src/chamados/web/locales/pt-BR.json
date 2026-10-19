@@ -8,7 +8,6 @@
   },
   "menu": {
     "titulo": "Menu principal",
-    "componentes": "Componentes",
     "administracao": "Administração",
     "usuarios": "Usuários",
     "grupos": "Grupos",
@@ -24,15 +23,9 @@
     "escuro": "Escuro",
     "automatico": "Automático"
   },
-  "naoEncontrado": {
-    "titulo": "Página não encontrada",
-    "texto": "O endereço digitado não existe ou mudou.",
-    "voltar": "Voltar ao início"
-  },
   "comum": {
     "fechar": "Fechar",
     "cancelar": "Cancelar",
-    "confirmar": "Confirmar",
     "selecione": "Selecione…",
     "obrigatorio": "obrigatório",
     "nenhumRegistro": "Nenhum registro encontrado.",
@@ -47,52 +40,15 @@
     "salvo": "Alterações salvas",
     "ativo": "Ativo",
     "inativo": "Inativo",
-    "nenhum": "Nenhum",
     "remover": "Remover",
     "adicionar": "Adicionar",
     "desativar": "Desativar",
     "reativar": "Reativar",
     "nunca": "Nunca"
   },
-  "status": {
-    "open": "Pendente",
-    "waiting": "Aguardando cliente",
-    "approval": "Aguardando aprovação",
-    "delivered": "Entregue",
-    "closed": "Concluído",
-    "canceled": "Cancelado"
-  },
-  "componentes": {
-    "titulo": "Componentes do design system",
-    "descricao": "Página de referência, visível só em desenvolvimento.",
-    "botoes": "Botões",
-    "campos": "Campos",
-    "badges": "Badges",
-    "tabela": "Tabela",
-    "modal": "Modal",
-    "toast": "Aviso (toast)",
-    "exemploTitulo": "Título do chamado",
-    "exemploTituloDica": "Descreva em poucas palavras.",
-    "exemploErro": "Informe um título com pelo menos 3 letras.",
-    "exemploGrupo": "Grupo",
-    "abrirModal": "Abrir modal",
-    "modalTitulo": "Cancelar chamado?",
-    "modalTexto": "O chamado sai das filas. Esta ação fica registrada no histórico.",
-    "mostrarAviso": "Mostrar aviso",
-    "avisoTitulo": "Chamado registrado",
-    "avisoTexto": "#1234 está na fila do grupo.",
-    "colunaNumero": "Número",
-    "colunaTitulo": "Título",
-    "colunaStatus": "Status"
-  },
   "usuario": {
     "menu": "Menu do usuário",
     "sair": "Sair"
-  },
-  "semAcesso": {
-    "titulo": "Sem acesso",
-    "texto": "Você não tem permissão para abrir esta página.",
-    "voltar": "Voltar ao início"
   },
   "login": {
     "titulo": "Entrar",

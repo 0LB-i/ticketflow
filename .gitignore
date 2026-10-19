@@ -16,6 +16,8 @@ backend/src/chamados/web/static/css/app.css
 
 # Node (só o scripts/vendor-tiptap.sh) e os testes ponta a ponta (Playwright, quando entrarem)
 node_modules/
+# Restos da SPA (dist, node_modules) em instalações de antes de 2026-10-19: podem ser apagados
+/frontend/
 playwright-report/
 test-results/
 

@@ -15,7 +15,7 @@ A SPA em Vue + TypeScript obrigava a manter duas stacks. Cada mudança na API ex
 | WEB-03 | Registro e detalhe do chamado (tarefas, anexos, Tiptap, ações da lateral) | feito | `bd1614a`, `087d68b` |
 | WEB-04 | Administração: clientes, usuários, grupos, setores e Configurações | feito | `073b0f2`, `4a89058`, `a041d99`, `a5776a9` |
 | WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | `b6c5e5a`, `019a6cc` |
-| WEB-06 | Troca final: sai a SPA, o Node e o serviço do Vite | feito | |
+| WEB-06 | Troca final: sai a SPA, o Node e o serviço do Vite | feito | `7dfc04c` e a correção seguinte |
 
 Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado tinha tirado do `main` (`0ca1055`, `19ce9eb` e `3d78a76`, guardadas no tag local `remoto-antes-do-force`): o backend veio como estava (`PUT /tickets/{id}/assignees` e o registro do admin em qualquer grupo ativo), e as telas Vue foram refeitas no servidor (vários responsáveis na lateral do chamado; registro só em grupos ativos). Do `19ce9eb`, só valeu para o servidor o registro sem grupo inativo; o resto era cache da SPA e não precisou ser portado.
 
@@ -53,7 +53,8 @@ O roteiro, como estava. O que existia na SPA: `frontend/src/views/reports/Report
 
 Como ficou:
 
-- O `frontend/` saiu do git. Fora do git sobra, na máquina de desenvolvimento, o `frontend/node_modules` (ainda ignorado pelo `.gitignore`), que o usuário apaga depois de rodar o `instalar-servico-dev.sh`; o `frontend/dist` já foi apagado.
+- O `frontend/` saiu do git. Fora do git sobra, na máquina de desenvolvimento, o `frontend/node_modules`, que o usuário apaga depois de rodar o `instalar-servico-dev.sh`; o `frontend/dist` já foi apagado. O `.gitignore` ignora `/frontend/`, para os restos de instalações antigas (inclusive o `dist` da produção) não aparecerem no `git status`.
+- Saíram dos catálogos as chaves que só a SPA usava (`naoEncontrado`, `semAcesso`, `componentes`, `status`, `menu.componentes`, `comum.confirmar`, `comum.nenhum`).
 - O `instalar-servico-dev.sh` desativa e apaga o `ticketflow-frontend.service` de instalações antigas.
 - O `APP_BASE_URL` padrão passou a `http://localhost:8000`, o endereço do uvicorn sem o Vite.
 - Endereço desconhecido fora de `/api` mostra a página de erro das telas (antes caía no `index.html` da SPA); o `test_errors.py` confere.

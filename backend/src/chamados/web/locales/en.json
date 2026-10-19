@@ -8,7 +8,6 @@
   },
   "menu": {
     "titulo": "Main menu",
-    "componentes": "Components",
     "administracao": "Administration",
     "usuarios": "Users",
     "grupos": "Teams",
@@ -24,15 +23,9 @@
     "escuro": "Dark",
     "automatico": "Automatic"
   },
-  "naoEncontrado": {
-    "titulo": "Page not found",
-    "texto": "The address does not exist or has changed.",
-    "voltar": "Back to home"
-  },
   "comum": {
     "fechar": "Close",
     "cancelar": "Cancel",
-    "confirmar": "Confirm",
     "selecione": "Select…",
     "obrigatorio": "required",
     "nenhumRegistro": "No records found.",
@@ -47,52 +40,15 @@
     "salvo": "Changes saved",
     "ativo": "Active",
     "inativo": "Inactive",
-    "nenhum": "None",
     "remover": "Remove",
     "adicionar": "Add",
     "desativar": "Deactivate",
     "reativar": "Reactivate",
     "nunca": "Never"
   },
-  "status": {
-    "open": "Pending",
-    "waiting": "Waiting for customer",
-    "approval": "Awaiting approval",
-    "delivered": "Delivered",
-    "closed": "Done",
-    "canceled": "Canceled"
-  },
-  "componentes": {
-    "titulo": "Design system components",
-    "descricao": "Reference page, visible only in development.",
-    "botoes": "Buttons",
-    "campos": "Fields",
-    "badges": "Badges",
-    "tabela": "Table",
-    "modal": "Modal",
-    "toast": "Notice (toast)",
-    "exemploTitulo": "Ticket title",
-    "exemploTituloDica": "Describe it in a few words.",
-    "exemploErro": "Enter a title with at least 3 letters.",
-    "exemploGrupo": "Team",
-    "abrirModal": "Open modal",
-    "modalTitulo": "Cancel ticket?",
-    "modalTexto": "The ticket leaves the queues. This action is recorded in the history.",
-    "mostrarAviso": "Show notice",
-    "avisoTitulo": "Ticket created",
-    "avisoTexto": "#1234 is in the team queue.",
-    "colunaNumero": "Number",
-    "colunaTitulo": "Title",
-    "colunaStatus": "Status"
-  },
   "usuario": {
     "menu": "User menu",
     "sair": "Sign out"
-  },
-  "semAcesso": {
-    "titulo": "No access",
-    "texto": "You are not allowed to open this page.",
-    "voltar": "Back to home"
   },
   "login": {
     "titulo": "Sign in",

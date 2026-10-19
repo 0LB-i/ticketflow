@@ -116,7 +116,7 @@ Concluída em 2026-10-19: todas as telas são do servidor ([ARCHITECTURE 3.11](A
 | WEB-03 | Novo chamado e detalhe do chamado (linha do tempo, tarefas com o Tiptap empacotado, anexos, status, responsáveis) | feito | bd1614a |
 | WEB-04 | Administração: usuários, grupos, setores, clientes e configurações | feito | 073b0f2, 4a89058, a041d99, a5776a9 |
 | WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | b6c5e5a, 019a6cc |
-| WEB-06 | Troca final: o nginx de desenvolvimento manda tudo ao uvicorn; saem o `frontend/`, o serviço do Vite e o pnpm do `check.sh` e do deploy; os catálogos de idioma passam para `web/locales/` | feito | |
+| WEB-06 | Troca final: o nginx de desenvolvimento manda tudo ao uvicorn; saem o `frontend/`, o serviço do Vite e o pnpm do `check.sh` e do deploy; os catálogos de idioma passam para `web/locales/` | feito | 7dfc04c |
 
 ## Rotinas
 
