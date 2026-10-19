@@ -3,11 +3,11 @@
 # https://IP (o nginx nas portas 443 e 80, que redireciona para o HTTPS). Sem build e sem
 # reiniciar a cada mudança:
 #   - ticketflow.service: a unit da produção com o uvicorn em 127.0.0.1:8001 e --reload
-#     (reinicia sozinho quando um .py muda); o nginx manda /api para ele;
-#   - ticketflow-frontend.service: o Vite em 127.0.0.1:5173, que compila sob demanda e
-#     atualiza o navegador sozinho (websocket pelo nginx); o nginx manda o resto para ele;
+#     (reinicia sozinho quando um .py muda); o nginx manda tudo para ele (a API e as telas);
 #   - ticketflow-css.service: gera o CSS das telas do servidor (Tailwind) a cada mudança nos
 #     templates (ADR 0011).
+# Instalações anteriores tinham também a interface pelo Vite (ticketflow-frontend.service),
+# que saiu com a SPA: o script a desativa e apaga.
 # Sem domínio, o certificado é autoassinado para o IP e o nome da máquina: o navegador avisa
 # até ele ser instalado como confiável (/etc/ticketflow/tls/ticketflow.crt).
 # Roda como root:
@@ -16,13 +16,11 @@
 # serviços são iniciados; depois disso, quem reinicia é você.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 [[ $EUID -eq 0 ]] || { echo "Rode como root (sudo)." >&2; exit 1; }
 
 IP="$(hostname -I | awk '{print $1}')"
-VITE_PORTA=5173 # só local, atrás do nginx
-API_PORTA=8001  # só local, atrás do nginx
+API_PORTA=8001 # só local, atrás do nginx
 TLS_DIR=/etc/ticketflow/tls
 ENV_FILE=/etc/ticketflow/env
 SERVICO=ticketflow
@@ -35,7 +33,7 @@ como_dono() {
   if [[ "$DONO" == root ]]; then
     bash -c "$1"
   else
-    sudo -u "$DONO" -H env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 bash -c "$1"
+    sudo -u "$DONO" -H bash -c "$1"
   fi
 }
 
@@ -76,40 +74,17 @@ set -a
 set +a
 (cd backend && .venv/bin/chamados db upgrade)
 
-etapa "frontend (só as dependências: o Vite compila sob demanda)"
-como_dono "cd frontend && pnpm install -s --frozen-lockfile"
-
 etapa "serviços systemd (modo de desenvolvimento)"
 cp deploy/ticketflow.service /etc/systemd/system/
 install -d "$DROPIN_DIR"
 cat >"$DROPIN_DIR/desenvolvimento.conf" <<FIM
-# Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): atrás do Vite, e o
+# Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): atrás do nginx, e o
 # uvicorn reinicia sozinho quando um .py muda.
 [Service]
 ExecStart=
 ExecStart=$PWD/backend/.venv/bin/uvicorn chamados.main:create_app --factory \\
           --host 127.0.0.1 --port $API_PORTA --proxy-headers --forwarded-allow-ips 127.0.0.1 \\
           --reload --reload-dir $PWD/backend/src
-FIM
-cat >/etc/systemd/system/$SERVICO-frontend.service <<FIM
-# Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): a interface pelo Vite.
-[Unit]
-Description=TicketFlow (interface em modo de desenvolvimento, Vite)
-After=network.target $SERVICO.service
-Wants=$SERVICO.service
-
-[Service]
-User=$DONO
-WorkingDirectory=$PWD/frontend
-# O navegador abre o websocket da atualização automática pelo nginx, na 443. O Vite aceita
-# o IP; o nome da máquina precisa ser liberado.
-Environment=TF_HMR_PORT=443 NO_COLOR=1 __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=$(hostname)
-ExecStart=$PWD/frontend/node_modules/.bin/vite --host 127.0.0.1 --port $VITE_PORTA --strictPort
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
 FIM
 cat >/etc/systemd/system/$SERVICO-css.service <<FIM
 # Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): o CSS das telas do
@@ -126,16 +101,22 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 FIM
+# A interface pelo Vite saiu com a SPA (ADR 0011).
+if [[ -f /etc/systemd/system/$SERVICO-frontend.service ]]; then
+  systemctl disable -q --now "$SERVICO-frontend" || true
+  rm -f /etc/systemd/system/$SERVICO-frontend.service
+  echo "$SERVICO-frontend (Vite) desativado e apagado"
+fi
 systemctl daemon-reload
-systemctl enable -q "$SERVICO" "$SERVICO-frontend" "$SERVICO-css"
-# Só inicia o do CSS (não faz nada se ele já estiver rodando); ele não afeta os outros dois.
+systemctl enable -q "$SERVICO" "$SERVICO-css"
+# Só inicia o do CSS (não faz nada se ele já estiver rodando); ele não afeta o outro.
 systemctl start "$SERVICO-css"
 if systemctl is-active -q "$SERVICO"; then
   echo "O serviço já estava rodando. Para usar a configuração nova:"
-  echo "  sudo systemctl restart $SERVICO $SERVICO-frontend"
+  echo "  sudo systemctl restart $SERVICO"
 else
-  systemctl start "$SERVICO" "$SERVICO-frontend"
-  echo "Serviços iniciados."
+  systemctl start "$SERVICO"
+  echo "Serviço iniciado."
 fi
 
 etapa "nginx nas portas 80 e 443 (certificado autoassinado)"
@@ -152,11 +133,6 @@ fi
 cat >/etc/nginx/sites-available/$SERVICO <<FIM
 # Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh). A produção usa o
 # deploy/nginx.conf, com o certificado do certbot.
-map \$http_upgrade \$tf_connection {
-    default upgrade;
-    ''      close;
-}
-
 server {
     listen 80 default_server;
     server_name _;
@@ -164,8 +140,6 @@ server {
 }
 
 server {
-    # HTTP/2: o Vite manda cada módulo num arquivo separado (centenas por tela); no HTTP/1.1
-    # o navegador baixa só seis por vez.
     listen 443 ssl http2 default_server;
     server_name _;
     ssl_certificate     $TLS_DIR/ticketflow.crt;
@@ -174,7 +148,7 @@ server {
     # Anexos de até 25 MB (docs/11 §11.3), com folga para o envio multipart.
     client_max_body_size 30m;
 
-    # Sem isto o nginx só comprime HTML: o JavaScript do modo dev (~19 MB) ia inteiro.
+    # Sem isto o nginx só comprime HTML: o CSS e o JavaScript (o Tiptap) iam inteiros.
     gzip on;
     gzip_proxied any;
     gzip_comp_level 5;
@@ -187,18 +161,10 @@ server {
     add_header Referrer-Policy "same-origin" always;
     add_header X-Frame-Options "DENY" always;
 
-    location /api/ {
+    # A API e as telas: tudo no uvicorn (ADR 0011).
+    location / {
         proxy_pass http://127.0.0.1:$API_PORTA;
         proxy_read_timeout 60s;
-    }
-
-    # Interface pelo Vite, com o websocket da atualização automática.
-    location / {
-        proxy_pass http://127.0.0.1:$VITE_PORTA;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$tf_connection;
-        proxy_read_timeout 1h;
     }
 }
 FIM
@@ -212,7 +178,7 @@ cat <<FIM
 
 TicketFlow em https://$IP (documentação da API em /api/docs)
   certificado: $TLS_DIR/ticketflow.crt (instale como confiável para o navegador não avisar)
-  estado:      systemctl status $SERVICO $SERVICO-frontend $SERVICO-css nginx
-  log:         journalctl -u $SERVICO -u $SERVICO-frontend -u $SERVICO-css -f
-  Mudanças no código aparecem sozinhas; migrações: cd backend && .venv/bin/chamados db upgrade
+  estado:      systemctl status $SERVICO $SERVICO-css nginx
+  log:         journalctl -u $SERVICO -u $SERVICO-css -f
+  Mudanças no código aparecem ao recarregar a página; migrações: cd backend && .venv/bin/chamados db upgrade
 FIM

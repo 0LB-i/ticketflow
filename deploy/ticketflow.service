@@ -1,4 +1,4 @@
-# API + SPA do TicketFlow (ADR 0010, docs/18 §18.3 passo 8).
+# API e telas do TicketFlow (ADR 0010, docs/18 §18.3 passo 8).
 [Unit]
 Description=TicketFlow (API e interface web)
 After=network.target postgresql.service

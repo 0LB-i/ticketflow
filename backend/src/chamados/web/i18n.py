@@ -1,17 +1,17 @@
 """Textos das telas do servidor, nos dois idiomas (pt-BR e en).
 
-Os catálogos são os mesmos JSON da SPA (`frontend/src/i18n/`), para as duas interfaces não
-divergirem enquanto convivem (ADR 0011). Na troca final eles passam para `web/locales/`.
+Os catálogos ficam em `web/locales/` (`pt-BR.json` e `en.json`), com as mesmas chaves e os
+mesmos marcadores nos dois idiomas (tests/test_web_i18n.py).
 """
 
 import json
 import re
+from pathlib import Path
 from typing import Any
 
-from chamados.config import REPO_ROOT
 from chamados.core.i18n import DEFAULT_LOCALE
 
-LOCALES_DIR = REPO_ROOT / "frontend" / "src" / "i18n"
+LOCALES_DIR = Path(__file__).parent / "locales"
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 
@@ -43,8 +43,8 @@ def _lookup(messages: dict[str, Any], key: str) -> str | None:
 def translate(locale: str, key: str, **values: object) -> str:
     """Texto da chave (`login.titulo`) com os marcadores (`{nome}`) preenchidos.
 
-    Sem a chave no idioma, usa o português; sem ela em nenhum, mostra a própria chave, como a
-    SPA, para a falta aparecer na tela em vez de quebrar a página.
+    Sem a chave no idioma, usa o português; sem ela em nenhum, mostra a própria chave, para a
+    falta aparecer na tela em vez de quebrar a página.
     """
     text = _lookup(catalog(locale), key) or _lookup(catalog(DEFAULT_LOCALE), key) or key
     return _PLACEHOLDER.sub(lambda m: str(values.get(m.group(1), m.group(0))), text)

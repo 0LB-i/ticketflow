@@ -97,7 +97,6 @@ def settings(database_url: str, tmp_path: Path) -> Settings:
     return Settings(
         database_url=database_url,
         log_format="console",
-        frontend_dist=tmp_path,
         cookie_secure=False,
         app_base_url="http://teste",
         files_dir=tmp_path / "files",
@@ -110,10 +109,9 @@ def mailer() -> FakeMailer:
 
 
 @pytest.fixture(scope="session")
-def app(database_url: str, tmp_path_factory: pytest.TempPathFactory) -> FastAPI:
+def app(database_url: str) -> FastAPI:
     """Uma aplicação para a sessão toda: montá-la custa ~0,4 s (o FastAPI analisa cada rota)."""
-    dist = tmp_path_factory.mktemp("dist")
-    return create_app(Settings(database_url=database_url, log_format="console", frontend_dist=dist))
+    return create_app(Settings(database_url=database_url, log_format="console"))
 
 
 @pytest.fixture

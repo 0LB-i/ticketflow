@@ -53,7 +53,7 @@ O arquivo é enviado **antes** do formulário ser submetido. Isso permite barra 
 ```mermaid
 sequenceDiagram
     actor U as Usuário
-    participant S as SPA
+    participant S as Navegador (chamado.js)
     participant A as API
     participant ST as Armazenamento
     U->>S: arrasta o arquivo

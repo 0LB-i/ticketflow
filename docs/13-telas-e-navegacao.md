@@ -1,6 +1,6 @@
 # 13. Telas e navegação
 
-Mapa de todas as telas da interface (SPA em Vue, [ADR 0007](adr/0007-interface-web-vue.md)), quem acessa cada uma e os rascunhos das telas principais. O detalhe do chamado e o formulário de registro estão em [10.4](10-chamados.md#104-registro) e [10.6](10-chamados.md#106-como-a-equipe-trabalha). Cores, tipografia e logotipo estão em [Identidade visual](17-identidade-visual.md).
+Mapa de todas as telas da interface (renderizadas no servidor, [ADR 0011](adr/0011-interface-web-no-servidor.md)), quem acessa cada uma e os rascunhos das telas principais. O detalhe do chamado e o formulário de registro estão em [10.4](10-chamados.md#104-registro) e [10.6](10-chamados.md#106-como-a-equipe-trabalha). Cores, tipografia e logotipo estão em [Identidade visual](17-identidade-visual.md).
 
 Todos os usuários são membros das equipes ([modelo](08-organizacao-e-permissoes.md)); não existe área para colaboradores de fora.
 
@@ -130,6 +130,6 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 
 ## 13.7 Componentes do design system
 
-Construídos sobre o Reka UI + Tailwind ([ADR 0008](adr/0008-reka-ui.md)), em `frontend/src/components/ui/`, com as cores e a tipografia de [Identidade visual](17-identidade-visual.md):
+Macros Jinja com Tailwind e HTML nativo (`<dialog>`, `<details>`, `<select>`), em `backend/src/chamados/web/templates/_ui.html` e `_fields.html`, com as cores e a tipografia de [Identidade visual](17-identidade-visual.md):
 
 Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias, setores) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status) · Avatar · Tabela (com TanStack Table) · Paginação "carregar mais" · Árvore (setores, categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto

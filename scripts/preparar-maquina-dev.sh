@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prepara um Ubuntu 24.04 novo para desenvolver o TicketFlow, com o mesmo ambiente da máquina
-# original: uv, Node.js 22 + pnpm (corepack), PostgreSQL 17 (porta 5432) e 16 (porta 5433, para
+# original: uv, PostgreSQL 17 (porta 5432) e 16 (porta 5433, para
 # a verificação completa), o usuário e os bancos de desenvolvimento, o código em /opt/ticketflow
 # e as dependências. Roda como root (sudo); o código fica com quem chamou o sudo.
 #
@@ -39,12 +39,12 @@ fi
 # Quem vai desenvolver: quem chamou o sudo (ou o próprio root).
 DEV="${SUDO_USER:-root}"
 GRUPO_DEV="$(id -gn "$DEV")"
-export DEBIAN_FRONTEND=noninteractive COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+export DEBIAN_FRONTEND=noninteractive
 como_dev() {
   if [[ "$DEV" == root ]]; then
     bash -c "$1"
   else
-    sudo -u "$DEV" -H env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 bash -c "$1"
+    sudo -u "$DEV" -H bash -c "$1"
   fi
 }
 
@@ -88,15 +88,6 @@ criar_banco 5432 chamados
 criar_banco 5432 chamados_test
 criar_banco 5433 chamados_test
 
-etapa "Node.js 22 e pnpm"
-if ! command -v node >/dev/null || [[ "$(node --version)" != v22.* ]]; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-  apt-get install -y -q --no-upgrade nodejs
-fi
-# A versão do pnpm vem do "packageManager" do frontend/package.json.
-corepack enable
-node --version
-
 etapa "uv (Python)"
 if ! command -v uv >/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
@@ -116,7 +107,7 @@ fi
 
 etapa "dependências, migrações e hook de pre-commit"
 como_dev "cd '$DESTINO/backend' && { [[ -f .env ]] || cp .env.example .env; } && uv sync -q && uv run chamados db upgrade"
-como_dev "cd '$DESTINO/frontend' && pnpm install -s --frozen-lockfile"
+como_dev "cd '$DESTINO' && scripts/css.sh"
 como_dev "cd '$DESTINO' && scripts/install-hooks.sh"
 
 etapa "chave para enviar ao GitHub (deploy key só deste repositório)"
@@ -143,7 +134,8 @@ Pronto. Código em $DESTINO (dono: $DEV).
 
 Para rodar (dois terminais), conforme o README:
   cd $DESTINO/backend && uv run uvicorn chamados.main:create_app --factory --reload
-  cd $DESTINO/frontend && pnpm dev          # http://localhost:5173, entre com admin / admin
+                                            # http://localhost:8000, entre com admin / admin
+  cd $DESTINO && scripts/css.sh --watch     # o CSS das telas, a cada mudança nos templates
 Verificação: $DESTINO/scripts/check.sh   (ou --completo, que usa também o PostgreSQL 16)
 
 Para enviar commits ao GitHub, cadastre esta chave em

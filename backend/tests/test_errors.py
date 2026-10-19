@@ -13,6 +13,15 @@ def test_rota_api_inexistente_da_404_em_problem_json(client: TestClient) -> None
     assert r.json() == {"type": "about:blank", "title": "Não encontrado", "status": 404}
 
 
+def test_endereco_inexistente_fora_da_api_da_a_pagina_de_erro(client: TestClient) -> None:
+    # Sem a SPA, nenhum endereço cai num index.html: fora de /api, a página de erro das telas.
+    for caminho in ("/uma/rota/qualquer", "/sem-acesso", "/assets/app.js"):
+        r = client.get(caminho)
+        assert r.status_code == 404
+        assert r.headers["content-type"].startswith("text/html")
+        assert "Não encontrado" in r.text
+
+
 def _app_de_teste() -> FastAPI:
     app = FastAPI()
     register_error_handlers(app)

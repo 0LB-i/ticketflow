@@ -14,10 +14,8 @@ build/
 # Telas do servidor: CSS gerado pelo scripts/css.sh
 backend/src/chamados/web/static/css/app.css
 
-# Frontend
+# Node (só o scripts/vendor-tiptap.sh) e os testes ponta a ponta (Playwright, quando entrarem)
 node_modules/
-frontend/dist/
-*.tsbuildinfo
 playwright-report/
 test-results/
 

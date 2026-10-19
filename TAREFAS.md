@@ -107,7 +107,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 
 ## Migração da interface para o servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md))
 
-Tela a tela: enquanto a SPA existir, o Vite repassa ao uvicorn as telas já migradas ([ARCHITECTURE 3.11](ARCHITECTURE.md#311-telas-do-servidor-web-adr-0011)). Onde parou, o roteiro da WEB-05 e da WEB-06 e as pendências: [docs/19](docs/19-migracao-da-interface.md).
+Concluída em 2026-10-19: todas as telas são do servidor ([ARCHITECTURE 3.11](ARCHITECTURE.md#311-telas-do-servidor-web-adr-0011)), e a SPA, o Node e o serviço do Vite saíram. Histórico e pendências: [docs/19](docs/19-migracao-da-interface.md).
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
@@ -115,14 +115,14 @@ Tela a tela: enquanto a SPA existir, o Vite repassa ao uvicorn as telas já migr
 | WEB-02 | Layout com menu lateral, cabeçalho (novo chamado, busca), menu do usuário (idioma, sair) e a lista de chamados com as filas | feito | 87a4244 |
 | WEB-03 | Novo chamado e detalhe do chamado (linha do tempo, tarefas com o Tiptap empacotado, anexos, status, responsáveis) | feito | bd1614a |
 | WEB-04 | Administração: usuários, grupos, setores, clientes e configurações | feito | 073b0f2, 4a89058, a041d99, a5776a9 |
-| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | b6c5e5a |
-| WEB-06 | Troca final: o nginx de desenvolvimento manda tudo ao uvicorn; saem o `frontend/`, o serviço do Vite e o pnpm do `check.sh` e do deploy; os catálogos de idioma passam para `web/locales/` | a fazer | |
+| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | b6c5e5a, 019a6cc |
+| WEB-06 | Troca final: o nginx de desenvolvimento manda tudo ao uvicorn; saem o `frontend/`, o serviço do Vite e o pnpm do `check.sh` e do deploy; os catálogos de idioma passam para `web/locales/` | feito | |
 
 ## Rotinas
 
 | Rotina | Frequência | Última vez |
 |--------|------------|------------|
-| Atualizar dependências (`uv lock --upgrade`, `pnpm update`) + `scripts/check.sh --completo` | Mensal | |
+| Atualizar dependências (`uv lock --upgrade`) + `scripts/check.sh --completo` | Mensal | |
 | Testar a restauração do backup em produção ([docs/18 §18.5](docs/18-manual-do-servidor.md#185-backup-e-restauração)) | Trimestral | |
 
 ## Bugs e pedidos do piloto

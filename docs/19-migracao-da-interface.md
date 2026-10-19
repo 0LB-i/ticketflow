@@ -1,12 +1,12 @@
 # 19. Migração da interface para o servidor
 
-Situação em **2026-10-19**. A decisão está no [ADR 0011](adr/0011-interface-web-no-servidor.md), e a estrutura do código na [seção 3.11 do ARCHITECTURE](../ARCHITECTURE.md#311-telas-do-servidor-web-adr-0011). Este documento registra o que já foi feito, **onde a migração parou** e como continuar.
+Situação em **2026-10-19**. A decisão está no [ADR 0011](adr/0011-interface-web-no-servidor.md), e a estrutura do código na [seção 3.11 do ARCHITECTURE](../ARCHITECTURE.md#311-telas-do-servidor-web-adr-0011). Este documento registra como a migração foi feita, etapa por etapa, e o que ficou pendente. **Ela terminou em 2026-10-19 (WEB-06).**
 
 ## 19.1 Por que
 
 A SPA em Vue + TypeScript obrigava a manter duas stacks. Cada mudança na API exigia regenerar o cliente TypeScript e passar por vue-tsc, ESLint, Prettier, Vitest e o build do Vite. As telas passam a ser renderizadas pelo próprio FastAPI (Jinja2 + HTMX + Tailwind), como no NetKeep, com uma linguagem só e sem Node. A API JSON (`/api/v1`) continua para integrações e agentes de IA.
 
-## 19.2 Onde parou
+## 19.2 Etapas
 
 | Etapa | Entrega | Estado | Commits |
 |-------|---------|--------|---------|
@@ -14,14 +14,16 @@ A SPA em Vue + TypeScript obrigava a manter duas stacks. Cada mudança na API ex
 | WEB-02 | Layout (menu, cabeçalho, menu do usuário) e lista de chamados com as filas | feito | `87a4244`, `5194367` |
 | WEB-03 | Registro e detalhe do chamado (tarefas, anexos, Tiptap, ações da lateral) | feito | `bd1614a`, `087d68b` |
 | WEB-04 | Administração: clientes, usuários, grupos, setores e Configurações | feito | `073b0f2`, `4a89058`, `a041d99`, `a5776a9` |
-| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | `b6c5e5a` e a correção seguinte |
-| **WEB-06** | **Troca final**: sai a SPA, o Node e o serviço do Vite | **a fazer: é a próxima** | |
+| WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | `b6c5e5a`, `019a6cc` |
+| WEB-06 | Troca final: sai a SPA, o Node e o serviço do Vite | feito | |
 
 Em 2026-10-19 voltaram três funcionalidades de 2026-10-15 que um push forçado tinha tirado do `main` (`0ca1055`, `19ce9eb` e `3d78a76`, guardadas no tag local `remoto-antes-do-force`): o backend veio como estava (`PUT /tickets/{id}/assignees` e o registro do admin em qualquer grupo ativo), e as telas Vue foram refeitas no servidor (vários responsáveis na lateral do chamado; registro só em grupos ativos). Do `19ce9eb`, só valeu para o servidor o registro sem grupo inativo; o resto era cache da SPA e não precisou ser portado.
 
-**Desde a WEB-05, todas as telas vêm do servidor**, com o mesmo visual. Na SPA sobram só o `ServerView.vue` (recarrega a página nos endereços do servidor), as páginas de erro e a vitrine de desenvolvimento. Os commits `5194367`, `087d68b`, `a5776a9` e parte do `4a89058` e do `a041d99` são correções de uma revisão independente feita a cada etapa (19.6).
+**Todas as telas vêm do servidor**, com o mesmo visual, e o diretório `frontend/` saiu na WEB-06. Os commits `5194367`, `087d68b`, `a5776a9` e parte do `4a89058` e do `a041d99` são correções de uma revisão independente feita a cada etapa (19.6).
 
-## 19.3 Como as duas interfaces convivem até a troca final
+## 19.3 Como as duas interfaces conviveram (até a WEB-06)
+
+Fica como registro; nada disto existe mais.
 
 - **Desenvolvimento:** o nginx manda `/api/` para o uvicorn e o resto para o Vite. O Vite repassa ao uvicorn os endereços já migrados (`server.proxy` no `frontend/vite.config.ts`, a expressão regular com a lista). A SPA recarrega a página ao navegar para um deles (`ServerView.vue`, rotas com `...SERVIDOR` no `frontend/src/router/index.ts`).
 - **Produção:** o uvicorn serve as telas do servidor (registradas antes do catch-all) e, no resto, o `frontend/dist`.
@@ -47,9 +49,17 @@ O roteiro, como estava. O que existia na SPA: `frontend/src/views/reports/Report
 4. Testes em `tests/test_web_reports.py`, com o escopo (quem só vê o próprio trabalho não escolhe pessoa) e o erro da API mostrado na tela.
 5. Na SPA: `/relatorios` com `...SERVIDOR` e no proxy do Vite. Saem as views e os componentes de relatórios e o `ClientPicker`, e depois apaga-se o que ficar órfão.
 
-## 19.5 Roteiro da WEB-06 (troca final)
+## 19.5 Roteiro da WEB-06 (troca final): feito
 
-Depois da WEB-05 não sobra tela na SPA. Lista do que muda:
+Como ficou:
+
+- O `frontend/` saiu do git. Fora do git sobra, na máquina de desenvolvimento, o `frontend/node_modules` (ainda ignorado pelo `.gitignore`), que o usuário apaga depois de rodar o `instalar-servico-dev.sh`; o `frontend/dist` já foi apagado.
+- O `instalar-servico-dev.sh` desativa e apaga o `ticketflow-frontend.service` de instalações antigas.
+- O `APP_BASE_URL` padrão passou a `http://localhost:8000`, o endereço do uvicorn sem o Vite.
+- Endereço desconhecido fora de `/api` mostra a página de erro das telas (antes caía no `index.html` da SPA); o `test_errors.py` confere.
+- O check.sh ficou com ruff, mypy e pytest; o JavaScript das telas não tem mais verificação automática até o Playwright (19.7).
+
+O roteiro, como estava. Lista do que muda:
 
 - **Desenvolvimento** (`scripts/instalar-servico-dev.sh`): o nginx manda tudo ao uvicorn, sai o `ticketflow-frontend.service` e fica o `ticketflow-css.service`. **Quem roda o script com sudo e reinicia é o usuário** (CLAUDE.md §0.1).
 - **Deploy e verificação:** sai o pnpm do `scripts/deploy.sh` e do `scripts/check.sh` (lint, vue-tsc, vitest, build e a etapa de contrato com o cliente TypeScript). O teste de paridade de chaves de idioma (`frontend/src/i18n/i18n.test.ts`) vai para o pytest.
@@ -67,7 +77,7 @@ Depois da WEB-05 não sobra tela na SPA. Lista do que muda:
 - **Uma etapa por vez, com commit na `main`** (CLAUDE.md §0). O `scripts/check.sh` completo roda antes de cada commit.
 - **A tela não tem regra:** a rota chama a mesma função da rota da API, ou o service. As rotas de administração da API conferem a permissão numa dependência que não roda nessa chamada direta, e por isso a tela usa `requires(P.X)`. Toda tela nova tem teste que tenta entrar sem a permissão.
 - **Revisão a cada etapa:** um agente revisor separado lê o diff, compara com a tela Vue removida (`git show <commit>^:frontend/...`) e testa o JavaScript no jsdom. O jsdom precisa de stubs de `XPathEvaluator` (HTMX) e de `showModal`/`close` (`<dialog>`). **O revisor não usa o banco `chamados_test` ao mesmo tempo que os testes do dia a dia**: dois processos no mesmo banco travam nos `TRUNCATE`. Quando precisar de página renderizada, ela é gerada antes e salva para ele.
-- **JavaScript sem build:** `web/static/js/` (`app.js` comum; `chamado.js`, `clientes.js` e `configuracoes.js` por tela), com comportamento por atributos `data-*`. Sem navegador na máquina de desenvolvimento, ele é conferido no jsdom do `frontend/node_modules`, que sai na WEB-06. Depois disso, a cobertura do JavaScript passa a ser dos testes ponta a ponta com Playwright (F1-S5-04, no roadmap).
+- **JavaScript sem build:** `web/static/js/` (`app.js` comum; `chamado.js`, `clientes.js` e `configuracoes.js` por tela), com comportamento por atributos `data-*`. Durante a migração, sem navegador na máquina de desenvolvimento, ele foi conferido no jsdom do `frontend/node_modules`, que saiu na WEB-06. A cobertura do JavaScript passa a ser dos testes ponta a ponta com Playwright (F1-S5-04, no roadmap).
 
 ## 19.7 Pendências e riscos conhecidos
 
@@ -76,7 +86,8 @@ Depois da WEB-05 não sobra tela na SPA. Lista do que muda:
 | `ticketflow-css.service` | Ainda não instalado nesta máquina. Até `sudo scripts/instalar-servico-dev.sh`, o CSS é gerado à mão com `scripts/css.sh` depois de mudar templates |
 | Editor (menções, imagem colada) sem teste automático | Os testes do Vue saíram com a SPA. Conferido no jsdom; fica para o Playwright |
 | Erro 4xx num trecho pedido pelo HTMX | A tela fica como estava, sem aviso. Raro: esses pedidos são só leitura |
-| `frontend/dist` antigo em dev | Endereços que o servidor não conhece (ex.: `/chamados/`) são respondidos pelo dist. Um build de antes do `strict`/`sensitive` traria de volta a recarga infinita. Some na WEB-06 |
+| JavaScript das telas sem teste automático | Desde a WEB-06 não há jsdom no projeto. Mudanças em `web/static/js/` são conferidas no navegador até os testes com Playwright (F1-S5-04) |
+| Serviço de desenvolvimento antigo | Até `sudo scripts/instalar-servico-dev.sh`, o nginx desta máquina ainda manda as telas ao Vite, que perdeu o `vite.config.ts` e o `index.html`: a interface pode ficar fora do ar até o script rodar |
 | Primeiro deploy em produção | Precisa de acesso ao GitHub para baixar o binário do Tailwind (CHANGELOG, docs/18) |
 | Templates novos no deploy | Valem assim que o `deploy.sh` termina; o código Python, só depois do restart. Reiniciar logo depois do deploy |
 | Select que envia ao mudar, pelo teclado | Status, observadores e "Atribuir a" da lateral do chamado, os filtros da lista de chamados e o período, o grupo e a pessoa dos relatórios são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |

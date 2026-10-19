@@ -75,16 +75,13 @@ sudo -u postgres createdb -O ticketflow chamados
 - O banco escuta só no socket local e em `localhost` (padrão do pacote). Não abrir a porta 5432 no firewall.
 - As extensões da v1.0 (`unaccent`, `pg_trgm`, `citext`) são *trusted*: a própria migração as cria, sem superusuário.
 
-### 4. Python (uv) e Node.js
+### 4. Python (uv)
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sudo env UV_INSTALL_DIR=/usr/local/bin sh
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
-sudo apt install -y nodejs
-sudo corepack enable                                  # disponibiliza o pnpm na versão do package.json
 ```
 
-O Python 3.12 do Ubuntu 24.04 atende ao projeto. O Node.js só é usado para compilar o frontend.
+O Python 3.12 do Ubuntu 24.04 atende ao projeto. O servidor não precisa de Node.js: as telas são renderizadas pelo próprio backend e o CSS é gerado pelo binário standalone do Tailwind ([ADR 0011](adr/0011-interface-web-no-servidor.md)). Numa instalação de antes de 2026-10-19, o Node.js e o pnpm podem ser removidos, e a pasta `frontend/` que sobrou (o `dist` e o `node_modules`) pode ser apagada.
 
 ### 5. Código
 
@@ -130,7 +127,7 @@ Trocar o `SECRET_KEY` encerra todas as sessões e invalida os convites pendentes
 sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh
 ```
 
-O script faz `git pull`, `uv sync --frozen`, gera o CSS das telas do servidor (`scripts/css.sh`, que na primeira vez baixa o binário do Tailwind do GitHub), `pnpm install --frozen-lockfile && pnpm build` e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
+O script faz `git pull`, `uv sync --frozen`, gera o CSS das telas do servidor (`scripts/css.sh`, que na primeira vez baixa o binário do Tailwind do GitHub) e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
 
 ### 8. Serviços systemd
 

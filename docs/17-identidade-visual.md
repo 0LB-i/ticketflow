@@ -66,19 +66,19 @@ Mínimos: **4,5:1** para texto e **3:1** para bordas de campos e contorno de foc
 | Badges de status (claro) | 4,79 a 9,51 | ✅ |
 | Badges de status (escuro) | 4,83 a 10,78 | ✅ |
 
-Os contrastes são conferidos de novo no CI do frontend sempre que um token de cor mudar (teste com `axe` no Playwright).
+Os contrastes são conferidos de novo sempre que um token de cor mudar (`tests/test_palette.py`; com `axe` no Playwright, quando os testes ponta a ponta entrarem).
 
 ## 17.4 Modo claro e escuro
 
 - Três opções no menu do usuário: **Claro**, **Escuro** e **Automático** (padrão, segue o sistema operacional). A escolha fica salva no perfil.
 - Os tokens da seção 17.2 são variáveis CSS no `@theme` do Tailwind, redefinidas para o modo escuro. Os componentes usam **só os tokens** (`bg-surface`, `text-muted`), nunca cores diretas como `bg-orange-700`.
-- Os testes do frontend conferem os contrastes da paleta padrão e de combinações difíceis de cores personalizadas (`tema/paleta.test.ts`).
+- Os testes conferem os contrastes da paleta padrão e de combinações difíceis de cores personalizadas (`tests/test_palette.py`, sobre o `web/palette.py`).
 
 ## 17.5 Tipografia
 
 | Uso | Fonte | Tamanho / peso |
 |-----|-------|----------------|
-| Interface | **Inter**, instalada junto com o frontend (`@fontsource-variable/inter`), sem carregar de servidores externos. Alternativa: `system-ui` | 14 px no corpo; 13 px em tabelas densas |
+| Interface | **Inter**, servida pelo próprio sistema (`web/static/fonts/`), sem carregar de servidores externos. Alternativa: `system-ui` | 14 px no corpo; 13 px em tabelas densas |
 | Títulos de página | Inter | 20 px, peso 600 |
 | Título do chamado | Inter | 18 px, peso 600 |
 | Número do chamado e códigos | **JetBrains Mono** (ou `ui-monospace`) | Mesmo tamanho do texto ao redor |
@@ -91,7 +91,7 @@ O administrador pode enviar o logotipo da empresa em **Configurações** (PNG, J
 
 - **Até existir um logotipo próprio**, o TicketFlow usa um logotipo de texto: um quadrado arredondado em `brand-500` com um "T" branco em negrito, seguido de "TicketFlow" em Inter peso 700. O quadrado sozinho serve de ícone da aba (favicon) e de ícone do aplicativo no celular.
 - O **logotipo da empresa** entra pelas Configurações e aparece na tela de login, abaixo do nome TicketFlow, e no rodapé dos e-mails.
-- Um logotipo próprio do TicketFlow pode ser encomendado depois sem mudar nada no código: ele fica num único componente (`AppLogo.vue`) e nos arquivos de ícone.
+- Um logotipo próprio do TicketFlow pode ser encomendado depois sem mudar nada no código: ele fica num único macro (`logo()` em `web/templates/_ui.html`) e nos arquivos de ícone.
 
 ## 17.7 E-mails
 

@@ -4,7 +4,7 @@
 
 ## 12.1 Repositório e tarefas
 
-- **Repositório:** Git local, monorepo `backend/` + `frontend/` + `docs/`. Uma cópia fica no repositório de passagem do servidor de produção ([18.3](18-manual-do-servidor.md#5-código)), que também serve de cópia de segurança do código.
+- **Repositório:** Git local, monorepo `backend/` (API e telas, [ADR 0011](adr/0011-interface-web-no-servidor.md)) + `docs/`. Uma cópia fica no repositório de passagem do servidor de produção ([18.3](18-manual-do-servidor.md#5-código)), que também serve de cópia de segurança do código.
 - **Tarefas:** arquivo `TAREFAS.md` na raiz, criado na Fase 0. Uma linha por item do [roadmap](07-roadmap.md), com o código, o estado (`a fazer`, `fazendo`, `feito`) e o commit que concluiu. Bugs e pedidos do piloto entram numa seção própria, com data e quem relatou.
 - **Decisões:** continuam como ADR em `docs/adr/` e nas [questões em aberto](questoes-em-aberto.md).
 
@@ -38,12 +38,12 @@ docs/10-chamados.md#transferência
 
 | Quando | Comando | O que roda |
 |--------|---------|------------|
-| Antes de cada commit (hook `pre-commit`, instalado por `scripts/install-hooks.sh`) | `scripts/check.sh --rapido` | `ruff check`, `ruff format --check`, ESLint e Prettier nos arquivos alterados |
-| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy`, `pytest` com cobertura no PostgreSQL 17 (porta 5432), `vue-tsc`, Vitest, `vite build` e a verificação do contrato (OpenAPI e cliente TypeScript sem diferença não commitada) |
-| Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima + `pytest` também no **PostgreSQL 16**, Playwright e auditoria de dependências (`pip-audit`, `pnpm audit`) |
+| Antes de cada commit (hook `pre-commit`, instalado por `scripts/install-hooks.sh`) | `scripts/check.sh --rapido` | `ruff check` e `ruff format --check` nos arquivos alterados; procura segredos |
+| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy` e `pytest` com cobertura no PostgreSQL 17 (porta 5432), inclusive os testes das telas (`test_web_*.py`) |
+| Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima + `pytest` também no **PostgreSQL 16**, Playwright (quando entrar) e auditoria de dependências (`pip-audit`) |
 
 - O `check.sh` para com uma mensagem clara se o PostgreSQL não estiver respondendo.
-- **Dependências:** sem Dependabot, a atualização é uma rotina mensal registrada no `TAREFAS.md`: `uv lock --upgrade`, `pnpm update`, verificação completa e commit.
+- **Dependências:** sem Dependabot, a atualização é uma rotina mensal registrada no `TAREFAS.md`: `uv lock --upgrade`, verificação completa e commit.
 - **Segredos:** `.env` e chaves nunca entram no repositório (`.gitignore`); o `check.sh` falha se encontrar padrões de chave nos arquivos alterados.
 
 ## 12.4 Definição de pronto
@@ -51,11 +51,11 @@ docs/10-chamados.md#transferência
 Uma tarefa só fica `feito` quando:
 
 - [ ] Critérios de aceite atendidos
-- [ ] Testes automatizados: unitários e de integração (backend com banco real); componente ou ponta a ponta (frontend), quando aplicável
+- [ ] Testes automatizados: unitários e de integração (backend com banco real); testes das telas (HTML no pytest) e ponta a ponta, quando aplicável
 - [ ] **Testes de permissão** para qualquer endpoint novo ou alterado
 - [ ] Migração Alembic reversível (`downgrade`) e compatível com a versão anterior da aplicação
-- [ ] OpenAPI atualizada e cliente TypeScript regenerado
-- [ ] Textos da interface no i18n, em português **e** inglês, sem texto fixo no código; mensagens de erro novas da API no catálogo de `core/i18n.py`
+- [ ] OpenAPI atualizada (campos novos aditivos; mudança incompatível só em `/api/v2`)
+- [ ] Textos das telas em `web/locales/`, em português **e** inglês, sem texto fixo no código; mensagens de erro novas da API no catálogo de `core/i18n.py`
 - [ ] Acessibilidade verificada: navegação por teclado, foco visível, rótulos
 - [ ] Documentação em `docs/` atualizada quando a regra de negócio mudou; [ARCHITECTURE.md](../ARCHITECTURE.md) atualizado quando a estrutura mudou (módulo, camada ou regra nova)
 - [ ] **Revisão:** sem um segundo desenvolvedor, a mudança passa pelo `/code-review` do Claude Code; mudanças em login, permissões ou anexos passam também pelo `/security-review`
@@ -72,7 +72,7 @@ Uma tarefa só fica `feito` quando:
 
 | Ambiente | Para quê |
 |----------|----------|
-| **Local** | Desenvolvimento: PostgreSQL 17 e 16 nativos (`scripts/preparar-maquina-dev.sh` prepara uma máquina nova) + `uvicorn --reload` + `pnpm dev`, ou o serviço systemd local (`scripts/instalar-servico-dev.sh`). Também é onde roda a verificação (12.3) e, quando existir, a demonstração com `chamados dev seed` |
+| **Local** | Desenvolvimento: PostgreSQL 17 e 16 nativos (`scripts/preparar-maquina-dev.sh` prepara uma máquina nova) + `uvicorn --reload` + `scripts/css.sh --watch`, ou o serviço systemd local (`scripts/instalar-servico-dev.sh`). Também é onde roda a verificação (12.3) e, quando existir, a demonstração com `chamados dev seed` |
 | **Produção** | Servidor da empresa, com serviços systemd, atualizado pelo script de deploy ([18](18-manual-do-servidor.md)) |
 
 Não há homologação separada: com um único desenvolvedor, mais um servidor seria mais trabalho de manutenção do que ganho. O treinamento da equipe é feito na própria produção, antes da virada, num grupo **Treinamento** que é desativado depois ([16.5](16-implantacao.md#165-treinamento-1-hora)). Se o sistema for instalado em outras empresas, a homologação volta a ser avaliada.
@@ -84,7 +84,7 @@ Não há homologação separada: com um único desenvolvedor, mais um servidor s
 | Unitário (backend) | pytest | Regras puras: transições |
 | Integração (backend) | pytest + PostgreSQL real (banco `chamados_test`) | Services e endpoints com PostgreSQL real |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
-| Componentes (frontend) | Vitest + Vue Test Utils | Componentes e composables |
+| Telas | pytest (o HTML que cada rota devolve) | Campos, permissões, redirecionamentos e mensagens de erro (`test_web_*.py`) |
 | Ponta a ponta | Playwright | Fluxos completos: registrar → assumir → aguardar → concluir → reabrir; aprovação; transferência |
 
 **Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com grupos, setores atendidos, usuários de todos os perfis e chamados em todos os status.
@@ -96,8 +96,8 @@ Ao criar o remoto, o que hoje é local passa para o GitHub, sem mudar o resto do
 | Hoje (local) | No GitHub |
 |--------------|-----------|
 | `TAREFAS.md` | Issues com o código do roadmap no título (ex.: `[F1-S3-07] Transferir chamado entre grupos`), milestones por fase e GitHub Projects (*Backlog → Pronto para desenvolver → Em andamento → Concluído*) |
-| `scripts/check.sh` | GitHub Actions: `backend.yml` (matriz PostgreSQL 16 e 17), `frontend.yml`, `contract.yml`, `e2e.yml` (Playwright) e `codeql.yml` |
-| Rotina mensal de dependências | Dependabot (uv, pnpm, Actions), secret scanning e push protection |
+| `scripts/check.sh` | GitHub Actions: `backend.yml` (matriz PostgreSQL 16 e 17), `e2e.yml` (Playwright) e `codeql.yml` |
+| Rotina mensal de dependências | Dependabot (uv, Actions), secret scanning e push protection |
 | Tag + `CHANGELOG.md` | `release.yml` gerando a release a partir da tag |
 | Repositório de passagem no servidor | O servidor busca do GitHub |
 

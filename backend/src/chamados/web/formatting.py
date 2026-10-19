@@ -1,7 +1,7 @@
-"""Datas, tempo relativo e duração como a SPA mostra (`composables/formato.ts`).
+"""Datas, tempo relativo, duração e números das telas (como a SPA mostrava, ADR 0011).
 
 O fuso é sempre o de São Paulo (docs/13 §13.6). Os textos imitam o `Intl` do navegador no
-estilo curto, para as duas interfaces mostrarem o mesmo enquanto convivem (ADR 0011).
+estilo curto.
 """
 
 from datetime import date, datetime

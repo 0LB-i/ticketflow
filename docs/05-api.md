@@ -13,18 +13,18 @@ A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a
 | Filtros | Query string: `?status=open&team=ti&q=impressora` |
 | Ordenação | `?sort=-created_at` |
 | Erros | RFC 9457 (Problem Details): `{"type", "title", "status", "detail", "errors": [...]}` |
-| Idioma | Mensagens (`title`, `detail`) em português ou inglês, conforme o header `Accept-Language` que a interface envia com o idioma escolhido. As mensagens são escritas em português e traduzidas pelo catálogo em `core/i18n.py` |
+| Idioma | Mensagens (`title`, `detail`) em português ou inglês, conforme o header `Accept-Language` (nas telas, o idioma da pessoa). As mensagens são escritas em português e traduzidas pelo catálogo em `core/i18n.py` |
 | Idempotência | Header `Idempotency-Key` em `POST` (futuro, junto com os tokens de API: essencial para agentes de IA que repetem chamadas) |
 | Concorrência | `ETag` / `If-Match` em `PATCH` para evitar sobrescrever alteração de outro usuário |
 | Versionamento | Mudanças incompatíveis só em uma nova versão (`/api/v2`); campos novos são aditivos |
 | Rate limit | Headers `RateLimit-*`; `429` com `Retry-After` |
-| CORS | Desnecessário em produção: a SPA é servida na mesma origem da API. Em desenvolvimento, o proxy do Vite encaminha `/api` |
+| CORS | Desnecessário: as telas são servidas na mesma origem da API |
 
 ## Autenticação
 
 | Cliente | Mecanismo |
 |---------|-----------|
-| Interface web (SPA Vue) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF enviado em header (após o login). Nenhum token fica no `localStorage` |
+| Interface web (telas do servidor) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF num campo escondido do formulário ou no header (HTMX e envio de anexos). Nenhum token fica no `localStorage` |
 | Integrações e agentes de IA (futuro) | `Authorization: Bearer <token>`, um token de API com **escopos** |
 
 ### Tokens de API (futuro)

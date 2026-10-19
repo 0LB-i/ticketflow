@@ -1,15 +1,12 @@
-"""Cria a aplicação FastAPI: API em /api, as telas do servidor (ADR 0011) e a SPA compilada na
-mesma origem (ADR 0010)."""
+"""Cria a aplicação FastAPI: a API em /api e as telas do servidor (ADR 0011), na mesma origem
+(ADR 0010)."""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
-from starlette.responses import Response
-from starlette.types import Scope
 
 from chamados import __version__, web
 from chamados.config import Settings, get_settings
@@ -78,7 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(v1)
     app.include_router(api)
 
-    # Rotas /api inexistentes respondem 404 em JSON, em vez de cair no index.html da SPA.
+    # Rotas /api inexistentes respondem 404 em JSON, e não com a página de erro das telas.
     @app.api_route(
         "/api/{path:path}",
         methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -87,39 +84,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def api_not_found(path: str) -> None:
         raise HTTPException(404)
 
-    # Telas já migradas para o servidor; o que ainda não migrou continua na SPA (ADR 0011).
+    # Telas do servidor (ADR 0011). Endereço desconhecido: a página de erro (web/errors.py).
     app.add_exception_handler(Redirect, redirect_response)
     register_web_error_handlers(app)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(web.router)
-
-    _mount_spa(app, settings)
     return app
-
-
-class _HashedAssets(StaticFiles):
-    """Os arquivos de assets/ têm o hash do conteúdo no nome: o navegador guarda para sempre."""
-
-    async def get_response(self, path: str, scope: Scope) -> Response:
-        response = await super().get_response(path, scope)
-        if response.status_code == 200:
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        return response
-
-
-def _mount_spa(app: FastAPI, settings: Settings) -> None:
-    """Serve frontend/dist. Rotas desconhecidas devolvem o index.html (roteamento da SPA)."""
-    dist = settings.frontend_dist.resolve()
-    index = dist / "index.html"
-    if not index.is_file():
-        return
-    if (dist / "assets").is_dir():
-        app.mount("/assets", _HashedAssets(directory=dist / "assets"), name="assets")
-
-    @app.get("/{path:path}", include_in_schema=False)
-    async def spa(path: str) -> FileResponse:
-        file = (dist / path).resolve()
-        if path and file.is_file() and file.is_relative_to(dist):
-            return FileResponse(file)
-        # Sempre conferido: depois de uma atualização, aponta para os assets novos.
-        return FileResponse(index, headers={"Cache-Control": "no-cache"})

@@ -4,7 +4,6 @@
 # Não reinicia os serviços: quem reinicia é o administrador (ADR 0010).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 ENV_FILE="${ENV_FILE:-/etc/ticketflow/env}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/ticketflow}"
@@ -21,9 +20,6 @@ echo "== backend"
 
 echo "== CSS das telas do servidor"
 scripts/css.sh
-
-echo "== frontend"
-(cd frontend && pnpm install -s --frozen-lockfile && pnpm -s build)
 
 echo "== backup do banco antes das migrações"
 dump="$BACKUP_DIR/pre-deploy-$(date +%Y%m%d-%H%M%S).dump"

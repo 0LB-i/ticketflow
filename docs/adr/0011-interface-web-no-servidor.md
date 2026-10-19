@@ -1,6 +1,6 @@
 # 0011. Interface web renderizada no servidor: Jinja2 + HTMX + Tailwind CSS
 
-- **Status:** Aceita (migração em andamento)
+- **Status:** Aceita (migração concluída em 2026-10-19)
 - **Data:** 2026-10-17
 - **Substitui:** [0007](0007-interface-web-vue.md) e [0008](0008-reka-ui.md)
 - **Andamento:** [docs/19](../19-migracao-da-interface.md)
@@ -19,7 +19,7 @@ O NetKeep, outro sistema da mesma equipe, usa Jinja2 + HTMX + Tailwind sobre Fas
 - **A API JSON (`/api/v1`) continua**, para integrações e agentes de IA.
 - **Mesma sessão e mesmo CSRF:** o cookie `tf_sessao`. Os formulários que alteram dados mandam o token CSRF num campo escondido (`csrf_token`), e o HTMX o manda no header.
 - **Editor:** o Tiptap continua, num arquivo único já empacotado em `web/static/js/vendor/`. O Node volta a ser necessário só para atualizar esse arquivo.
-- **Idiomas:** os mesmos catálogos JSON da SPA, com `t()` nos templates.
+- **Idiomas:** os mesmos catálogos JSON da SPA, com `t()` nos templates; na troca final, eles passaram para `web/locales/`.
 - **Migração tela a tela.** Enquanto a SPA existir, o Vite repassa ao uvicorn os endereços das telas já migradas, e a SPA recarrega a página quando navega para uma delas (`ServerView.vue`). Na troca final saem o `frontend/`, o Node do deploy e o serviço do Vite, e o nginx de desenvolvimento passa a mandar tudo para o uvicorn.
 
 ## Alternativas consideradas

@@ -4,7 +4,7 @@ Princípios, escolhas de tecnologia e arquitetura-alvo. Para o mapa do código c
 
 ## Princípios
 
-1. **API-first.** Toda funcionalidade existe primeiro na API REST. A interface web (SPA em Vue) é só mais um cliente dela. Tudo o que a tela faz também pode ser feito pela API, o que deixa o caminho pronto para integrações e agentes de IA depois da v1.0.
+1. **API-first.** Toda funcionalidade existe primeiro na API REST. As telas, renderizadas no servidor, chamam as mesmas funções das rotas da API e não têm regra própria ([ADR 0011](adr/0011-interface-web-no-servidor.md)). Tudo o que a tela faz também pode ser feito pela API, o que deixa o caminho pronto para integrações e agentes de IA depois da v1.0.
 2. **Poucas peças móveis.** O PostgreSQL faz o papel de banco, fila de tarefas e busca textual (e, quando a IA entrar, busca vetorial). Redis, Elasticsearch etc. só entram se uma medição mostrar que são necessários.
 3. **IA é opcional e degradável.** A v1.0 não tem IA. Quando ela entrar, o sistema continua funcionando 100% sem ela: toda chamada a IA é assíncrona ou tem timeout e fallback.
 4. **Monólito modular.** Um único deploy, com módulos de domínio bem separados. Microsserviços só se houver motivo concreto.
@@ -24,14 +24,13 @@ Princípios, escolhas de tecnologia e arquitetura-alvo. Para o mapa do código c
 | Fila de tarefas | Tabela no PostgreSQL + `SKIP LOCKED` (avaliar a biblioteca *Procrastinate*) | Sem broker extra; transacional com os dados. Entra na Sprint 4 |
 | Cliente HTTP | httpx | Async; usado no futuro para webhooks e para a API de IA |
 | Autenticação | E-mail e senha (Argon2id) + sessão no servidor; TOTP para MFA | A empresa não tem diretório de contas; SSO fica para o futuro |
-| Interface web | Vue 3 + TypeScript + Vite + Tailwind CSS + Reka UI, Vue Router, Pinia, TanStack Query | SPA consumindo a API. Ver [ADR 0007](adr/0007-interface-web-vue.md) e [ADR 0008](adr/0008-reka-ui.md) |
-| Editor de texto | Tiptap gravando Markdown; exibição com `markdown-it` sem HTML bruto | Formatação sem o usuário saber Markdown (questão 4, decidida em 2026-10-10) |
-| Idiomas | vue-i18n (interface) e catálogo de mensagens no backend (`core/i18n.py`); português e inglês | Idioma padrão nas Configurações; cada pessoa escolhe o seu |
-| Cliente da API no frontend | Tipos gerados do OpenAPI (`openapi-typescript` + `openapi-fetch`) | O contrato do backend vira tipos TypeScript; mudança incompatível quebra o build |
+| Interface web | Jinja2 + HTMX + Tailwind CSS (binário standalone, sem Node), JavaScript puro sem build | Telas renderizadas pelo próprio FastAPI, uma linguagem só. Ver [ADR 0011](adr/0011-interface-web-no-servidor.md) (substitui os ADRs 0007 e 0008, da SPA em Vue) |
+| Editor de texto | Tiptap gravando Markdown; exibição com `markdown-it-py` sem HTML bruto | Formatação sem o usuário saber Markdown (questão 4, decidida em 2026-10-10) |
+| Idiomas | Catálogos JSON das telas (`web/locales/`) e catálogo de mensagens da API (`core/i18n.py`); português e inglês | Idioma padrão nas Configurações; cada pessoa escolhe o seu |
 | IA (futuro) | Cliente HTTP genérico no formato compatível com OpenAI | Sem acoplamento a provedor ou modelo. Ver [ADR 0004](adr/0004-ia-api-generica-e-assistiva.md) |
 | Gerência de pacotes | uv | Rápido, lockfile reprodutível |
 | Qualidade (backend) | ruff, mypy (strict), pytest com PostgreSQL real (16 e 17) | Ver [12.7](12-processo-de-desenvolvimento.md#127-estratégia-de-testes) |
-| Qualidade (frontend) | ESLint, Prettier, vue-tsc, Vitest, Playwright (testes ponta a ponta) | |
+| Qualidade (telas) | Testes do HTML no pytest (`test_web_*.py`); Playwright para os testes ponta a ponta, quando entrarem | |
 | Observabilidade | structlog (logs estruturados no journald); OpenTelemetry e métricas só se houver necessidade | |
 | Execução | systemd + uvicorn atrás do nginx; sem Docker (nem em desenvolvimento) | Ver [ADR 0010](adr/0010-producao-systemd.md) |
 
@@ -76,7 +75,7 @@ Diferenças em relação ao desenho original:
 - As **configurações da instalação** (idioma, cores, logotipo) formam o módulo `system`.
 - Módulos que ainda não existem: `attachments`, `knowledge`, `reports` e o `worker` (entram conforme o [roadmap](07-roadmap.md)).
 
-O backend não conhece o frontend: só expõe a API. O frontend nunca contém regra de negócio além de validação de formulário para dar retorno rápido; a validação que vale é a da API.
+As telas (`web/`) não contêm regra de negócio: chamam as funções da API ou os services e só montam o HTML; a validação que vale é a da API.
 
 ## Eventos de domínio
 
@@ -101,14 +100,14 @@ Cada empresa tem a **sua própria instalação**: aplicação e banco de dados p
 
 ```
 navegador ──HTTPS──► nginx ──► uvicorn (ticketflow.service) ──► PostgreSQL 17
-                                    │  API + SPA (frontend/dist)          ▲
+                                    │  API + telas (Jinja2 + HTMX)        ▲
                                     │                                     │
                      ticketflow-worker.service ─────────────────────┘
                      (fila de tarefas, e-mails, rotinas)
 ```
 
-- A SPA compilada é servida pelo próprio uvicorn, **na mesma origem** da API: sem CORS e com o cookie de sessão funcionando sem configuração extra.
+- As telas são servidas pelo próprio uvicorn, **na mesma origem** da API: sem CORS e com o cookie de sessão funcionando sem configuração extra.
 - Logs vão para o journald (`journalctl -u ticketflow`).
-- **Atualização:** `scripts/deploy.sh` (git pull, dependências, build do frontend, migrações). Quem reinicia os serviços é o usuário.
-- **Desenvolvimento:** PostgreSQL 17 e 16 nativos (numa máquina nova, `scripts/preparar-maquina-dev.sh`), backend com `uvicorn --reload` e frontend com `pnpm dev` (Vite); ou o serviço systemd local, instalado por `scripts/instalar-servico-dev.sh` ([README](../README.md#como-rodar-desenvolvimento)).
+- **Atualização:** `scripts/deploy.sh` (git pull, dependências, CSS das telas, migrações). Quem reinicia os serviços é o usuário.
+- **Desenvolvimento:** PostgreSQL 17 e 16 nativos (numa máquina nova, `scripts/preparar-maquina-dev.sh`), `uvicorn --reload` e `scripts/css.sh --watch` (o CSS das telas); ou o serviço systemd local, instalado por `scripts/instalar-servico-dev.sh` ([README](../README.md#como-rodar-desenvolvimento)).
 - **Backup:** `pg_dump` diário + cópia de `/var/lib/ticketflow/files`.

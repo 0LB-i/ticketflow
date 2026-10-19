@@ -6,8 +6,6 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -15,11 +13,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://chamados:chamados@localhost:5432/chamados"
     log_level: str = "INFO"
     log_format: Literal["json", "console"] = "json"
-    # SPA compilada servida na mesma origem da API (ADR 0010). Em dev, o Vite faz o proxy.
-    frontend_dist: Path = REPO_ROOT / "frontend" / "dist"
-
     # Endereço público, usado nos links dos e-mails (convite, redefinição de senha).
-    app_base_url: str = "http://localhost:5173"
+    app_base_url: str = "http://localhost:8000"
 
     # Sessões (docs/09 §9.7). Em produção o cookie é sempre Secure.
     cookie_secure: bool = True

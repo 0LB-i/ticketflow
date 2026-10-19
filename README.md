@@ -38,7 +38,7 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 - **Banco:** PostgreSQL 17 (compatível com 16); uma instalação por empresa
 - **Acesso a dados:** SQLAlchemy 2.x + psycopg 3, migrações com Alembic
 - **Tarefas assíncronas:** fila no próprio PostgreSQL (`SELECT ... FOR UPDATE SKIP LOCKED`)
-- **Interface web:** SPA em Vue 3 + TypeScript + Vite + Tailwind CSS + Reka UI, consumindo a API REST; editor Tiptap (Markdown)
+- **Interface web:** telas renderizadas no servidor com Jinja2 + HTMX + Tailwind CSS (binário standalone, sem Node), [ADR 0011](docs/adr/0011-interface-web-no-servidor.md); editor Tiptap (Markdown). A API REST continua para integrações
 - **Idiomas:** português e inglês (padrão do sistema + escolha de cada usuário)
 - **Repositório:** Git local, com verificação por script; GitHub quando houver remoto
 - **Produção:** serviços systemd (uvicorn) + nginx + PostgreSQL 17 no mesmo servidor
@@ -48,7 +48,7 @@ A estrutura do código está no [ARCHITECTURE.md](ARCHITECTURE.md); as justifica
 
 ## Como rodar (desenvolvimento)
 
-**Máquina nova (Ubuntu 24.04):** um script instala tudo o que está abaixo (uv, Node.js 22 + pnpm, PostgreSQL 17 e 16, usuário e bancos de desenvolvimento), clona o código em `/opt/ticketflow`, instala as dependências e o hook de pre-commit e cria uma chave para enviar commits ao GitHub:
+**Máquina nova (Ubuntu 24.04):** um script instala tudo o que está abaixo (uv, PostgreSQL 17 e 16, usuário e bancos de desenvolvimento), clona o código em `/opt/ticketflow`, instala as dependências e o hook de pre-commit e cria uma chave para enviar commits ao GitHub:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/0LB-i/ticketflow/main/scripts/preparar-maquina-dev.sh
@@ -58,31 +58,24 @@ sudo bash preparar-maquina-dev.sh              # com --servico, instala também 
 No fim ele mostra a chave pública, para cadastrar no GitHub como *deploy key* com escrita (Settings → Deploy keys).
 
 
-Requisitos: [uv](https://docs.astral.sh/uv/), Node.js 22 com `corepack enable` (pnpm) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
+Requisitos: [uv](https://docs.astral.sh/uv/) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
 
 O PostgreSQL 16 também fica instalado, na porta 5433, para a verificação completa.
 
 ```bash
-# backend: API em http://127.0.0.1:8000 (documentação em /api/docs)
+# http://127.0.0.1:8000: as telas e a API (documentação em /api/docs)
+# entre com admin / admin: o sistema pede a troca da senha no primeiro acesso
 cd backend
 cp .env.example .env
 uv sync
 uv run chamados db upgrade              # cria o administrador padrão: usuário admin, senha admin
 uv run uvicorn chamados.main:create_app --factory --reload
 
-# CSS das telas do servidor (login e as que já migraram, ADR 0011), em outro terminal
+# CSS das telas (Tailwind), gerado de novo a cada mudança nos templates; em outro terminal, na raiz
 scripts/css.sh --watch
-
-# frontend, em outro terminal: http://localhost:5173 (o Vite repassa /api para o backend)
-# entre com admin / admin: o sistema pede a troca da senha no primeiro acesso
-cd frontend
-pnpm install
-pnpm dev
 ```
 
-Depois de mudar a API no backend: `pnpm gen:api` (no `frontend/`) regenera o cliente TypeScript.
-
-**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala três serviços em modo de desenvolvimento, atrás do nginx em `https://IP` (a porta 80 redireciona para a 443): o `ticketflow-frontend.service` (o Vite em `127.0.0.1:5173`, que compila sob demanda e atualiza o navegador sozinho), o `ticketflow.service` (o uvicorn em `127.0.0.1:8001` com `--reload`, que reinicia sozinho quando um `.py` muda) e o `ticketflow-css.service` (o Tailwind gerando de novo o CSS das telas do servidor a cada mudança nos templates). O certificado é autoassinado (`/etc/ticketflow/tls/ticketflow.crt`): instale-o como confiável no computador para o navegador não avisar. Não há build nem reinício a cada mudança; só as migrações são aplicadas à mão (`.venv/bin/chamados db upgrade`, com o `/etc/ticketflow/env`). Rodar o script de novo atualiza as dependências e aplica as migrações.
+**Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala dois serviços em modo de desenvolvimento, atrás do nginx em `https://IP` (a porta 80 redireciona para a 443): o `ticketflow.service` (o uvicorn em `127.0.0.1:8001` com `--reload`, que reinicia sozinho quando um `.py` muda; o nginx manda tudo para ele) e o `ticketflow-css.service` (o Tailwind gerando de novo o CSS das telas a cada mudança nos templates). Numa instalação antiga, ele também desativa e apaga o `ticketflow-frontend.service` (o Vite, que saiu com a SPA). O certificado é autoassinado (`/etc/ticketflow/tls/ticketflow.crt`): instale-o como confiável no computador para o navegador não avisar. Não há build nem reinício a cada mudança (basta recarregar a página); só as migrações são aplicadas à mão (`.venv/bin/chamados db upgrade`, com o `/etc/ticketflow/env`). Rodar o script de novo atualiza as dependências e aplica as migrações.
 
 ### Verificação
 

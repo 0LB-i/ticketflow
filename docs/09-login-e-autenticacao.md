@@ -34,7 +34,7 @@ Detalhes do administrador padrão:
 ```mermaid
 sequenceDiagram
     actor U as Usuário
-    participant S as SPA (Vue)
+    participant S as Tela de login (servidor)
     participant A as API
     participant DB as PostgreSQL
     U->>S: e-mail e senha
@@ -80,7 +80,7 @@ Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como 
 ```mermaid
 sequenceDiagram
     actor U as Usuário
-    participant S as SPA
+    participant S as Telas (servidor)
     participant A as API
     participant IdP as Provedor de identidade
     U->>S: "Entrar com a conta da empresa"
@@ -91,10 +91,10 @@ sequenceDiagram
     A->>IdP: troca code por tokens (lado servidor)
     A->>A: valida id_token, state e nonce
     A->>A: localiza ou cria o usuário + aplica mapeamentos
-    A-->>S: Set-Cookie de sessão e redireciona para a SPA
+    A-->>S: Set-Cookie de sessão e redireciona para a tela inicial
 ```
 
-- O **backend** é o cliente OIDC confidencial. A SPA nunca recebe nem guarda tokens do provedor.
+- O **backend** é o cliente OIDC confidencial. O navegador nunca recebe nem guarda tokens do provedor.
 - **Identificação do usuário:** primeiro pelo `sub` (`users.external_id`). No primeiro login, pelo e-mail, se `email_verified` for verdadeiro e o domínio estiver na lista permitida.
 - **Criação automática (JIT):** se o usuário não existir e o domínio for permitido, ele é criado com o papel padrão (Agente, sem grupo até o admin incluí-lo) e os mapeamentos são aplicados. Domínios fora da lista são recusados.
 - **Configuração** (tela de administração): URL do emissor (*issuer*), client ID, referência ao segredo, domínios permitidos, nomes das *claims* (nome, e-mail, setor, grupos) e a opção "SSO obrigatório".
@@ -122,7 +122,7 @@ O administrador associa grupos do Entra ID / Google / Keycloak a elementos do si
 - **Sessão no servidor** (tabela `user_sessions`). O cookie só contém um identificador aleatório de 256 bits, e no banco fica o hash dele.
 - **Expiração:** após 8 h sem uso ou 7 dias no máximo (ambos configuráveis).
 - **Cookie:** `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`.
-- **CSRF:** um segundo cookie, legível pelo JavaScript, carrega o token CSRF. A SPA o envia no header `X-CSRF-Token` em todo `POST`, `PUT`, `PATCH` e `DELETE`, e a API compara os dois.
+- **CSRF:** um segundo cookie, legível pelo JavaScript, carrega o token CSRF. As telas o enviam num campo escondido (`csrf_token`) dos formulários, ou no header `X-CSRF-Token` (HTMX e envio de anexos), em todo `POST`, `PUT`, `PATCH` e `DELETE`, e o servidor compara com o hash da sessão.
 - **Permissões avaliadas a cada requisição:** se o papel ou os grupos de alguém mudam, o efeito é imediato, sem precisar sair e entrar de novo.
 - **Gerenciamento:** o usuário vê as próprias sessões ativas (dispositivo, IP, último acesso) e pode encerrá-las. O admin pode encerrar todas as sessões de um usuário.
 
