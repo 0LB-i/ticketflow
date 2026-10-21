@@ -9,9 +9,9 @@ Se já houver commits em branches separadas, fazer cherry-pick para `main` antes
 
 ## 0.1 Serviço web — Regra de ouro
 
-**Não reiniciar o `ticketflow.service` nem o `ticketflow-frontend.service`, e não subir instâncias extras do uvicorn ou do Vite em portas alternativas para validar mudanças.** Quem confere o resultado no navegador é o usuário. Uma instância de teste numa porta alternativa pode colidir com recursos compartilhados do serviço real (ex: arquivo de log com rotação do loguru) e derrubar o ambiente.
+**Não reiniciar o `ticketflow.service` nem o `ticketflow-css.service`, e não subir instâncias extras do uvicorn em portas alternativas para validar mudanças.** Quem confere o resultado no navegador é o usuário. Uma instância de teste numa porta alternativa pode colidir com recursos compartilhados do serviço real (ex: arquivo de log com rotação do loguru) e derrubar o ambiente.
 
-Na máquina de desenvolvimento os serviços rodam em modo dev (`scripts/instalar-servico-dev.sh`): o Vite atualiza a interface e o uvicorn (`--reload`) se reinicia sozinho a cada mudança. **Não é preciso `pnpm build`** para o usuário ver uma mudança. Migração nova continua manual: aplicar no banco de dev (`cd backend && set -a && . /etc/ticketflow/env && set +a && uv run chamados db upgrade`).
+Na máquina de desenvolvimento os serviços rodam em modo dev (`scripts/instalar-servico-dev.sh`): o uvicorn (`--reload`) se reinicia sozinho a cada mudança e o `ticketflow-css.service` gera de novo o CSS a cada mudança nos templates. **Não há build**: basta o usuário recarregar a página para ver uma mudança. Migração nova continua manual: aplicar no banco de dev (`cd backend && set -a && . /etc/ticketflow/env && set +a && uv run chamados db upgrade`).
 
 ## 0.2 Estrutura do código
 
@@ -19,7 +19,7 @@ Na máquina de desenvolvimento os serviços rodam em modo dev (`scripts/instalar
 
 ## 0.3 Verificação sem desperdício
 
-Durante a tarefa, rodar só o que a mudança afeta (`uv run pytest tests/test_x.py`, `pnpm vitest run caminho`, `pnpm typecheck`). O `scripts/check.sh` completo roda **uma vez**, antes do commit; se ele falhar só no contrato da API por arquivos ainda não adicionados, basta o `git add` (o hook de pre-commit refaz o lint).
+Durante a tarefa, rodar só o que a mudança afeta (`uv run pytest tests/test_x.py`). O `scripts/check.sh` completo roda **uma vez**, antes do commit.
 
 ## 1. Think Before Coding
 

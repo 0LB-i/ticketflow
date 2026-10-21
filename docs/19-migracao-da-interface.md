@@ -53,7 +53,7 @@ O roteiro, como estava. O que existia na SPA: `frontend/src/views/reports/Report
 
 Como ficou:
 
-- O `frontend/` saiu do git. Fora do git sobra, na máquina de desenvolvimento, o `frontend/node_modules`, que o usuário apaga depois de rodar o `instalar-servico-dev.sh`; o `frontend/dist` já foi apagado. O `.gitignore` ignora `/frontend/`, para os restos de instalações antigas (inclusive o `dist` da produção) não aparecerem no `git status`.
+- O `frontend/` saiu do git. Em 2026-10-21, a máquina de desenvolvimento passou para os serviços novos (`instalar-servico-dev.sh`), e saíram dela o `frontend/node_modules`, o Node.js, o pnpm e os caches deles; o CLAUDE.md (§0.1 e §0.3) deixou de falar do Vite e do pnpm. O `.gitignore` ignora `/frontend/`, para os restos de instalações antigas (inclusive o `dist` da produção) não aparecerem no `git status`.
 - Saíram dos catálogos as chaves que só a SPA usava (`naoEncontrado`, `semAcesso`, `componentes`, `status`, `menu.componentes`, `comum.confirmar`, `comum.nenhum`).
 - O `instalar-servico-dev.sh` desativa e apaga o `ticketflow-frontend.service` de instalações antigas.
 - O `APP_BASE_URL` padrão passou a `http://localhost:8000`, o endereço do uvicorn sem o Vite.
@@ -84,11 +84,9 @@ O roteiro, como estava. Lista do que muda:
 
 | O quê | Situação |
 |-------|----------|
-| `ticketflow-css.service` | Ainda não instalado nesta máquina. Até `sudo scripts/instalar-servico-dev.sh`, o CSS é gerado à mão com `scripts/css.sh` depois de mudar templates |
 | Editor (menções, imagem colada) sem teste automático | Os testes do Vue saíram com a SPA. Conferido no jsdom; fica para o Playwright |
 | Erro 4xx num trecho pedido pelo HTMX | A tela fica como estava, sem aviso. Raro: esses pedidos são só leitura |
 | JavaScript das telas sem teste automático | Desde a WEB-06 não há jsdom no projeto. Mudanças em `web/static/js/` são conferidas no navegador até os testes com Playwright (F1-S5-04) |
-| Serviço de desenvolvimento antigo | Até `sudo scripts/instalar-servico-dev.sh`, o nginx desta máquina ainda manda as telas ao Vite, que perdeu o `vite.config.ts` e o `index.html`: a interface pode ficar fora do ar até o script rodar |
 | Primeiro deploy em produção | Precisa de acesso ao GitHub para baixar o binário do Tailwind (CHANGELOG, docs/18) |
 | Templates novos no deploy | Valem assim que o `deploy.sh` termina; o código Python, só depois do restart. Reiniciar logo depois do deploy |
 | Select que envia ao mudar, pelo teclado | Status, observadores e "Atribuir a" da lateral do chamado, os filtros da lista de chamados e o período, o grupo e a pessoa dos relatórios são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |
