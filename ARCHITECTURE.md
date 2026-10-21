@@ -43,10 +43,10 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 │   ├── migrations/        Alembic: env.py e versions/0001…0028
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
-├── scripts/               check.sh, install-hooks.sh, deploy.sh, backup.sh, instalar-servico-dev.sh, css.sh,
+├── scripts/               check.sh, install-hooks.sh, deploy.sh, instalar-servico-dev.sh, css.sh,
 │                          vendor-tiptap.sh (o único uso de Node, só para trocar a versão do Tiptap),
 │                          preparar-maquina-dev.sh (Ubuntu 24.04 novo pronto para desenvolver)
-└── deploy/                units do systemd (app, worker, backup) e nginx.conf
+└── deploy/                units do systemd (app e worker) e nginx.conf
 ```
 
 Convenção de nomes ([ADR 0001](docs/adr/0001-registro-de-decisoes.md)): **código, banco e API em inglês** (`ticket`, `assignee`); **documentação, mensagens, testes e comentários em português**. No JavaScript das telas (`web/static/js/`), variáveis, funções e atributos `data-*` também estão em português (`escolherCliente`, `data-envia-ao-mudar`).
@@ -105,7 +105,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `COOKIE_SECURE` | `true` | Cookie só em HTTPS (desligar sem HTTPS) |
 | `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS` | `8`, `7` | Expiração das sessões |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | sem `SMTP_HOST` | Sem SMTP, os e-mails vão para o log |
-| `FILES_DIR` | `/var/lib/ticketflow/files` | Anexos (só o usuário do serviço acessa; entra no backup com o banco) |
+| `FILES_DIR` | `/var/lib/ticketflow/files` | Anexos (só o usuário do serviço acessa; o backup, fora do programa, copia junto com o banco) |
 
 ### 3.3 Módulos
 
@@ -392,7 +392,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 |----------|------|
 | **Desenvolvimento, terminais** | PostgreSQL nativo (17 na 5432, 16 na 5433; numa máquina nova, `scripts/preparar-maquina-dev.sh`); `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `scripts/css.sh --watch` (o CSS das telas). Ver o [README](README.md#como-rodar-desenvolvimento) |
 | **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento, sem build, atrás do nginx em `https://IP` (80 redireciona para 443; certificado autoassinado em `/etc/ticketflow/tls`). O nginx manda tudo para o `ticketflow.service` (a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`). O `ticketflow-css.service` gera o CSS das telas (`scripts/css.sh --watch`). Aplica as migrações e, de instalações antigas, desativa e apaga o `ticketflow-frontend.service` (Vite) |
-| **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`; backup diário por `scripts/backup.sh` (timer). Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
+| **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`. O backup não faz parte do programa: fica com quem administra o servidor. Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 
 Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o Claude Code ([CLAUDE.md](CLAUDE.md)). Na máquina de desenvolvimento não é preciso: o `--reload` e o `ticketflow-css.service` pegam as mudanças, que aparecem ao recarregar a página. Na produção, templates e CSS mudam assim que o `deploy.sh` termina; o código Python, só depois do `systemctl restart`.
 

@@ -110,4 +110,4 @@ navegador ──HTTPS──► nginx ──► uvicorn (ticketflow.service) ─�
 - Logs vão para o journald (`journalctl -u ticketflow`).
 - **Atualização:** `scripts/deploy.sh` (git pull, dependências, CSS das telas, migrações). Quem reinicia os serviços é o usuário.
 - **Desenvolvimento:** PostgreSQL 17 e 16 nativos (numa máquina nova, `scripts/preparar-maquina-dev.sh`), `uvicorn --reload` e `scripts/css.sh --watch` (o CSS das telas); ou o serviço systemd local, instalado por `scripts/instalar-servico-dev.sh` ([README](../README.md#como-rodar-desenvolvimento)).
-- **Backup:** `pg_dump` diário + cópia de `/var/lib/ticketflow/files`.
+- **Backup:** fora do programa; quem administra o servidor copia o banco e `/var/lib/ticketflow/files` ([18.5](18-manual-do-servidor.md#185-backup)).

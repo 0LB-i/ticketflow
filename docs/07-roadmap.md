@@ -104,7 +104,7 @@ flowchart LR
 | F1-S5-03 | Ocultar comentário ou anexo com motivo | [10.6](10-chamados.md#regras-de-edição) |
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | — |
 | F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | — |
-| F1-S5-06 | Instalação no servidor da empresa (systemd, nginx, PostgreSQL 17), backup testado com restauração | [18](18-manual-do-servidor.md) |
+| F1-S5-06 | Instalação no servidor da empresa (systemd, nginx, PostgreSQL 17) | [18](18-manual-do-servidor.md) |
 | F1-S5-07 | Carga inicial da empresa: grupos, usuários, setores atendidos, categorias | [15](15-estrutura-inicial.md) |
 | F1-S5-08 | Treinamento, guia rápido e virada da TI | [16](16-implantacao.md) |
 
@@ -190,6 +190,6 @@ O desenho de banco destes itens está em [`esboco-schema-futuro.sql`](esboco-sch
 |-------|-----------|
 | Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
 | Desenvolvedor único: indisponibilidade ou conhecimento concentrado | Documentação em `docs/`, testes automatizados, `TAREFAS.md` sempre atualizado e decisões registradas em ADR |
-| Código só na máquina de desenvolvimento | `git push` frequente para o repositório de passagem do servidor ([18.3](18-manual-do-servidor.md#5-código)), que também entra no backup |
+| Código só na máquina de desenvolvimento | `git push` frequente para o repositório de passagem do servidor ([18.3](18-manual-do-servidor.md#5-código)) |
 | Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
 | A equipe registrar só parte do trabalho | Virada com data marcada, combinados da equipe e acompanhamento diário nas duas primeiras semanas ([16](16-implantacao.md)) |

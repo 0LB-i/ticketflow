@@ -72,7 +72,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S5-03 | Ocultar comentário ou anexo com motivo | a fazer | |
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | a fazer | |
 | F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | a fazer | |
-| F1-S5-06 | Instalação no servidor da empresa (systemd, nginx, PostgreSQL 17), backup testado com restauração | a fazer | |
+| F1-S5-06 | Instalação no servidor da empresa (systemd, nginx, PostgreSQL 17) | a fazer | |
 | F1-S5-07 | Carga inicial da empresa: grupos, usuários, setores atendidos, categorias | a fazer | |
 | F1-S5-08 | Treinamento, guia rápido e virada da TI | a fazer | |
 
@@ -123,7 +123,6 @@ Concluída em 2026-10-19: todas as telas são do servidor ([ARCHITECTURE 3.11](A
 | Rotina | Frequência | Última vez |
 |--------|------------|------------|
 | Atualizar dependências (`uv lock --upgrade`) + `scripts/check.sh --completo` | Mensal | |
-| Testar a restauração do backup em produção ([docs/18 §18.5](docs/18-manual-do-servidor.md#185-backup-e-restauração)) | Trimestral | |
 
 ## Bugs e pedidos do piloto
 

@@ -6,7 +6,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 ENV_FILE="${ENV_FILE:-/etc/ticketflow/env}"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/ticketflow}"
 set -a
 # shellcheck disable=SC1090
 . "$ENV_FILE"
@@ -20,11 +19,6 @@ echo "== backend"
 
 echo "== CSS das telas do servidor"
 scripts/css.sh
-
-echo "== backup do banco antes das migrações"
-dump="$BACKUP_DIR/pre-deploy-$(date +%Y%m%d-%H%M%S).dump"
-pg_dump -Fc -d "${DATABASE_URL/+psycopg/}" -f "$dump"
-echo "salvo em $dump"
 
 echo "== migrações"
 (cd backend && .venv/bin/chamados db upgrade)

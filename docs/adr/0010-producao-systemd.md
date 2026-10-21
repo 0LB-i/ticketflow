@@ -20,7 +20,7 @@ A primeira instalação é a da empresa: até 50 usuários, um único servidor L
 - **Logs** em stdout, capturados pelo journald (`journalctl -u ticketflow`). Nenhum arquivo de log próprio da aplicação.
 - **Atualização** com um script de deploy no repositório (`scripts/deploy.sh`): `git pull` na `main`, `uv sync --frozen`, build do frontend (`pnpm build`) e `chamados db upgrade`. **Quem reinicia os serviços é o usuário** (regra do CLAUDE.md); o script só prepara tudo e avisa.
 - **Arquivos de anexos** em diretório local (`/var/lib/ticketflow/files`).
-- **Backup:** `pg_dump` diário + cópia do diretório de anexos, com retenção e teste de restauração documentados.
+- **Backup:** `pg_dump` diário + cópia do diretório de anexos, com retenção e teste de restauração documentados. *Revisto em 2026-10-21: o backup saiu do programa e fica com quem administra o servidor ([18.5](../18-manual-do-servidor.md#185-backup)).*
 
 ## Alternativas consideradas
 

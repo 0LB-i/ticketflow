@@ -26,7 +26,7 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 | 15 | [Estrutura da empresa](docs/15-estrutura-inicial.md) | Modelo para a carga inicial: grupos, usuários, setores atendidos, categorias |
 | 16 | [Plano de implantação](docs/16-implantacao.md) | Virada da TI, treinamento, combinados, acompanhamento e expansão |
 | 17 | [Identidade visual](docs/17-identidade-visual.md) | Nome, cores, contraste, tipografia, logotipo e e-mails |
-| 18 | [Manual do servidor](docs/18-manual-do-servidor.md) | Instalação no Ubuntu 24.04, atualização, backup, rotina e problemas comuns |
+| 18 | [Manual do servidor](docs/18-manual-do-servidor.md) | Instalação no Ubuntu 24.04, atualização, rotina e problemas comuns |
 | — | [Glossário](docs/glossario.md) | Termos do domínio e nomes no código |
 | — | [Questões em aberto](docs/questoes-em-aberto.md) | Decisões ainda pendentes |
 | — | [ADRs](docs/adr/) | Registro de decisões de arquitetura |

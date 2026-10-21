@@ -61,6 +61,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Todo chamado tem responsável e cliente: o registro exige os dois, o cliente troca mas não sai, e a transferência pede o novo responsável (membro do grupo de destino). Saem a aba "Não atribuídos", o botão "Pegar o próximo" (`POST /tickets/next`), o "Devolver para a fila" (`assignee: null`) e o filtro "Sem responsável" (`assignee=none`). Migração `0028`: `tickets.assignee_id` NOT NULL (falha se houver chamado sem responsável: atribua antes de atualizar). Chamados antigos sem cliente continuam aceitos pelo banco.
 - Sai a aba "Com novidades" da lista de chamados (fila `news` da API e o contador dela). O ícone de tarefa nova de outra pessoa continua ao lado do título, em todas as abas.
 - Clientes passam para o menu **Administração** (`/admin/clientes`) e só o grupo **Administradores** vê o cadastro (migração `0029` tira `client.view` dos papéis). Os demais escolhem o cliente do chamado e o filtro dos relatórios só pelo nome (`GET /clients/options`, sem CPF/CNPJ, contatos nem endereço).
+- O backup sai do programa e fica com quem administra o servidor ([docs/18 §18.5](docs/18-manual-do-servidor.md#185-backup)): saem o `scripts/backup.sh`, o `ticketflow-backup.service` e o timer, e o `deploy.sh` não faz mais o dump do banco antes das migrações. Numa instalação existente: `sudo systemctl disable --now ticketflow-backup.timer` e apagar as units de `/etc/systemd/system`; os dumps em `/var/backups/ticketflow` não são mais limpos.
 
 ### Variáveis de ambiente
 

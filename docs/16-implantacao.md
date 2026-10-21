@@ -24,7 +24,7 @@ O dia D é marcado no início da Sprint 5. Sugestão: uma **terça ou quarta-fei
 
 | Quando | O quê | Responsável | Pronto quando |
 |--------|-------|-------------|---------------|
-| D−15 | Servidor de produção pronto conforme o [manual](18-manual-do-servidor.md): HTTPS, e-mail de envio funcionando, backup **restaurado com sucesso** pelo menos uma vez | Desenvolvedor | Todos os passos de 18.3 e a restauração de 18.5 conferidos |
+| D−15 | Servidor de produção pronto conforme o [manual](18-manual-do-servidor.md): HTTPS e e-mail de envio funcionando | Desenvolvedor | Todos os passos de 18.3 conferidos |
 | D−10 | Troca da senha do `admin` padrão (se ainda não foi feita no D−15) e carga inicial ([15](15-estrutura-inicial.md)): grupos, setores atendidos, categorias, usuários convidados | Administrador | Todos os membros conseguem entrar |
 | D−7 | **Treinamento** de 1 hora (16.5) + guia rápido (16.6) | Desenvolvedor | Cada membro registrou, assumiu e concluiu um chamado de teste |
 | D−3 a D−1 | **Levantamento das tarefas em aberto**: cada membro lista o que está com ele hoje (e-mails, anotações, mensagens, planilhas) | Equipe da TI | Lista pronta para cadastrar |
@@ -78,7 +78,7 @@ Entregue no treinamento e linkado na tela inicial do sistema. Conteúdo:
 | Situação | O que fazer |
 |----------|-------------|
 | Sistema fora do ar por menos de meio dia | Anotar as tarefas numa lista compartilhada e cadastrar quando voltar |
-| Sistema fora do ar por mais de um dia, ou perda de dados | Restaurar o backup mais recente ([03](03-arquitetura.md#implantação)) e cadastrar as tarefas criadas depois dele |
+| Sistema fora do ar por mais de um dia, ou perda de dados | Restaurar o backup mais recente ([18.5](18-manual-do-servidor.md#185-backup)) e cadastrar as tarefas criadas depois dele |
 | Piloto pausado na avaliação do D+14 | A equipe volta ao controle anterior; os chamados em aberto são exportados (CSV) para não se perderem |
 
 ## 16.9 Como medir o piloto

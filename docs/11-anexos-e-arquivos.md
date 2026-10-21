@@ -91,7 +91,7 @@ Interface `Storage` (`put`, `get`, `delete`, `presigned_url`) com dois adaptador
 
 - **Chave do arquivo:** `attachments/AAAA/MM/<uuid>`, sem o nome original.
 - **Integridade:** o SHA-256 é calculado durante o envio e conferido em leituras sensíveis. Não há deduplicação entre chamados, porque ela revelaria que dois usuários enviaram o mesmo arquivo.
-- **Backup:** os arquivos precisam de backup **junto** com o banco. O guia de instalação deve deixar isso explícito.
+- **Backup:** os arquivos precisam de backup **junto** com o banco. O backup fica com quem administra o servidor ([18.5](18-manual-do-servidor.md#185-backup)).
 
 ## 11.7 Download e visualização
 

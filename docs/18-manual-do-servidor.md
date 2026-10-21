@@ -1,6 +1,6 @@
 # 18. Manual do servidor
 
-Instalação, atualização, backup e diagnóstico do TicketFlow em produção, seguindo o [ADR 0010](adr/0010-producao-systemd.md): serviços systemd + nginx + PostgreSQL 17 num único servidor **Ubuntu 24.04 LTS**.
+Instalação, atualização e diagnóstico do TicketFlow em produção, seguindo o [ADR 0010](adr/0010-producao-systemd.md): serviços systemd + nginx + PostgreSQL 17 num único servidor **Ubuntu 24.04 LTS**.
 
 > Os arquivos citados em `deploy/` e `scripts/` são criados na Fase 0 (`F0-09`). Os comandos abaixo são a referência para escrevê-los e devem ser conferidos na primeira instalação real.
 
@@ -20,7 +20,6 @@ navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (tick
 | Repositório Git de passagem (recebe o `git push`) | `/srv/git/ticketflow.git` |
 | Configuração e segredos | `/etc/ticketflow/env` |
 | Anexos | `/var/lib/ticketflow/files` |
-| Backups locais | `/var/backups/ticketflow` |
 | Usuário do sistema que roda os serviços | `ticketflow` |
 | Banco de dados / papel no PostgreSQL | `chamados` / `ticketflow` (autenticação *peer*, sem senha) |
 | Logs | journald: `journalctl -u ticketflow -u ticketflow-worker` |
@@ -34,7 +33,6 @@ navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (tick
   - Let's Encrypt com **desafio por DNS**, se o servidor for só da rede interna e o DNS do domínio permitir;
   - **certificado da empresa**, se a empresa já tiver um.
 - **E-mail de envio (SMTP):** a definir ([questão 1](questoes-em-aberto.md)). Sem ele, convites e notificações não saem.
-- **Destino da cópia externa do backup** (outro servidor, NAS ou armazenamento em nuvem): a definir ([questão 13](questoes-em-aberto.md)).
 
 ## 18.3 Instalação
 
@@ -59,7 +57,6 @@ sudo adduser --system --group --home /var/lib/ticketflow ticketflow
 sudo install -d -o ticketflow -g ticketflow -m 750 /var/lib/ticketflow/files
 sudo install -d -o ticketflow -g ticketflow -m 755 /opt/ticketflow
 sudo install -d -o root -g ticketflow -m 750 /etc/ticketflow
-sudo install -d -o ticketflow -g ticketflow -m 700 /var/backups/ticketflow
 ```
 
 ### 3. PostgreSQL 17
@@ -133,9 +130,8 @@ O script faz `git pull`, `uv sync --frozen`, gera o CSS das telas do servidor (`
 
 ```bash
 sudo cp /opt/ticketflow/deploy/ticketflow*.service /etc/systemd/system/
-sudo cp /opt/ticketflow/deploy/ticketflow-backup.* /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now ticketflow ticketflow-backup.timer
+sudo systemctl enable --now ticketflow
 sudo systemctl enable --now ticketflow-worker     # só a partir da Sprint 4, quando o worker existir
 ```
 
@@ -199,31 +195,14 @@ sudo systemctl restart ticketflow ticketflow-worker
 curl -fsS https://ticketflow.example.com/api/health
 ```
 
-- O `deploy.sh` faz um **backup do banco antes de rodar as migrações**.
 - Reiniciar os serviços é sempre um passo manual e consciente ([ADR 0010](adr/0010-producao-systemd.md)). Avisar a equipe antes: a interrupção dura poucos segundos.
 - Cada versão traz notas de atualização ([12.5](12-processo-de-desenvolvimento.md#125-versões-e-entregas)). Ler antes de atualizar.
 
-**Voltar à versão anterior:** `git checkout <tag anterior>` no servidor, `chamados db downgrade <revisão>` se a versão nova tinha migração, `deploy.sh` e reinício. Se a migração não puder ser desfeita, restaurar o backup feito pelo `deploy.sh` (18.5).
+**Voltar à versão anterior:** `git checkout <tag anterior>` no servidor, `chamados db downgrade <revisão>` se a versão nova tinha migração, `deploy.sh` e reinício. Se a migração não puder ser desfeita, restaurar um backup do banco (18.5).
 
-## 18.5 Backup e restauração
+## 18.5 Backup
 
-**Backup diário** (`ticketflow-backup.timer`, às 02:00, roda `scripts/backup.sh`):
-
-1. `pg_dump -Fc chamados` → `/var/backups/ticketflow/db-AAAA-MM-DD.dump`;
-2. `rsync -a --delete` dos anexos → `/var/backups/ticketflow/files/`;
-3. apaga dumps com mais de 14 dias;
-4. **copia para fora do servidor** (destino da questão 13). Um backup que fica só no próprio servidor não protege contra perda do disco.
-
-**Restauração** (testar antes da virada, no D−15 de [16.3](16-implantacao.md#163-cronograma), e depois a cada 3 meses):
-
-```bash
-sudo systemctl stop ticketflow ticketflow-worker
-sudo -u ticketflow pg_restore --clean --if-exists -d chamados /var/backups/ticketflow/db-AAAA-MM-DD.dump
-sudo -u ticketflow rsync -a --delete /var/backups/ticketflow/files/ /var/lib/ticketflow/files/
-sudo systemctl start ticketflow ticketflow-worker
-```
-
-Banco e anexos precisam ser da **mesma data**; anexos mais novos que o banco ficam órfãos e são ignorados.
+O TicketFlow não faz backup: quem administra o servidor cuida dele, com as ferramentas que já usa. O backup precisa ter o banco `chamados` (ex.: `pg_dump -Fc`) e o diretório de anexos `/var/lib/ticketflow/files`, **da mesma data**: anexos mais novos que o banco ficam órfãos e são ignorados.
 
 ## 18.6 Rotina e monitoramento
 
@@ -231,8 +210,7 @@ Banco e anexos precisam ser da **mesma data**; anexos mais novos que o banco fic
 |-------|------|------------|
 | Serviços no ar | `systemctl status ticketflow ticketflow-worker` ou `/api/health` (confere o banco) | Diária, ou por um monitor externo |
 | Erros | `journalctl -u ticketflow -p warning --since today` | Semanal |
-| Backup rodou | `systemctl list-timers ticketflow-backup.timer` e data do último arquivo | Semanal |
-| Espaço em disco | `df -h /var/lib /var/backups` | Mensal |
+| Espaço em disco | `df -h /var/lib` | Mensal |
 | Certificado | O `certbot` renova sozinho; conferir com `sudo certbot certificates` | Mensal |
 | Atualizações do sistema | Automáticas (segurança); reiniciar o servidor quando `/var/run/reboot-required` existir | Mensal |
 
@@ -245,5 +223,5 @@ Banco e anexos precisam ser da **mesma data**; anexos mais novos que o banco fic
 | Upload falha com erro 413 | Limite do nginx menor que o do sistema | Ajustar `client_max_body_size` e recarregar o nginx |
 | Todos foram desconectados | `SECRET_KEY` mudou ou o banco foi restaurado | Esperado; cada um entra de novo |
 | Serviço não sobe depois de atualizar | Migração falhou ou dependência faltando | Ler o fim da saída do `deploy.sh`; voltar à versão anterior (18.4) |
-| Disco cheio | Anexos ou backups locais | Conferir `/var/backups`; aumentar o disco |
+| Disco cheio | Anexos | Conferir `/var/lib/ticketflow/files`; aumentar o disco |
 | Navegador avisa que o site não é seguro | Certificado vencido | `sudo certbot renew` e recarregar o nginx |

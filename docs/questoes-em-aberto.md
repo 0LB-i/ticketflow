@@ -8,7 +8,6 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 |---|---------|--------|--------------|----------|
 | 1 | **Servidor de e-mail para envio (SMTP)** das notificações e convites | Conta SMTP do provedor de e-mail da empresa, serviço transacional (ex.: Amazon SES, Brevo) | Usar a conta SMTP do provedor atual; precisamos saber qual é. Até lá, o admin copia os links de convite e redefinição na tela de usuários ([9.4](09-login-e-autenticacao.md#94-convite-esqueci-a-senha-e-troca-de-senha)) | Sprint 4 (notificações de chamados) |
 | 2 | **Servidor de produção**: domínio e certificado HTTPS (o sistema operacional já foi decidido) | Let's Encrypt, Let's Encrypt por DNS ou certificado da empresa ([18.2](18-manual-do-servidor.md#182-requisitos)) | 2 vCPU, 4 GB RAM, 50 GB de disco; nome `ticketflow.example.com` | Sprint 5 |
-| 13 | **Destino da cópia externa do backup** | Outro servidor, NAS da empresa, armazenamento em nuvem | O que a TI já usar para os outros backups ([18.5](18-manual-do-servidor.md#185-backup-e-restauração)) | Sprint 5 |
 
 ## De negócio (dependem de quem vai usar)
 
@@ -38,6 +37,7 @@ Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvi
 | 2026-10-09 | GitHub (código, Actions, Projects) | [ADR 0009](adr/0009-github.md) |
 | 2026-10-09 | Produção com systemd + uvicorn + nginx, sem Docker | [ADR 0010](adr/0010-producao-systemd.md) |
 | 2026-10-09 | Login só por e-mail e senha (sem diretório de contas); SSO para o futuro | [09](09-login-e-autenticacao.md) |
+| 2026-10-21 | Backup fora do programa, com quem administra o servidor (era a questão 13, destino da cópia externa) | [18.5](18-manual-do-servidor.md#185-backup) |
 | 2026-10-09 | Anexos em disco local | [11.6](11-anexos-e-arquivos.md#116-armazenamento) |
 | 2026-10-09 | Até 50 usuários | [02](02-requisitos.md) |
 | 2026-10-09 | Modelo de organização: setores, grupos de atendimento, papéis e permissões | [08](08-organizacao-e-permissoes.md) |
