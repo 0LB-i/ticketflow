@@ -6,6 +6,8 @@
 #     (reinicia sozinho quando um .py muda); o nginx manda tudo para ele (a API e as telas);
 #   - ticketflow-css.service: gera o CSS das telas do servidor (Tailwind) a cada mudança nos
 #     templates (ADR 0011);
+#   - ticketflow-worker.service: a unit da produção, que acompanha o ticketflow.service (sobe,
+#     para e reinicia com ele), com o watchfiles reiniciando o worker quando um .py muda;
 #   - mailpit.service: recebe os e-mails do sistema (SMTP em 127.0.0.1:1025) e os mostra em
 #     http://IP:8025; nenhum e-mail sai da máquina.
 # Instalações anteriores tinham também a interface pelo Vite (ticketflow-frontend.service),
@@ -146,6 +148,16 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 FIM
+cp deploy/ticketflow-worker.service /etc/systemd/system/
+install -d "/etc/systemd/system/$SERVICO-worker.service.d"
+cat >"/etc/systemd/system/$SERVICO-worker.service.d/desenvolvimento.conf" <<FIM
+# Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): o worker reinicia sozinho
+# quando um .py muda (o watchfiles manda SIGINT, e ele termina a tarefa em curso antes de sair).
+[Service]
+ExecStart=
+ExecStart=$PWD/backend/.venv/bin/watchfiles --filter python --target-type command \\
+          "$PWD/backend/.venv/bin/chamados worker" $PWD/backend/src
+FIM
 # A interface pelo Vite saiu com a SPA (ADR 0011).
 if [[ -f /etc/systemd/system/$SERVICO-frontend.service ]]; then
   systemctl disable -q --now "$SERVICO-frontend" || true
@@ -153,11 +165,12 @@ if [[ -f /etc/systemd/system/$SERVICO-frontend.service ]]; then
   echo "$SERVICO-frontend (Vite) desativado e apagado"
 fi
 systemctl daemon-reload
-systemctl enable -q "$SERVICO" "$SERVICO-css"
-# Só inicia o do CSS (não faz nada se ele já estiver rodando); ele não afeta o outro.
-systemctl start "$SERVICO-css"
+systemctl enable -q "$SERVICO" "$SERVICO-css" "$SERVICO-worker"
+# Só inicia o do CSS e o worker (não faz nada se já estiverem rodando); iniciar o worker não
+# reinicia o ticketflow.
+systemctl start "$SERVICO-css" "$SERVICO-worker"
 if systemctl is-active -q "$SERVICO"; then
-  echo "O serviço já estava rodando. Para usar a configuração nova:"
+  echo "O serviço já estava rodando. Para usar a configuração nova (o worker reinicia junto):"
   echo "  sudo systemctl restart $SERVICO"
 else
   systemctl start "$SERVICO"
@@ -224,7 +237,7 @@ cat <<FIM
 TicketFlow em https://$IP (documentação da API em /api/docs)
   certificado: $TLS_DIR/ticketflow.crt (instale como confiável para o navegador não avisar)
   e-mails:     http://$IP:8025 (Mailpit)
-  estado:      systemctl status $SERVICO $SERVICO-css mailpit nginx
-  log:         journalctl -u $SERVICO -u $SERVICO-css -f
+  estado:      systemctl status $SERVICO $SERVICO-worker $SERVICO-css mailpit nginx
+  log:         journalctl -u $SERVICO -u $SERVICO-worker -u $SERVICO-css -f
   Mudanças no código aparecem ao recarregar a página; migrações: cd backend && .venv/bin/chamados db upgrade
 FIM

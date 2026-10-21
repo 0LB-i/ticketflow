@@ -1,9 +1,12 @@
 # Fila de tarefas e rotinas diárias (e-mails, limpeza dos anexos e da fila): `chamados worker`
 # (ARCHITECTURE.md 3.12). O SIGTERM do `systemctl stop` espera a tarefa em curso terminar.
+# Acompanha o ticketflow.service: habilitado, sobe com ele (WantedBy) e para e reinicia junto
+# (PartOf). Continua um processo à parte, com o próprio log.
 [Unit]
 Description=TicketFlow (worker)
 After=network.target postgresql.service
 Wants=postgresql.service
+PartOf=ticketflow.service
 
 [Service]
 User=ticketflow
@@ -20,4 +23,4 @@ ProtectHome=true
 ReadWritePaths=/var/lib/ticketflow
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=ticketflow.service

@@ -27,5 +27,5 @@ cat <<FIM
 
 Pronto: versão $(git describe --tags --always) preparada.
 Para colocar no ar, reinicie os serviços:
-  sudo systemctl restart ticketflow ticketflow-worker
+  sudo systemctl restart ticketflow    # o worker reinicia junto
 FIM

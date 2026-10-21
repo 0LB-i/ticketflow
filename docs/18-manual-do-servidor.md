@@ -131,8 +131,7 @@ O script faz `git pull`, `uv sync --frozen`, gera o CSS das telas do servidor (`
 ```bash
 sudo cp /opt/ticketflow/deploy/ticketflow*.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now ticketflow
-sudo systemctl enable --now ticketflow-worker     # fila de tarefas e rotinas diárias
+sudo systemctl enable --now ticketflow ticketflow-worker
 ```
 
 Pontos principais de `deploy/ticketflow.service`:
@@ -151,7 +150,7 @@ ProtectSystem=strict
 ReadWritePaths=/var/lib/ticketflow
 ```
 
-O `ticketflow-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`: ele consome a fila de tarefas (e-mails dos chamados) e roda as rotinas diárias, como a limpeza dos anexos não vinculados, às 03:00. Não precisa de cron. Os arquivos completos estão em [`deploy/`](../deploy/).
+O `ticketflow-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`: ele consome a fila de tarefas (e-mails dos chamados) e roda as rotinas diárias, como a limpeza dos anexos não vinculados, às 03:00. Não precisa de cron. Ele **acompanha o `ticketflow`** (`PartOf` e `WantedBy=ticketflow.service`): sobe, para e reinicia junto com ele, mas continua um processo à parte, com o próprio log (`journalctl -u ticketflow-worker`). Os arquivos completos estão em [`deploy/`](../deploy/).
 
 ### 9. nginx e HTTPS
 
@@ -191,7 +190,7 @@ git push producao main
 
 # no servidor
 sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh
-sudo systemctl restart ticketflow ticketflow-worker
+sudo systemctl restart ticketflow    # o worker reinicia junto
 curl -fsS https://ticketflow.example.com/api/health
 ```
 
@@ -219,7 +218,7 @@ O TicketFlow não faz backup: quem administra o servidor cuida dele, com as ferr
 | Sintoma | Causa provável | O que fazer |
 |---------|----------------|-------------|
 | Página "502 Bad Gateway" | Serviço da API parado | `systemctl status ticketflow`; ver o erro em `journalctl -u ticketflow -n 100` |
-| E-mails não chegam | Worker parado ou SMTP errado | `systemctl status ticketflow-worker`; `journalctl -u ticketflow-worker` mostra `tarefa_vai_tentar_de_novo` e `tarefa_falhou` com o erro do SMTP; conferir `/etc/ticketflow/env` e reiniciar `ticketflow` e `ticketflow-worker` depois de mudar |
+| E-mails não chegam | Worker parado ou SMTP errado | `systemctl status ticketflow-worker`; `journalctl -u ticketflow-worker` mostra `tarefa_vai_tentar_de_novo` e `tarefa_falhou` com o erro do SMTP; conferir `/etc/ticketflow/env` e reiniciar o `ticketflow` (o worker vai junto) depois de mudar |
 | Upload falha com erro 413 | Limite do nginx menor que o do sistema | Ajustar `client_max_body_size` e recarregar o nginx |
 | Todos foram desconectados | `SECRET_KEY` mudou ou o banco foi restaurado | Esperado; cada um entra de novo |
 | Serviço não sobe depois de atualizar | Migração falhou ou dependência faltando | Ler o fim da saída do `deploy.sh`; voltar à versão anterior (18.4) |
