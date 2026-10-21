@@ -57,7 +57,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S4-01 | **Upload em duas etapas**, validação de tipo e tamanho, armazenamento local | feito | e7d0f2a |
 | F1-S4-02 | Download com verificação de permissão; imagens coladas no editor | feito | e7d0f2a |
 | F1-S4-03 | **Outbox + worker + fila de tarefas** no PostgreSQL (fila própria; limpeza dos anexos vira rotina diária) | feito | fc6bcd6 |
-| F1-S4-04 | **Notificações por e-mail** (templates em pt-BR e en; Mailpit no desenvolvimento) | feito | |
+| F1-S4-04 | **Notificações por e-mail** (templates em pt-BR e en; Mailpit no desenvolvimento) | feito | 46e31b9 |
 | F1-S4-05 | **Filas**: meus chamados, aguardando, acompanhando, todos do grupo | feito | d7dc992 |
 | F1-S4-06 | Botão "Pegar o próximo" | removido em 2026-10-15 (todo chamado tem responsável) | d7dc992 |
 | F1-S4-07 | **Busca textual** em português + filtros | feito | d7dc992 |
