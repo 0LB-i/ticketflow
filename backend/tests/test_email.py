@@ -59,5 +59,17 @@ def test_falha_de_smtp_nao_derruba_a_requisicao(monkeypatch: pytest.MonkeyPatch)
     SmtpMailer(Settings(smtp_host="smtp.exemplo.com")).send("a@b.com", "x", "y")
 
 
+def test_deliver_lanca_a_falha_para_a_fila_tentar_de_novo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def recusa(*_: object, **__: object) -> None:
+        raise ConnectionRefusedError
+
+    monkeypatch.setattr(smtplib, "SMTP", recusa)
+    with pytest.raises(ConnectionRefusedError):
+        SmtpMailer(Settings(smtp_host="smtp.exemplo.com")).deliver("a@b.com", "x", "y")
+    LogMailer().deliver("a@b.com", "Assunto", "Corpo")  # sem SMTP, vai para o log
+
+
 def test_sem_smtp_vai_para_o_log() -> None:
     LogMailer().send("a@b.com", "Assunto", "Corpo")

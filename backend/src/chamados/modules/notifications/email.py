@@ -1,5 +1,9 @@
 """Envio de e-mail. Sem SMTP configurado, a mensagem vai para o log (desenvolvimento e
-instalações que ainda não definiram o provedor, questão 1)."""
+instalações que ainda não definiram o provedor, questão 1).
+
+`send` é o envio na hora (convite, redefinição, bloqueio): uma falha só vai para o log. `deliver`
+é o do worker: a falha sobe, e a fila tenta de novo.
+"""
 
 import smtplib
 from email.message import EmailMessage
@@ -17,6 +21,8 @@ class Mailer(Protocol):
 
     def send(self, to: str, subject: str, body: str) -> None: ...
 
+    def deliver(self, to: str, subject: str, body: str) -> None: ...
+
 
 class SmtpMailer:
     configured = True
@@ -24,20 +30,23 @@ class SmtpMailer:
     def __init__(self, settings: Settings) -> None:
         self.s = settings
 
-    def send(self, to: str, subject: str, body: str) -> None:
+    def deliver(self, to: str, subject: str, body: str) -> None:
         msg = EmailMessage()
         msg["From"] = self.s.smtp_from
         msg["To"] = to
         msg["Subject"] = subject
         msg.set_content(body)
+        with smtplib.SMTP(self.s.smtp_host, self.s.smtp_port, timeout=15) as smtp:
+            if self.s.smtp_starttls:
+                smtp.starttls()
+            if self.s.smtp_user:
+                smtp.login(self.s.smtp_user, self.s.smtp_password)
+            smtp.send_message(msg)
+        log.info("email_enviado", to=to, subject=subject)
+
+    def send(self, to: str, subject: str, body: str) -> None:
         try:
-            with smtplib.SMTP(self.s.smtp_host, self.s.smtp_port, timeout=15) as smtp:
-                if self.s.smtp_starttls:
-                    smtp.starttls()
-                if self.s.smtp_user:
-                    smtp.login(self.s.smtp_user, self.s.smtp_password)
-                smtp.send_message(msg)
-            log.info("email_enviado", to=to, subject=subject)
+            self.deliver(to, subject, body)
         except (OSError, smtplib.SMTPException):
             log.exception("email_falhou", to=to, subject=subject)
 
@@ -47,6 +56,8 @@ class LogMailer:
 
     def send(self, to: str, subject: str, body: str) -> None:
         log.warning("email_sem_smtp", to=to, subject=subject, body=body)
+
+    deliver = send
 
 
 def make_mailer(settings: Settings) -> Mailer:

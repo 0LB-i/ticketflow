@@ -86,6 +86,8 @@ class FakeMailer:
     def send(self, to: str, subject: str, body: str) -> None:
         self.sent.append((to, subject, body))
 
+    deliver = send
+
     def last_link(self) -> str:
         match = re.search(r"https?://\S+", self.sent[-1][2])
         assert match

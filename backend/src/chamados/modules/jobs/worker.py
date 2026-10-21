@@ -18,6 +18,8 @@ from chamados.db.engine import create_engine
 from chamados.db.session import make_sessionmaker
 from chamados.modules.attachments.service import purge
 from chamados.modules.jobs import service
+from chamados.modules.notifications import handlers
+from chamados.modules.notifications.tasks import send_email
 
 log = structlog.get_logger(__name__)
 
@@ -31,17 +33,18 @@ async def _purge_attachments(db: AsyncSession, settings: Settings, _args: dict[s
 TASKS: dict[str, service.Task] = {
     "attachments.purge": _purge_attachments,
     "jobs.cleanup": service.cleanup,
+    "notifications.send_email": send_email,
 }
 # Rotinas diárias (docs/10 §10.11), no horário de São Paulo.
 ROUTINES = {"attachments.purge": time(3, 0), "jobs.cleanup": time(3, 30)}
-# Eventos do outbox que viram tarefas; as notificações entram na F1-S4-04.
-HANDLERS: dict[str, service.Handler] = {}
+# Eventos do outbox que viram tarefas: os e-mails dos chamados (docs/10 §10.10).
+HANDLERS: dict[str, service.Handler] = handlers.HANDLERS
 
 
 async def tick(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> bool:
     """Uma volta do loop. Devolve False se não havia nada a fazer."""
     async with sessionmaker() as db:
-        relayed = await service.relay(db, HANDLERS)
+        relayed = await service.relay(db, settings, HANDLERS)
     async with sessionmaker() as db:
         await service.schedule(db, ROUTINES, datetime.now(UTC))
     ran = await service.run_next(sessionmaker, settings, TASKS)

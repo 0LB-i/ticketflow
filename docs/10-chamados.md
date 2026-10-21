@@ -240,6 +240,8 @@ Não há SLA: não existem metas de prazo, alertas de vencimento nem calendário
 
 ✉️ e-mail · 🔔 notificação dentro do sistema (Fase 2). Na Fase 1, enquanto o sino não existe, os eventos marcados só com 🔔 também vão por e-mail. Quem causou o evento nunca é notificado dele. Cada usuário escolhe nas preferências como quer receber, exceto atribuição, menção e aprovação pendente, que não podem ser desligadas.
 
+**Na Fase 1 (F1-S4-04, [ARCHITECTURE 3.13](../ARCHITECTURE.md#313-notificações-por-e-mail-modulesnotifications)):** tudo por e-mail, ainda sem preferências (elas entram com o sino, F2-S6-01). No registro, o grupo com "e-mail para todos os membros" (10.4) também é avisado. Cada pessoa recebe um e-mail só por ação (menção, depois atribuição, depois o resto). O comentário de uma ação vai no e-mail dela; o de aguardar, retomar ou cancelar não gera e-mail. Concluído e reaberto valem também para a mudança pelo formulário e em massa.
+
 ## 10.11 Rotinas automáticas (worker)
 
 | Rotina | Frequência |

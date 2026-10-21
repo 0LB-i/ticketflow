@@ -22,7 +22,7 @@ KEEP_FAILED = timedelta(days=30)  # tarefas que falharam de vez, para investigar
 # Uma tarefa recebe a própria sessão (faz commit do seu trabalho), as configurações e os args.
 Task = Callable[[AsyncSession, Settings, dict[str, Any]], Awaitable[None]]
 # Um handler transforma um evento do outbox em tarefas (enqueue), na sessão do repasse.
-Handler = Callable[[AsyncSession, OutboxEvent], Awaitable[None]]
+Handler = Callable[[AsyncSession, Settings, OutboxEvent], Awaitable[None]]
 
 
 def publish(db: AsyncSession, event_type: str, **payload: Any) -> None:
@@ -34,7 +34,9 @@ def enqueue(db: AsyncSession, task: str, **args: Any) -> None:
     db.add(Job(task=task, args=args))
 
 
-async def relay(db: AsyncSession, handlers: Mapping[str, Handler], limit: int = 100) -> int:
+async def relay(
+    db: AsyncSession, settings: Settings, handlers: Mapping[str, Handler], limit: int = 100
+) -> int:
     """Repassa um lote do outbox aos handlers e marca os eventos como processados, numa transação
     só: as tarefas e o `processed_at` entram juntos. Devolve quantos eventos foram repassados.
 
@@ -55,7 +57,7 @@ async def relay(db: AsyncSession, handlers: Mapping[str, Handler], limit: int = 
         if handler is not None:
             try:
                 async with db.begin_nested():
-                    await handler(db, event)
+                    await handler(db, settings, event)
             except Exception as e:
                 event.error = f"{type(e).__name__}: {e}"
                 log.exception("evento_falhou", event_id=event.id, event_type=event.event_type)

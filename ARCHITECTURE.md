@@ -8,7 +8,7 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos (o "Pegar o próximo" saiu junto com a fila de não atribuídos, em 2026-10-15). A seção 10 lista o que ainda não existe.
 
-Em 2026-10-21 entraram o outbox, a fila de tarefas e o worker (F1-S4-03, seção 3.12).
+Em 2026-10-21 entraram o outbox, a fila de tarefas e o worker (F1-S4-03, seção 3.12) e, por eles, as notificações por e-mail dos chamados (F1-S4-04, 3.13).
 
 Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Em 2026-10-19 ela terminou (WEB-06): todas as telas são do servidor, e saíram o `frontend/`, o Node e o serviço do Vite. O histórico e as pendências estão no [docs/19](docs/19-migracao-da-interface.md); a estrutura, na seção 3.11.
 
@@ -124,7 +124,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `audit` | `models` (AuditLog), `service` (`record()`), `router` | Auditoria de login e administração | `/admin/audit-log` |
 | `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
 | `reports` | `schemas`, `service` (escopo, cálculo, horas fora do expediente), `pdf` (ReportLab), `router` | Relatórios de horas: por pessoa, cliente e dia, horas extras e PDF (3.7.2) | `/reports`, `/reports/options`, `/reports/pdf` |
-| `notifications` | `email` | Envio por SMTP ou para o log (`Mailer`) | — |
+| `notifications` | `email` (`Mailer`), `handlers` (quem recebe o quê), `messages` (textos), `tasks` (envio pelo worker) | E-mail por SMTP ou para o log; notificações dos chamados (3.13) | — |
 | `jobs` | `models` (OutboxEvent, Job), `service` (outbox, fila, repasse, agenda, limpeza), `worker` (loop, tarefas, rotinas, handlers) | Outbox de eventos, fila de tarefas e o processo `chamados worker` (3.12) | — |
 
 Os módulos podem importar modelos e services uns dos outros (por exemplo, `tickets` usa `catalog`, `organization` e `identity`), mas **a decisão de permissão de um chamado só acontece em `tickets`** e **o registro na auditoria só por `audit.service.record()`**.
@@ -188,7 +188,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 
 - Idiomas: `pt-BR` (padrão) e `en` (`core/i18n.py`).
 - **Mensagens:** são escritas em português no código. `core/errors.py` traduz `title` e `detail` pelo catálogo `EN` quando o `Accept-Language` pede inglês; nas telas, `Page.api_message()` traduz pelo idioma da pessoa. Um teste percorre o código (AST) e falha se alguma mensagem de `HTTPException` não estiver no catálogo.
-- **E-mails:** textos em `identity/service.EMAILS`, por idioma. O idioma é o de quem recebe: `users.locale` ou o padrão do sistema (`system.service.user_locale`).
+- **E-mails:** textos em `identity/service.EMAILS` (convite, redefinição, bloqueio) e em `notifications/messages.TEXTS` (chamados), por idioma. O idioma é o de quem recebe: `users.locale` ou o padrão do sistema (`system.service.user_locale`).
 
 ### 3.7 Configurações (`modules/system/`)
 
@@ -333,12 +333,29 @@ chamados worker, a cada volta:                  ▼
   3. run_next()  jobs ─► TASKS                  (uma tarefa por vez; sem trabalho, espera 2 s)
 ```
 
-- **Outbox** (`outbox`): `event_type` e `payload` (`ticket_id`, `actor_user_id` e, em `data`, o payload do evento). Por que não ler o `ticket_events`: ele só aceita inserção (não dá para marcar o que foi processado) e um cursor por `id` pularia eventos de transações que fazem commit fora de ordem.
-- **Repasse** (`service.relay`): cada evento vai ao handler do seu tipo (`worker.HANDLERS`), que cria as tarefas com `service.enqueue()`. Um handler que falha é desfeito (savepoint), o erro fica em `outbox.error` e no log, e os outros eventos seguem. Evento sem handler só é marcado. Na F1-S4-03 ainda não há handlers; as notificações entram na F1-S4-04.
+- **Outbox** (`outbox`): `event_type` e `payload` (`ticket_id`, `actor_user_id`, `mention_ids` quando houver menção e, em `data`, o payload do evento). Os de chamado vêm do `add_event()`; o `comment.created`, só do comentário comum (`add_comment`): o comentário de uma ação vai no evento dela (`comment_id`). Por que não ler o `ticket_events`: ele só aceita inserção (não dá para marcar o que foi processado) e um cursor por `id` pularia eventos de transações que fazem commit fora de ordem.
+- **Repasse** (`service.relay`): cada evento vai ao handler do seu tipo (`worker.HANDLERS`, hoje os de `notifications/handlers.py`), que cria as tarefas com `service.enqueue()`. Um handler que falha é desfeito (savepoint), o erro fica em `outbox.error` e no log, e os outros eventos seguem. Evento sem handler só é marcado.
 - **Tarefas** (`jobs`, `worker.TASKS`): `async def tarefa(db, settings, args)`, numa sessão própria (faz o próprio commit). Enquanto roda, a linha fica travada (`FOR UPDATE SKIP LOCKED`): outro worker a pula, e se o processo cair a transação é desfeita e a tarefa volta sozinha para a fila. Não há status "rodando". A entrega é "pelo menos uma vez".
 - **Falha:** volta para a fila com espera de 30 s, 2 min, 8 min e 32 min (`retry_delay`), com o erro em `last_error`; na 5ª (`max_attempts`) fica `failed` e vai para o log.
 - **Rotinas** (`worker.ROUTINES`, horário de São Paulo): `attachments.purge` às 03:00 e `jobs.cleanup` às 03:30 (apaga tarefas `done` e eventos processados há mais de 7 dias, e `failed` há mais de 30). A `dedup_key` (`attachments.purge:2026-10-21`) é única: dois workers não agendam a mesma rotina, e um worker que sobe depois do horário a roda na hora. No lugar do advisory lock sugerido no docs/03, porque ele sozinho não lembraria se a rotina do dia já rodou.
 - **Encerramento:** SIGTERM (o `systemctl stop`) ou SIGINT terminam a tarefa em curso e saem. Um erro de banco derruba o processo, e o systemd o sobe de novo (`Restart=on-failure`).
+
+### 3.13 Notificações por e-mail (`modules/notifications/`)
+
+Regras em [docs/10 §10.10](docs/10-chamados.md#1010-notificações). Os handlers (`handlers.HANDLERS`, registrados no worker) transformam cada evento do outbox em e-mails, já montados no idioma de quem recebe, e cada e-mail vira uma tarefa `notifications.send_email` (`tasks.py`), que só envia (`Mailer.deliver`: a falha do SMTP sobe e a fila tenta de novo).
+
+| Evento | Motivo → quem recebe |
+|--------|----------------------|
+| `ticket.created` | `mentioned` (mencionados), `assigned` (responsáveis), `new_in_team` (membros do grupo, se `teams.notify_on_new = 'email_all_members'`) |
+| `ticket.assigned`, `ticket.assignees_changed` | `assigned` (quem entrou) |
+| `ticket.transferred` | `assigned` (novo responsável), `transferred` (membros do grupo de destino) |
+| `ticket.status_changed` | para um status `closed`: `closed` (observadores e quem registrou); saindo de um: `reopened` (responsáveis e observadores); os demais, nada |
+| `comment.created` | `mentioned`, `comment` (responsáveis e observadores) |
+
+- **Um e-mail por pessoa por ação:** vale o primeiro motivo da lista do handler (menção, atribuição, o resto). Quem causou o evento, quem está inativo, foi excluído ou não tem e-mail não recebe.
+- **Texto simples**, com o comentário do evento (o da ação ou o comentário novo), se houver, e o link `APP_BASE_URL/chamados/<número>`. Assunto: `[#1234] Título: motivo`.
+- Ainda sem preferências por pessoa (F2-S6-01): todos recebem tudo da tabela.
+- Convite, redefinição e bloqueio continuam enviados na hora (`Mailer.send`, que só registra a falha no log).
 
 ---
 
@@ -418,6 +435,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 | Ambiente | Como |
 |----------|------|
 | **Desenvolvimento, terminais** | PostgreSQL nativo (17 na 5432, 16 na 5433; numa máquina nova, `scripts/preparar-maquina-dev.sh`); `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `scripts/css.sh --watch` (o CSS das telas). Ver o [README](README.md#como-rodar-desenvolvimento) |
+| **Desenvolvimento, e-mails** | O `instalar-servico-dev.sh` instala o Mailpit (`mailpit.service`): SMTP em `127.0.0.1:1025`, tela em `http://IP:8025`, e `SMTP_HOST=localhost` no `/etc/ticketflow/env`. Por terminais, sem `SMTP_HOST`, os e-mails vão para o log |
 | **Desenvolvimento, worker** | Não vira serviço na máquina de desenvolvimento: roda em primeiro plano e o Ctrl+C encerra. Por terminais, `uv run chamados worker` (com o `backend/.env`); com o serviço, como o usuário dono dos anexos: `sudo -u ticketflow sh -c 'set -a; . /etc/ticketflow/env; set +a; cd /opt/ticketflow/backend && exec .venv/bin/chamados worker'` |
 | **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento, sem build, atrás do nginx em `https://IP` (80 redireciona para 443; certificado autoassinado em `/etc/ticketflow/tls`). O nginx manda tudo para o `ticketflow.service` (a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`). O `ticketflow-css.service` gera o CSS das telas (`scripts/css.sh --watch`). Aplica as migrações e, de instalações antigas, desativa e apaga o `ticketflow-frontend.service` (Vite) |
 | **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`. O backup não faz parte do programa: fica com quem administra o servidor. Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
@@ -444,7 +462,6 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 | Peça | Onde entra | Referência |
 |------|------------|------------|
-| Notificações por e-mail dos chamados | Handlers do outbox no worker (3.12); hoje só existem os e-mails de convite, redefinição e bloqueio, enviados na hora | Sprint 4 (F1-S4-04) |
 | Ocultar anexo, lista de tipos configurável pelo admin, miniaturas, antivírus | `attachments` | Sprint 5 e depois, [docs/11](docs/11-anexos-e-arquivos.md) |
 | `ETag` e aviso de colisão | `tickets` | Sprint 4 |
 | Status personalizados, ocultar comentário, testes ponta a ponta (Playwright) | — | Sprint 5 |
@@ -479,7 +496,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 **Nova tarefa ou rotina do worker** (3.12)
 1. Função `async def tarefa(db, settings, args)` que faz o próprio `commit`; registrada em `worker.TASKS` com um nome `modulo.acao`.
-2. Rotina diária: o nome também em `worker.ROUTINES`, com o horário (São Paulo). Evento que vira tarefa: um handler em `worker.HANDLERS` que chama `service.enqueue()`.
+2. Rotina diária: o nome também em `worker.ROUTINES`, com o horário (São Paulo). Evento que vira tarefa: um handler `async def handler(db, settings, event)` em `worker.HANDLERS` que chama `service.enqueue()`.
 3. A tarefa pode rodar mais de uma vez (entrega "pelo menos uma vez"): ela precisa aguentar isso.
 4. Teste chamando `service.run_next` com a tarefa (veja `tests/test_fila.py`).
 

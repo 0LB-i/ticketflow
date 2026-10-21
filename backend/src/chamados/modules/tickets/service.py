@@ -65,14 +65,33 @@ def ref(
 
 
 def add_event(
-    db: AsyncSession, ticket: Ticket, event_type: str, auth: Auth, **payload: Any
+    db: AsyncSession,
+    ticket: Ticket,
+    event_type: str,
+    auth: Auth,
+    *,
+    mention_ids: Sequence[uuid.UUID] = (),
+    **payload: Any,
 ) -> None:
+    """Grava no histórico e no outbox. `mention_ids` vai só para o outbox (as notificações)."""
     db.add(
         TicketEvent(
             ticket_id=ticket.id, event_type=event_type, actor_user_id=auth.user.id, payload=payload
         )
     )
-    publish(db, event_type, ticket_id=ticket.id, actor_user_id=auth.user.id, data=payload)
+    publish_ticket_event(db, ticket, event_type, auth, payload, mention_ids)
+
+
+def publish_ticket_event(
+    db: AsyncSession,
+    ticket: Ticket,
+    event_type: str,
+    auth: Auth,
+    data: dict[str, Any],
+    mention_ids: Sequence[uuid.UUID] = (),
+) -> None:
+    extra = {"mention_ids": [str(i) for i in dict.fromkeys(mention_ids)]} if mention_ids else {}
+    publish(db, event_type, ticket_id=ticket.id, actor_user_id=auth.user.id, data=data, **extra)
 
 
 # --- leitura ----------------------------------------------------------------------------------
@@ -445,14 +464,6 @@ async def _comment(
         comment.done_at = _done_at(done_at)
     db.add(comment)
     await db.flush()
-    # O comentário não vai para o histórico (é o próprio registro), mas as notificações precisam.
-    publish(
-        db,
-        "comment.created",
-        ticket_id=ticket.id,
-        actor_user_id=auth.user.id,
-        data={"comment_id": str(comment.public_id)},
-    )
     await _add_watchers(db, auth, ticket, mention_ids or [], "mentioned")
     await attachments.link(db, auth, ticket, attachment_ids or [], comment)
     ticket.updated_at = func.now()
@@ -566,7 +577,7 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     created: dict[str, Any] = {"team": ref(team), "assignee": ref(assignee)}
     if co_assignees:
         created["co_assignees"] = [ref(u) for u in co_assignees]
-    add_event(db, ticket, "ticket.created", auth, **created)
+    add_event(db, ticket, "ticket.created", auth, mention_ids=data.mention_ids, **created)
     await _add_watchers(db, auth, ticket, data.watcher_ids, "watcher")
     await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
     await db.commit()
@@ -687,6 +698,10 @@ async def add_comment(
         time_spent_minutes=data.time_spent_minutes,
         done_at=data.done_at,
     )
+    # O comentário não vai para o histórico (é o próprio registro), mas as notificações precisam.
+    # O de uma ação (transição, transferência) vai no evento dela, pelo comment_id.
+    data_out = {"comment_id": str(comment.public_id)}
+    publish_ticket_event(db, ticket, "comment.created", auth, data_out, data.mention_ids)
     await db.commit()
     return comment
 

@@ -49,22 +49,34 @@ def test_eventos_do_chamado_vao_para_o_outbox(
     cenario: dict[str, Any],  # noqa: F811
     db: Session,
 ) -> None:
-    numero = registrar(client, cenario)["number"]
+    numero = registrar(client, cenario, mention_ids=[cenario["bia"]])["number"]
     ticket = db.scalars(select(Ticket).where(Ticket.number == numero)).one()
-    r = client.post(f"{API}/{numero}/comments", json={"body": "Troquei o toner."})
+    r = client.post(
+        f"{API}/{numero}/comments",
+        json={"body": "Troquei o toner, @Bia.", "mention_ids": [cenario["bia"]]},
+    )
     assert r.status_code == 201, r.text
+    # O comentário de uma ação vai no evento dela (comment_id), sem um comment.created à parte.
+    acao = {"action": "wait", "comment": "Aguardando o fornecedor"}
+    assert client.post(f"{API}/{numero}/transitions", json=acao).status_code == 200
 
-    criado, comentario = eventos_do_outbox(db)
+    criado, mencao, comentario, espera = eventos_do_outbox(db)
     assert criado.event_type == "ticket.created"
     assert criado.payload["ticket_id"] == ticket.id
     assert criado.payload["actor_user_id"] == ticket.created_by_id
     assert criado.payload["data"]["assignee"]["id"] == cenario["ana"]
+    assert criado.payload["mention_ids"] == [cenario["bia"]]
     assert criado.processed_at is None
+    assert (mencao.event_type, mencao.payload["data"]["kind"]) == ("watcher.added", "mentioned")
     # O comentário novo não vai para o histórico (ele é o próprio registro), mas vai para o
-    # outbox: as notificações (docs/10 §10.10) precisam dele.
+    # outbox: as notificações (docs/10 §10.10) precisam dele, com todos os mencionados (a Bia
+    # já acompanhava o chamado, então não há outro watcher.added).
     assert comentario.event_type == "comment.created"
     assert comentario.payload["ticket_id"] == ticket.id
     assert comentario.payload["data"]["comment_id"] == r.json()["id"]
+    assert comentario.payload["mention_ids"] == [cenario["bia"]]
+    assert espera.event_type == "ticket.status_changed"
+    assert "comment_id" in espera.payload["data"]
 
 
 # --- fila -------------------------------------------------------------------------------------
@@ -144,14 +156,14 @@ def test_tarefa_que_falha_volta_com_espera_e_tem_limite(db: Session, settings: S
 # --- repasse do outbox ------------------------------------------------------------------------
 
 
-async def avisar(db: AsyncSession, event: OutboxEvent) -> None:
+async def avisar(db: AsyncSession, _settings: Settings, event: OutboxEvent) -> None:
     service.enqueue(db, "teste.avisar", ticket_id=event.payload["ticket_id"])
 
 
 def repassar(settings: Settings, handlers: dict[str, service.Handler]) -> int:
     async def main(sm: async_sessionmaker[AsyncSession]) -> int:
         async with sm() as session:
-            return await service.relay(session, handlers)
+            return await service.relay(session, settings, handlers)
 
     return rodar(settings, main)
 
@@ -193,7 +205,7 @@ def test_handler_que_falha_nao_trava_os_outros(db: Session, settings: Settings) 
     )
     db.commit()
 
-    async def quebra(session: AsyncSession, event: OutboxEvent) -> None:
+    async def quebra(session: AsyncSession, _settings: Settings, event: OutboxEvent) -> None:
         service.enqueue(session, "teste.avisar", ticket_id=-1)  # desfeito junto com a falha
         raise ValueError("payload inesperado")
 

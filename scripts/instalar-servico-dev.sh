@@ -5,7 +5,9 @@
 #   - ticketflow.service: a unit da produção com o uvicorn em 127.0.0.1:8001 e --reload
 #     (reinicia sozinho quando um .py muda); o nginx manda tudo para ele (a API e as telas);
 #   - ticketflow-css.service: gera o CSS das telas do servidor (Tailwind) a cada mudança nos
-#     templates (ADR 0011).
+#     templates (ADR 0011);
+#   - mailpit.service: recebe os e-mails do sistema (SMTP em 127.0.0.1:1025) e os mostra em
+#     http://IP:8025; nenhum e-mail sai da máquina.
 # Instalações anteriores tinham também a interface pelo Vite (ticketflow-frontend.service),
 # que saiu com a SPA: o script a desativa e apaga.
 # Sem domínio, o certificado é autoassinado para o IP e o nome da máquina: o navegador avisa
@@ -25,6 +27,8 @@ TLS_DIR=/etc/ticketflow/tls
 ENV_FILE=/etc/ticketflow/env
 SERVICO=ticketflow
 DROPIN_DIR="/etc/systemd/system/$SERVICO.service.d"
+MAILPIT_VERSAO=v1.31.4
+MAILPIT_SHA256=30942c4605c2ca8b9f759b1bb4e3ab6a12bdfdf66e5c94644ec2c75ac41e88e7
 
 etapa() { printf '\n== %s\n' "$*"; }
 # Dependências e compilação como o dono do código, para não deixar arquivos de root nele.
@@ -64,6 +68,16 @@ fi
 sed -i -e "s|^APP_BASE_URL=http://.*|APP_BASE_URL=https://$IP|" \
   -e "s|^# Sem HTTPS o navegador recusa cookies Secure.$||" \
   -e "s|^COOKIE_SECURE=false|COOKIE_SECURE=true|" "$ENV_FILE"
+# Os e-mails vão para o Mailpit, a menos que já haja outro SMTP configurado.
+if ! grep -q '^SMTP_HOST=' "$ENV_FILE"; then
+  cat >>"$ENV_FILE" <<FIM
+# Mailpit (scripts/instalar-servico-dev.sh): os e-mails aparecem em http://$IP:8025.
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_STARTTLS=false
+FIM
+  echo "e-mails pelo Mailpit"
+fi
 
 etapa "backend e migrações"
 # Sem --no-dev: o mesmo ambiente roda os testes do scripts/check.sh.
@@ -73,6 +87,37 @@ set -a
 . "$ENV_FILE"
 set +a
 (cd backend && .venv/bin/chamados db upgrade)
+
+etapa "Mailpit $MAILPIT_VERSAO (e-mails de desenvolvimento)"
+if ! /usr/local/bin/mailpit version 2>/dev/null | grep -q "$MAILPIT_VERSAO"; then
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/mailpit.tar.gz" \
+    "https://github.com/axllent/mailpit/releases/download/$MAILPIT_VERSAO/mailpit-linux-amd64.tar.gz"
+  echo "$MAILPIT_SHA256  $tmp/mailpit.tar.gz" | sha256sum -c --quiet
+  tar -xzf "$tmp/mailpit.tar.gz" -C "$tmp" mailpit
+  install -m 755 "$tmp/mailpit" /usr/local/bin/mailpit
+  rm -rf "$tmp"
+  echo "instalado em /usr/local/bin/mailpit"
+fi
+cat >/etc/systemd/system/mailpit.service <<FIM
+# Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): recebe os e-mails do
+# TicketFlow e os mostra numa tela; nenhum sai da máquina.
+[Unit]
+Description=Mailpit (e-mails de desenvolvimento do TicketFlow)
+After=network.target
+
+[Service]
+DynamicUser=yes
+StateDirectory=mailpit
+ExecStart=/usr/local/bin/mailpit --smtp 127.0.0.1:1025 --listen 0.0.0.0:8025 \
+          --database /var/lib/mailpit/mailpit.db
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+FIM
+systemctl daemon-reload
+systemctl enable -q --now mailpit
 
 etapa "serviços systemd (modo de desenvolvimento)"
 cp deploy/ticketflow.service /etc/systemd/system/
@@ -178,7 +223,8 @@ cat <<FIM
 
 TicketFlow em https://$IP (documentação da API em /api/docs)
   certificado: $TLS_DIR/ticketflow.crt (instale como confiável para o navegador não avisar)
-  estado:      systemctl status $SERVICO $SERVICO-css nginx
+  e-mails:     http://$IP:8025 (Mailpit)
+  estado:      systemctl status $SERVICO $SERVICO-css mailpit nginx
   log:         journalctl -u $SERVICO -u $SERVICO-css -f
   Mudanças no código aparecem ao recarregar a página; migrações: cd backend && .venv/bin/chamados db upgrade
 FIM

@@ -219,7 +219,7 @@ O TicketFlow não faz backup: quem administra o servidor cuida dele, com as ferr
 | Sintoma | Causa provável | O que fazer |
 |---------|----------------|-------------|
 | Página "502 Bad Gateway" | Serviço da API parado | `systemctl status ticketflow`; ver o erro em `journalctl -u ticketflow -n 100` |
-| E-mails não chegam | Worker parado ou SMTP errado | `systemctl status ticketflow-worker`; procurar `smtp` no journal; conferir `/etc/ticketflow/env` |
+| E-mails não chegam | Worker parado ou SMTP errado | `systemctl status ticketflow-worker`; `journalctl -u ticketflow-worker` mostra `tarefa_vai_tentar_de_novo` e `tarefa_falhou` com o erro do SMTP; conferir `/etc/ticketflow/env` e reiniciar `ticketflow` e `ticketflow-worker` depois de mudar |
 | Upload falha com erro 413 | Limite do nginx menor que o do sistema | Ajustar `client_max_body_size` e recarregar o nginx |
 | Todos foram desconectados | `SECRET_KEY` mudou ou o banco foi restaurado | Esperado; cada um entra de novo |
 | Serviço não sobe depois de atualizar | Migração falhou ou dependência faltando | Ler o fim da saída do `deploy.sh`; voltar à versão anterior (18.4) |
