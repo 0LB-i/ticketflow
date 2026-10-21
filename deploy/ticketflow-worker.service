@@ -1,5 +1,5 @@
-# Fila de tarefas e rotinas (e-mails, lembretes, limpeza). O comando `chamados worker`
-# entra na Sprint 4 (F1-S4-03): habilitar este serviço só a partir dela.
+# Fila de tarefas e rotinas diárias (e-mails, limpeza dos anexos e da fila): `chamados worker`
+# (ARCHITECTURE.md 3.12). O SIGTERM do `systemctl stop` espera a tarefa em curso terminar.
 [Unit]
 Description=TicketFlow (worker)
 After=network.target postgresql.service

@@ -68,7 +68,7 @@ sequenceDiagram
 ```
 
 - Um upload **só pode ser vinculado por quem o enviou** e **uma única vez**.
-- Uploads não vinculados são apagados após 24 h (`chamados attachments purge`; o worker vai rodá-lo quando existir).
+- Uploads não vinculados são apagados após 24 h (rotina diária do worker, às 03:00; `chamados attachments purge` faz o mesmo à mão).
 - O nome original é saneado (sem caminhos nem caracteres de controle, até 255 caracteres) e guardado **só no banco**. No armazenamento, o arquivo tem um nome aleatório.
 
 ## 11.5 Antivírus (futuro)

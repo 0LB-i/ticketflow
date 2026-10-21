@@ -132,7 +132,7 @@ O script faz `git pull`, `uv sync --frozen`, gera o CSS das telas do servidor (`
 sudo cp /opt/ticketflow/deploy/ticketflow*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ticketflow
-sudo systemctl enable --now ticketflow-worker     # só a partir da Sprint 4, quando o worker existir
+sudo systemctl enable --now ticketflow-worker     # fila de tarefas e rotinas diárias
 ```
 
 Pontos principais de `deploy/ticketflow.service`:
@@ -151,7 +151,7 @@ ProtectSystem=strict
 ReadWritePaths=/var/lib/ticketflow
 ```
 
-O `ticketflow-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`. Os arquivos completos estão em [`deploy/`](../deploy/).
+O `ticketflow-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`: ele consome a fila de tarefas (e-mails dos chamados) e roda as rotinas diárias, como a limpeza dos anexos não vinculados, às 03:00. Não precisa de cron. Os arquivos completos estão em [`deploy/`](../deploy/).
 
 ### 9. nginx e HTTPS
 

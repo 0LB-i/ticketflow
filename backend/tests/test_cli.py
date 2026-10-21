@@ -1,12 +1,20 @@
+import asyncio
 import json
+import os
+import signal
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from chamados import cli
-from chamados.config import get_settings
+from chamados.config import Settings, get_settings
+from chamados.modules.jobs import worker
+from chamados.modules.jobs.models import Job
 
 
 @pytest.fixture(autouse=True)
@@ -38,3 +46,20 @@ def test_db_upgrade_downgrade_current(
     # As extensões foram recriadas com novos OIDs: conexões antigas do pool guardam os velhos.
     sync_engine.dispose()
     cli.main(["db", "current"])
+
+
+def test_worker_encerra_com_sigterm_depois_da_tarefa(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db.add(Job(task="teste.sigterm"))
+    db.commit()
+
+    async def sigterm(_db: AsyncSession, _s: Settings, _args: dict[str, Any]) -> None:
+        os.kill(os.getpid(), signal.SIGTERM)  # o que o systemctl stop faz
+        await asyncio.sleep(0.1)
+
+    monkeypatch.setitem(worker.TASKS, "teste.sigterm", sigterm)
+    monkeypatch.setattr(worker, "ROUTINES", {})
+    cli.main(["worker"])
+    db.expire_all()
+    assert db.scalars(select(Job.status)).one() == "done"

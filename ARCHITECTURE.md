@@ -8,6 +8,8 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos (o "Pegar o próximo" saiu junto com a fila de não atribuídos, em 2026-10-15). A seção 10 lista o que ainda não existe.
 
+Em 2026-10-21 entraram o outbox, a fila de tarefas e o worker (F1-S4-03, seção 3.12).
+
 Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Em 2026-10-19 ela terminou (WEB-06): todas as telas são do servidor, e saíram o `frontend/`, o Node e o serviço do Vite. O histórico e as pendências estão no [docs/19](docs/19-migracao-da-interface.md); a estrutura, na seção 3.11.
 
 ---
@@ -19,14 +21,16 @@ navegador ── HTTPS ──► nginx ──► uvicorn (ticketflow.service) �
                                    │
                                    ├─ /api/*    API REST (FastAPI)
                                    └─ /*        telas do servidor (Jinja2 + HTMX, web/) e /static
+
+chamados worker (ticketflow-worker.service) ──► PostgreSQL: outbox → fila de tarefas, rotinas diárias
 ```
 
 - **Um processo**, um **monólito modular** em Python (FastAPI). Ele serve a API e também a interface web, **na mesma origem**: sem CORS e com o cookie de sessão funcionando sem configuração extra ([ADR 0010](docs/adr/0010-producao-systemd.md)). As telas são renderizadas pelo próprio FastAPI (3.11); não há build de interface nem Node.
-- **Um banco**, o PostgreSQL, que guarda tudo: dados, sessões, auditoria, histórico, configurações e o logotipo. Não há Redis, fila externa nem armazenamento de objetos.
+- **Um banco**, o PostgreSQL, que guarda tudo: dados, sessões, auditoria, histórico, configurações, o logotipo, o outbox e a fila de tarefas. Não há Redis, fila externa nem armazenamento de objetos.
 - **Regras só no backend:** as telas chamam as funções da API ou os services e só montam o HTML; toda regra de negócio e toda decisão de permissão ficam nos módulos.
 - **Uma instalação por empresa** ([ADR 0005](docs/adr/0005-instalacao-por-empresa.md)): não existe `tenant_id`.
 
-Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker (fila de tarefas e e-mails assíncronos), que entra na Sprint 4 (seção 10).
+Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worker** (`chamados worker`), consome o outbox e a fila de tarefas e roda as rotinas diárias (3.12).
 
 ## 2. Mapa do repositório
 
@@ -40,7 +44,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Ainda **não existe** o worker
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0028
+│   ├── migrations/        Alembic: env.py e versions/0001…0030
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── scripts/               check.sh, install-hooks.sh, deploy.sh, instalar-servico-dev.sh, css.sh,
@@ -59,7 +63,7 @@ Convenção de nomes ([ADR 0001](docs/adr/0001-registro-de-decisoes.md)): **cód
 chamados/
 ├── main.py              create_app(): monta a API em /api/v1 e as telas do servidor
 ├── config.py            Settings (pydantic-settings): variáveis de ambiente e .env
-├── cli.py               comando `chamados` (db, admin create, openapi)
+├── cli.py               comando `chamados` (db, admin create, attachments purge, worker, openapi)
 ├── core/                peças sem domínio, usadas por todos os módulos
 │   ├── errors.py        respostas de erro RFC 9457, traduzidas pelo idioma da requisição
 │   ├── i18n.py          idiomas (pt-BR, en), Accept-Language e catálogo de mensagens
@@ -121,6 +125,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
 | `reports` | `schemas`, `service` (escopo, cálculo, horas fora do expediente), `pdf` (ReportLab), `router` | Relatórios de horas: por pessoa, cliente e dia, horas extras e PDF (3.7.2) | `/reports`, `/reports/options`, `/reports/pdf` |
 | `notifications` | `email` | Envio por SMTP ou para o log (`Mailer`) | — |
+| `jobs` | `models` (OutboxEvent, Job), `service` (outbox, fila, repasse, agenda, limpeza), `worker` (loop, tarefas, rotinas, handlers) | Outbox de eventos, fila de tarefas e o processo `chamados worker` (3.12) | — |
 
 Os módulos podem importar modelos e services uns dos outros (por exemplo, `tickets` usa `catalog`, `organization` e `identity`), mas **a decisão de permissão de um chamado só acontece em `tickets`** e **o registro na auditoria só por `audit.service.record()`**.
 
@@ -154,7 +159,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
 - **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, o campo de data e hora acompanha a hora atual até ser mudado.
 - **Cliente e contato:** para quem é o trabalho. `client_id` é **obrigatório** no registro e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); no PATCH troca, mas `null` é recusado (422). A obrigação fica só na API: o banco aceita chamados antigos sem cliente (os relatórios os agrupam como "sem cliente"). O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o campo de cliente (`client_picker` em `web/templates/_fields.html`) busca em `/clientes/opcoes`, que chama `GET /clients/options` (qualquer pessoa logada; só clientes ativos, só o id e o nome, busca pelo nome ou nome fantasia). O setor atendido (`department_id`) continua na API, mas saiu da interface.
-- **Histórico:** fica só no banco e em `GET /tickets/{id}/events`; a linha do tempo da tela mostra só o registro e os comentários (decisão do usuário, 2026-10-13). Cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`.
+- **Histórico:** fica só no banco e em `GET /tickets/{id}/events`; a linha do tempo da tela mostra só o registro e os comentários (decisão do usuário, 2026-10-13). Cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento) e, na mesma transação, no `outbox` (3.12). A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`. O comentário novo não vai para o histórico, mas vai para o outbox (`comment.created`, gravado por `_comment()`).
 - **Responsável obrigatório:** todo chamado tem responsável (`tickets.assignee_id` NOT NULL desde a migração 0028); não há fila de não atribuídos nem "devolver à fila". O registro exige `assignee` (`"me"` ou um membro ativo do grupo); é nos próprios grupos, e quem tem `ticket.view_all` (admin) registra em qualquer grupo ativo, mas só fica como responsável se for membro dele; `POST /assign` só troca de responsável, e a transferência exige `assignee_id`, um membro ativo do grupo de destino.
 - **Mais de um responsável:** `tickets.assignee_id` é o responsável principal e `ticket_co_assignees` guarda os demais (no registro, `co_assignee_ids`; depois, `PUT /assignees` com a lista inteira, por quem tem `assign_others`; quem entra é sempre membro ativo do grupo). No `PUT`, quem já era responsável e saiu do grupo pode ficar ou sair, o principal continua se estiver na lista, senão o primeiro assume; o evento é `ticket.assignees_changed` (`added`, `removed` e, se o principal mudou, `assignee`). Para regras, visibilidade (regra 3), fila Meus, aviso de novidade e o filtro por responsável, todos contam igual (`visibility.assigned_to`). Transferir tira os demais; trocar o principal os mantém. A interface envia quem registra como principal, se estiver na lista, senão a primeira pessoa; na lateral do chamado, "Atribuir a" acrescenta uma pessoa ou o grupo todo, e cada responsável tem um botão para sair (menos o último).
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
@@ -176,7 +181,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Limites:** 25 MB por arquivo (413), 10 por envio, 200 MB por chamado.
 - **Disco** (`storage.py`): `FILES_DIR/attachments/AAAA/MM/<uuid>`, gravado num temporário e renomeado; o nome original (saneado) e o SHA-256 ficam só no banco.
 - **Download:** `inline` para imagens e PDF, `attachment` para o resto, com `X-Content-Type-Options: nosniff` e `Content-Security-Policy: sandbox`.
-- **Limpeza:** `chamados attachments purge` apaga os envios sem dono há mais de 24 h.
+- **Limpeza:** a rotina diária `attachments.purge` do worker (3.12) apaga os envios sem dono há mais de 24 h; `chamados attachments purge` faz o mesmo à mão.
 - O detalhe do chamado traz `attachments` (do registro e de todos os comentários, com `comment_id`); a interface mostra cada anexo no seu comentário e todos na lateral.
 
 ### 3.6 Idiomas (backend)
@@ -250,6 +255,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0027` | `client.manage` sai dos papéis (passa a vir do grupo Administradores) |
 | `0028` | `tickets.assignee_id` NOT NULL: todo chamado tem responsável |
 | `0029` | `client.view` também sai dos papéis: o cadastro de clientes é só do grupo Administradores |
+| `0030` | `outbox` (eventos de domínio) e `jobs` (fila de tarefas), consumidos pelo worker |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -261,7 +267,8 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 |---------|-----|
 | `chamados db upgrade [rev]` / `downgrade rev` / `current` | Migrações |
 | `chamados admin create --email … --name …` | Cria um administrador e mostra o link para definir a senha (recuperação de acesso) |
-| `chamados attachments purge` | Apaga os envios não vinculados há mais de 24 h (até o worker existir, rodar pelo cron) |
+| `chamados attachments purge` | Apaga os envios não vinculados há mais de 24 h, à mão (o worker já faz isso todo dia) |
+| `chamados worker` | O worker (3.12): fica no ar até receber SIGTERM ou Ctrl+C |
 | `chamados openapi [-o arquivo]` | Exporta o contrato OpenAPI, para integrações (5) |
 
 ### 3.11 Telas do servidor (`web/`, ADR 0011)
@@ -312,6 +319,26 @@ web/
 - **Relatórios:** a rota chama `reports.service.resolve` (o mesmo que a dependência da API) e `reports.router.report`; o escopo é decidido ali, então a tela não usa `requires`, e o erro da API (ex.: 403 ao forçar outra pessoa) aparece na tela. Os gráficos são macros em SVG (`reports/_charts.html`) que imitam o `BarChart`/`ColumnChart` da SPA: uma série, só o token `primary`, ponta arredondada e base reta, a dica de cada coluna em CSS (`group-hover`/`group-focus`), sem JavaScript. O PDF é um link GET para `/api/v1/reports/pdf` com os mesmos filtros e o `locale` da pessoa.
 - **Ações do chamado:** cada botão da lateral é um formulário (POST com `csrf_token`) que chama a função da API e volta ao chamado com o aviso (`_act`). Erro numa tarefa nova ou na edição devolve a página com o texto preenchido (422), sem perder o que foi escrito.
 - **Telas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/grupos` `/admin/setores`, `/admin/configuracoes` (com as ações de cada um) e `/relatorios`.
+
+### 3.12 Worker, outbox e fila de tarefas (`modules/jobs/`)
+
+Fila própria no PostgreSQL ([ADR 0003](docs/adr/0003-postgresql.md); a biblioteca Procrastinate foi avaliada e descartada em 2026-10-21: schema fora do Alembic, pool próprio e sem outbox).
+
+```
+ação no chamado ─► add_event() ─► ticket_events + outbox   (mesma transação: rollback desfaz os dois)
+                                                │
+chamados worker, a cada volta:                  ▼
+  1. relay()     outbox ─► HANDLERS ─► jobs     (lote com SKIP LOCKED; tarefas e processed_at juntos)
+  2. schedule()  rotinas do dia ─► jobs         (dedup_key: uma por dia, mesmo com dois workers)
+  3. run_next()  jobs ─► TASKS                  (uma tarefa por vez; sem trabalho, espera 2 s)
+```
+
+- **Outbox** (`outbox`): `event_type` e `payload` (`ticket_id`, `actor_user_id` e, em `data`, o payload do evento). Por que não ler o `ticket_events`: ele só aceita inserção (não dá para marcar o que foi processado) e um cursor por `id` pularia eventos de transações que fazem commit fora de ordem.
+- **Repasse** (`service.relay`): cada evento vai ao handler do seu tipo (`worker.HANDLERS`), que cria as tarefas com `service.enqueue()`. Um handler que falha é desfeito (savepoint), o erro fica em `outbox.error` e no log, e os outros eventos seguem. Evento sem handler só é marcado. Na F1-S4-03 ainda não há handlers; as notificações entram na F1-S4-04.
+- **Tarefas** (`jobs`, `worker.TASKS`): `async def tarefa(db, settings, args)`, numa sessão própria (faz o próprio commit). Enquanto roda, a linha fica travada (`FOR UPDATE SKIP LOCKED`): outro worker a pula, e se o processo cair a transação é desfeita e a tarefa volta sozinha para a fila. Não há status "rodando". A entrega é "pelo menos uma vez".
+- **Falha:** volta para a fila com espera de 30 s, 2 min, 8 min e 32 min (`retry_delay`), com o erro em `last_error`; na 5ª (`max_attempts`) fica `failed` e vai para o log.
+- **Rotinas** (`worker.ROUTINES`, horário de São Paulo): `attachments.purge` às 03:00 e `jobs.cleanup` às 03:30 (apaga tarefas `done` e eventos processados há mais de 7 dias, e `failed` há mais de 30). A `dedup_key` (`attachments.purge:2026-10-21`) é única: dois workers não agendam a mesma rotina, e um worker que sobe depois do horário a roda na hora. No lugar do advisory lock sugerido no docs/03, porque ele sozinho não lembraria se a rotina do dia já rodou.
+- **Encerramento:** SIGTERM (o `systemctl stop`) ou SIGINT terminam a tarefa em curso e saem. Um erro de banco derruba o processo, e o systemd o sobe de novo (`Restart=on-failure`).
 
 ---
 
@@ -391,6 +418,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 | Ambiente | Como |
 |----------|------|
 | **Desenvolvimento, terminais** | PostgreSQL nativo (17 na 5432, 16 na 5433; numa máquina nova, `scripts/preparar-maquina-dev.sh`); `uv run uvicorn chamados.main:create_app --factory --reload` (porta 8000) e `scripts/css.sh --watch` (o CSS das telas). Ver o [README](README.md#como-rodar-desenvolvimento) |
+| **Desenvolvimento, worker** | Não vira serviço na máquina de desenvolvimento: roda em primeiro plano e o Ctrl+C encerra. Por terminais, `uv run chamados worker` (com o `backend/.env`); com o serviço, como o usuário dono dos anexos: `sudo -u ticketflow sh -c 'set -a; . /etc/ticketflow/env; set +a; cd /opt/ticketflow/backend && exec .venv/bin/chamados worker'` |
 | **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento, sem build, atrás do nginx em `https://IP` (80 redireciona para 443; certificado autoassinado em `/etc/ticketflow/tls`). O nginx manda tudo para o `ticketflow.service` (a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`). O `ticketflow-css.service` gera o CSS das telas (`scripts/css.sh --watch`). Aplica as migrações e, de instalações antigas, desativa e apaga o `ticketflow-frontend.service` (Vite) |
 | **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`. O backup não faz parte do programa: fica com quem administra o servidor. Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 
@@ -402,7 +430,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 1. **Toda leitura de chamados passa por `ticket_visibility_filter`**: nas buscas, nos relatórios, nos anexos, em tudo o que vier.
 2. **Toda ação em chamado passa por `allowed_actions`** (`service.require`). Rota nova de chamado sem essa checagem é defeito.
-3. **Toda alteração de chamado** (campos, status, responsável, grupo, observadores, edição e remoção de tarefa) **gera um evento** em `ticket_events`, na mesma transação. O histórico nunca é alterado. Os comentários novos já são o próprio registro.
+3. **Toda alteração de chamado** (campos, status, responsável, grupo, observadores, edição e remoção de tarefa) **gera um evento** em `ticket_events` e no `outbox` (`add_event()` grava os dois), na mesma transação. O histórico nunca é alterado. Os comentários novos já são o próprio registro e vão só para o outbox.
 4. **Administração e login vão para o `audit_log`** com antes e depois.
 5. **Cadastros não são apagados**, só desativados.
 6. **A interface não decide permissões**; usa `allowed_actions` e `page.can()` só para mostrar botões. Tela do servidor que chama rota de administração da API exige a permissão com `requires(P.X)`.
@@ -416,8 +444,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 | Peça | Onde entra | Referência |
 |------|------------|------------|
-| Worker, fila de tarefas e *outbox* (eventos → notificações) | Comando `chamados worker`; a unit `deploy/ticketflow-worker.service` já existe, mas só deve ser instalada quando o comando existir | Sprint 4, [docs/03](docs/03-arquitetura.md#eventos-de-domínio) |
-| Notificações por e-mail dos chamados | Hoje só existem os e-mails de convite, redefinição e bloqueio, enviados na hora | Sprint 4 |
+| Notificações por e-mail dos chamados | Handlers do outbox no worker (3.12); hoje só existem os e-mails de convite, redefinição e bloqueio, enviados na hora | Sprint 4 (F1-S4-04) |
 | Ocultar anexo, lista de tipos configurável pelo admin, miniaturas, antivírus | `attachments` | Sprint 5 e depois, [docs/11](docs/11-anexos-e-arquivos.md) |
 | `ETag` e aviso de colisão | `tickets` | Sprint 4 |
 | Status personalizados, ocultar comentário, testes ponta a ponta (Playwright) | — | Sprint 5 |
@@ -449,6 +476,12 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 3. Textos em `web/locales/pt-BR.json` **e** `en.json`.
 4. Classes novas do Tailwind: `scripts/css.sh` (ou o `ticketflow-css.service`) gera o `app.css` de novo.
 5. Teste em `tests/test_web_<área>.py`, conferindo o HTML, os redirecionamentos e as permissões (inclusive quem tenta entrar sem a permissão).
+
+**Nova tarefa ou rotina do worker** (3.12)
+1. Função `async def tarefa(db, settings, args)` que faz o próprio `commit`; registrada em `worker.TASKS` com um nome `modulo.acao`.
+2. Rotina diária: o nome também em `worker.ROUTINES`, com o horário (São Paulo). Evento que vira tarefa: um handler em `worker.HANDLERS` que chama `service.enqueue()`.
+3. A tarefa pode rodar mais de uma vez (entrega "pelo menos uma vez"): ela precisa aguentar isso.
+4. Teste chamando `service.run_next` com a tarefa (veja `tests/test_fila.py`).
 
 **Nova permissão**
 1. Código em `P` (`core/permissions.py`) e nos papéis (`ROLES`); se depende de supervisão, em `SUPERVISOR`.

@@ -5,6 +5,8 @@
 
 > **Nota (2026-10-09):** o `pgvector` só será necessário quando a IA entrar (depois da v1.0). A v1.0 usa apenas extensões que vêm com o PostgreSQL.
 
+> **Nota (2026-10-21):** a fila de tarefas e o outbox são próprios (F1-S4-03, [ARCHITECTURE 3.12](../../ARCHITECTURE.md#312-worker-outbox-e-fila-de-tarefas-modulesjobs)). O Procrastinate foi descartado: o schema dele (tabelas, funções e triggers) ficaria fora do Alembic, ele usa um pool de conexões próprio e não tem outbox; como o worker é quem cria as tarefas a partir do outbox, a maior vantagem dele (gravar a tarefa na transação da mudança) não seria usada. A tabela `jobs` não tem `queue` nem o status `running` (a linha fica travada enquanto a tarefa roda) e ganhou `dedup_key`, usada pelas rotinas diárias no lugar do advisory lock.
+
 ## Contexto
 
 O requisito é PostgreSQL 16 ou 17. Queremos operação simples em ambientes corporativos, onde cada componente extra (Redis, RabbitMQ, Elasticsearch, banco vetorial) é mais um item para aprovar, monitorar e manter.

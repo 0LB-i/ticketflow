@@ -73,6 +73,9 @@ uv run uvicorn chamados.main:create_app --factory --reload
 
 # CSS das telas (Tailwind), gerado de novo a cada mudança nos templates; em outro terminal, na raiz
 scripts/css.sh --watch
+
+# worker (fila de tarefas e rotinas diárias), quando precisar dele; em outro terminal, em backend/
+uv run chamados worker
 ```
 
 **Como serviço, sem deixar terminais abertos:** `sudo scripts/instalar-servico-dev.sh` instala dois serviços em modo de desenvolvimento, atrás do nginx em `https://IP` (a porta 80 redireciona para a 443): o `ticketflow.service` (o uvicorn em `127.0.0.1:8001` com `--reload`, que reinicia sozinho quando um `.py` muda; o nginx manda tudo para ele) e o `ticketflow-css.service` (o Tailwind gerando de novo o CSS das telas a cada mudança nos templates). Numa instalação antiga, ele também desativa e apaga o `ticketflow-frontend.service` (o Vite, que saiu com a SPA). O certificado é autoassinado (`/etc/ticketflow/tls/ticketflow.crt`): instale-o como confiável no computador para o navegador não avisar. Não há build nem reinício a cada mudança (basta recarregar a página); só as migrações são aplicadas à mão (`.venv/bin/chamados db upgrade`, com o `/etc/ticketflow/env`). Rodar o script de novo atualiza as dependências e aplica as migrações.

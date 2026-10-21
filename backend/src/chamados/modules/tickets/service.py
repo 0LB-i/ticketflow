@@ -1,5 +1,6 @@
 """Operações nos chamados (docs/10). Toda ação passa por `rules.allowed_actions`, e toda leitura
-pelo filtro de visibilidade. Cada mudança gera um evento no histórico (ticket_events).
+pelo filtro de visibilidade. Cada mudança gera um evento no histórico (ticket_events) e no
+outbox, na mesma transação.
 """
 
 import base64
@@ -23,6 +24,7 @@ from chamados.modules.catalog.models import Category, ResolutionCode, TicketStat
 from chamados.modules.clients.models import Client
 from chamados.modules.identity.deps import Auth
 from chamados.modules.identity.models import User
+from chamados.modules.jobs.service import publish
 from chamados.modules.organization.models import Department, Team, TeamMember
 from chamados.modules.tickets import rules
 from chamados.modules.tickets.models import (
@@ -70,6 +72,7 @@ def add_event(
             ticket_id=ticket.id, event_type=event_type, actor_user_id=auth.user.id, payload=payload
         )
     )
+    publish(db, event_type, ticket_id=ticket.id, actor_user_id=auth.user.id, data=payload)
 
 
 # --- leitura ----------------------------------------------------------------------------------
@@ -442,6 +445,14 @@ async def _comment(
         comment.done_at = _done_at(done_at)
     db.add(comment)
     await db.flush()
+    # O comentário não vai para o histórico (é o próprio registro), mas as notificações precisam.
+    publish(
+        db,
+        "comment.created",
+        ticket_id=ticket.id,
+        actor_user_id=auth.user.id,
+        data={"comment_id": str(comment.public_id)},
+    )
     await _add_watchers(db, auth, ticket, mention_ids or [], "mentioned")
     await attachments.link(db, auth, ticket, attachment_ids or [], comment)
     ticket.updated_at = func.now()

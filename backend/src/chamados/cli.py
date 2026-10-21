@@ -1,7 +1,4 @@
-"""Comando `chamados`: migrações, primeiro administrador, anexos e contrato OpenAPI.
-
-O `worker` entra na Sprint 4.
-"""
+"""Comando `chamados`: migrações, primeiro administrador, anexos, worker e contrato OpenAPI."""
 
 import argparse
 import asyncio
@@ -73,7 +70,7 @@ async def _create_admin(email: str, name: str) -> str:
 
 
 async def _purge_attachments() -> int:
-    """Até o worker existir, rodar pelo cron ou à mão (docs/11 §11.4)."""
+    """À mão; o worker já roda a limpeza todo dia (docs/11 §11.4)."""
     from chamados.db.engine import create_engine
     from chamados.db.session import make_sessionmaker
     from chamados.modules.attachments.service import purge
@@ -112,6 +109,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     files.add_parser("purge", help="apaga os envios não vinculados há mais de 24 h")
 
+    sub.add_parser("worker", help="fila de tarefas e rotinas (ticketflow-worker.service)")
+
     api = sub.add_parser("openapi", help="exporta o contrato OpenAPI em JSON")
     api.add_argument("-o", "--output", help="arquivo de saída (padrão: stdout)")
 
@@ -129,5 +128,12 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Administrador criado. Para definir a senha (link válido por 24 h):\n{url}")
     elif args.cmd == "attachments":
         print(f"Envios não vinculados apagados: {asyncio.run(_purge_attachments())}")
+    elif args.cmd == "worker":
+        from chamados.core.logging import configure_logging
+        from chamados.modules.jobs import worker
+
+        settings = get_settings()
+        configure_logging(settings.log_level, settings.log_format)
+        worker.main(settings)
     elif args.cmd == "openapi":
         _openapi(args.output)
