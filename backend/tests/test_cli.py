@@ -39,8 +39,9 @@ def test_openapi_na_saida_padrao(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_db_upgrade_downgrade_current(
-    capsys: pytest.CaptureFixture[str], sync_engine: Engine
+    capsys: pytest.CaptureFixture[str], sync_engine: Engine, db: Session
 ) -> None:
+    # O `db` começa com as tabelas vazias: o que o teste anterior deixou impediria o downgrade.
     cli.main(["db", "downgrade", "base"])
     cli.main(["db", "upgrade"])
     # As extensões foram recriadas com novos OIDs: conexões antigas do pool guardam os velhos.

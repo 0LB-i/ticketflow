@@ -397,30 +397,34 @@ CREATE INDEX attachments_orphans_idx  ON attachments (created_at) WHERE linked_a
 -- Integração: outbox e fila de tarefas
 -- -----------------------------------------------------------------------------
 
+-- Implementadas na migração 0030 (F1-S4-03), como abaixo (ARCHITECTURE.md 3.12).
+
 -- Transactional outbox: gravado na mesma transação da mudança de domínio
 CREATE TABLE outbox (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_type      text        NOT NULL,
     payload         jsonb       NOT NULL,
     created_at      timestamptz NOT NULL DEFAULT now(),
-    processed_at    timestamptz
+    processed_at    timestamptz,
+    error           text                            -- falha do handler (o evento não trava os outros)
 );
 CREATE INDEX outbox_pending_idx ON outbox (id) WHERE processed_at IS NULL;
 
--- Fila de tarefas (consumida com SELECT ... FOR UPDATE SKIP LOCKED)
+-- Fila de tarefas (consumida com SELECT ... FOR UPDATE SKIP LOCKED). Sem status "running": a
+-- linha fica travada enquanto a tarefa roda e, se o worker cair, volta sozinha para a fila.
 CREATE TABLE jobs (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    queue           text        NOT NULL DEFAULT 'default',
     task            text        NOT NULL,           -- ex.: notifications.send_email
     args            jsonb       NOT NULL DEFAULT '{}',
     status          text        NOT NULL DEFAULT 'queued'
-                    CHECK (status IN ('queued', 'running', 'done', 'failed')),
+                    CHECK (status IN ('queued', 'done', 'failed')),
     attempts        smallint    NOT NULL DEFAULT 0,
     max_attempts    smallint    NOT NULL DEFAULT 5,
     run_after       timestamptz NOT NULL DEFAULT now(),
+    dedup_key       text UNIQUE,                    -- rotina diária: 'attachments.purge:2026-10-21'
     last_error      text,
     created_at      timestamptz NOT NULL DEFAULT now(),
     finished_at     timestamptz
 );
-CREATE INDEX jobs_ready_idx ON jobs (queue, run_after) WHERE status = 'queued';
+CREATE INDEX jobs_ready_idx ON jobs (run_after) WHERE status = 'queued';
 

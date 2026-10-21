@@ -2,6 +2,7 @@
 
 from alembic import command
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.orm import Session
 
 from chamados.cli import alembic_config
 
@@ -19,7 +20,9 @@ def test_busca_pt_br_sem_acentos(database_url: str) -> None:
     assert _tsvector(database_url, "Impressão") == _tsvector(database_url, "impressao")
 
 
-def test_downgrade_e_upgrade(database_url: str, sync_engine: Engine) -> None:
+def test_downgrade_e_upgrade(database_url: str, sync_engine: Engine, db: Session) -> None:
+    # O `db` começa com as tabelas vazias: o que o teste anterior deixou (ex.: chamado sem
+    # categoria) impediria o downgrade.
     cfg = alembic_config(database_url)
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")

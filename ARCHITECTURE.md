@@ -249,6 +249,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0020` | "Entregue" passa a ser a revisão: sai o "Entregue" de conclusão (chamados vão para "Concluído") e o de revisão é renomeado |
 | `0021` | Comportamento `delivered` (Entregue), com o status de revisão como padrão dele; sai `is_review` |
 | `0022` | `users.deleted_at` (exclusão de usuário: a linha fica para o histórico, sem e-mail nem login) |
+| `0023` | Clientes: telefones e e-mails viram listas (`phones`, `emails`); nome, CPF/CNPJ e endereço (menos CEP, cidade e UF) passam a opcionais no banco |
 | `0024` | `users.display_name`: o nome que aparece no sistema (o completo fica no cadastro) |
 | `0025` | Sai a restrição única de `clients.document`: o mesmo CPF/CNPJ pode estar em mais de um cadastro |
 | `0026` | Volta a restrição única de `clients.document` (desfaz a `0025`) |
