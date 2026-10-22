@@ -20,6 +20,20 @@ def test_agente_lista_mas_nao_altera(client: TestClient, db: Session) -> None:
     assert client.post("/api/v1/departments", json={"name": "Novo"}).status_code == 403
 
 
+def test_email_dos_membros_so_para_quem_administra_os_grupos(
+    client: TestClient, db: Session
+) -> None:
+    """Todos leem a lista de grupos (formulários de chamado), mas só pelos nomes."""
+    criar_usuario(db, grupos={"TI": "supervisor"})
+    criar_usuario(db, "bia@exemplo.com", nome="Bia", grupos={"TI": "member"})
+    entrar(client)
+    membros = client.get("/api/v1/teams").json()["items"][0]["members"]
+    assert {m["display_name"]: m["email"] for m in membros} == {"Ana Souza": None, "Bia": None}
+    _admin(client, db)
+    membros = client.get("/api/v1/teams").json()["items"][0]["members"]
+    assert {m["email"] for m in membros} == {"ana@exemplo.com", "bia@exemplo.com"}
+
+
 def test_grupo_e_membros(client: TestClient, db: Session) -> None:
     _admin(client, db)
     ana = criar_usuario(db)

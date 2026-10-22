@@ -70,6 +70,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - O backup sai do programa e fica com quem administra o servidor ([docs/18 §18.5](docs/18-manual-do-servidor.md#185-backup)): saem o `scripts/backup.sh`, o `ticketflow-backup.service` e o timer, e o `deploy.sh` não faz mais o dump do banco antes das migrações. Numa instalação existente: `sudo systemctl disable --now ticketflow-backup.timer` e apagar as units de `/etc/systemd/system`; os dumps em `/var/backups/ticketflow` não são mais limpos.
 - E-mail: com `SMTP_STARTTLS` (o padrão), o certificado do servidor SMTP passa a ser conferido (cadeia confiável e nome igual ao `SMTP_HOST`); antes, qualquer certificado era aceito, e alguém no caminho poderia ler a senha do SMTP. **Se o servidor de e-mail usa certificado autoassinado ou o `SMTP_HOST` é um IP ou um nome que não está no certificado, os e-mails param** (a falha vai para o log da aplicação e do worker): use o nome que consta no certificado ou instale a autoridade certificadora no servidor.
 - Esqueci a senha: um link por conta a cada 5 minutos; o pedido repetido nesse intervalo responde igual, mas não manda outro e-mail (o link anterior continua valendo). O link enviado pelo administrador na tela de usuários não tem esse intervalo.
+- API: `GET /teams` traz o e-mail dos membros só para quem tem `admin.organization`; para os demais, `email` vem nulo (os formulários de chamado só usam os nomes). Integrações que liam o e-mail por essa rota precisam de um usuário administrador.
 
 ### Variáveis de ambiente
 

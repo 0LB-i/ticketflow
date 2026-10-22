@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from chamados.core.permissions import P
+from chamados.core.permissions import P, can
 from chamados.core.text import optional_text
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
@@ -33,7 +33,7 @@ Notify = Literal["queue_only", "email_all_members"]
 class MemberOut(BaseModel):
     user_id: uuid.UUID
     display_name: str
-    email: str | None
+    email: str | None = Field(description="só para quem administra os grupos; os demais: nulo")
     role: MemberRole
     is_active: bool
 
@@ -71,7 +71,9 @@ class MemberIn(BaseModel):
 _TEAM_LOAD = selectinload(Team.members).selectinload(TeamMember.user)
 
 
-def _team_out(team: Team) -> TeamOut:
+def _team_out(team: Team, *, emails: bool = True) -> TeamOut:
+    """`emails`: a lista de grupos é lida por todos (formulários de chamado), que só precisam
+    dos nomes; o e-mail de cada pessoa fica para quem administra os grupos."""
     return TeamOut(
         id=team.public_id,
         name=team.name,
@@ -82,7 +84,7 @@ def _team_out(team: Team) -> TeamOut:
             MemberOut(
                 user_id=m.user.public_id,
                 display_name=m.user.display_name,
-                email=m.user.email,
+                email=m.user.email if emails else None,
                 role=m.role,
                 is_active=m.user.is_active,
             )
@@ -117,9 +119,10 @@ async def _name_taken(db: AsyncSession, name: str, except_id: int | None = None)
 
 
 @router.get("/teams", response_model=TeamList)
-async def list_teams(_: CurrentAuth, db: DB) -> TeamList:
+async def list_teams(auth: CurrentAuth, db: DB) -> TeamList:
     teams = (await db.scalars(select(Team).options(_TEAM_LOAD).order_by(Team.name))).all()
-    return TeamList(items=[_team_out(t) for t in teams])
+    emails = can(auth.actor, P.ADMIN_ORGANIZATION)
+    return TeamList(items=[_team_out(t, emails=emails) for t in teams])
 
 
 @router.post("/teams", response_model=TeamOut, status_code=201)
