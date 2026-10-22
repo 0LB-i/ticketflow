@@ -185,7 +185,8 @@ async def put_member(
 ) -> TeamOut:
     """Inclui o usuário no grupo ou muda o papel dele (membro / supervisor)."""
     team = await _team(db, team_id)
-    user = await db.scalar(select(User).where(User.public_id == user_id))
+    # O excluído sai dos grupos e não volta (a linha fica só para o histórico).
+    user = await db.scalar(select(User).where(User.public_id == user_id, User.deleted_at.is_(None)))
     if user is None:
         raise HTTPException(404, "Usuário não encontrado.")
     member = next((m for m in team.members if m.user_id == user.id), None)

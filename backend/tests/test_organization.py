@@ -34,6 +34,16 @@ def test_email_dos_membros_so_para_quem_administra_os_grupos(
     assert {m["email"] for m in membros} == {"ana@exemplo.com", "bia@exemplo.com"}
 
 
+def test_usuario_excluido_nao_volta_a_um_grupo(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    ana = criar_usuario(db)
+    team = client.post("/api/v1/teams", json={"name": "TI"}).json()
+    assert client.delete(f"/api/v1/users/{ana.public_id}").status_code == 204
+    r = client.put(f"/api/v1/teams/{team['id']}/members/{ana.public_id}", json={"role": "member"})
+    assert r.status_code == 404
+    assert client.get("/api/v1/teams").json()["items"][0]["members"] == []
+
+
 def test_grupo_e_membros(client: TestClient, db: Session) -> None:
     _admin(client, db)
     ana = criar_usuario(db)
