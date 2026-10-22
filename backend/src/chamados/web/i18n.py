@@ -6,6 +6,7 @@ mesmos marcadores nos dois idiomas (tests/test_web_i18n.py).
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -15,20 +16,30 @@ LOCALES_DIR = Path(__file__).parent / "locales"
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 
-_catalogs: dict[str, tuple[float, dict[str, Any]]] = {}
+# Cada tela chama t() centenas de vezes: a data do arquivo é conferida no máximo uma vez por
+# segundo, não a cada texto.
+CHECK_EVERY = 1.0
+# idioma → (data do arquivo, quando foi conferida, catálogo)
+_catalogs: dict[str, tuple[float, float, dict[str, Any]]] = {}
 
 
 def catalog(locale: str) -> dict[str, Any]:
     """O catálogo do idioma, lido de novo quando o arquivo muda (o --reload do uvicorn só olha
     os .py)."""
+    now = time.monotonic()
+    cached = _catalogs.get(locale)
+    if cached is not None and now - cached[1] < CHECK_EVERY:
+        return cached[2]
     path = LOCALES_DIR / f"{locale}.json"
     mtime = path.stat().st_mtime
-    cached = _catalogs.get(locale)
+    messages: dict[str, Any]
     if cached is None or cached[0] != mtime:
         with path.open(encoding="utf-8") as f:
-            cached = (mtime, json.load(f))
-        _catalogs[locale] = cached
-    return cached[1]
+            messages = json.load(f)
+    else:
+        messages = cached[2]
+    _catalogs[locale] = (mtime, now, messages)
+    return messages
 
 
 def _lookup(messages: dict[str, Any], key: str) -> str | None:

@@ -11,7 +11,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.i18n import Locale
@@ -68,13 +68,21 @@ class LogoIn(BaseModel):
 
 
 async def load_branding(db: AsyncSession) -> Branding:
-    # Só o hash: a interface consulta o /branding toda vez que abre, e a imagem não é necessária.
-    logo_sha = await db.scalar(
-        select(SystemSetting.value["sha256"].astext).where(SystemSetting.key == "logo")
+    # Toda tela lê a marca: uma consulta só. Do logotipo vem só o hash, não a imagem.
+    rows = await db.execute(
+        select(
+            SystemSetting.key,
+            case(
+                (SystemSetting.key == "logo", SystemSetting.value["sha256"]),
+                else_=SystemSetting.value,
+            ),
+        ).where(SystemSetting.key.in_(("locale", "colors", "logo")))
     )
+    values: dict[str, Any] = {key: value for key, value in rows}
+    logo_sha = values.get("logo")
     return Branding(
-        default_locale=await get_value(db, "locale") or "pt-BR",
-        colors=await get_value(db, "colors"),
+        default_locale=values.get("locale") or "pt-BR",
+        colors=values.get("colors"),
         # A versão no endereço deixa o navegador guardar a imagem sem consultar de novo.
         logo_url=f"/api/v1/branding/logo?v={logo_sha[:12]}" if logo_sha else None,
     )

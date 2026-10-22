@@ -78,3 +78,18 @@ def test_folha_de_estilo_sobrepoe_os_dois_modos() -> None:
     css = stylesheet(PRESETS["azul"])
     assert css.startswith("html:root{--tf-brand:#2563EB;")
     assert "}html.dark{--tf-brand:#2563EB;" in css
+
+
+def test_folha_de_estilo_calculada_uma_vez_por_combinacao() -> None:
+    """Toda tela embute a folha; a paleta (~2 ms) só é derivada na primeira vez."""
+    cores = {"brand": "#2563eb", "neutral": "#64748B", "background": "#FFFFFF"}
+    primeira = stylesheet(cores)
+    antes = palette_cache_hits()
+    assert stylesheet({k: v.upper() for k, v in cores.items()}) == primeira
+    assert palette_cache_hits() == antes + 1
+
+
+def palette_cache_hits() -> int:
+    from chamados.web import palette as modulo
+
+    return modulo._stylesheet.cache_info().hits

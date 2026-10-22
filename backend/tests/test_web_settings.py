@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.system.models import SystemSetting
-from tests.conftest import criar_usuario, entrar
+from tests.conftest import consultas, criar_usuario, entrar
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
 URL = "/admin/configuracoes"
@@ -139,3 +139,16 @@ def test_expediente(client: TestClient, db: Session) -> None:
     assert "25/12/2026" in r.text
     r = client.post(f"{URL}/expediente", data=_form(client, **{**dados, "end": "08:00"}))
     assert _aviso(r.text) == "O fim precisa ser depois do início."
+
+
+def test_marca_lida_numa_consulta(client: TestClient, db: Session) -> None:
+    """Toda tela lê o idioma, as cores e o logotipo: numa consulta só, sem a imagem."""
+    _admin(client, db)
+    cores = {"brand": "#2563EB", "neutral": "#64748B", "background": "#FFFFFF"}
+    client.post(URL, data=_form(client, default_locale="pt-BR", **cores))
+    client.post(f"{URL}/logo", data=_form(client), files={"logo": ("logo.png", PNG, "image/png")})
+    with consultas(client) as sql:
+        r = client.get("/chamados")
+    assert len([q for q in sql if "FROM settings" in q]) == 1
+    assert "/api/v1/branding/logo?v=" in r.text
+    assert "--tf-primary:" in r.text  # a folha das cores personalizadas

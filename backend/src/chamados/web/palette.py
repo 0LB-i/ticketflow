@@ -6,6 +6,7 @@ de campos e contorno de foco. Sem personalização, vale a paleta original do do
 """
 
 import math
+from functools import lru_cache
 from typing import Literal
 
 Colors = dict[str, str]  # brand, neutral, background
@@ -258,9 +259,19 @@ def stylesheet(colors: Colors | None) -> str:
     `html:root` e `html.dark` têm especificidade maior que `:root` e `.dark`, então valem em
     qualquer ordem no <head>.
     """
-    if palette(colors) is DEFAULT_PALETTE:
+    if not colors:
         return ""
-    p = palette(colors)
+    return _stylesheet(
+        colors["brand"].upper(), colors["neutral"].upper(), colors["background"].upper()
+    )
+
+
+@lru_cache(maxsize=8)
+def _stylesheet(brand: str, neutral: str, background: str) -> str:
+    """Toda tela embute a folha: derivar a paleta (~2 ms) uma vez por combinação de cores."""
+    p = palette({"brand": brand, "neutral": neutral, "background": background})
+    if p is DEFAULT_PALETTE:
+        return ""
 
     def rules(tokens: Tokens) -> str:
         return ";".join(f"--tf-{t}:{tokens[t]}" for t in TOKENS)
