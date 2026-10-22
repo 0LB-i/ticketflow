@@ -261,7 +261,7 @@ async def move_status(
     check_csrf(page, csrf_token)
 
     async def action() -> None:
-        ids = [s.id for s in (await catalog_api.list_statuses(page.auth, db)).items]
+        ids = [s.id for s in await catalog_api.status_options(db)]
         if status_id not in ids:
             raise HTTPException(404, "Status não encontrado.")
         i = ids.index(status_id)

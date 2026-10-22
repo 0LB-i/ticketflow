@@ -9,7 +9,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from tests.conftest import criar_usuario, entrar, grupo
+from tests.conftest import consultas, criar_usuario, entrar, grupo
 from tests.test_anexos import anexo
 from tests.test_chamados import API, base, cenario, criar_cliente, registrar  # noqa: F401
 
@@ -422,3 +422,15 @@ def test_data_ajustada_invalida(client: TestClient, cenario: dict[str, Any]) -> 
     r = client.post("/chamados/novo", data=_form(client, **_novo(cenario, status_id="²")))
     assert r.status_code == 200  # seguiu para o chamado registrado
     assert r.url.path.startswith("/chamados/")
+
+
+def test_telas_de_chamado_nao_contam_chamados_por_status(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+) -> None:
+    """A contagem por status percorre todos os chamados: só a tela de Configurações a mostra."""
+    numero = registrar(client, cenario)["number"]
+    for url in (f"/chamados/{numero}", "/chamados/novo", "/chamados"):
+        with consultas(client) as sql:
+            assert client.get(url).status_code == 200
+        assert not [q for q in sql if "GROUP BY tickets.status_id" in q], url

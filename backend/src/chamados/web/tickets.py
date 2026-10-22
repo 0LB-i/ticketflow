@@ -100,7 +100,7 @@ async def tickets_page(
 
     bulk = page.can("ticket.bulk")
     teams = (await organization_api.list_teams(auth, db)).items
-    statuses = (await catalog_api.list_statuses(auth, db)).items if bulk else []
+    statuses = await catalog_api.status_options(db) if bulk else []
     return page.render(
         "tickets/list.html",
         tabs=TABS,

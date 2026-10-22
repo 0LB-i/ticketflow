@@ -232,11 +232,14 @@ async def update_category(
 # --- status e códigos de resolução ------------------------------------------------------------
 
 
-class StatusOut(BaseModel):
+class StatusOption(BaseModel):
     id: int
     name: str
     kind: StatusKind
     is_default: bool = Field(description="usado quando o fluxo leva a este kind")
+
+
+class StatusOut(StatusOption):
     ticket_count: int
 
 
@@ -270,21 +273,23 @@ class ResolutionCodeList(BaseModel):
     items: list[ResolutionCodeOut]
 
 
+async def status_options(db: AsyncSession) -> list[StatusOption]:
+    """Os status na ordem da lista, sem a contagem de chamados: o que os formulários de chamado
+    usam (a contagem percorre todos os chamados e só a tela de Configurações a mostra)."""
+    rows = await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order, TicketStatus.id))
+    return [
+        StatusOption(id=s.id, name=s.name, kind=s.kind, is_default=s.is_default_for_kind)
+        for s in rows
+    ]
+
+
 async def _statuses(db: AsyncSession) -> StatusList:
     counts = dict(
         (await db.execute(select(Ticket.status_id, func.count()).group_by(Ticket.status_id))).all()
     )
-    rows = await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order, TicketStatus.id))
     return StatusList(
         items=[
-            StatusOut(
-                id=s.id,
-                name=s.name,
-                kind=s.kind,
-                is_default=s.is_default_for_kind,
-                ticket_count=counts.get(s.id, 0),
-            )
-            for s in rows
+            StatusOut(**dict(s), ticket_count=counts.get(s.id, 0)) for s in await status_options(db)
         ]
     )
 

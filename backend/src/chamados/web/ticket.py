@@ -163,7 +163,7 @@ async def _new_ticket_page(
     auth = page.auth
     teams = (await organization_api.list_teams(auth, db)).items
     team_options = [(str(t.id), t.name) for t in _registrable(page, teams)]
-    statuses = (await catalog_api.list_statuses(auth, db)).items
+    statuses = await catalog_api.status_options(db)
     if not form.status:
         form.status = str(next((s.id for s in statuses if s.kind == "open"), ""))
     people = _people(teams)
@@ -358,7 +358,7 @@ async def _ticket_page(
     # A última tarefa que a pessoa vê: o aviso de tarefa nova conta a partir dela.
     seen_until = max((c.created_at for c in comments), default=ticket.created_at).isoformat()
     teams = (await organization_api.list_teams(auth, db)).items
-    statuses = (await catalog_api.list_statuses(auth, db)).items
+    statuses = await catalog_api.status_options(db)
     actions = set(ticket.allowed_actions)
     me = str(auth.user.public_id)
     people = _people(teams)
@@ -592,7 +592,7 @@ async def deliver(
     """Um clique leva ao status padrão do comportamento Entregue (a revisão do supervisor)."""
 
     async def action() -> None:
-        statuses = (await catalog_api.list_statuses(page.auth, db)).items
+        statuses = await catalog_api.status_options(db)
         delivered = next((s for s in statuses if s.kind == "delivered" and s.is_default), None)
         if delivered is None:  # o admin mudou os status com a página aberta
             raise HTTPException(404, "Status não encontrado.")

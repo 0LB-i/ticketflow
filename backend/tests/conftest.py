@@ -7,6 +7,7 @@ também para o 16.
 import os
 import re
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,7 +16,8 @@ from alembic import command
 from argon2 import PasswordHasher
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, create_engine, select, text
+from sqlalchemy import Engine, create_engine, event, select, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
 from chamados.cli import alembic_config
@@ -199,3 +201,19 @@ def criar_categoria(
     db.add(category)
     db.commit()
     return category
+
+
+@contextmanager
+def consultas(client: TestClient) -> Iterator[list[str]]:
+    """O SQL que a aplicação executa dentro do bloco (para os testes de desempenho)."""
+    feitas: list[str] = []
+
+    def guardar(_conn: Connection, _cursor: object, statement: str, *_: object) -> None:
+        feitas.append(statement)
+
+    engine = client.app.state.engine.sync_engine  # type: ignore[attr-defined]
+    event.listen(engine, "before_cursor_execute", guardar)
+    try:
+        yield feitas
+    finally:
+        event.remove(engine, "before_cursor_execute", guardar)
