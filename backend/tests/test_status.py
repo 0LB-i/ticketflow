@@ -68,21 +68,24 @@ def test_criar_renomear_ordenar(client: TestClient, db: Session) -> None:
     assert nomes(r)[-1] == "Em teste"
     novo = por_nome(client)["Em teste"]
     assert novo["kind"] == "open" and novo["is_default"] is False
-    assert client.post(API, json={"name": "em TESTE", "kind": "closed"}).status_code == 422
+    assert client.post(API, json={"name": "em TESTE", "kind": "closed"}).status_code == 409
     assert client.post(API, json={"name": "Aprovação", "kind": "approval"}).status_code == 422
 
     r = client.patch(f"{API}/{novo['id']}", json={"name": "Em homologação"})
     assert "Em homologação" in nomes(r)
-    assert client.patch(f"{API}/{novo['id']}", json={"name": "Pendente"}).status_code == 422
+    assert client.patch(f"{API}/{novo['id']}", json={"name": "Pendente"}).status_code == 409
 
     ids = [s["id"] for s in client.get(API).json()["items"]]
     nova_ordem = [ids[-1], *ids[:-1]]
     r = client.put(f"{API}/order", json={"ids": nova_ordem})
     assert [s["id"] for s in r.json()["items"]] == nova_ordem
     assert client.put(f"{API}/order", json={"ids": ids[:-1]}).status_code == 422
+    client.put(f"{API}/order", json={"ids": nova_ordem})  # a mesma ordem não vai à auditoria
 
     acoes = db.scalars(select(AuditLog.action).where(AuditLog.target_type == "ticket_status")).all()
-    assert acoes == ["ticket_status.created", "ticket_status.updated"]
+    assert acoes == ["ticket_status.created", "ticket_status.updated", "ticket_status.reordered"]
+    ordem = db.scalars(select(AuditLog).where(AuditLog.action == "ticket_status.reordered")).one()
+    assert (ordem.before, ordem.after) == ({"order": ids}, {"order": nova_ordem})
 
 
 def test_remover_move_os_chamados(client: TestClient, db: Session) -> None:

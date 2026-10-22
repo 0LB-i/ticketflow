@@ -253,6 +253,7 @@ async def rename_status(
 async def move_status(
     status_id: int,
     page: SettingsAdmin,
+    request: Request,
     db: DB,
     csrf_token: Field = "",
     para: Field = "cima",
@@ -268,7 +269,7 @@ async def move_status(
         j = i - 1 if para == "cima" else i + 1
         if 0 <= j < len(ids):
             ids[i], ids[j] = ids[j], ids[i]
-        await catalog_api.reorder_statuses(StatusOrder(ids=ids), page.auth, db)
+        await catalog_api.reorder_statuses(StatusOrder(ids=ids), page.auth, request, db)
 
     return await _run(page, f"{HOME}#status", action, page.t("statusConfig.ordemSalva"))
 

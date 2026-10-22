@@ -309,7 +309,7 @@ async def _check_status_name(db: AsyncSession, name: str, except_id: int | None 
         select(TicketStatus.id).where(func.lower(TicketStatus.name) == name.lower())
     )
     if found is not None and found != except_id:
-        raise HTTPException(422, "Já existe um status com este nome.")
+        raise HTTPException(409, "Já existe um status com este nome.")
     return name
 
 
@@ -370,12 +370,26 @@ async def update_status(
 
 
 @router.put("/statuses/order", response_model=StatusList)
-async def reorder_statuses(data: StatusOrder, auth: SettingsAdmin, db: DB) -> StatusList:
+async def reorder_statuses(
+    data: StatusOrder, auth: SettingsAdmin, request: Request, db: DB
+) -> StatusList:
     statuses = {s.id: s for s in await db.scalars(select(TicketStatus))}
     if sorted(data.ids) != sorted(statuses):
         raise HTTPException(422, "Envie todos os status, cada um uma vez.")
+    before = [s.id for s in sorted(statuses.values(), key=lambda s: (s.sort_order, s.id))]
     for position, status_id in enumerate(data.ids, start=1):
         statuses[status_id].sort_order = position
+    if data.ids != before:
+        # Como as demais mudanças de status: a ordem é a das listas de todo mundo.
+        record(
+            db,
+            "ticket_status.reordered",
+            request=request,
+            actor_user_id=auth.user.id,
+            target_type="ticket_status",
+            before={"order": before},
+            after={"order": data.ids},
+        )
     await db.commit()
     return await _statuses(db)
 
