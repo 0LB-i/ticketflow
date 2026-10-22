@@ -66,7 +66,10 @@ def render(
     texts = TEXTS.get(locale, TEXTS["pt-BR"])
     motivo, linha = (t.format(quem=quem, numero=numero, grupo=grupo) for t in texts[reason])
     assunto, corpo, bloco = texts["email"]
-    return assunto.format(numero=numero, titulo=titulo, motivo=motivo), corpo.format(
+    # O assunto é um header: uma quebra de linha no título ou no nome do grupo (a API aceita) faria
+    # o EmailMessage recusar o e-mail, e a fila tentaria em vão.
+    subject = " ".join(assunto.format(numero=numero, titulo=titulo, motivo=motivo).split())
+    return subject, corpo.format(
         nome=nome,
         linha=linha,
         numero=numero,

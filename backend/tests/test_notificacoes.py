@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Callable
+from email.message import EmailMessage
 from typing import Any
 
 import pytest
@@ -214,6 +215,24 @@ def test_textos_nos_dois_idiomas() -> None:
     for chave in pt:
         for texto_pt, texto_en in zip(pt[chave], en[chave], strict=True):
             assert set(re.findall(r"{(\w+)}", texto_pt)) == set(re.findall(r"{(\w+)}", texto_en))
+
+
+def test_assunto_sem_quebra_de_linha() -> None:
+    """A API aceita quebra de linha no título; no assunto (um header), ela impediria o envio."""
+    assunto, corpo = messages.render(
+        "pt-BR",
+        "transferred",
+        nome="Bia",
+        quem="Ana",
+        numero=1000,
+        titulo="Linha 1\nLinha 2",
+        grupo="Suporte\r\nN2",
+        url="http://teste/chamados/1000",
+        comentario=None,
+    )
+    assert assunto == "[#1000] Linha 1 Linha 2: transferido para o grupo Suporte N2"
+    EmailMessage()["Subject"] = assunto  # o que o SmtpMailer faz
+    assert "Linha 1\nLinha 2" in corpo  # no corpo, o título fica como foi escrito
 
 
 def test_rotina_de_envio_registrada() -> None:
