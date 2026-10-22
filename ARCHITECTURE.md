@@ -44,7 +44,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0030
+│   ├── migrations/        Alembic: env.py e versions/0001…0031
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   └── tests/             pytest com PostgreSQL real (seção 7)
 ├── scripts/               check.sh, install-hooks.sh, deploy.sh, instalar-servico-dev.sh, css.sh,
@@ -259,6 +259,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0028` | `tickets.assignee_id` NOT NULL: todo chamado tem responsável |
 | `0029` | `client.view` também sai dos papéis: o cadastro de clientes é só do grupo Administradores |
 | `0030` | `outbox` (eventos de domínio) e `jobs` (fila de tarefas), consumidos pelo worker |
+| `0031` | Índice `ticket_comments_done_idx` (`done_at` das tarefas não removidas), para o período dos relatórios |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).

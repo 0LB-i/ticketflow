@@ -15,7 +15,7 @@ from chamados.modules.audit.models import AuditLog
 from chamados.modules.reports import pdf
 from chamados.modules.reports.service import TZ, outside_minutes
 from chamados.modules.system.work_hours import DEFAULT, WorkHours
-from tests.conftest import criar_usuario, entrar
+from tests.conftest import consultas, criar_usuario, entrar
 from tests.test_chamados import API, base, cenario, criar_cliente, registrar  # noqa: F401
 
 REPORTS = "/api/v1/reports"
@@ -87,7 +87,10 @@ def test_horas_por_pessoa_cliente_e_dia(
     outro = registrar(client, cenario, assignee="me")["number"]
     tarefa(client, outro, 15, em(dia, 11))
 
-    r = relatorio(client, dia)
+    with consultas(client) as sql:
+        r = relatorio(client, dia)
+    # Só as colunas usadas: o texto das tarefas (até 50 mil caracteres) não é lido
+    assert not [q for q in sql if "ticket_comments.body" in q]
     assert r["totals"]["minutes"] == 135
     assert r["totals"]["overtime_minutes"] == 60
     assert r["totals"]["tasks"] == 3

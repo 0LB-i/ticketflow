@@ -177,14 +177,27 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
     ]
     if f.person:
         task_conds.append(TicketComment.author_id == f.person.id)
+    # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o autor
+    # de cada linha; os autores vêm depois, uma vez cada.
     tasks = (
         await db.execute(
-            select(TicketComment, Ticket.number, Ticket.title, Ticket.client_id)
+            select(
+                TicketComment.author_id,
+                TicketComment.time_spent_minutes,
+                TicketComment.done_at,
+                Ticket.number,
+                Ticket.title,
+                Ticket.client_id,
+            )
             .join(Ticket, Ticket.id == TicketComment.ticket_id)
             .where(*task_conds)
             .order_by(TicketComment.done_at)
         )
     ).all()
+    authors = {
+        u.id: u
+        for u in await db.scalars(select(User).where(User.id.in_({t.author_id for t in tasks})))
+    }
 
     people: dict[int, PersonRow] = {}
     clients: dict[int | None, ClientRow] = {}
@@ -218,15 +231,16 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
                 client_ids.add(client_id)
         return clients[client_id]
 
-    for comment, number, title, client_id in tasks:
-        minutes = comment.time_spent_minutes or 0
-        extra = outside_minutes(comment.done_at, minutes, wh) if minutes else 0
-        p = person_row(comment.author)
+    for author_id, time_spent, done_at, number, title, client_id in tasks:
+        minutes = time_spent or 0
+        extra = outside_minutes(done_at, minutes, wh) if minutes else 0
+        author = authors[author_id]
+        p = person_row(author)
         p.tasks += 1
         p.minutes += minutes
         p.overtime_minutes += extra
         client_row(client_id).minutes += minutes
-        day = days[comment.done_at.astimezone(TZ).date()]
+        day = days[done_at.astimezone(TZ).date()]
         day.minutes += minutes
         day.overtime_minutes += extra
         if extra:
@@ -234,8 +248,8 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
                 OvertimeTask(
                     ticket_number=number,
                     ticket_title=title,
-                    person=comment.author.display_name,
-                    done_at=comment.done_at,
+                    person=author.display_name,
+                    done_at=done_at,
                     minutes=minutes,
                     overtime_minutes=extra,
                 )

@@ -158,6 +158,8 @@ class TicketComment(Base):
         CheckConstraint("time_spent_minutes > 0", name="time_spent_minutes"),
         Index("ticket_comments_ticket_idx", "ticket_id", "created_at"),
         Index("ticket_comments_search_idx", "search_vector", postgresql_using="gin"),
+        # Relatórios: as tarefas do período (docs/14 §14.7).
+        Index("ticket_comments_done_idx", "done_at", postgresql_where=text("deleted_at IS NULL")),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
