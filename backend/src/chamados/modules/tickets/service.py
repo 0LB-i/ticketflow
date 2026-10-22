@@ -98,9 +98,14 @@ def publish_ticket_event(
 # --- leitura ----------------------------------------------------------------------------------
 
 
+def _is_number(text: str) -> bool:
+    """Número de chamado: só 0-9 (o isdigit() aceita "²", que o int() recusa) e cabe no bigint."""
+    return text.isascii() and text.isdigit() and len(text) < 19
+
+
 def _by_ref(ticket_ref: str) -> ColumnElement[bool]:
     """O chamado é aceito pelo número (`1234`) ou pelo UUID (docs/05)."""
-    if ticket_ref.isdigit() and len(ticket_ref) < 19:
+    if _is_number(ticket_ref):
         return Ticket.number == int(ticket_ref)
     try:
         return Ticket.public_id == uuid.UUID(ticket_ref)
@@ -246,7 +251,7 @@ def search_filter(q: str) -> ColumnElement[bool] | None:
         ),
     ]
     number = q.strip().removeprefix("#")
-    if number.isdigit() and len(number) < 19:
+    if _is_number(number):
         rules.append(Ticket.number == int(number))
     return or_(*rules)
 

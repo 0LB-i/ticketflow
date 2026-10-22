@@ -111,6 +111,10 @@ def test_busca(client: TestClient, cenario: dict[str, Any], db: Session) -> None
     assert numeros(client, q="vpn", view="waiting") == []  # dentro da fila
     assert numeros(client, q="de") == []  # só palavras vazias
     assert client.get(API, params={"q": "?!"}).status_code == 200
+    # "²" e "①" passam no isdigit(), mas não são número de chamado
+    assert numeros(client, q="²") == []
+    assert numeros(client, q="#①") == []
+    assert client.get(f"{API}/²").status_code == 404
 
     entrar(client, "caio@x.com")  # a busca respeita a visibilidade
     assert numeros(client, q="impressora") == []
