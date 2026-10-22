@@ -1007,3 +1007,75 @@ async def set_watcher(
         add_event(db, ticket, "watcher.removed", auth, user=ref(watcher.user))
         await db.delete(watcher)
     await db.commit()
+
+
+# --- saída de um grupo ou do sistema ----------------------------------------------------------
+
+
+def _open_assigned(user_id: int, team_id: int | None) -> Select[Ticket]:
+    """Chamados abertos (não concluídos nem cancelados) de que a pessoa é responsável."""
+    stmt = (
+        select(Ticket)
+        .join(Ticket.status)
+        .where(TicketStatus.kind.in_(ACTIVE), assigned_to(user_id))
+    )
+    return stmt if team_id is None else stmt.where(Ticket.team_id == team_id)
+
+
+async def _supervisor(db: AsyncSession, team_id: int, leaving: int) -> User | None:
+    """Um supervisor ativo do grupo (o primeiro em ordem alfabética), menos quem está saindo."""
+    return await db.scalar(
+        select(User)
+        .join(TeamMember, TeamMember.user_id == User.id)
+        .where(
+            TeamMember.team_id == team_id,
+            TeamMember.role == "supervisor",
+            User.is_active,
+            User.deleted_at.is_(None),
+            User.id != leaving,
+        )
+        .order_by(User.display_name, User.id)
+        .limit(1)
+    )
+
+
+async def release(db: AsyncSession, auth: Auth, user: User, team_id: int | None = None) -> None:
+    """A pessoa sai do sistema (exclusão, desativação) ou de um grupo (`team_id`): deixa de ser
+    responsável pelos chamados abertos, de todos os grupos ou só daquele, para eles não ficarem
+    sem dono. Quem era um dos responsáveis sai da lista; no lugar do principal fica o próximo
+    da lista ou, sem ninguém, um supervisor ativo do grupo. Sem supervisor, o chamado continua
+    com ela (a tela avisa: `still_assigned`). Sem commit: entra na transação de quem chama."""
+    tickets = (
+        await db.scalars(
+            _open_assigned(user.id, team_id).options(selectinload(Ticket.co_assignees))
+        )
+    ).all()
+    for ticket in tickets:
+        others = [c for c in ticket.co_assignees if c.user_id != user.id]
+        payload: dict[str, Any] = {"added": [], "removed": [ref(user)]}
+        if ticket.assignee_id == user.id:
+            if others:
+                principal, others = others[0].user, others[1:]
+            else:
+                found = await _supervisor(db, ticket.team_id, user.id)
+                if found is None:
+                    continue
+                principal = found
+                payload["added"] = [ref(principal)]
+            payload["assignee"] = {"from": ref(user), "to": ref(principal)}
+            ticket.assignee_id = principal.id
+        add_event(db, ticket, "ticket.assignees_changed", auth, **payload)
+        ticket.co_assignees[:] = others
+
+
+async def still_assigned(
+    db: AsyncSession, user_id: uuid.UUID, team_id: uuid.UUID | None = None
+) -> list[int]:
+    """Números dos chamados abertos que continuam com a pessoa depois de `release` (o grupo não
+    tinha supervisor para recebê-los)."""
+    user = await db.scalar(select(User.id).where(User.public_id == user_id))
+    team = await db.scalar(select(Team.id).where(Team.public_id == team_id)) if team_id else None
+    if user is None:
+        return []
+    stmt = _open_assigned(user, team).with_only_columns(Ticket.number).order_by(Ticket.number)
+    return list(await db.scalars(stmt))

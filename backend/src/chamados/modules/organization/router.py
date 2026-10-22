@@ -20,6 +20,7 @@ from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, CurrentAuth, require
 from chamados.modules.identity.models import User
 from chamados.modules.organization.models import Department, Team, TeamMember
+from chamados.modules.tickets import service as tickets
 
 router = APIRouter(tags=["organização"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_ORGANIZATION))]
@@ -219,6 +220,8 @@ async def remove_member(
     member = next((m for m in team.members if m.user.public_id == user_id), None)
     if member is None:
         raise HTTPException(404, "Este usuário não é membro do grupo.")
+    # Os chamados abertos do grupo que eram dela passam a outro responsável ou ao supervisor.
+    await tickets.release(db, auth, member.user, team.id)
     team.members.remove(member)
     record(
         db,

@@ -110,7 +110,7 @@
     "linkEnviado": "Link sent by email.",
     "excluir": "Delete user",
     "excluirTitulo": "Delete {nome}?",
-    "excluirAviso": "The person can no longer sign in, leaves the list and the teams, and the email becomes free for a new user. Tickets and hours keep showing their name. This cannot be undone.",
+    "excluirAviso": "The person can no longer sign in, leaves the list and the teams, and the email becomes free for a new user. Tickets and hours keep showing their name; their open tickets go to another assignee or to the team supervisor. This cannot be undone.",
     "excluido": "User deleted",
     "gruposAviso": "Each person's teams are set on the Teams screen.",
     "filtros": {
@@ -129,7 +129,8 @@
       "inativo": "Inactive"
     },
     "usuarioLogin": "username: {usuario}",
-    "semEmail": "No email registered. Add one to receive links by email."
+    "semEmail": "No email registered. Add one to receive links by email.",
+    "chamadosSemSupervisor": "Tickets {lista} are still assigned to {nome}: the group has no supervisor to take them. Reassign them."
   },
   "grupos": {
     "titulo": "Teams",

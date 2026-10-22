@@ -22,6 +22,7 @@ from chamados.modules.identity.service import issue_token, link, send_link_email
 from chamados.modules.identity.sessions import now, revoke_sessions
 from chamados.modules.organization.models import Role, Team, TeamMember
 from chamados.modules.system.service import user_locale
+from chamados.modules.tickets import service as tickets
 
 router = APIRouter(prefix="/users", tags=["usuários"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_USERS))]
@@ -278,6 +279,7 @@ async def update_user(
         user.is_active = data.is_active
         if not data.is_active:
             await revoke_sessions(db, user.id)  # docs/09 §9.3: sessões encerradas na hora
+            await tickets.release(db, auth, user)  # os chamados abertos dela não ficam sem dono
     after = _snapshot(user)
     if after != before:
         record(
@@ -301,6 +303,7 @@ async def delete_user(user_id: uuid.UUID, auth: Admin, request: Request, db: DB)
     if user.id == auth.user.id:
         raise HTTPException(409, "Você não pode excluir o próprio usuário.")
     before = {**_snapshot(user), "teams": [m.team.name for m in user.memberships]}
+    await tickets.release(db, auth, user)  # antes de sair dos grupos: o supervisor de cada um
     user.deleted_at = now()
     user.is_active = False
     user.email = None

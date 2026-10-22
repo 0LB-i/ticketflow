@@ -14,12 +14,14 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import TypeAdapter, ValidationError
+from sqlalchemy import select
 
 from chamados.core.permissions import P
 from chamados.db.session import DB
 from chamados.modules.identity import admin_router as users_api
 from chamados.modules.identity.admin_router import LinkOut, UserCreate, UserOut, UserUpdate
 from chamados.modules.identity.deps import SettingsDep
+from chamados.modules.identity.models import User
 from chamados.modules.organization import router as organization_api
 from chamados.modules.organization.router import (
     DepartmentCreate,
@@ -30,8 +32,9 @@ from chamados.modules.organization.router import (
     TeamOut,
     TeamUpdate,
 )
+from chamados.modules.tickets import service as tickets_service
 from chamados.web.formatting import format_datetime
-from chamados.web.page import LoggedPage, check_csrf, requires, safe_next
+from chamados.web.page import FlashKind, LoggedPage, check_csrf, requires, safe_next
 
 router = APIRouter()
 
@@ -86,9 +89,14 @@ def _list_context(base: str, filters: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _run(
-    page: LoggedPage, back: str, action: Callable[[], Awaitable[object]], done: str | None
+    page: LoggedPage,
+    back: str,
+    action: Callable[[], Awaitable[object]],
+    done: str | None,
+    warning: Callable[[], Awaitable[str | None]] | None = None,
 ) -> RedirectResponse:
-    """Ação de um botão: executa e volta com o aviso (o erro da API vira aviso também)."""
+    """Ação de um botão: executa e volta com o aviso (o erro da API vira aviso também).
+    `warning`: depois do sucesso, um alerta que fica na tela até a pessoa fechar."""
     response = RedirectResponse(back, status_code=303)
     try:
         await action()
@@ -97,9 +105,29 @@ async def _run(
     except HTTPException as exc:
         page.flash(response, ("error", page.api_message(exc)))
     else:
-        if done:
-            page.flash(response, ("success", done))
+        messages: list[tuple[FlashKind, str]] = [("success", done)] if done else []
+        if warning and (text := await warning()):
+            messages.append(("error", text))
+        if messages:
+            page.flash(response, *messages)
     return response
+
+
+def _left_with(
+    page: LoggedPage, db: DB, user_id: uuid.UUID, team_id: uuid.UUID | None = None
+) -> Callable[[], Awaitable[str | None]]:
+    """O alerta dos chamados abertos que continuam com quem saiu do sistema ou do grupo: sem
+    supervisor no grupo, ninguém os recebeu (tickets.service.release)."""
+
+    async def warning() -> str | None:
+        numbers = await tickets_service.still_assigned(db, user_id, team_id)
+        if not numbers:
+            return None
+        name = await db.scalar(select(User.display_name).where(User.public_id == user_id))
+        lista = ", ".join(f"#{n}" for n in numbers)
+        return page.t("usuarios.chamadosSemSupervisor", lista=lista, nome=name or "")
+
+    return warning
 
 
 # --- usuários --------------------------------------------------------------------------------
@@ -319,6 +347,7 @@ async def delete_user(
         _back(volta, "/admin/usuarios"),
         lambda: users_api.delete_user(user_id, page.auth, request, db),
         page.t("usuarios.excluido"),
+        _left_with(page, db, user_id),
     )
 
 
@@ -546,6 +575,7 @@ async def remove_member(
         _with(_back(volta, "/admin/grupos"), editar=team_id),
         lambda: organization_api.remove_member(team_id, user_id, page.auth, request, db),
         None,
+        _left_with(page, db, user_id, team_id),
     )
 
 

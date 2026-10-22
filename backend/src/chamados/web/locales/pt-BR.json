@@ -110,7 +110,7 @@
     "linkEnviado": "Link enviado por e-mail.",
     "excluir": "Excluir usuário",
     "excluirTitulo": "Excluir {nome}?",
-    "excluirAviso": "A pessoa não consegue mais entrar, sai da lista e dos grupos, e o e-mail fica livre para outro cadastro. Nos chamados e nas horas o nome dela continua aparecendo. Não dá para desfazer.",
+    "excluirAviso": "A pessoa não consegue mais entrar, sai da lista e dos grupos, e o e-mail fica livre para outro cadastro. Nos chamados e nas horas o nome dela continua aparecendo; os chamados abertos dela passam a outro responsável ou ao supervisor do grupo. Não dá para desfazer.",
     "excluido": "Usuário excluído",
     "gruposAviso": "Os grupos de cada pessoa são definidos na tela de Grupos.",
     "filtros": {
@@ -129,7 +129,8 @@
       "inativo": "Inativo"
     },
     "usuarioLogin": "usuário: {usuario}",
-    "semEmail": "Sem e-mail cadastrado. Cadastre um para receber links por e-mail."
+    "semEmail": "Sem e-mail cadastrado. Cadastre um para receber links por e-mail.",
+    "chamadosSemSupervisor": "Os chamados {lista} continuam com {nome}: o grupo não tem supervisor para recebê-los. Reatribua-os."
   },
   "grupos": {
     "titulo": "Grupos",
