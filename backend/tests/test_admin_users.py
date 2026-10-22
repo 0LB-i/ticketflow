@@ -60,6 +60,17 @@ def test_nome_de_exibicao_e_o_que_aparece_no_sistema(client: TestClient, db: Ses
     assert (r.json()["full_name"], r.json()["display_name"]) == ("Bruno Lima", "Bruninho")
 
 
+def test_nome_so_com_espacos_e_recusado(client: TestClient, db: Session) -> None:
+    """O mínimo de 2 caracteres vale sem os espaços: um nome vazio quebraria os e-mails."""
+    _admin(client, db)
+    for campo in ("full_name", "display_name"):
+        r = client.post("/api/v1/users", json={**NOVO, campo: "   "})
+        assert r.status_code == 422, campo
+    r = client.post("/api/v1/users", json=NOVO)
+    r = client.patch(f"/api/v1/users/{r.json()['id']}", json={"display_name": " x "})
+    assert r.status_code == 422
+
+
 def test_nome_de_usuario_valido_e_unico(client: TestClient, db: Session) -> None:
     _admin(client, db)
     for errado in ("joão", "b", "bruno@x", "com espaço", ".bruno"):

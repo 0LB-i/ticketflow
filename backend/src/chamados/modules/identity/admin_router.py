@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,6 +26,9 @@ from chamados.modules.system.service import user_locale
 router = APIRouter(prefix="/users", tags=["usuários"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_USERS))]
 RoleCode = Literal["agent", "admin", "auditor"]
+# O mínimo vale depois de tirar os espaços: "  " viraria um nome vazio na tela e nos e-mails.
+FullName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=200)]
+DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)]
 
 
 class UserTeam(BaseModel):
@@ -54,18 +57,16 @@ class UserList(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     username: str = Field(max_length=50, description="login, além do e-mail")
-    full_name: str = Field(min_length=2, max_length=200)
-    display_name: str = Field(
-        min_length=2, max_length=100, description="o nome que aparece no sistema"
-    )
+    full_name: FullName
+    display_name: DisplayName = Field(description="o nome que aparece no sistema")
     role: RoleCode = "agent"
     password: str = Field(max_length=MAX_LENGTH, description="senha inicial, trocada no 1º acesso")
     team_ids: list[uuid.UUID] = Field(default=[], description="grupos em que entra como membro")
 
 
 class UserUpdate(BaseModel):
-    full_name: str | None = Field(default=None, min_length=2, max_length=200)
-    display_name: str | None = Field(default=None, min_length=2, max_length=100)
+    full_name: FullName | None = None
+    display_name: DisplayName | None = None
     email: EmailStr | None = None
     username: str | None = Field(default=None, max_length=50)
     role: RoleCode | None = None
