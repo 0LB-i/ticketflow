@@ -13,7 +13,18 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import HTTPException
-from sqlalchemy import ColumnElement, and_, exists, func, literal_column, or_, select, true
+from sqlalchemy import (
+    ColumnElement,
+    Row,
+    Select,
+    and_,
+    exists,
+    func,
+    literal_column,
+    or_,
+    select,
+    true,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager, defaultload, defer, raiseload, selectinload
@@ -113,22 +124,29 @@ def _by_ref(ticket_ref: str) -> ColumnElement[bool]:
         raise HTTPException(404, "Chamado não encontrado.") from None
 
 
-async def load(db: AsyncSession, auth: Auth, ticket_ref: str) -> Ticket:
-    """Chamado visível para o usuário: 404 se não existe, 403 se não pode vê-lo."""
-    stmt = (
+def _with_visibility(auth: Auth) -> Select[Ticket, bool]:
+    """Chamados com o que as ações precisam e, em `visible`, se a pessoa os vê."""
+    return (
         select(Ticket, ticket_visibility_filter(auth.actor).label("visible"))
-        .where(_by_ref(ticket_ref))
         .options(selectinload(Ticket.watchers), selectinload(Ticket.co_assignees))
         # Depois de uma alteração, relê tudo (a sessão não expira os objetos no commit).
         .execution_options(populate_existing=True)
     )
-    row = (await db.execute(stmt)).first()
+
+
+def _visible(row: Row[Ticket, bool] | None) -> Ticket:
+    """404 se o chamado não existe, 403 se a pessoa não o vê."""
     if row is None:
         raise HTTPException(404, "Chamado não encontrado.")
     ticket, visible = row
     if not visible:
         raise HTTPException(403, "Você não tem acesso a este chamado.")
     return ticket
+
+
+async def load(db: AsyncSession, auth: Auth, ticket_ref: str) -> Ticket:
+    """Chamado visível para o usuário: 404 se não existe, 403 se não pode vê-lo."""
+    return _visible((await db.execute(_with_visibility(auth).where(_by_ref(ticket_ref)))).first())
 
 
 def actions(auth: Auth, ticket: Ticket) -> set[str]:
@@ -655,11 +673,15 @@ async def bulk_status(
     """Mesmo status em vários chamados (ação bulk). Cada chamado passa pelas próprias regras; os
     que não podem mudar ficam de fora, com o motivo, e os demais mudam juntos."""
     status = await _status(db, status_id)
+    unique = list(dict.fromkeys(numbers))
+    # Todos numa consulta (até 200), com a visibilidade; um número fora do bigint não existe.
+    stmt = _with_visibility(auth).where(Ticket.number.in_([n for n in unique if 0 < n < 2**63]))
+    found = {row[0].number: row for row in (await db.execute(stmt)).all()}
     updated: list[int] = []
     failed: list[tuple[int, str]] = []
-    for number in dict.fromkeys(numbers):
+    for number in unique:
         try:
-            ticket = await load(db, auth, str(number))
+            ticket = _visible(found.get(number))
             require(auth, ticket, "bulk")
             _change_status(db, auth, ticket, status)
         except HTTPException as e:

@@ -10,7 +10,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from chamados.modules.clients.models import Client
-from tests.conftest import criar_categoria, criar_usuario, entrar, grupo
+from tests.conftest import consultas, criar_categoria, criar_usuario, entrar, grupo
 
 API = "/api/v1/tickets"
 
@@ -276,11 +276,17 @@ def test_status_em_massa_so_supervisor_e_admin(client: TestClient, cenario: dict
 
     # Bia supervisiona o TI: muda os dois; o da Infra (que ela nem vê) fica de fora, com o motivo
     entrar(client, "bia@x.com")
-    r = client.post(url, json={"numbers": [a, b, infra, 9999, a], "status_id": status["Concluído"]})
+    with consultas(client) as sql:
+        r = client.post(
+            url, json={"numbers": [a, b, infra, 9999, a, 2**70], "status_id": status["Concluído"]}
+        )
+    # Todos os chamados numa consulta só, não um load por número
+    assert len([q for q in sql if "FROM tickets" in q and "tickets.number" in q]) == 1
     assert r.json()["updated"] == [a, b]
     assert r.json()["failed"] == [
         {"number": infra, "detail": "Você não tem acesso a este chamado."},
         {"number": 9999, "detail": "Chamado não encontrado."},
+        {"number": 2**70, "detail": "Chamado não encontrado."},
     ]
     assert client.get(f"{API}/{a}").json()["status"]["name"] == "Concluído"
     assert eventos(client, a)[-1]["type"] == "ticket.status_changed"
