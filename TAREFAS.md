@@ -61,7 +61,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S4-05 | **Filas**: meus chamados, aguardando, acompanhando, todos do grupo | feito | d7dc992 |
 | F1-S4-06 | Botão "Pegar o próximo" | removido em 2026-10-15 (todo chamado tem responsável) | d7dc992 |
 | F1-S4-07 | **Busca textual** em português + filtros | feito | d7dc992 |
-| F1-S4-08 | Indicador de colisão ("Fulano está vendo") + `ETag` | feito | |
+| F1-S4-08 | Indicador de colisão ("Fulano está vendo") + `ETag` | feito | e519604 |
 
 ### Sprint 5 — Ciclo completo e preparação do piloto
 
