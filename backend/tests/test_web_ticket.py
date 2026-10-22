@@ -434,3 +434,18 @@ def test_telas_de_chamado_nao_contam_chamados_por_status(
         with consultas(client) as sql:
             assert client.get(url).status_code == 200
         assert not [q for q in sql if "GROUP BY tickets.status_id" in q], url
+
+
+def test_tela_do_chamado_carrega_o_chamado_uma_vez(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+) -> None:
+    """O detalhe e as tarefas reaproveitam o chamado carregado (com a visibilidade)."""
+    numero = registrar(client, cenario)["number"]
+    tarefa = client.post(f"{API}/{numero}/comments", json={"body": "Primeira"}).json()["id"]
+    for url in (f"/chamados/{numero}", f"/chamados/{numero}?editar={tarefa}"):
+        with consultas(client) as sql:
+            r = client.get(url)
+        assert r.status_code == 200
+        assert len([q for q in sql if "WHERE tickets.number = " in q]) == 1, url
+    assert ">Primeira</textarea>" in r.text  # a tarefa em edição continua aparecendo

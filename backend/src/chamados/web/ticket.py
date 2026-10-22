@@ -333,6 +333,7 @@ async def _ticket_page(
     number: int,
     *,
     comment: CommentForm | None = None,
+    editing: str | None = None,
     removing: str | None = None,
     destination: str = "",
     status_code: int = 200,
@@ -340,12 +341,8 @@ async def _ticket_page(
     auth = page.auth
     ref = str(number)
     try:
-        # Os trechos pedidos pelo HTMX (editar, remover, grupo de destino) não contam como nova
-        # visita nem vão de novo para a auditoria do confidencial.
-        if request.headers.get("HX-Request"):
-            ticket = await tickets_api.load_detail(db, auth, ref)
-        else:
-            ticket = await tickets_api.get_ticket(ref, auth, db, request, Response())
+        # Carregado uma vez (visibilidade) e reaproveitado no detalhe e nas tarefas.
+        loaded = await tickets_service.load(db, auth, ref)
     except HTTPException as exc:
         if exc.status_code not in (403, 404):
             raise
@@ -354,7 +351,13 @@ async def _ticket_page(
             status_code=exc.status_code,
             forbidden=exc.status_code == 403,
         )
-    comments = (await tickets_api.list_comments(ref, auth, db)).items
+    # Os trechos pedidos pelo HTMX (editar, remover, grupo de destino) não contam como nova
+    # visita nem vão de novo para a auditoria do confidencial.
+    if request.headers.get("HX-Request"):
+        ticket = await tickets_api.detail(db, auth, loaded)
+    else:
+        ticket = await tickets_api.open_ticket(db, auth, request, loaded)
+    comments = (await tickets_api.comments(db, loaded)).items
     # A última tarefa que a pessoa vê: o aviso de tarefa nova conta a partir dela.
     seen_until = max((c.created_at for c in comments), default=ticket.created_at).isoformat()
     teams = (await organization_api.list_teams(auth, db)).items
@@ -367,9 +370,22 @@ async def _ticket_page(
     assignees = [ticket.assignee, *ticket.co_assignees]
     assigned = {str(u.id) for u in assignees}
     outside = [m for m in _members(teams, str(ticket.team.id)) if m[0] not in assigned]
+    me_id = auth.user.public_id
+    if comment is None and editing:
+        # A tarefa em edição (?editar=): só a da própria pessoa.
+        found = next(
+            (c for c in comments if str(c.id) == editing and c.author and c.author.id == me_id),
+            None,
+        )
+        if found:
+            comment = CommentForm(
+                body=found.body,
+                time=_hhmm(found.time_spent_minutes),
+                done=DateTimeInput.at(found.done_at),
+                comment_id=str(found.id),
+            )
     comment = comment or CommentForm()
-    editing = comment.comment_id
-    if editing is None:
+    if comment.comment_id is None:
         new_comment, edit_form = comment, None
     else:
         new_comment, edit_form = CommentForm(), comment
@@ -478,25 +494,8 @@ async def ticket_page(
     # editar/remover/team_id: o HTMX pede a página com a tarefa em edição, a confirmação da
     # remoção ou os membros do grupo de destino da transferência e troca só esse trecho
     # (hx-select).
-    comment = None
-    if editar:
-        found = next(
-            (
-                c
-                for c in (await tickets_api.list_comments(str(number), page.auth, db)).items
-                if str(c.id) == editar and str(c.author.id) == str(page.auth.user.public_id)
-            ),
-            None,
-        )
-        if found:
-            comment = CommentForm(
-                body=found.body,
-                time=_hhmm(found.time_spent_minutes),
-                done=DateTimeInput.at(found.done_at),
-                comment_id=str(found.id),
-            )
     return await _ticket_page(
-        page, db, request, number, comment=comment, removing=remover, destination=team_id
+        page, db, request, number, editing=editar, removing=remover, destination=team_id
     )
 
 

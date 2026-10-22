@@ -79,7 +79,7 @@ def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
     )
 
 
-async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
+async def detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
     paths = await service.category_paths(db, [t])
     times = [
         PersonTime(id=u.public_id, display_name=u.display_name, minutes=m)
@@ -112,7 +112,7 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
 async def load_detail(db: AsyncSession, auth: Auth, ticket_ref: str) -> TicketOut:
     """O detalhe relido do banco, sem marcar a visita nem auditar o acesso (depois de uma
     alteração, e nos trechos das telas do servidor)."""
-    return await _detail(db, auth, await service.load(db, auth, ticket_ref))
+    return await detail(db, auth, await service.load(db, auth, ticket_ref))
 
 
 def _comment_out(c: TicketComment) -> CommentOut:
@@ -191,11 +191,9 @@ async def create_ticket(
     return await load_detail(db, auth, str(ticket.public_id))
 
 
-@router.get("/{ticket_ref}", response_model=TicketOut)
-async def get_ticket(
-    ticket_ref: str, auth: CurrentAuth, db: DB, request: Request, response: Response
-) -> TicketOut:
-    ticket = await service.load(db, auth, ticket_ref)
+async def open_ticket(db: AsyncSession, auth: Auth, request: Request, ticket: Ticket) -> TicketOut:
+    """A abertura do detalhe (já carregado com `service.load`): audita o acesso a confidencial,
+    guarda a visita e monta o detalhe."""
     # Regra 6 do docs/08 §8.4: admin e auditor leem confidenciais, e isso fica na auditoria.
     if (
         ticket.category
@@ -213,7 +211,14 @@ async def get_ticket(
         )
         await db.commit()
     await service.mark_read(db, auth, ticket)
-    out = await _detail(db, auth, ticket)
+    return await detail(db, auth, ticket)
+
+
+@router.get("/{ticket_ref}", response_model=TicketOut)
+async def get_ticket(
+    ticket_ref: str, auth: CurrentAuth, db: DB, request: Request, response: Response
+) -> TicketOut:
+    out = await open_ticket(db, auth, request, await service.load(db, auth, ticket_ref))
     response.headers["ETag"] = out.etag
     return out
 
@@ -284,15 +289,19 @@ async def remove_watcher(ticket_ref: str, user_id: uuid.UUID, auth: CurrentAuth,
     await service.set_watcher(db, auth, ticket, user_id, watching=False)
 
 
-@router.get("/{ticket_ref}/comments", response_model=CommentList)
-async def list_comments(ticket_ref: str, auth: CurrentAuth, db: DB) -> CommentList:
-    ticket = await service.load(db, auth, ticket_ref)
+async def comments(db: AsyncSession, ticket: Ticket) -> CommentList:
+    """As tarefas (não removidas) de um chamado já carregado com `service.load`."""
     rows = await db.scalars(
         select(TicketComment)
         .where(TicketComment.ticket_id == ticket.id, TicketComment.deleted_at.is_(None))
         .order_by(TicketComment.done_at, TicketComment.id)
     )
     return CommentList(items=[_comment_out(c) for c in rows])
+
+
+@router.get("/{ticket_ref}/comments", response_model=CommentList)
+async def list_comments(ticket_ref: str, auth: CurrentAuth, db: DB) -> CommentList:
+    return await comments(db, await service.load(db, auth, ticket_ref))
 
 
 @router.post("/{ticket_ref}/comments", response_model=CommentOut, status_code=201)
