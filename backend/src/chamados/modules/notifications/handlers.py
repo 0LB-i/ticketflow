@@ -90,7 +90,8 @@ async def _send(
             numero=ticket.number,
             titulo=ticket.title,
             grupo=group,
-            url=f"{settings.app_base_url}/chamados/{ticket.number}",
+            # Como nos links de convite: APP_BASE_URL pode vir com a "/" do fim.
+            url=f"{settings.app_base_url.rstrip('/')}/chamados/{ticket.number}",
             comentario=comment,
         )
         enqueue(db, "notifications.send_email", to=email, subject=subject, body=body)

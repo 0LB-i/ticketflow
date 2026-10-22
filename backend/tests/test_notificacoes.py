@@ -48,7 +48,9 @@ def test_atribuido_a_alguem(
     client: TestClient,
     cenario: dict[str, Any],  # noqa: F811
     enviados: Enviados,
+    settings: Settings,
 ) -> None:
+    settings.app_base_url = "http://teste/"  # a "/" do fim não dobra no link
     numero = registrar(client, cenario, assignee=cenario["bia"])["number"]
     emails = enviados()
     assert list(emails) == ["bia@x.com"]  # a Ana registrou: quem causa não recebe
@@ -56,7 +58,7 @@ def test_atribuido_a_alguem(
     assert assunto == f"[#{numero}] Impressora não imprime: atribuído a você"
     assert "Olá, Bia." in corpo
     assert f"Ana atribuiu a você o chamado #{numero}" in corpo
-    assert f"http://teste/chamados/{numero}" in corpo
+    assert f"http://teste/chamados/{numero}" in corpo and "//chamados" not in corpo
 
     # Assumir (a própria Ana) não avisa ninguém; entrar como mais um responsável avisa.
     client.post(f"{API}/{numero}/assign", json={"assignee": "me"})
