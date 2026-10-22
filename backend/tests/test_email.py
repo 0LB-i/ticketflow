@@ -1,6 +1,7 @@
 """Envio de e-mail por SMTP e o modo sem SMTP (questão 1)."""
 
 import smtplib
+import ssl
 from email.message import EmailMessage
 from typing import Any
 
@@ -24,8 +25,9 @@ class SmtpFalso:
     def __exit__(self, *_: object) -> None:
         pass
 
-    def starttls(self) -> None:
+    def starttls(self, context: ssl.SSLContext | None = None) -> None:
         self.chamadas.append("starttls")
+        self.contexto = context
 
     def login(self, user: str, password: str) -> None:
         self.chamadas.append(("login", user))
@@ -46,6 +48,9 @@ def test_smtp_envia_com_starttls_e_login(monkeypatch: pytest.MonkeyPatch) -> Non
     smtp = SmtpFalso.instancias[-1]
     assert (smtp.host, smtp.port) == ("smtp.exemplo.com", 587)
     assert smtp.chamadas[:2] == ["starttls", ("login", "ticketflow")]
+    # O certificado do servidor é conferido (sem contexto, o smtplib aceita qualquer um)
+    assert smtp.contexto is not None
+    assert smtp.contexto.verify_mode == ssl.CERT_REQUIRED and smtp.contexto.check_hostname
     msg = smtp.chamadas[2]
     assert msg["To"] == "ana@exemplo.com" and msg["From"] == "TF <tf@x.com>"
     assert msg.get_content().strip() == "Corpo"

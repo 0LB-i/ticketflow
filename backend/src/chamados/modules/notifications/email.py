@@ -6,6 +6,7 @@ instalações que ainda não definiram o provedor, questão 1).
 """
 
 import smtplib
+import ssl
 from email.message import EmailMessage
 from typing import Protocol
 
@@ -38,7 +39,9 @@ class SmtpMailer:
         msg.set_content(body)
         with smtplib.SMTP(self.s.smtp_host, self.s.smtp_port, timeout=15) as smtp:
             if self.s.smtp_starttls:
-                smtp.starttls()
+                # Sem `context`, o smtplib não confere o certificado: alguém no caminho leria a
+                # senha do SMTP. O padrão confere a cadeia e o nome do servidor.
+                smtp.starttls(context=ssl.create_default_context())
             if self.s.smtp_user:
                 smtp.login(self.s.smtp_user, self.s.smtp_password)
             smtp.send_message(msg)
