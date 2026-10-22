@@ -190,6 +190,10 @@ def test_busca_e_inativos(client: TestClient, agente: None) -> None:
     assert client.get(API, params={"q": "529.982"}).json()["total"] == 1
     assert client.get(API, params={"q": "12.abc"}).json()["total"] == 1
     assert client.get(API, params={"q": "joao.silva@"}).json()["total"] == 1
+    # % e _ são procurados como texto, não como curingas
+    for curinga in ("%", "_", "jo_o", "\\"):
+        assert client.get(API, params={"q": curinga}).json()["total"] == 0, curinga
+        assert client.get(f"{API}/options", params={"q": curinga}).json()["items"] == [], curinga
     assert [c["kind"] for c in client.get(API, params={"kind": "company"}).json()["items"]] == [
         "company"
     ]

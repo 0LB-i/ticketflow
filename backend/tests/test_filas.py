@@ -111,6 +111,7 @@ def test_busca(client: TestClient, cenario: dict[str, Any], db: Session) -> None
     assert numeros(client, q="vpn", view="waiting") == []  # dentro da fila
     assert numeros(client, q="de") == []  # só palavras vazias
     assert client.get(API, params={"q": "?!"}).status_code == 200
+    assert numeros(client, q="p_o quente") == []  # "_" não é curinga (cliente, contato)
     # "²" e "①" passam no isdigit(), mas não são número de chamado
     assert numeros(client, q="²") == []
     assert numeros(client, q="#①") == []

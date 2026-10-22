@@ -18,7 +18,7 @@ from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.permissions import P
-from chamados.core.text import optional_text, required_text
+from chamados.core.text import LIKE_ESCAPE, contains_pattern, optional_text, required_text
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.clients import documents as doc
@@ -210,11 +210,11 @@ async def list_clients(
     if state:
         stmt = stmt.where(Client.state == state.upper())
     if q and q.strip():
-        term = f"%{q.strip()}%"
+        term = contains_pattern(q.strip())
         filters: list[ColumnElement[bool]] = [
-            func.unaccent(Client.name).ilike(func.unaccent(term)),
-            func.unaccent(Client.trade_name).ilike(func.unaccent(term)),
-            func.array_to_string(Client.emails, " ").ilike(term),
+            func.unaccent(Client.name).ilike(func.unaccent(term), escape=LIKE_ESCAPE),
+            func.unaccent(Client.trade_name).ilike(func.unaccent(term), escape=LIKE_ESCAPE),
+            func.array_to_string(Client.emails, " ").ilike(term, escape=LIKE_ESCAPE),
         ]
         document = doc.normalize_document(q)
         if len(document) >= 3:
@@ -249,10 +249,11 @@ async def client_options(
     """Clientes ativos para escolher no chamado e nos relatórios: só o id e o nome."""
     stmt = select(Client).where(Client.is_active)
     if q and q.strip():
-        term = func.unaccent(f"%{q.strip()}%")
+        term = func.unaccent(contains_pattern(q.strip()))
         stmt = stmt.where(
             or_(
-                func.unaccent(Client.name).ilike(term), func.unaccent(Client.trade_name).ilike(term)
+                func.unaccent(Client.name).ilike(term, escape=LIKE_ESCAPE),
+                func.unaccent(Client.trade_name).ilike(term, escape=LIKE_ESCAPE),
             )
         )
     rows = await db.scalars(

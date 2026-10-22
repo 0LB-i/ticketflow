@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager, defaultload, defer, raiseload, selectinload
 
 from chamados.core.permissions import P, can
-from chamados.core.text import optional_text, required_text
+from chamados.core.text import LIKE_ESCAPE, contains_pattern, optional_text, required_text
 from chamados.modules.attachments import service as attachments
 from chamados.modules.catalog.models import Category, ResolutionCode, TicketStatus
 from chamados.modules.clients.models import Client
@@ -252,7 +252,7 @@ def search_filter(q: str) -> ColumnElement[bool] | None:
     if not words:
         return None
     query = func.to_tsquery(PT_BR, " & ".join(f"{w}:*" for w in words))
-    like = func.unaccent(f"%{q.strip()}%")
+    like = func.unaccent(contains_pattern(q.strip()))
     rules: list[ColumnElement[bool]] = [
         Ticket.search_vector.op("@@")(query),
         exists().where(
@@ -260,11 +260,12 @@ def search_filter(q: str) -> ColumnElement[bool] | None:
             TicketComment.deleted_at.is_(None),
             TicketComment.search_vector.op("@@")(query),
         ),
-        func.unaccent(Ticket.beneficiary_name).ilike(like),
+        func.unaccent(Ticket.beneficiary_name).ilike(like, escape=LIKE_ESCAPE),
         exists().where(
             Client.id == Ticket.client_id,
             or_(
-                func.unaccent(Client.name).ilike(like), func.unaccent(Client.trade_name).ilike(like)
+                func.unaccent(Client.name).ilike(like, escape=LIKE_ESCAPE),
+                func.unaccent(Client.trade_name).ilike(like, escape=LIKE_ESCAPE),
             ),
         ),
     ]
