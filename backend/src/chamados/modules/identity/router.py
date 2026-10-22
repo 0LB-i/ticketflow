@@ -23,9 +23,11 @@ from chamados.modules.identity.schemas import (
     TokenPasswordIn,
 )
 from chamados.modules.identity.service import (
+    RESET_EVERY,
     find_token,
     issue_token,
     link,
+    recently_issued,
     send_link_email,
     send_locked_email,
 )
@@ -134,9 +136,13 @@ async def logout(
 async def forgot_password(
     data: ForgotIn, request: Request, db: DB, settings: SettingsDep, tasks: BackgroundTasks
 ) -> None:
-    """Sempre responde igual, exista o e-mail ou não (docs/09 §9.4)."""
-    user = await db.scalar(select(User).where(User.email == data.email))
+    """Sempre responde igual, exista o e-mail ou não, e também quando o pedido repete o de
+    menos de 5 minutos, que não manda outro link (docs/09 §9.4)."""
+    # A linha travada impede que pedidos simultâneos passem todos pela conferência do intervalo.
+    user = await db.scalar(select(User).where(User.email == data.email).with_for_update(of=User))
     if user is None or not user.is_active or user.password_hash is None:
+        return
+    if await recently_issued(db, user, "password_reset", RESET_EVERY):
         return
     raw = await issue_token(db, user, "password_reset")
     record(db, "auth.password_reset_requested", request=request, actor_user_id=user.id)

@@ -16,6 +16,9 @@ Purpose = Literal["invite", "password_reset"]
 
 VALIDITY = {"invite": timedelta(hours=72), "password_reset": timedelta(minutes=30)}
 PATHS = {"invite": "convite", "password_reset": "redefinir-senha"}
+# "Esqueci a senha": um link por conta neste intervalo (o anterior continua valendo). Sem isso,
+# qualquer um encheria a caixa de e-mail da pessoa com pedidos.
+RESET_EVERY = timedelta(minutes=5)
 
 
 async def issue_token(
@@ -37,6 +40,21 @@ async def issue_token(
         )
     )
     return raw
+
+
+async def recently_issued(
+    db: AsyncSession, user: User, purpose: Purpose, within: timedelta
+) -> bool:
+    """Há um token deste tipo, ainda não usado, emitido há menos de `within`?"""
+    found = await db.scalar(
+        select(AuthToken.id).where(
+            AuthToken.user_id == user.id,
+            AuthToken.purpose == purpose,
+            AuthToken.used_at.is_(None),
+            AuthToken.created_at > now() - within,
+        )
+    )
+    return found is not None
 
 
 def link(settings: Settings, purpose: Purpose, raw: str) -> str:

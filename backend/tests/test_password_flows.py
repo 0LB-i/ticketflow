@@ -1,8 +1,12 @@
 """Convite, esqueci a senha e regras de senha (docs/09 §9.3 e §9.4)."""
 
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+from chamados.modules.identity.models import AuthToken
 from chamados.modules.identity.passwords import password_problem
 from tests.conftest import SENHA, FakeMailer, criar_usuario, entrar
 
@@ -77,9 +81,33 @@ def test_novo_link_invalida_o_anterior(client: TestClient, db: Session, mailer: 
     criar_usuario(db)
     client.post("/api/v1/auth/password/forgot", json={"email": "ana@exemplo.com"})
     primeiro = _token(mailer.last_link())
+    _envelhecer_tokens(db)
     client.post("/api/v1/auth/password/forgot", json={"email": "ana@exemplo.com"})
     assert client.get(f"/api/v1/auth/tokens/{primeiro}").status_code == 404
     assert client.get(f"/api/v1/auth/tokens/{_token(mailer.last_link())}").status_code == 200
+
+
+def _envelhecer_tokens(db: Session) -> None:
+    """Como se o último pedido tivesse sido há 6 minutos (fora do intervalo entre pedidos)."""
+    db.execute(update(AuthToken).values(created_at=AuthToken.created_at - timedelta(minutes=6)))
+    db.commit()
+
+
+def test_esqueci_a_senha_manda_um_link_a_cada_5_minutos(
+    client: TestClient, db: Session, mailer: FakeMailer
+) -> None:
+    """Pedidos repetidos não enchem a caixa de e-mail: o primeiro link continua valendo."""
+    criar_usuario(db)
+    for _ in range(3):
+        r = client.post("/api/v1/auth/password/forgot", json={"email": "ana@exemplo.com"})
+        assert r.status_code == 202  # a resposta não muda
+    assert len(mailer.sent) == 1
+    primeiro = _token(mailer.last_link())
+    assert client.get(f"/api/v1/auth/tokens/{primeiro}").status_code == 200
+
+    _envelhecer_tokens(db)
+    client.post("/api/v1/auth/password/forgot", json={"email": "ana@exemplo.com"})
+    assert len(mailer.sent) == 2
 
 
 def test_senha_atual_continua_valendo_ate_redefinir(client: TestClient, db: Session) -> None:

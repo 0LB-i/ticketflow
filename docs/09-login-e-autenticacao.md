@@ -66,7 +66,7 @@ sequenceDiagram
 | Fluxo | Como funciona |
 |-------|---------------|
 | **Convite** | O admin cadastra o usuário → o usuário recebe um e-mail com link para definir a senha (validade de 72 h) |
-| **Esqueci a senha** | Link por e-mail com token de uso único (validade de 30 min). A resposta da tela é sempre a mesma, exista o e-mail ou não. Ao redefinir, **todas as outras sessões** são encerradas |
+| **Esqueci a senha** | Link por e-mail com token de uso único (validade de 30 min). A resposta da tela é sempre a mesma, exista o e-mail ou não. Um link por conta a cada 5 min: o pedido repetido nesse intervalo não manda outro (o anterior continua valendo), para ninguém encher a caixa de e-mail da pessoa. Ao redefinir, **todas as outras sessões** são encerradas |
 | **Troca de senha logado** | Exige a senha atual (exceto na troca obrigatória da senha provisória); encerra as outras sessões |
 
 Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como hash SHA-256. Um link novo invalida o anterior do mesmo tipo.
