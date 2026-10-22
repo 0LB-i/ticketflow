@@ -1,5 +1,6 @@
 """Login, sessão, CSRF e força bruta (docs/09 §9.3 e §9.7)."""
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
@@ -122,6 +123,41 @@ def test_limite_por_ip(client: TestClient, db: Session) -> None:
     r = client.post(LOGIN, json={"login": "ninguem@exemplo.com", "password": "x" * 12})
     assert r.status_code == 429
     assert int(r.headers["Retry-After"]) > 0
+
+
+def _em_paralelo(client: TestClient, n: int, login: str) -> list[int]:
+    """n tentativas de login com a senha errada ao mesmo tempo (o TestClient atende todas no
+    mesmo event loop, como o uvicorn)."""
+    with ThreadPoolExecutor(n) as pool:
+        respostas = pool.map(
+            lambda _: client.post(LOGIN, json={"login": login, "password": "x" * 12}), range(n)
+        )
+        return sorted(r.status_code for r in respostas)
+
+
+def test_falhas_em_paralelo_contam_todas_na_conta(client: TestClient, db: Session) -> None:
+    """Sem travar a linha do usuário, as tentativas simultâneas liam a mesma contagem e cada uma
+    gravava +1: o bloqueio por conta nunca chegava."""
+    user = criar_usuario(db)
+    assert _em_paralelo(client, 4, "ana@exemplo.com") == [401] * 4
+    db.refresh(user)
+    assert user.failed_logins == 4
+
+
+def test_limite_por_ip_vale_para_tentativas_em_paralelo(client: TestClient, db: Session) -> None:
+    """A tentativa conta assim que começa: com 19 falhas, de 5 simultâneas só 1 passa."""
+    for _ in range(19):
+        client.post(LOGIN, json={"login": "ninguem@exemplo.com", "password": "x" * 12})
+    assert _em_paralelo(client, 5, "ninguem@exemplo.com") == [401, 429, 429, 429, 429]
+
+
+def test_login_certo_nao_conta_como_falha_do_ip(client: TestClient, db: Session) -> None:
+    criar_usuario(db)
+    for _ in range(25):
+        assert (
+            client.post(LOGIN, json={"login": "ana@exemplo.com", "password": SENHA}).status_code
+            == 204
+        )
 
 
 def test_troca_de_senha_mantem_so_a_sessao_atual(client: TestClient, db: Session) -> None:

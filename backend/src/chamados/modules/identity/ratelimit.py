@@ -9,6 +9,7 @@
 
 import time
 from collections import defaultdict, deque
+from contextlib import suppress
 from datetime import datetime, timedelta
 
 IP_MAX_FAILURES = 20
@@ -36,8 +37,18 @@ class IpLimiter:
             return 0
         return int(q[0] + IP_WINDOW_SECONDS - t) + 1
 
-    def fail(self, ip: str) -> None:
-        self._failures[ip].append(time.monotonic())
+    def begin(self, ip: str) -> float:
+        """Conta a tentativa como falha desde já e devolve a marca dela, que `succeeded` retira.
+        Chamada logo depois de `blocked`, sem `await` no meio: tentativas simultâneas não passam
+        todas pela conferência antes de a primeira falhar."""
+        stamp = time.monotonic()
+        self._failures[ip].append(stamp)
+        return stamp
+
+    def succeeded(self, ip: str, stamp: float) -> None:
+        """O login deu certo: a tentativa sai da contagem."""
+        with suppress(ValueError):  # já saiu da janela
+            self._failures[ip].remove(stamp)
 
 
 def account_must_wait(failed: int, last_failed_at: datetime | None, at: datetime) -> bool:

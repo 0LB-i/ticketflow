@@ -51,15 +51,19 @@ async def login(
         raise HTTPException(
             429, "Muitas tentativas. Tente de novo mais tarde.", {"Retry-After": str(wait)}
         )
+    attempt = limiter.begin(ip)
 
     login_id = data.login.strip()
+    # A linha fica travada até o commit: tentativas simultâneas na mesma conta esperam a anterior
+    # e leem a contagem de falhas já atualizada (senão cada uma gravaria só +1).
     user = await db.scalar(
-        select(User).where(or_(User.email == login_id, User.username == login_id))
+        select(User)
+        .where(or_(User.email == login_id, User.username == login_id))
+        .with_for_update(of=User)
     )
     t = now()
 
     def fail(reason: str) -> HTTPException:
-        limiter.fail(ip)
         record(
             db,
             "auth.login_failed",
@@ -113,6 +117,7 @@ async def login(
     await create_session(db, user, request, response, settings)
     record(db, "auth.login", request=request, actor_user_id=user.id)
     await db.commit()
+    limiter.succeeded(ip, attempt)
 
 
 @router.post("/auth/logout", status_code=204)
