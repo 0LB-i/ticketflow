@@ -1,6 +1,7 @@
 """Colisão (F1-S4-08, docs/10 §10.6): ETag nos campos, quem mais está vendo e tarefa nova."""
 
 import re
+import uuid
 from html import unescape
 from typing import Any
 
@@ -8,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from chamados.modules.tickets.presence import Presence
+from chamados.modules.tickets.presence import TTL_SECONDS, Presence
 from tests.conftest import criar_usuario, entrar
 from tests.test_chamados import API, cenario, registrar  # noqa: F401
 from tests.test_web_ticket import _aviso, _form, _status
@@ -191,3 +192,15 @@ def test_aviso_de_tarefa_nova(
     assert len(client.get(f"{API}/{numero}/comments").json()["items"]) == 2
     # As próprias tarefas não contam como novas.
     assert "tarefa nova" not in client.get(_pergunta(client.get(tela).text)).text
+
+
+def test_presenca_esquece_os_chamados_fechados() -> None:
+    """Quem passou do prazo sai de todos os chamados, e o chamado sem ninguém sai da memória."""
+    agora = [0.0]
+    presenca = Presence(clock=lambda: agora[0])
+    for _ in range(50):
+        presenca.touch(uuid.uuid4(), 1, "Ana")
+    aberto = uuid.uuid4()
+    agora[0] += TTL_SECONDS + 1
+    assert presenca.touch(aberto, 2, "Bia") == []
+    assert list(presenca._seen) == [aberto]

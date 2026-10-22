@@ -8,6 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
+from chamados.modules.identity import ratelimit
 from chamados.modules.identity.models import User, UserSession
 from chamados.modules.identity.sessions import now
 from tests.conftest import SENHA, FakeMailer, criar_usuario, entrar
@@ -177,3 +178,17 @@ def test_troca_de_senha_mantem_so_a_sessao_atual(client: TestClient, db: Session
         assert r.status_code == 204
         assert client.get("/api/v1/me").status_code == 200
         assert outro.get("/api/v1/me").status_code == 401
+
+
+def test_limite_por_ip_esquece_quem_saiu_da_janela() -> None:
+    """Os IPs sem falha na janela saem da memória (senão ela só cresceria)."""
+    agora = [0.0]
+    limiter = ratelimit.IpLimiter(clock=lambda: agora[0])
+    for i in range(100):
+        limiter.begin(f"10.0.0.{i}")
+    certo = limiter.begin("10.0.1.1")
+    limiter.succeeded("10.0.1.1", certo)  # login certo: o IP sai na hora
+    assert len(limiter._failures) == 100
+    agora[0] += ratelimit.IP_WINDOW_SECONDS + 1
+    assert limiter.blocked("10.0.0.1") == 0
+    assert limiter._failures == {}
