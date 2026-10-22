@@ -745,6 +745,7 @@ async def add_comment(
                     "action": acao,
                     "comment": texto,
                     "time_spent_minutes": minutes,
+                    "mention_ids": mention_ids or [],
                     "attachment_ids": attachments,
                 }
             )

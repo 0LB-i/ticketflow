@@ -201,8 +201,12 @@ def test_tarefa_nova_e_reabertura(client: TestClient, cenario: dict[str, Any]) -
     )
     r = client.post(url, data=_form(client, texto="", acao="reopen"))
     assert "Escreva na tarefa o motivo da reabertura." in r.text
-    client.post(url, data=_form(client, texto="Voltou a falhar", acao="reopen"))
-    assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "open"
+    dados = _form(client, texto="Voltou a falhar, @Bia", acao="reopen", mention_ids=cenario["bia"])
+    client.post(url, data=dados)
+    chamado = client.get(f"{API}/{numero}").json()
+    assert chamado["status"]["kind"] == "open"
+    # A menção no texto da reabertura vale como numa tarefa comum
+    assert {w["id"]: w["kind"] for w in chamado["watchers"]} == {cenario["bia"]: "mentioned"}
 
 
 def test_tarefa_que_cita_imagem_ja_vinculada(

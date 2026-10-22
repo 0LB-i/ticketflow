@@ -968,14 +968,17 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
             auth,
             ticket,
             text,
-            attachment_ids=data.attachment_ids,
+            data.mention_ids,
+            data.attachment_ids,
             time_spent_minutes=data.time_spent_minutes,
             is_solution=data.action == "close",
         )
         payload["comment_id"] = str(comment.public_id)
     if code is not None:
         payload["resolution_code"] = ref(code)
-    add_event(db, ticket, "ticket.status_changed", auth, **payload)
+    # As menções só existem no comentário: sem ele, não há em quem avisar.
+    mentions = data.mention_ids if text else []
+    add_event(db, ticket, "ticket.status_changed", auth, mention_ids=mentions, **payload)
 
     ticket.status_id = status.id
     if data.action == "close":

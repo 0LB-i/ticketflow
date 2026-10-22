@@ -165,7 +165,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
 - **Tarefas (comentários):** o autor edita (texto, tempo, `done_at`) e remove (`DELETE`, só marca `deleted_at`; evento `comment.deleted` com o texto e o tempo) a qualquer momento. Toda leitura de comentários (lista, tempo gasto, busca, novidades, anexos do detalhe) ignora os removidos; a lista ordena por `done_at`.
 - **Tempo gasto:** cada comentário (andamento) pode ter `time_spent_minutes` (opcional, 1 a 60 000), no comentar, na mudança de status (vai no comentário da transição; sem comentário, 422) e na edição (o valor anterior vai em `before_time_spent_minutes` do `comment.edited`). O detalhe traz `time_spent_minutes` (total) e `time_by_person` (soma por autor, `service.time_by_person`), mostrados na lateral.
-- **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids`: o texto guarda só "@Nome".
+- **Observadores e menções:** `ticket_watchers` (`kind` = `watcher` ou `mentioned`). As menções chegam em `mention_ids` (no registro, no comentário e no comentário de uma transição, como retomar e reabrir): o texto guarda só "@Nome".
 - **Lista:** ordenação padrão (mais antigo primeiro) com paginação por cursor (base64 de data e id). Filtros: `team`, `assignee` (`me` ou o id), `status` (kinds) e `q`.
 - **Total de horas na lista:** cada item traz `time_spent_minutes` (`service.time_spent()`, subconsulta da soma das tarefas não removidas).
 - **Status em massa:** `POST /tickets/bulk/status` (`numbers`, `status_id`; até 200). Cada chamado passa por `load` (visibilidade), pela ação `bulk` (`ticket.bulk`: supervisor do grupo ou admin) e por `_change_status` (as mesmas regras do `set_status`, inclusive a revisão). Os que falham voltam em `failed`, com o motivo traduzido; os demais mudam numa transação só.
@@ -355,7 +355,7 @@ Regras em [docs/10 §10.10](docs/10-chamados.md#1010-notificações). Os handler
 | `ticket.created` | `mentioned` (mencionados), `assigned` (responsáveis), `new_in_team` (membros do grupo, se `teams.notify_on_new = 'email_all_members'`) |
 | `ticket.assigned`, `ticket.assignees_changed` | `assigned` (quem entrou) |
 | `ticket.transferred` | `assigned` (novo responsável), `transferred` (membros do grupo de destino) |
-| `ticket.status_changed` | para um status `closed`: `closed` (observadores e quem registrou); saindo de um: `reopened` (responsáveis e observadores); os demais, nada |
+| `ticket.status_changed` | `mentioned` (mencionados no comentário da mudança, em qualquer uma); para um status `closed`: `closed` (observadores e quem registrou); saindo de um: `reopened` (responsáveis e observadores) |
 | `comment.created` | `mentioned`, `comment` (responsáveis e observadores) |
 
 - **Um e-mail por pessoa por ação:** vale o primeiro motivo da lista do handler (menção, atribuição, o resto). Quem causou o evento, quem está inativo, foi excluído ou não tem e-mail não recebe.

@@ -156,6 +156,27 @@ def test_concluido_e_reaberto(
     assert client.post(url, json={"action": "wait", "comment": "Fornecedor."}).status_code == 200
     assert enviados() == {}
 
+    # Mas quem foi mencionado no comentário da mudança é avisado (e passa a observar).
+    retomar = {
+        "action": "resume",
+        "comment": "@Auditor confira",
+        "mention_ids": [cenario["auditor"]],
+    }
+    assert client.post(url, json=retomar).status_code == 200
+    emails = enviados()
+    assert set(emails) == {"auditor@x.com"}
+    assert emails["auditor@x.com"][0].endswith(": você foi mencionado")
+    observadores = client.get(f"{API}/{numero}").json()["watchers"]
+    assert {w["id"]: w["kind"] for w in observadores}[cenario["auditor"]] == "mentioned"
+
+    # Na conclusão, o mencionado recebe o da menção, e os demais o de concluído.
+    concluir["mention_ids"] = [cenario["auditor"], cenario["caio"]]
+    assert client.post(url, json=concluir).status_code == 200
+    emails = enviados()
+    assert emails["auditor@x.com"][0].endswith(": você foi mencionado")
+    assert emails["caio@x.com"][0].endswith(": você foi mencionado")
+    assert emails["bia@x.com"][0].endswith(": concluído")
+
 
 def test_grupo_avisado_no_registro(
     client: TestClient,

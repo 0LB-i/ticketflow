@@ -232,6 +232,9 @@ class TransitionIn(BaseModel):
     comment: str | None = Field(default=None, max_length=50_000)
     time_spent_minutes: TimeSpent = None
     resolution_code_id: int | None = None
+    mention_ids: list[uuid.UUID] = Field(
+        default=[], max_length=50, description="@mencionados no comentário: viram observadores"
+    )
     attachment_ids: list[uuid.UUID] = Field(
         default=[], max_length=10, description="envios (POST /uploads) a vincular"
     )
