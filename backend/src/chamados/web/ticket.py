@@ -126,6 +126,14 @@ async def _pending_attachments(page: LoggedPage, db: DB, ids: list[str]) -> list
     return list(rows)
 
 
+async def _uploads_in_text(page: LoggedPage, db: DB, text: str) -> list[str]:
+    """Imagens do texto que ainda são envios da pessoa: só elas vão para `attachment_ids`. Uma
+    imagem citada (copiada da descrição ou de outra tarefa) já está vinculada e só fica no texto;
+    mandá-la de novo seria "anexo já usado"."""
+    pending = await _pending_attachments(page, db, attachments_in_text(text))
+    return [str(a.public_id) for a in pending]
+
+
 # --- registro ------------------------------------------------------------------------------
 
 
@@ -280,7 +288,7 @@ async def create_ticket(
                 "watcher_ids": form.watchers,
                 "mention_ids": mention_ids or [],
                 "attachment_ids": list(
-                    dict.fromkeys([*form.attachments, *attachments_in_text(descricao)])
+                    dict.fromkeys([*form.attachments, *await _uploads_in_text(page, db, descricao)])
                 ),
             }
         )
@@ -725,7 +733,7 @@ async def add_comment(
     if not acao and not has_text:  # nada a enviar
         return RedirectResponse(f"/chamados/{number}", status_code=303)
 
-    attachments = list(dict.fromkeys([*form.attachments, *attachments_in_text(texto)]))
+    attachments = list(dict.fromkeys([*form.attachments, *await _uploads_in_text(page, db, texto)]))
     ref = str(number)
     if since := _since(visto_ate):
         ticket = await tickets_service.load(db, page.auth, ref)
@@ -811,7 +819,7 @@ async def edit_comment(
                     "time_spent_minutes": minutes,
                     "done_at": form.done.value() or datetime.now(UTC),
                     "mention_ids": mention_ids or [],
-                    "attachment_ids": attachments_in_text(texto),
+                    "attachment_ids": await _uploads_in_text(page, db, texto),
                 }
             )
             await tickets_api.edit_comment(str(number), comment_uuid, data, page.auth, db)

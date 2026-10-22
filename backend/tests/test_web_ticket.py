@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from tests.conftest import criar_usuario, entrar, grupo
+from tests.test_anexos import anexo
 from tests.test_chamados import API, base, cenario, criar_cliente, registrar  # noqa: F401
 
 
@@ -202,6 +203,31 @@ def test_tarefa_nova_e_reabertura(client: TestClient, cenario: dict[str, Any]) -
     assert "Escreva na tarefa o motivo da reabertura." in r.text
     client.post(url, data=_form(client, texto="Voltou a falhar", acao="reopen"))
     assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "open"
+
+
+def test_tarefa_que_cita_imagem_ja_vinculada(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+) -> None:
+    """Copiar para a tarefa uma imagem da descrição não é "anexo já usado": ela só fica no texto.
+    Uma imagem colada agora continua sendo vinculada à tarefa."""
+    citada = anexo(client, "descricao.png")
+    numero = registrar(
+        client,
+        cenario,
+        description=f"![d](/api/v1/attachments/{citada})",
+        attachment_ids=[citada],
+    )["number"]
+    nova = anexo(client, "nova.png")
+    imagem = "![{}](/api/v1/attachments/{})"
+    texto = f"Como na descrição: {imagem.format('d', citada)} {imagem.format('n', nova)}"
+    r = client.post(
+        f"/chamados/{numero}/tarefas", data=_form(client, texto=texto), follow_redirects=False
+    )
+    assert r.status_code == 303
+    anexos = {a["id"]: a["comment_id"] for a in client.get(f"{API}/{numero}").json()["attachments"]}
+    assert anexos[citada] is None  # continua na descrição
+    assert anexos[nova] is not None  # foi para a tarefa
 
 
 def _status(client: TestClient, nome: str) -> str:
