@@ -340,7 +340,17 @@
     "entregue": {
       "marcar": "Marcar como entregue",
       "feito": "Chamado entregue"
-    }
+    },
+    "mudou": "O chamado mudou desde que você o abriu: confira e tente de novo.",
+    "presenca": {
+      "um": "{nome} também está vendo",
+      "varios": "{nomes} também estão vendo",
+      "e": " e ",
+      "nova": "1 tarefa nova",
+      "novas": "{n} tarefas novas",
+      "recarregar": "Recarregar"
+    },
+    "tarefaNova": "Chegou uma tarefa nova enquanto você escrevia: confira e envie de novo."
   },
   "idioma": {
     "titulo": "Idioma",

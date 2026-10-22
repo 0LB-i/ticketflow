@@ -15,7 +15,7 @@ A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a
 | Erros | RFC 9457 (Problem Details): `{"type", "title", "status", "detail", "errors": [...]}` |
 | Idioma | Mensagens (`title`, `detail`) em português ou inglês, conforme o header `Accept-Language` (nas telas, o idioma da pessoa). As mensagens são escritas em português e traduzidas pelo catálogo em `core/i18n.py` |
 | Idempotência | Header `Idempotency-Key` em `POST` (futuro, junto com os tokens de API: essencial para agentes de IA que repetem chamadas) |
-| Concorrência | `ETag` / `If-Match` em `PATCH` para evitar sobrescrever alteração de outro usuário |
+| Concorrência | `ETag` / `If-Match` em `PATCH` para evitar sobrescrever alteração de outro usuário. O `GET /tickets/{id}` e o `PATCH` devolvem o header `ETag` (também no campo `etag`), que só muda quando um campo que o `PATCH` altera muda. Com `If-Match` desatualizado, **412**; sem `If-Match`, o `PATCH` grava como antes |
 | Versionamento | Mudanças incompatíveis só em uma nova versão (`/api/v2`); campos novos são aditivos |
 | Rate limit | Headers `RateLimit-*`; `429` com `Retry-After` |
 | CORS | Desnecessário: as telas são servidas na mesma origem da API |

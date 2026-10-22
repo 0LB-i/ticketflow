@@ -4,6 +4,7 @@ outbox, na mesma transação.
 """
 
 import base64
+import hashlib
 import json
 import re
 import uuid
@@ -470,6 +471,20 @@ async def _comment(
     return comment
 
 
+async def comments_since(db: AsyncSession, ticket: Ticket, since: datetime, user: User) -> int:
+    """Tarefas de outras pessoas registradas depois de `since`: o aviso de tarefa nova da tela
+    (docs/10 §10.6, "Colisão")."""
+    count = await db.scalar(
+        select(func.count()).where(
+            TicketComment.ticket_id == ticket.id,
+            TicketComment.created_at > since,
+            TicketComment.author_id != user.id,
+            TicketComment.deleted_at.is_(None),
+        )
+    )
+    return count or 0
+
+
 async def time_by_person(db: AsyncSession, ticket: Ticket) -> list[tuple[User, int]]:
     """Tempo gasto nos comentários somado por autor, de quem gastou mais para quem gastou menos."""
     total = func.sum(TicketComment.time_spent_minutes)
@@ -598,6 +613,24 @@ EDIT_FIELDS = {
 }
 
 
+CHANGED_BY_OTHER = "O chamado foi alterado por outra pessoa. Recarregue e tente de novo."
+
+
+def etag(ticket: Ticket) -> str:
+    """Versão dos campos que o PATCH altera (docs/05, "Concorrência"). Tarefas, responsáveis e
+    observadores não mudam o ETag: o PATCH não os sobrescreve."""
+    values = [str(getattr(ticket, f)) for f in sorted(EDIT_FIELDS | {"status_id"})]
+    return '"' + hashlib.sha256("\x1f".join(values).encode()).hexdigest()[:20] + '"'
+
+
+async def _check_if_match(db: AsyncSession, ticket: Ticket, if_match: str) -> None:
+    """Relê os campos com a linha travada: dois PATCH com o mesmo ETag não passam os dois."""
+    await db.refresh(ticket, [*EDIT_FIELDS, "status_id"], with_for_update=True)
+    tags = {tag.strip() for tag in if_match.split(",")}
+    if "*" not in tags and etag(ticket) not in tags:
+        raise HTTPException(412, CHANGED_BY_OTHER)
+
+
 def _change_status(db: AsyncSession, auth: Auth, ticket: Ticket, status: TicketStatus) -> None:
     """Status escolhido livremente (set_status); um concluído pede set_status_closed."""
     require(auth, ticket, "set_status")
@@ -632,12 +665,21 @@ async def bulk_status(
     return updated, failed
 
 
-async def update(db: AsyncSession, auth: Auth, ticket: Ticket, data: TicketUpdate) -> None:
-    """Campos do chamado (docs/08 §8.5)."""
+async def update(
+    db: AsyncSession,
+    auth: Auth,
+    ticket: Ticket,
+    data: TicketUpdate,
+    if_match: str | None = None,
+) -> None:
+    """Campos do chamado (docs/08 §8.5). Com `if_match` (o ETag que a pessoa viu), recusa com 412
+    se os campos mudaram desde então."""
     changes = data.model_dump(exclude_unset=True)
     attachment_ids = changes.pop("attachment_ids", None) or []
     if changes.keys() & EDIT_FIELDS or attachment_ids:
         require(auth, ticket, "edit")
+    if if_match is not None:
+        await _check_if_match(db, ticket, if_match)
     # Imagens coladas ao editar a descrição.
     await attachments.link(db, auth, ticket, attachment_ids)
     if changes.get("status_id") is not None:

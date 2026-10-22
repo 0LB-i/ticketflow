@@ -86,7 +86,7 @@
       </h1>
       {{ status_badge(ticket.status.kind, ticket.status.name) }}
     </div>
-    <p class="text-muted">{{ t("chamado.registradoPor", quando=datetime(ticket.created_at), quem=ticket.created_by.display_name) }}</p>
+    <p class="text-muted">{{ t("chamado.registradoPor", quando=datetime(ticket.created_at), quem=ticket.created_by.display_name) }}{% include "tickets/_presence.html" %}</p>
   </header>
 
   <div class="grid items-start gap-4 lg:grid-cols-[1fr_20rem]">
@@ -116,6 +116,7 @@
       {#- Tarefa nova (um comentário na API) e, na mesma ação, retomar ou reabrir. #}
       <form id="nova-tarefa" method="post" action="{{ base }}/tarefas" class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="visto_ate" value="{{ visto_ate }}">
         {%- if new_comment.error %}
         {{ alert(new_comment.error) }}
         {%- endif %}
@@ -142,6 +143,7 @@
       {#- Cliente: obrigatório, troca mas não sai. #}
       <form method="post" action="{{ base }}/cliente">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="versao" value="{{ ticket.etag }}">
         {{ client_picker(t("chamado.cliente"), ticket.client.id if ticket.client else "", ticket.client.name if ticket.client else "", submit_on_pick=True) }}
       </form>
       {%- endif %}
@@ -174,6 +176,7 @@
       {%- if "set_status" in actions %}
       <form method="post" action="{{ base }}/status" data-envia-ao-mudar>
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="versao" value="{{ ticket.etag }}">
         {{ select_field("status_id", t("chamados.status"), status_options, ticket.status.id | string) }}
       </form>
       {%- endif %}
@@ -296,6 +299,7 @@
       {#- Marcar como entregue: um clique leva à revisão do supervisor. #}
       <form method="post" action="{{ base }}/entregar">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="versao" value="{{ ticket.etag }}">
         <button type="submit" class="w-full {{ button_class('gold') }}">{{ t("chamado.entregue.marcar") }}</button>
       </form>
       {%- endif %}

@@ -23,6 +23,7 @@ TITLES = {
     404: "Não encontrado",
     405: "Método não permitido",
     409: "Conflito",
+    412: "Pré-condição falhou",
     422: "Dados inválidos",
     429: "Muitas requisições",
     500: "Erro interno",

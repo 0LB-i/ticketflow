@@ -26,6 +26,7 @@ from chamados.modules.notifications.email import make_mailer
 from chamados.modules.organization.router import router as organization_router
 from chamados.modules.reports.router import router as reports_router
 from chamados.modules.system.router import router as system_router
+from chamados.modules.tickets.presence import Presence
 from chamados.modules.tickets.router import router as tickets_router
 from chamados.web.errors import register_web_error_handlers
 from chamados.web.page import Redirect, redirect_response
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.mailer = make_mailer(settings)
     app.state.ip_limiter = IpLimiter()
+    app.state.presence = Presence()
 
     api = APIRouter(prefix="/api")
     api.include_router(health.router)

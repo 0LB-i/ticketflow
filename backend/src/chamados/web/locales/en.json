@@ -340,7 +340,17 @@
     "entregue": {
       "marcar": "Mark as delivered",
       "feito": "Ticket delivered"
-    }
+    },
+    "mudou": "The ticket changed since you opened it: check it and try again.",
+    "presenca": {
+      "um": "{nome} is also viewing",
+      "varios": "{nomes} are also viewing",
+      "e": " and ",
+      "nova": "1 new task",
+      "novas": "{n} new tasks",
+      "recarregar": "Reload"
+    },
+    "tarefaNova": "A new task arrived while you were writing: check it and send again."
   },
   "idioma": {
     "titulo": "Language",

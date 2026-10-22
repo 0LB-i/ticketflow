@@ -38,6 +38,7 @@ EN: dict[str, str] = {
     "Não encontrado": "Not found",
     "Método não permitido": "Method not allowed",
     "Conflito": "Conflict",
+    "Pré-condição falhou": "Precondition failed",
     "Dados inválidos": "Invalid data",
     "Muitas requisições": "Too many requests",
     "Erro interno": "Internal error",
@@ -169,6 +170,9 @@ EN: dict[str, str] = {
     "A data da tarefa não pode ficar no futuro.": "The task date cannot be in the future.",
     "Só o autor altera a tarefa.": "Only the author can change the task.",
     "O chamado já está neste grupo.": "The ticket is already in this team.",
+    "O chamado foi alterado por outra pessoa. Recarregue e tente de novo.": (
+        "The ticket was changed by someone else. Reload and try again."
+    ),
     "Informe o motivo da transferência.": "Give a reason for the transfer.",
     "Escreva o comentário: ele é obrigatório nesta mudança.": (
         "Write the comment: it is required for this change."

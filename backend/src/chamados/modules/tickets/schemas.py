@@ -88,6 +88,9 @@ class TicketOut(TicketSummary):
     allowed_actions: list[str] = Field(
         description="o que o usuário pode fazer no chamado (a interface mostra os botões)"
     )
+    etag: str = Field(
+        description="versão dos campos (o mesmo do header ETag), para o If-Match do PATCH"
+    )
 
 
 class TicketListItem(TicketSummary):

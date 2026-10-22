@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, Header, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -104,6 +104,7 @@ async def _detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
         attachments=await attachments.of_ticket(db, t.id),
         time_spent_minutes=sum(p.minutes for p in times),
         time_by_person=times,
+        etag=service.etag(t),
         allowed_actions=sorted(service.actions(auth, t)),
     )
 
@@ -191,7 +192,9 @@ async def create_ticket(
 
 
 @router.get("/{ticket_ref}", response_model=TicketOut)
-async def get_ticket(ticket_ref: str, auth: CurrentAuth, db: DB, request: Request) -> TicketOut:
+async def get_ticket(
+    ticket_ref: str, auth: CurrentAuth, db: DB, request: Request, response: Response
+) -> TicketOut:
     ticket = await service.load(db, auth, ticket_ref)
     # Regra 6 do docs/08 §8.4: admin e auditor leem confidenciais, e isso fica na auditoria.
     if (
@@ -210,15 +213,28 @@ async def get_ticket(ticket_ref: str, auth: CurrentAuth, db: DB, request: Reques
         )
         await db.commit()
     await service.mark_read(db, auth, ticket)
-    return await _detail(db, auth, ticket)
+    out = await _detail(db, auth, ticket)
+    response.headers["ETag"] = out.etag
+    return out
 
 
 @router.patch("/{ticket_ref}", response_model=TicketOut)
 async def update_ticket(
-    ticket_ref: str, data: TicketUpdate, auth: CurrentAuth, db: DB
+    ticket_ref: str,
+    data: TicketUpdate,
+    auth: CurrentAuth,
+    db: DB,
+    response: Response,
+    if_match: Annotated[
+        str | None,
+        Header(description="o ETag do GET: com ele, 412 se os campos mudaram desde então"),
+    ] = None,
 ) -> TicketOut:
-    await service.update(db, auth, await service.load(db, auth, ticket_ref), data)
-    return await load_detail(db, auth, ticket_ref)
+    ticket = await service.load(db, auth, ticket_ref)
+    await service.update(db, auth, ticket, data, if_match)
+    out = await load_detail(db, auth, ticket_ref)
+    response.headers["ETag"] = out.etag
+    return out
 
 
 @router.post("/{ticket_ref}/assign", response_model=TicketOut)

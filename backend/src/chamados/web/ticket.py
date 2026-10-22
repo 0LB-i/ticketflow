@@ -23,6 +23,7 @@ from chamados.modules.clients import router as clients_api
 from chamados.modules.organization import router as organization_api
 from chamados.modules.organization.router import TeamOut
 from chamados.modules.tickets import router as tickets_api
+from chamados.modules.tickets import service as tickets_service
 from chamados.modules.tickets.schemas import (
     AssigneesIn,
     AssignIn,
@@ -336,7 +337,7 @@ async def _ticket_page(
         if request.headers.get("HX-Request"):
             ticket = await tickets_api.load_detail(db, auth, ref)
         else:
-            ticket = await tickets_api.get_ticket(ref, auth, db, request)
+            ticket = await tickets_api.get_ticket(ref, auth, db, request, Response())
     except HTTPException as exc:
         if exc.status_code not in (403, 404):
             raise
@@ -346,6 +347,8 @@ async def _ticket_page(
             forbidden=exc.status_code == 403,
         )
     comments = (await tickets_api.list_comments(ref, auth, db)).items
+    # A última tarefa que a pessoa vê: o aviso de tarefa nova conta a partir dela.
+    seen_until = max((c.created_at for c in comments), default=ticket.created_at).isoformat()
     teams = (await organization_api.list_teams(auth, db)).items
     statuses = (await catalog_api.list_statuses(auth, db)).items
     actions = set(ticket.allowed_actions)
@@ -397,6 +400,42 @@ async def _ticket_page(
         edit_form=edit_form,
         removing=removing,
         suggested_times=SUGGESTED_TIMES,
+        visto_ate=seen_until,
+        viewers=_viewers(page, request, ticket.id),
+        new_comments=0,
+    )
+
+
+def _viewers(page: LoggedPage, request: Request, ticket_id: uuid.UUID) -> list[str]:
+    """Registra que a pessoa está com o chamado aberto e devolve quem mais está."""
+    user = page.auth.user
+    names: list[str] = request.app.state.presence.touch(ticket_id, user.id, user.display_name)
+    return names
+
+
+def _since(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+@router.get("/chamados/{number:int}/presenca")
+async def presence(
+    number: int, page: LoggedPageDep, db: DB, request: Request, desde: str = ""
+) -> HTMLResponse:
+    """O trecho que a tela pergunta a cada 20 s: quem mais está vendo e as tarefas novas. Passa
+    pela visibilidade, mas não conta como visita (novidades) nem vai para a auditoria."""
+    ticket = await tickets_service.load(db, page.auth, str(number))
+    since = _since(desde)
+    return page.render(
+        "tickets/_presence.html",
+        base=f"/chamados/{number}",
+        visto_ate=desde,
+        viewers=_viewers(page, request, ticket.public_id),
+        new_comments=await tickets_service.comments_since(db, ticket, since, page.auth.user)
+        if since
+        else 0,
     )
 
 
@@ -472,7 +511,9 @@ async def _act(
     except ValidationError:
         page.flash(response, ("error", page.t("comum.erroInesperado")))
     except HTTPException as exc:
-        page.flash(response, ("error", page.api_message(exc)))
+        # 412: outra pessoa mudou os campos depois que a tela abriu (o ETag em `versao`).
+        message = page.t("chamado.mudou") if exc.status_code == 412 else page.api_message(exc)
+        page.flash(response, ("error", message))
     else:
         if done:
             page.flash(response, ("success", page.t(done)))
@@ -511,23 +552,35 @@ async def set_assignees(
     return await _act(page, number, csrf_token, action, "chamado.feito.atribuido")
 
 
+def _update(page: LoggedPage, db: DB, number: int, data: TicketUpdate, versao: str) -> Any:
+    """PATCH com o ETag que a tela mostrou (`versao`): 412 se outra pessoa mudou os campos."""
+    return tickets_api.update_ticket(str(number), data, page.auth, db, Response(), versao or None)
+
+
 @router.post("/chamados/{number:int}/status")
 async def change_status(
-    number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "", status_id: Field = ""
+    number: int,
+    page: LoggedPageDep,
+    db: DB,
+    csrf_token: Field = "",
+    status_id: Field = "",
+    versao: Field = "",
 ) -> Response:
     return await _act(
         page,
         number,
         csrf_token,
-        lambda: tickets_api.update_ticket(
-            str(number), TicketUpdate.model_validate({"status_id": status_id}), page.auth, db
+        lambda: _update(
+            page, db, number, TicketUpdate.model_validate({"status_id": status_id}), versao
         ),
         "chamado.feito.status",
     )
 
 
 @router.post("/chamados/{number:int}/entregar")
-async def deliver(number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "") -> Response:
+async def deliver(
+    number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "", versao: Field = ""
+) -> Response:
     """Um clique leva ao status padrão do comportamento Entregue (a revisão do supervisor)."""
 
     async def action() -> None:
@@ -535,23 +588,26 @@ async def deliver(number: int, page: LoggedPageDep, db: DB, csrf_token: Field = 
         delivered = next((s for s in statuses if s.kind == "delivered" and s.is_default), None)
         if delivered is None:  # o admin mudou os status com a página aberta
             raise HTTPException(404, "Status não encontrado.")
-        await tickets_api.update_ticket(
-            str(number), TicketUpdate(status_id=delivered.id), page.auth, db
-        )
+        await _update(page, db, number, TicketUpdate(status_id=delivered.id), versao)
 
     return await _act(page, number, csrf_token, action, "chamado.entregue.feito")
 
 
 @router.post("/chamados/{number:int}/cliente")
 async def change_client(
-    number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "", client_id: Field = ""
+    number: int,
+    page: LoggedPageDep,
+    db: DB,
+    csrf_token: Field = "",
+    client_id: Field = "",
+    versao: Field = "",
 ) -> Response:
     return await _act(
         page,
         number,
         csrf_token,
-        lambda: tickets_api.update_ticket(
-            str(number), TicketUpdate.model_validate({"client_id": client_id}), page.auth, db
+        lambda: _update(
+            page, db, number, TicketUpdate.model_validate({"client_id": client_id}), versao
         ),
         "chamado.feito.cliente",
     )
@@ -640,10 +696,14 @@ async def add_comment(
     texto: Field = "",
     tempo: Field = "",
     acao: Field = "",
+    visto_ate: Field = "",
     attachment_ids: Ids = None,
     mention_ids: Ids = None,
 ) -> Response:
-    """Tarefa nova (comentário na API) e, na mesma ação, retomar ou reabrir (docs/10 §10.6)."""
+    """Tarefa nova (comentário na API) e, na mesma ação, retomar ou reabrir (docs/10 §10.6).
+
+    Se chegou tarefa de outra pessoa depois da última que a tela mostrava (`visto_ate`), não
+    grava: a página volta com ela à vista e o texto preservado, e o próximo envio passa."""
     check_csrf(page, csrf_token)
     form = CommentForm(body=texto, time=tempo, attachments=attachment_ids or [])
 
@@ -667,6 +727,10 @@ async def add_comment(
 
     attachments = list(dict.fromkeys([*form.attachments, *attachments_in_text(texto)]))
     ref = str(number)
+    if since := _since(visto_ate):
+        ticket = await tickets_service.load(db, page.auth, ref)
+        if await tickets_service.comments_since(db, ticket, since, page.auth.user):
+            return await fail(page.t("chamado.tarefaNova"))
     try:
         if acao:
             transition = TransitionIn.model_validate(

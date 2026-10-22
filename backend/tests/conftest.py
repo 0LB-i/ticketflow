@@ -27,6 +27,7 @@ from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import hash_password
 from chamados.modules.identity.ratelimit import IpLimiter
 from chamados.modules.organization.models import Role, Team, TeamMember
+from chamados.modules.tickets.presence import Presence
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://chamados:chamados@localhost:5432/chamados_test"
@@ -124,6 +125,7 @@ def client(
     app.state.settings = settings
     app.state.mailer = mailer
     app.state.ip_limiter = IpLimiter()
+    app.state.presence = Presence()
     with TestClient(app) as c:
         yield c
 
