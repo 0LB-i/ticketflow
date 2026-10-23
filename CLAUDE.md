@@ -19,7 +19,7 @@ Na máquina de desenvolvimento os serviços rodam em modo dev (`scripts/instalar
 
 ## 0.3 Verificação sem desperdício
 
-Durante a tarefa, rodar só o que a mudança afeta (`uv run pytest tests/test_x.py`). O `scripts/check.sh` completo roda **uma vez**, antes do commit.
+Durante a tarefa, rodar só o que a mudança afeta: o arquivo ou a pasta da área (`uv run pytest tests/telas/test_web_board.py`, `uv run pytest tests/telas`). Os testes ficam por área em `backend/tests/`: `unidade`, `api`, `telas`, `banco` e `worker` (ARCHITECTURE.md §7). O `scripts/check.sh` roda **uma vez**, antes do commit, e escolhe sozinho as pastas pelo que mudou (só `web/` → `unidade` e `telas`); a suíte inteira é o `--completo`.
 
 ## 1. Think Before Coding
 

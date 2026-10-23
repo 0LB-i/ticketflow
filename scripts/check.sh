@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Verificação local, no lugar do CI (docs/12 §12.3).
 #   scripts/check.sh --rapido    lint e formatação dos arquivos no stage (hook de pre-commit)
-#   scripts/check.sh             tudo do rápido + tipos e testes
-#   scripts/check.sh --completo  tudo + testes no PostgreSQL 16 e auditoria de dependências
+#   scripts/check.sh             tudo do rápido + tipos e os testes que a mudança afeta (só web/:
+#                                tests/unidade e tests/telas; fora de web/ e docs: todos)
+#   scripts/check.sh --completo  tudo + todos os testes no PostgreSQL 17 e 16 e auditoria de
+#                                dependências
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -21,6 +23,35 @@ segredos() {
     echo "Possível segredo nos arquivos do commit. Remova antes de commitar." >&2
     exit 1
   fi
+}
+
+# As pastas de backend/tests que a mudança desde o último commit (inclusive arquivos novos) pode
+# afetar, uma por linha. Sem mudança, ou com alguma fora das regras abaixo, "todas".
+pastas_afetadas() {
+  local -a arquivos
+  local -A pastas=()
+  local f pasta
+  mapfile -t arquivos < <({ git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)
+  if ((${#arquivos[@]} == 0)); then
+    echo todas
+    return
+  fi
+  for f in "${arquivos[@]}"; do
+    case "$f" in
+      docs/* | deploy/* | scripts/* | *.md | .gitignore) ;;
+      # Só a API usa web/ (as páginas de erro fora de /api), e esses testes estão em telas.
+      backend/src/chamados/web/*) pastas[tests/unidade]=1 pastas[tests/telas]=1 ;;
+      backend/tests/*/*)
+        pasta="tests/$(cut -d/ -f3 <<<"$f")"
+        [[ -d "backend/$pasta" ]] && pastas[$pasta]=1
+        ;;
+      *)
+        echo todas
+        return
+        ;;
+    esac
+  done
+  printf '%s\n' "${!pastas[@]}" | sort
 }
 
 banco_no_ar() {
@@ -46,7 +77,17 @@ etapa "backend: ruff, mypy"
 
 etapa "backend: testes no PostgreSQL 17"
 banco_no_ar 5432
-(cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q --cov)
+pastas=(todas)
+[[ "$modo" == --completo ]] || mapfile -t pastas < <(pastas_afetadas)
+if [[ "${pastas[0]:-}" == todas ]]; then
+  (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q --cov)
+elif ((${#pastas[@]})); then
+  # A cobertura mínima só vale para a suíte inteira.
+  echo "Só o que a mudança afeta: ${pastas[*]} (a suíte inteira: --completo)"
+  (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q "${pastas[@]}")
+else
+  echo "Nenhum teste afetado pela mudança (a suíte inteira: --completo)."
+fi
 
 if [[ "$modo" == --completo ]]; then
   etapa "backend: testes no PostgreSQL 16"

@@ -30,7 +30,7 @@ Princípios, escolhas de tecnologia e arquitetura-alvo. Para o mapa do código c
 | IA (futuro) | Cliente HTTP genérico no formato compatível com OpenAI | Sem acoplamento a provedor ou modelo. Ver [ADR 0004](adr/0004-ia-api-generica-e-assistiva.md) |
 | Gerência de pacotes | uv | Rápido, lockfile reprodutível |
 | Qualidade (backend) | ruff, mypy (strict), pytest com PostgreSQL real (16 e 17) | Ver [12.7](12-processo-de-desenvolvimento.md#127-estratégia-de-testes) |
-| Qualidade (telas) | Testes do HTML no pytest (`test_web_*.py`); Playwright para os testes ponta a ponta, quando entrarem | |
+| Qualidade (telas) | Testes do HTML no pytest (`tests/telas`); Playwright para os testes ponta a ponta, quando entrarem | |
 | Observabilidade | structlog (logs estruturados no journald); OpenTelemetry e métricas só se houver necessidade | |
 | Execução | systemd + uvicorn atrás do nginx; sem Docker (nem em desenvolvimento) | Ver [ADR 0010](adr/0010-producao-systemd.md) |
 

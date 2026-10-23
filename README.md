@@ -84,8 +84,8 @@ uv run chamados worker
 
 ```bash
 scripts/install-hooks.sh                # uma vez: verificação rápida antes de cada commit
-scripts/check.sh                        # uma vez, antes do commit (durante a tarefa, só os testes do que mudou)
-scripts/check.sh --completo             # antes de uma versão: também PostgreSQL 16 e auditoria
+scripts/check.sh                        # uma vez, antes do commit: tipos e os testes do que mudou
+scripts/check.sh --completo             # antes de uma versão: todos os testes, também no PostgreSQL 16, e auditoria
 ```
 
 Detalhes em [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci). Produção: [Manual do servidor](docs/18-manual-do-servidor.md).

@@ -66,13 +66,13 @@ Mínimos: **4,5:1** para texto e **3:1** para bordas de campos e contorno de foc
 | Badges de status (claro) | 4,79 a 9,51 | ✅ |
 | Badges de status (escuro) | 8,15 a 10,62 | ✅ |
 
-Os contrastes são conferidos de novo sempre que um token de cor mudar (`tests/test_palette.py`, que lê também as cores das etiquetas no `input.css`; com `axe` no Playwright, quando os testes ponta a ponta entrarem).
+Os contrastes são conferidos de novo sempre que um token de cor mudar (`tests/unidade/test_palette.py`, que lê também as cores das etiquetas no `input.css`; com `axe` no Playwright, quando os testes ponta a ponta entrarem).
 
 ## 17.4 Modo claro e escuro
 
 - Três opções no menu do usuário: **Claro**, **Escuro** e **Automático** (padrão, segue o sistema operacional). A escolha fica salva no perfil.
 - Os tokens da seção 17.2 são variáveis CSS no `@theme` do Tailwind, redefinidas para o modo escuro. Os componentes usam **só os tokens** (`bg-surface`, `text-muted`), nunca cores diretas como `bg-orange-700`.
-- Os testes conferem os contrastes da paleta padrão e de combinações difíceis de cores personalizadas (`tests/test_palette.py`, sobre o `web/palette.py`).
+- Os testes conferem os contrastes da paleta padrão e de combinações difíceis de cores personalizadas (`tests/unidade/test_palette.py`, sobre o `web/palette.py`).
 
 ## 17.5 Tipografia
 

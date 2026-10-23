@@ -49,7 +49,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
 │   ├── migrations/        Alembic: env.py e versions/0001…0035
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
-│   └── tests/             pytest com PostgreSQL real (seção 7)
+│   └── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
 ├── scripts/               check.sh, install-hooks.sh, deploy.sh, instalar-servico-dev.sh, css.sh,
 │                          vendor-tiptap.sh (o único uso de Node, só para trocar a versão do Tiptap),
 │                          preparar-maquina-dev.sh (Ubuntu 24.04 novo pronto para desenvolver)
@@ -320,7 +320,7 @@ web/
 
 - **Sem regra na tela:** a rota da tela chama a função da rota da API (`identity.router.login(...)`), o service ou, nos chamados, `tickets/queries.py`, e só monta o HTML. Se a função da rota pede `Response` ou `Request` só para cabeçalhos, a tela chama o service, sem objeto vazio. Os erros da API (`HTTPException`) viram a mensagem na tela, traduzida por `Page.api_message()`.
 - **Sessão:** `get_page` lê o cookie `tf_sessao` (`load_session` + `session_auth`, as mesmas peças do `get_auth` da API). `LoggedPageDep` exige login (sem sessão, `/login?volta=…`) e, com a senha provisória, só abre `/trocar-senha` e `/sair`.
-- **Permissão das telas de administração:** as rotas de administração da API conferem a permissão numa dependência (`require(P.X)`), que **não roda** quando a tela chama a função direto. Por isso a tela usa `requires(P.X)` (`page.py`), que confere a mesma permissão antes; as ações de chamado não precisam, porque a regra fica no service (`allowed_actions`). O `tests/test_web_permissoes.py` garante isso: acha as funções da API protegidas por `require`, as telas que as usam (direto ou por outra função do módulo; dentro de `if page.can("x")` a permissão x já conta) e falha se a tela não tiver o `requires` correspondente, ou se uma tela em `/admin/` não exigir a permissão da área (`AREAS`). Módulo novo de telas ou de API entra nas listas do teste.
+- **Permissão das telas de administração:** as rotas de administração da API conferem a permissão numa dependência (`require(P.X)`), que **não roda** quando a tela chama a função direto. Por isso a tela usa `requires(P.X)` (`page.py`), que confere a mesma permissão antes; as ações de chamado não precisam, porque a regra fica no service (`allowed_actions`). O `tests/telas/test_web_permissoes.py` garante isso: acha as funções da API protegidas por `require`, as telas que as usam (direto ou por outra função do módulo; dentro de `if page.can("x")` a permissão x já conta) e falha se a tela não tiver o `requires` correspondente, ou se uma tela em `/admin/` não exigir a permissão da área (`AREAS`). Módulo novo de telas ou de API entra nas listas do teste.
 - **Idioma:** o da pessoa ou o padrão do sistema; nas telas sem login, o padrão. `t("chave", nome=…)` nos templates. O catálogo é lido de novo quando o JSON muda (o `--reload` do uvicorn só olha os `.py`).
 - **Atualização:** os templates, os catálogos e o `app.css` novos valem assim que o `deploy.sh` termina; o código Python, só depois do `systemctl restart`. Reinicie logo depois do deploy.
 - **CSRF:** formulário que altera dados manda `csrf_token` (o valor do cookie `tf_csrf`) num campo escondido, conferido por `check_csrf()` com o hash da sessão. O login não precisa (ainda não há sessão).
@@ -427,7 +427,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 
 ### 4.3 Idiomas
 
-- Os catálogos ficam em `web/locales/pt-BR.json` e `web/locales/en.json`, com **as mesmas chaves e os mesmos marcadores** (`{nome}`); o `tests/test_web_i18n.py` confere.
+- Os catálogos ficam em `web/locales/pt-BR.json` e `web/locales/en.json`, com **as mesmas chaves e os mesmos marcadores** (`{nome}`); o `tests/unidade/test_web_i18n.py` confere.
 - **Nenhum texto fixo** nos templates: tudo via `t("chave", nome=…)`. Sem a chave no idioma, vale o português; sem ela em nenhum, aparece a própria chave.
 - O idioma é o da pessoa ou o padrão do sistema (3.11). Datas e números são formatados no servidor (`web/formatting.py`); o fuso é o da máquina (`core/timezone.py`: o `TZ` do ambiente ou o `/etc/localtime`, lido ao subir), e a página o passa ao `chamado.js` em `<meta name="fuso">`.
 
@@ -457,17 +457,26 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 
 | Onde | Ferramenta | Como |
 |------|------------|------|
-| `backend/tests/` | pytest + **PostgreSQL real** (`TEST_DATABASE_URL`, banco `chamados_test`) | A sessão de testes desce as migrações até a base e sobe de novo; cada teste começa com `TRUNCATE` (`conftest.py`). Auxiliares: `criar_usuario`, `entrar`, `grupo`, `criar_categoria`, `FakeMailer`. As telas do servidor são testadas pelo HTML que devolvem (`test_web_*.py`) |
-| Regras puras | pytest parametrizado | `test_permissions` (matriz do docs/08), `test_regras_chamados` (ações × situação), `test_visibilidade` (6 regras) |
+| `backend/tests/` | pytest + **PostgreSQL real** (`TEST_DATABASE_URL`, banco `chamados_test`) | Uma pasta por área (abaixo). O banco de teste só desce até a base e sobe de novo quando `migrations/` muda (a marca fica no comentário da `alembic_version`); cada teste começa com as tabelas vazias (`DELETE`, na ordem das FKs dos modelos) e os status da migração. O app sobe uma vez por sessão. Auxiliares no `conftest.py` (`criar_usuario`, `entrar`, `grupo`, `criar_categoria`, `criar_cliente`, a fixture `cenario`, `outra_sessao`, `consultas`, `FakeMailer`) e no `apoio.py` (os usados por mais de uma pasta: `registrar`, `criar_token`, `rodar`…) |
 | `web/static/js/` | ainda sem teste automático | O JavaScript das telas foi conferido à mão no jsdom durante a migração; a cobertura entra com os testes ponta a ponta (Playwright, F1-S5-04) |
+
+| Pasta | O que testa | Tempo |
+|-------|-------------|-------|
+| `tests/unidade/` | Regras puras, sem banco nem app: `test_permissions` (matriz do docs/08), `test_regras_chamados` (ações × situação), paleta, formatação, fuso, catálogos de idioma | ~2 s |
+| `tests/api/` | API REST, services e servidor MCP, com banco (inclusive `test_visibilidade`, as 6 regras) | ~40 s |
+| `tests/telas/` | Telas do servidor, pelo HTML que devolvem (`test_web_*.py`). **Todo teste que passa por uma tela fica aqui** | ~30 s |
+| `tests/banco/` | Migrações sobem e descem; comandos `chamados db` | ~7 s |
+| `tests/worker/` | Outbox, fila, worker e notificações por e-mail | ~10 s |
+
+Durante a tarefa, roda-se a pasta (ou o arquivo) do que mudou: `uv run pytest tests/telas`.
 
 `scripts/check.sh` faz o papel do CI ([docs/12 §12.3](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci)):
 
 | Modo | Roda |
 |------|------|
 | `--rapido` (hook de pre-commit) | ruff nos arquivos do commit; procura segredos |
-| padrão | + mypy e pytest com cobertura (mínimo de 80%) no PostgreSQL 17 |
-| `--completo` | + pytest no PostgreSQL 16 e auditoria de dependências |
+| padrão | + mypy e os testes que a mudança desde o último commit afeta, no PostgreSQL 17: só `web/` (e docs) → `tests/unidade` e `tests/telas`; só testes → as pastas deles; qualquer outra coisa (ou nada mudou) → todos, com cobertura (mínimo de 80%) |
+| `--completo` | + todos os testes no PostgreSQL 17, com cobertura, e no 16; auditoria de dependências |
 
 ## 8. Execução
 
@@ -518,11 +527,11 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 **Nova tabela ou coluna**
 1. Modelo em `modules/<módulo>/models.py`; se o módulo é novo, importar em `db/models.py`.
 2. Migração por autogenerate, revisada à mão, com `downgrade`.
-3. Se a tabela referencia `users` ou `teams`, incluí-la no `TRUNCATE` do `tests/conftest.py`.
+3. Os testes esvaziam toda tabela que tem modelo (`db/models.py`); uma tabela sem modelo faz a sessão de testes falhar.
 
 **Nova ação num chamado**
 1. Incluir a ação em `rules.allowed_actions` (e em `TRANSITIONS`, se mudar o status).
-2. Linha nova nos testes tabelados de `test_regras_chamados.py`.
+2. Linha nova nos testes tabelados de `tests/unidade/test_regras_chamados.py`.
 3. Service + rota + evento (o histórico fica no banco e na API; a tela não mostra eventos).
 
 **Nova tela** (3.11)
@@ -530,18 +539,18 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 2. Template em `web/templates/<área>/`, estendendo `app.html` (com menu) ou `card.html`; só os macros de `_ui.html` e tokens de cor. Campos de um modo que não está em uso vão num `<fieldset disabled>`.
 3. Textos em `web/locales/pt-BR.json` **e** `en.json`.
 4. Classes novas do Tailwind: `scripts/css.sh` (ou o `ticketflow-css.service`) gera o `app.css` de novo.
-5. Teste em `tests/test_web_<área>.py`, conferindo o HTML, os redirecionamentos e as permissões (inclusive quem tenta entrar sem a permissão).
+5. Teste em `tests/telas/test_web_<área>.py`, conferindo o HTML, os redirecionamentos e as permissões (inclusive quem tenta entrar sem a permissão).
 
 **Nova tarefa ou rotina do worker** (3.12)
 1. Função `async def tarefa(db, settings, args)` que faz o próprio `commit`; registrada em `worker.TASKS` com um nome `modulo.acao`.
 2. Rotina diária: o nome também em `worker.ROUTINES`, com o horário (da máquina). Evento que vira tarefa: um handler `async def handler(db, settings, event)` em `worker.HANDLERS` que chama `service.enqueue()`.
 3. A tarefa pode rodar mais de uma vez (entrega "pelo menos uma vez"): ela precisa aguentar isso.
-4. Teste chamando `service.run_next` com a tarefa (veja `tests/test_fila.py`).
+4. Teste chamando `service.run_next` com a tarefa (veja `tests/worker/test_fila.py`).
 
 **Nova ferramenta MCP** (3.14)
 1. Função `@server.tool(annotations=READ ou WRITE)` em `mcp_server/server.py`, com descrição (docstring) e `Field(description=…)` nos parâmetros: é o que o modelo lê.
 2. Dentro de `async with call(ctx, write=…) as (db, auth, locale)`, só service ou `tickets/queries.py` (nenhuma regra na ferramenta). Se registra algo, `request_id` com `once()`.
-3. Teste em `tests/test_mcp.py` (`ferramenta()` e `erro()`), inclusive quem não pode.
+3. Teste em `tests/api/test_mcp.py` (`ferramenta()` e `erro()`), inclusive quem não pode.
 
 **Nova permissão**
 1. Código em `P` (`core/permissions.py`) e nos papéis (`ROLES`); se depende de supervisão, em `SUPERVISOR`.

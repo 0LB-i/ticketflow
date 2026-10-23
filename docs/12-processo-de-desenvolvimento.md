@@ -39,8 +39,8 @@ docs/10-chamados.md#transferência
 | Quando | Comando | O que roda |
 |--------|---------|------------|
 | Antes de cada commit (hook `pre-commit`, instalado por `scripts/install-hooks.sh`) | `scripts/check.sh --rapido` | `ruff check` e `ruff format --check` nos arquivos alterados; procura segredos |
-| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy` e `pytest` com cobertura no PostgreSQL 17 (porta 5432), inclusive os testes das telas (`test_web_*.py`) |
-| Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima + `pytest` também no **PostgreSQL 16**, Playwright (quando entrar) e auditoria de dependências (`pip-audit`) |
+| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy` e os testes que a mudança afeta no PostgreSQL 17 (porta 5432): mudança só nas telas (`web/`) roda `tests/unidade` e `tests/telas`; fora delas, todos, com cobertura |
+| Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima com **todos** os testes, também no **PostgreSQL 16**, Playwright (quando entrar) e auditoria de dependências (`pip-audit`) |
 
 - O `check.sh` para com uma mensagem clara se o PostgreSQL não estiver respondendo.
 - **Dependências:** sem Dependabot, a atualização é uma rotina mensal registrada no `TAREFAS.md`: `uv lock --upgrade`, verificação completa e commit.
@@ -81,10 +81,10 @@ Não há homologação separada: com um único desenvolvedor, mais um servidor s
 
 | Nível | Ferramenta | Cobre |
 |-------|------------|-------|
-| Unitário (backend) | pytest | Regras puras: transições |
-| Integração (backend) | pytest + PostgreSQL real (banco `chamados_test`) | Services e endpoints com PostgreSQL real |
+| Unitário (backend) | pytest | Regras puras: transições, permissões, formatação (`tests/unidade`) |
+| Integração (backend) | pytest + PostgreSQL real (banco `chamados_test`) | Services e endpoints (`tests/api`), migrações (`tests/banco`) e worker (`tests/worker`) |
 | Permissões | pytest parametrizado | Matriz perfil × ação × situação do chamado ([08](08-organizacao-e-permissoes.md)) |
-| Telas | pytest (o HTML que cada rota devolve) | Campos, permissões, redirecionamentos e mensagens de erro (`test_web_*.py`) |
+| Telas | pytest (o HTML que cada rota devolve) | Campos, permissões, redirecionamentos e mensagens de erro (`tests/telas`) |
 | Ponta a ponta | Playwright | Fluxos completos: registrar → assumir → aguardar → concluir → reabrir; aprovação; transferência |
 
 **Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com grupos, usuários de todos os perfis e chamados em todos os status.
