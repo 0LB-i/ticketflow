@@ -97,9 +97,13 @@ for (const aviso of document.querySelectorAll('[data-aviso="success"]')) {
 
 // Envio duplo (duplo clique em Registrar, Comentar…): enquanto a resposta não chega, o
 // formulário não sai de novo e os botões de envio dele (também os de fora, com form="id") ficam
-// esmaecidos. O ouvinte fica na window: roda depois dos do document, então não prende o
-// formulário que um deles segurou (o chamado.js espera os anexos subirem).
+// esmaecidos. A trava solta sozinha em 5 s, para quem parou o envio (Esc, botão Parar) poder
+// enviar de novo sem recarregar. O ouvinte fica na window: roda depois dos do document, então
+// não prende o formulário que um deles segurou (o chamado.js espera os anexos subirem).
+const destravar = new WeakMap()
 function travar(form, travado) {
+  clearTimeout(destravar.get(form))
+  if (travado) destravar.set(form, setTimeout(() => travar(form, false), 5000))
   form.toggleAttribute('data-travado', travado)
   for (const botao of form.elements) {
     if (botao.type !== 'submit') continue
