@@ -35,7 +35,7 @@ TASKS: dict[str, service.Task] = {
     "jobs.cleanup": service.cleanup,
     "notifications.send_email": send_email,
 }
-# Rotinas diárias (docs/10 §10.11), no horário de São Paulo.
+# Rotinas diárias (docs/10 §10.11), no horário da máquina.
 ROUTINES = {"attachments.purge": time(3, 0), "jobs.cleanup": time(3, 30)}
 # Eventos do outbox que viram tarefas: os e-mails dos chamados (docs/10 §10.10).
 HANDLERS: dict[str, service.Handler] = handlers.HANDLERS

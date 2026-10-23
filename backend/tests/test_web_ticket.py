@@ -4,6 +4,7 @@ Cenário do test_chamados: Ana e Bia (supervisora) no TI, Caio na Infra.
 """
 
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -139,7 +140,8 @@ def test_registro(client: TestClient, cenario: dict[str, Any]) -> None:  # noqa:
     assert [u["display_name"] for u in chamado["co_assignees"]] == ["Bia"]
     assert {w["display_name"] for w in chamado["watchers"]} == {"Bia", "Caio"}
     assert chamado["beneficiary_name"] == "Seu Zé"
-    assert chamado["started_at"].startswith("2026-10-01T12:30")  # 09:30 em São Paulo
+    inicio = datetime.fromisoformat(chamado["started_at"])
+    assert inicio == datetime(2026, 10, 1, 12, 30, tzinfo=UTC)  # 09:30 em São Paulo
 
 
 def test_opcoes_de_cliente(client: TestClient, cenario: dict[str, Any], db: Any) -> None:  # noqa: F811
@@ -259,7 +261,7 @@ def test_editar_e_remover_tarefa(client: TestClient, cenario: dict[str, Any]) ->
     comentario = client.get(f"{API}/{numero}/comments").json()["items"][0]
     assert comentario["body"] == "Versão corrigida"
     assert comentario["time_spent_minutes"] == 120
-    assert comentario["done_at"].startswith("2026-10-10T11:00")
+    assert datetime.fromisoformat(comentario["done_at"]) == datetime(2026, 10, 10, 11, tzinfo=UTC)
 
     # Outra pessoa não edita: a tela nem mostra o formulário.
     entrar(client, "bia@x.com")

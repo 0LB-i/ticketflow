@@ -3,7 +3,6 @@
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, time, timedelta
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import structlog
 from sqlalchemy import and_, delete, func, or_, select
@@ -11,13 +10,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from chamados.config import Settings
+from chamados.core.timezone import LOCAL_TZ as TZ  # o horário das rotinas
 from chamados.modules.identity import idempotency
 from chamados.modules.identity.models import IdempotencyKey
 from chamados.modules.jobs.models import Job, OutboxEvent
 
 log = structlog.get_logger(__name__)
 
-TZ = ZoneInfo("America/Sao_Paulo")  # o horário das rotinas
 KEEP_DONE = timedelta(days=7)  # tarefas concluídas e eventos processados
 KEEP_FAILED = timedelta(days=30)  # tarefas que falharam de vez, para investigar
 
@@ -120,7 +119,7 @@ async def run_next(
 
 
 async def schedule(db: AsyncSession, routines: Mapping[str, time], now: datetime) -> None:
-    """Agenda as rotinas do dia (em São Paulo), no horário de cada uma. A `dedup_key` garante uma
+    """Agenda as rotinas do dia (fuso da máquina), no horário de cada uma. A `dedup_key` garante uma
     por dia, mesmo com dois workers; um worker que sobe depois do horário a roda na hora."""
     day = now.astimezone(TZ).date()
     keys = {f"{task}:{day.isoformat()}": task for task in routines}

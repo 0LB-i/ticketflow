@@ -151,6 +151,40 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-focus;
   }
+  /* Lista dos <select> no visual da lista de clientes (_fields.html): cantos arredondados e
+     centralizada sob o campo. O `base-select` vale no Chrome 135+; os outros navegadores mostram
+     a lista nativa. */
+  @supports (appearance: base-select) {
+    select,
+    ::picker(select) {
+      appearance: base-select;
+    }
+    select {
+      @apply items-center;
+    }
+    ::picker(select) {
+      @apply mt-1 max-h-72 rounded-lg border border-border bg-surface p-1 text-fg shadow-lg;
+      position-area: bottom;
+      position-try-fallbacks: flip-block;
+    }
+    option {
+      @apply cursor-default rounded px-2 py-1.5;
+    }
+    option:hover,
+    option:focus-visible {
+      @apply bg-surface-raised outline-none;
+    }
+  }
+  /* Data e hora: o clique no ícone do campo cai no próprio campo, que abre o nosso calendário
+     ou a lista de horários (static/js/app.js), não a janela do navegador. Na tela de toque, a
+     do sistema continua. */
+  @media (pointer: fine) {
+    @supports selector(:popover-open) {
+      ::-webkit-calendar-picker-indicator {
+        pointer-events: none;
+      }
+    }
+  }
 }
 
 /* Botão de um formulário já enviado, esperando a resposta (static/js/app.js). Fora das camadas

@@ -487,7 +487,9 @@
     "hora": "Time",
     "agora": "Now",
     "ajustado": "Set by hand. Now goes back to the current time.",
-    "invalida": "Enter a valid date and time."
+    "invalida": "Enter a valid date and time.",
+    "mesAnterior": "Previous month",
+    "proximoMes": "Next month"
   },
   "statusConfig": {
     "titulo": "Ticket statuses",

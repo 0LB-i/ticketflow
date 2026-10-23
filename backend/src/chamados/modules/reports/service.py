@@ -10,13 +10,13 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import ColumnElement, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.permissions import P, can
+from chamados.core.timezone import LOCAL_TZ
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.clients.models import Client
 from chamados.modules.identity.deps import Auth
@@ -36,7 +36,7 @@ from chamados.modules.system.work_hours import WorkHours, get_work_hours
 from chamados.modules.tickets.models import Ticket, TicketCoAssignee, TicketComment
 from chamados.modules.tickets.visibility import assigned_to, ticket_visibility_filter
 
-TZ = ZoneInfo("America/Sao_Paulo")
+TZ = LOCAL_TZ
 MAX_DAYS = 366
 
 
@@ -51,7 +51,7 @@ class Filters:
 
 def outside_minutes(end: datetime, minutes: int, wh: WorkHours) -> int:
     """Minutos da tarefa fora do expediente. A tarefa vai de `end - minutes` até `end` (done_at
-    é quando ela terminou), no horário de São Paulo."""
+    é quando ela terminou), no horário da máquina."""
     begin = end - timedelta(minutes=minutes)
     holidays = set(wh.holidays)
     inside = timedelta()

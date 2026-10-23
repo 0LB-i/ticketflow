@@ -23,11 +23,11 @@
 {%- endmacro %}
 
 {#- Tempo em horas e minutos ("01:30"): máscara hh:mm e a lista de horários sugeridos
-    (suggested_times_list, uma vez na página). -#}
+    (suggested_times_list, uma vez na página), mostrada pelo app.js (data-sugestoes). -#}
 {% macro duration_field(name, id, label, value="", error=None) -%}
 <div class="flex flex-col gap-1">
   <label for="{{ id }}" class="font-medium">{{ label }}</label>
-  <input id="{{ id }}" name="{{ name }}" value="{{ value }}" data-duracao inputmode="numeric" placeholder="00:00" list="tempos-sugeridos" autocomplete="off"{% if error %} aria-invalid="true" aria-describedby="{{ id }}-erro"{% endif %} class="h-10 w-40 rounded-md border bg-surface px-3 text-fg tabular-nums placeholder:text-muted {{ 'border-danger' if error else 'border-border-input' }}">
+  <input id="{{ id }}" name="{{ name }}" value="{{ value }}" data-duracao inputmode="numeric" placeholder="00:00" list="tempos-sugeridos" data-sugestoes autocomplete="off"{% if error %} aria-invalid="true" aria-describedby="{{ id }}-erro"{% endif %} class="h-10 w-40 rounded-md border bg-surface px-3 text-fg tabular-nums placeholder:text-muted {{ 'border-danger' if error else 'border-border-input' }}">
   {%- if error %}
   <p id="{{ id }}-erro" class="text-danger">{{ error }}</p>
   {%- endif %}
@@ -132,7 +132,7 @@
     {%- endif %}
     {{ icon("chevron-down", "size-4 shrink-0 text-muted") }}
   </div>
-  <ul id="clientes-opcoes" role="listbox" data-opcoes hidden class="absolute top-full z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-border bg-surface p-1 text-fg shadow-lg"></ul>
+  <ul id="clientes-opcoes" role="listbox" data-opcoes hidden class="absolute inset-x-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 text-fg shadow-lg"></ul>
   {%- if error %}
   <p id="campo-cliente-erro" class="text-danger">{{ error }}</p>
   {%- endif %}

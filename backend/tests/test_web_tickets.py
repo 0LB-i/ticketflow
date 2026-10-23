@@ -66,6 +66,7 @@ def test_layout_menu_conforme_permissao(client: TestClient, db: Session) -> None
     r = client.get("/chamados")
     assert r.status_code == 200
     assert "<title>Chamados · TicketFlow</title>" in r.text
+    assert '<meta name="fuso" content="America/Sao_Paulo">' in r.text  # para o chamado.js
     assert 'href="/chamados" class="flex h-10' in r.text
     assert 'aria-current="page"' in r.text
     assert "/chamados/novo" in r.text  # agente registra

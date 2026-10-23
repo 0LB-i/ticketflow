@@ -190,3 +190,249 @@ document.addEventListener('click', async (e) => {
   botao.textContent = botao.dataset.copiado
   setTimeout(() => (botao.textContent = texto), 2000)
 })
+
+// Calendário e listas de horários: os campos de data e hora continuam os nativos (digitar e o
+// valor enviado não mudam), mas a janela que abre é a nossa, porque a do navegador não aceita
+// CSS. Abre com o clique, Alt+↓ ou F4; o tempo gasto (data-sugestoes, os horários sugeridos)
+// também com ↓. A janela é um popover (camada de cima, também sobre os <dialog>), centralizada
+// sob o campo; Esc e o clique fora fecham. Na tela de toque fica a janela do sistema.
+const usaJanelas = 'showPopover' in HTMLElement.prototype && matchMedia('(pointer: fine)').matches
+const CAMPO_COM_JANELA = 'input[type=date], input[type=time], input[data-sugestoes]'
+const HORARIOS = Array.from({ length: 48 }, (_, i) => `${String(i >> 1).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
+let janelaAberta = null // { campo, janela }
+let cliqueFecha = false
+
+const idiomaDaPagina = document.documentElement.lang || 'pt-BR'
+const textoMes = new Intl.DateTimeFormat(idiomaDaPagina, { month: 'long', year: 'numeric' })
+const textoDia = new Intl.DateTimeFormat(idiomaDaPagina, { dateStyle: 'full' })
+const textoSemana = new Intl.DateTimeFormat(idiomaDaPagina, { weekday: 'short' })
+
+const isoDoDia = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function diaDoIso(iso) {
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  return new Date(ano, mes - 1, dia)
+}
+// "Hoje" no fuso da empresa (data-fuso), como o campo de data e hora do chamado.
+const hojeNoFuso = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: document.documentElement.dataset.fuso || undefined }).format(new Date())
+
+function posicionarJanela() {
+  if (!janelaAberta) return
+  const c = janelaAberta.campo.getBoundingClientRect()
+  const j = janelaAberta.janela.getBoundingClientRect()
+  const esquerda = Math.max(8, Math.min(c.left + (c.width - j.width) / 2, innerWidth - j.width - 8))
+  // Sem espaço embaixo, abre em cima do campo.
+  const embaixo = c.bottom + 4 + j.height <= innerHeight - 8 || c.top - 4 - j.height < 8
+  janelaAberta.janela.style.left = `${esquerda}px`
+  janelaAberta.janela.style.top = `${embaixo ? c.bottom + 4 : c.top - 4 - j.height}px`
+}
+
+function abrirJanela(campo, janela) {
+  janelaAberta?.janela.hidePopover()
+  janela.popover = 'auto'
+  janela.tabIndex = -1 // o clique num ponto sem botão deixa o foco na janela
+  janela.addEventListener('beforetoggle', (e) => {
+    // Fechada com o foco dentro (Esc, escolha): o foco volta ao campo.
+    if (e.newState === 'closed' && janela.contains(document.activeElement)) campo.focus()
+  })
+  janela.addEventListener('toggle', (e) => {
+    if (e.newState !== 'closed') return
+    janela.remove()
+    if (janelaAberta?.janela === janela) janelaAberta = null
+  })
+  // Ao lado do campo: dentro de um <dialog> aberto, o resto da página não recebe cliques.
+  campo.after(janela)
+  janela.showPopover()
+  janelaAberta = { campo, janela }
+  posicionarJanela()
+}
+
+function escolherValor(campo, valor) {
+  campo.value = valor
+  campo.dispatchEvent(new Event('input', { bubbles: true }))
+  campo.dispatchEvent(new Event('change', { bubbles: true }))
+  janelaAberta?.janela.hidePopover()
+  campo.focus()
+}
+
+const seta = (d) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true"><path d="${d}"/></svg>`
+
+/** Mostra o mês de `dia` e, com `focar`, põe o foco nesse dia. */
+function desenharCalendario(janela, campo, dia, focar = false) {
+  const mes = new Date(dia.getFullYear(), dia.getMonth(), 1)
+  const inicio = new Date(mes.getFullYear(), mes.getMonth(), 1 - mes.getDay())
+  const diasNoMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate()
+  const hoje = hojeNoFuso()
+  const alvo = isoDoDia(dia)
+  janela.dataset.mes = isoDoDia(mes)
+  janela.querySelector('[data-titulo]').textContent = textoMes.format(mes)
+  let linhas = ''
+  for (let semana = 0; semana < Math.ceil((mes.getDay() + diasNoMes) / 7); semana++) {
+    linhas += '<tr>'
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + semana * 7 + i)
+      const iso = isoDoDia(d)
+      const escolhido = iso === campo.value
+      const fora = (campo.min && iso < campo.min) || (campo.max && iso > campo.max)
+      const cor = escolhido
+        ? 'bg-primary font-medium text-on-primary hover:bg-primary-hover'
+        : iso === hoje
+          ? 'font-semibold text-primary hover:bg-surface-raised'
+          : d.getMonth() !== mes.getMonth()
+            ? 'text-muted hover:bg-surface-raised'
+            : 'hover:bg-surface-raised'
+      linhas += `<td role="gridcell" aria-selected="${escolhido}"><button type="button" data-dia="${iso}" tabindex="${iso === alvo ? 0 : -1}" aria-label="${textoDia.format(d)}"${iso === hoje ? ' aria-current="date"' : ''}${fora ? ' disabled' : ''} class="size-9 rounded-md tabular-nums disabled:cursor-not-allowed disabled:opacity-40 ${cor}">${d.getDate()}</button></td>`
+    }
+    linhas += '</tr>'
+  }
+  janela.querySelector('tbody').innerHTML = linhas
+  if (focar) janela.querySelector(`[data-dia="${alvo}"]`)?.focus()
+}
+
+function abrirCalendario(campo, focar) {
+  const janela = document.createElement('div')
+  janela.className = 'fixed inset-auto m-0 rounded-lg border border-border bg-surface p-2 text-fg shadow-lg'
+  const semana = Array.from({ length: 7 }, (_, i) => {
+    const nome = textoSemana.format(new Date(2026, 0, 4 + i)).replace('.', '')
+    return `<th scope="col" class="size-9 text-xs font-normal text-muted">${nome}</th>`
+  })
+  janela.innerHTML = `
+    <div class="flex items-center justify-between gap-2 pb-1">
+      <button type="button" data-muda-mes="-1" class="inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-surface-raised hover:text-fg">${seta('m15 18-6-6 6-6')}</button>
+      <span data-titulo aria-live="polite" class="font-medium first-letter:uppercase"></span>
+      <button type="button" data-muda-mes="1" class="inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-surface-raised hover:text-fg">${seta('m9 18 6-6-6-6')}</button>
+    </div>
+    <table role="grid" class="border-collapse"><thead><tr>${semana.join('')}</tr></thead><tbody></tbody></table>`
+  const [anterior, proximo] = janela.querySelectorAll('[data-muda-mes]')
+  anterior.setAttribute('aria-label', document.body.dataset.mesAnterior)
+  proximo.setAttribute('aria-label', document.body.dataset.proximoMes)
+
+  janela.addEventListener('click', (e) => {
+    const muda = e.target.closest('[data-muda-mes]')
+    if (muda) {
+      const mes = diaDoIso(janela.dataset.mes)
+      desenharCalendario(janela, campo, new Date(mes.getFullYear(), mes.getMonth() + Number(muda.dataset.mudaMes), 1))
+    }
+    const dia = e.target.closest('[data-dia]')
+    if (dia) escolherValor(campo, dia.dataset.dia)
+  })
+  // Setas: dia a dia e semana a semana; Page Up/Down: mês a mês.
+  janela.addEventListener('keydown', (e) => {
+    const atual = e.target.closest('[data-dia]')
+    if (!atual) return
+    const d = diaDoIso(atual.dataset.dia)
+    const passo = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key]
+    let novo
+    if (passo) novo = new Date(d.getFullYear(), d.getMonth(), d.getDate() + passo)
+    else if (e.key === 'PageUp' || e.key === 'PageDown') {
+      const mes = d.getMonth() + (e.key === 'PageUp' ? -1 : 1)
+      novo = new Date(d.getFullYear(), mes, Math.min(d.getDate(), new Date(d.getFullYear(), mes + 1, 0).getDate()))
+    } else return
+    e.preventDefault()
+    const iso = isoDoDia(novo)
+    if ((campo.min && iso < campo.min) || (campo.max && iso > campo.max)) return
+    desenharCalendario(janela, campo, novo, true)
+  })
+
+  abrirJanela(campo, janela)
+  desenharCalendario(janela, campo, campo.value ? diaDoIso(campo.value) : diaDoIso(hojeNoFuso()), focar)
+  posicionarJanela()
+}
+
+function abrirLista(campo, valores, focar) {
+  const lista = document.createElement('ul')
+  lista.setAttribute('role', 'listbox')
+  const rotulo = campo.labels?.[0]?.textContent.trim() || campo.getAttribute('aria-label')
+  if (rotulo) lista.setAttribute('aria-label', rotulo)
+  lista.className = 'fixed inset-auto m-0 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 text-fg shadow-lg'
+  lista.style.minWidth = `${campo.offsetWidth}px`
+  for (const valor of valores) {
+    const item = document.createElement('li')
+    item.setAttribute('role', 'option')
+    item.setAttribute('aria-selected', String(valor === campo.value))
+    item.tabIndex = -1
+    item.dataset.valor = item.textContent = valor
+    item.className =
+      'flex cursor-default rounded px-2 py-1.5 tabular-nums select-none hover:bg-surface-raised focus:bg-surface-raised focus:outline-none aria-selected:font-medium aria-selected:text-primary'
+    lista.append(item)
+  }
+  lista.addEventListener('click', (e) => {
+    const item = e.target.closest('[role=option]')
+    if (item) escolherValor(campo, item.dataset.valor)
+  })
+  lista.addEventListener('keydown', (e) => {
+    const item = e.target.closest('[role=option]')
+    if (!item) return
+    const destino = {
+      ArrowDown: item.nextElementSibling,
+      ArrowUp: item.previousElementSibling,
+      Home: lista.firstElementChild,
+      End: lista.lastElementChild,
+    }[e.key]
+    if (destino !== undefined) {
+      e.preventDefault()
+      destino?.focus()
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      escolherValor(campo, item.dataset.valor)
+    }
+  })
+
+  abrirJanela(campo, lista)
+  // A lista começa no horário do campo (ou no seguinte).
+  const atual = [...lista.children].find((i) => i.dataset.valor >= campo.value) ?? lista.lastElementChild
+  if (!atual) return
+  lista.scrollTop = atual.offsetTop - (lista.clientHeight - atual.offsetHeight) / 2
+  if (focar) atual.focus()
+}
+
+function abrirJanelaDoCampo(campo, focar) {
+  if (campo.type === 'date') abrirCalendario(campo, focar)
+  else if (campo.type === 'time') abrirLista(campo, HORARIOS, focar)
+  else abrirLista(campo, [...document.getElementById(campo.dataset.sugestoes).options].map((o) => o.value), focar)
+}
+
+if (usaJanelas) {
+  // O <datalist> do navegador sai; os horários dele vão para a nossa lista.
+  htmx.onLoad((raiz) => {
+    for (const campo of raiz.querySelectorAll('input[data-sugestoes][list]')) {
+      campo.dataset.sugestoes = campo.getAttribute('list')
+      campo.removeAttribute('list')
+    }
+  })
+  // Clique no campo com a janela aberta: o clique fora já a fechou, e ela não abre de novo.
+  document.addEventListener('pointerdown', (e) => (cliqueFecha = e.target === janelaAberta?.campo), true)
+  document.addEventListener('click', (e) => {
+    const campo = e.target.closest?.(CAMPO_COM_JANELA)
+    if (!campo || campo.disabled || campo.readOnly) return
+    e.preventDefault() // o Firefox abre a janela dele ao clicar no campo
+    if (cliqueFecha) cliqueFecha = false
+    else abrirJanelaDoCampo(campo, false)
+  })
+  document.addEventListener('keydown', (e) => {
+    const campo = e.target.closest?.(CAMPO_COM_JANELA)
+    if (!campo || campo.readOnly) return
+    const abre = e.key === 'ArrowDown' && (e.altKey || 'sugestoes' in campo.dataset)
+    if (!abre && e.key !== 'F4') return
+    e.preventDefault()
+    abrirJanelaDoCampo(campo, true)
+  })
+  // Digitar no campo: o calendário vai para o mês digitado; a lista de horários fecha.
+  document.addEventListener('input', (e) => {
+    if (!e.isTrusted || e.target !== janelaAberta?.campo) return
+    if (e.target.type !== 'date') janelaAberta.janela.hidePopover()
+    else if (e.target.value) desenharCalendario(janelaAberta.janela, e.target, diaDoIso(e.target.value))
+  })
+  // Tab para fora fecha. Depois do evento: ao trocar o mês, o botão focado é refeito.
+  document.addEventListener('focusout', () =>
+    setTimeout(() => {
+      if (!janelaAberta || !document.hasFocus()) return
+      const ativo = document.activeElement
+      if (ativo !== janelaAberta.campo && !janelaAberta.janela.contains(ativo)) janelaAberta.janela.hidePopover()
+    }),
+  )
+  addEventListener('resize', posicionarJanela)
+  addEventListener('scroll', posicionarJanela, true)
+}

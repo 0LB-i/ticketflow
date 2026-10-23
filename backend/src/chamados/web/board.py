@@ -46,7 +46,7 @@ def _client_name(client: Client | None) -> str:
 
 
 def _month(previous: bool) -> tuple[datetime, datetime]:
-    """Início do mês (o atual ou o passado) e do seguinte, no horário de São Paulo."""
+    """Início do mês (o atual ou o passado) e do seguinte, no horário da máquina."""
     start = datetime.now(TIMEZONE).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if previous:
         return (start - timedelta(days=1)).replace(day=1), start

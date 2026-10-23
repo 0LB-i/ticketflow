@@ -71,7 +71,7 @@ Tela `/relatorios` no menu lateral (não é a tela inicial). Decisões do usuár
 | **Por pessoa** | Horas, horas extras, tarefas e chamados concluídos (cada responsável, principal ou não, conta o chamado) |
 | **Por cliente** | Horas, registrados e concluídos; "Sem cliente" agrupa os chamados sem cliente |
 | **Por dia** | Horas e horas extras de cada dia (por semana quando o período passa de dois meses) |
-| **Hora extra** | A tarefa vai de `done_at − tempo` até `done_at` (`done_at` é quando ela terminou); conta o que cai fora do expediente, em dias que não são de trabalho ou em feriados, no horário de São Paulo |
+| **Hora extra** | A tarefa vai de `done_at − tempo` até `done_at` (`done_at` é quando ela terminou); conta o que cai fora do expediente, em dias que não são de trabalho ou em feriados, no horário da máquina (servidor) |
 | **Expediente** | Em Configurações: dias da semana, início e fim (uma faixa por dia) e feriados. Padrão: segunda a sexta, 08:00–18:00 |
 
 **Quem vê o quê:** admin e auditor (`report.view_all`), tudo; quem supervisiona um grupo (`report.view_team`), as tarefas e os chamados dos grupos supervisionados e o próprio trabalho, e pode filtrar pelos membros desses grupos; os demais, só as próprias tarefas e os chamados em que são responsáveis. Sempre em cima do filtro de visibilidade dos chamados. Pedir grupo ou pessoa fora disso responde 403.

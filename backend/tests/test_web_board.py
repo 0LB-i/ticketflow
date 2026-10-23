@@ -7,12 +7,12 @@ import re
 from datetime import datetime, timedelta
 from html import unescape
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text, update
 from sqlalchemy.orm import Session
 
+from chamados.core.timezone import LOCAL_TZ
 from chamados.modules.tickets.models import Ticket
 from tests.conftest import entrar
 from tests.test_chamados import API, base, cenario, registrar  # noqa: F401
@@ -160,9 +160,7 @@ def test_entregue_so_o_supervisor_conclui(
 
 def _mudar_data(db: Session, coluna: str, numero: int, meses: int, horas: int = 0) -> None:
     """A data vai para a meia-noite do dia 1º de `meses` atrás (em São Paulo), menos `horas`."""
-    inicio = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(
-        day=1, hour=0, minute=0, second=0, microsecond=0
-    )
+    inicio = datetime.now(LOCAL_TZ).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     for _ in range(meses):
         inicio = (inicio - timedelta(days=1)).replace(day=1)
     db.execute(
@@ -214,7 +212,7 @@ def test_concluidos_e_cancelados_por_mes(
 
 
 def _inicio_do_mes_passado() -> datetime:
-    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    agora = datetime.now(LOCAL_TZ)
     return (agora.replace(day=1) - timedelta(days=1)).replace(
         day=1, hour=0, minute=0, second=0, microsecond=0
     )
@@ -252,7 +250,7 @@ def test_no_mes_passado_as_datas_do_topo(
     html = client.get(f"/quadro?mes=passado&concluir_em={dia_10:%Y-%m-%d}&cancelar_em=lixo").text
     assert f'name="concluir_em" type="date" value="{dia_10:%Y-%m-%d}"' in html
     assert f'name="cancelar_em" type="date" value="{ultimo_dia:%Y-%m-%d}"' in html
-    hoje = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    hoje = datetime.now(LOCAL_TZ)
     html = client.get(f"/quadro?mes=passado&concluir_em={hoje:%Y-%m-%d}").text
     assert f'name="concluir_em" type="date" value="{ultimo_dia:%Y-%m-%d}"' in html
 

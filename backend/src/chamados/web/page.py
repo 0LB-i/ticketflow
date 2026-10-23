@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from chamados.core.i18n import LOCALES
 from chamados.core.i18n import translate as translate_api
 from chamados.core.permissions import P, can, effective_permissions
+from chamados.core.timezone import LOCAL_TZ
 from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, SettingsDep, session_auth
 from chamados.modules.identity.sessions import CSRF_COOKIE, SESSION_COOKIE, csrf_ok, load_session
@@ -105,6 +106,7 @@ class Page:
                 "page": self,
                 "t": partial(translate, self.locale),
                 "locale": self.locale,
+                "timezone": LOCAL_TZ.key,
                 "branding": self.branding,
                 "colors_css": stylesheet(colors.model_dump() if colors else None),
                 "csrf_token": self.request.cookies.get(CSRF_COOKIE, ""),

@@ -1,14 +1,15 @@
 """Datas, tempo relativo, duração e números das telas (como a SPA mostrava, ADR 0011).
 
-O fuso é sempre o de São Paulo (docs/13 §13.6). Os textos imitam o `Intl` do navegador no
+O fuso é o da máquina (core/timezone.py). Os textos imitam o `Intl` do navegador no
 estilo curto.
 """
 
 from datetime import date, datetime
 from math import floor
-from zoneinfo import ZoneInfo
 
-TIMEZONE = ZoneInfo("America/Sao_Paulo")
+from chamados.core.timezone import LOCAL_TZ
+
+TIMEZONE = LOCAL_TZ
 
 
 def format_datetime(locale: str, value: datetime | None) -> str:
@@ -86,13 +87,13 @@ def format_day(locale: str, value: date) -> str:
 
 
 def local_parts(value: datetime) -> tuple[str, str]:
-    """Data ("2026-10-17") e hora ("14:05") no fuso de São Paulo, como os campos usam."""
+    """Data ("2026-10-17") e hora ("14:05") no fuso da máquina, como os campos usam."""
     t = value.astimezone(TIMEZONE)
     return t.strftime("%Y-%m-%d"), t.strftime("%H:%M")
 
 
 def parse_local(date: str, time: str) -> datetime | None:
-    """O instante de uma data e hora digitadas no fuso de São Paulo; inválidas dão None."""
+    """O instante de uma data e hora digitadas no fuso da máquina; inválidas dão None."""
     try:
         return datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M").replace(tzinfo=TIMEZONE)
     except ValueError:

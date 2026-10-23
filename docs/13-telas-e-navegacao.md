@@ -123,7 +123,7 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 | Sucesso / erro | Aviso temporário (toast) no canto da tela; erros de formulário ao lado do campo |
 | Carregando | Esqueleto (*skeleton*) do conteúdo, nunca tela em branco |
 | Lista vazia | Mensagem explicando o que fazer (ex.: "Nenhum chamado aqui. Que tal pegar o próximo da fila?") |
-| Datas | Relativas na lista ("há 10 min"); absolutas no detalhe, com fuso de São Paulo |
+| Datas | Relativas na lista ("há 10 min"); absolutas no detalhe, no fuso da máquina (servidor) |
 | Botões de ação | Só aparecem se a ação estiver em `allowed_actions` |
 | Celular | Menu vira gaveta; no detalhe do chamado o painel lateral vai para baixo da linha do tempo |
 

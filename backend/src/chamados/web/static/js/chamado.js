@@ -2,7 +2,7 @@
 // hora, pessoas e cliente. JavaScript puro, sem build (ADR 0011); o Tiptap vem empacotado em
 // vendor/ (scripts/vendor-tiptap.sh) e fica no objeto global `Tiptap`.
 
-const FUSO = 'America/Sao_Paulo'
+const FUSO = document.querySelector('meta[name=fuso]')?.content || 'UTC'
 const idioma = () => document.documentElement.lang || 'pt-BR'
 
 function lerCookie(nome) {

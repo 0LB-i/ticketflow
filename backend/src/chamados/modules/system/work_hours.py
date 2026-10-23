@@ -14,7 +14,7 @@ class WorkHours(BaseModel):
     weekdays: list[Annotated[int, Field(ge=0, le=6)]] = Field(
         max_length=7, description="dias de trabalho: 0 = segunda … 6 = domingo"
     )
-    start: time = Field(description="início do expediente (hora de São Paulo)")
+    start: time = Field(description="início do expediente (hora da máquina)")
     end: time = Field(description="fim do expediente; depois do início")
     holidays: list[date] = Field(default=[], max_length=200, description="feriados e folgas")
 

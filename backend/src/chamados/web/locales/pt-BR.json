@@ -487,7 +487,9 @@
     "hora": "Hora",
     "agora": "Agora",
     "ajustado": "Ajustado à mão. Agora volta para a hora atual.",
-    "invalida": "Informe uma data e hora válidas."
+    "invalida": "Informe uma data e hora válidas.",
+    "mesAnterior": "Mês anterior",
+    "proximoMes": "Próximo mês"
   },
   "statusConfig": {
     "titulo": "Status dos chamados",

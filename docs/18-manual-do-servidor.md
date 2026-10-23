@@ -42,7 +42,7 @@ Todos os comandos rodam como um usuário administrador com `sudo`.
 
 ```bash
 sudo apt update && sudo apt full-upgrade -y
-sudo timedatectl set-timezone America/Sao_Paulo
+sudo timedatectl set-timezone America/Sao_Paulo   # o TicketFlow usa o fuso da máquina
 sudo apt install -y git curl ca-certificates nginx unattended-upgrades ufw
 sudo dpkg-reconfigure -plow unattended-upgrades       # atualizações de segurança automáticas
 sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
