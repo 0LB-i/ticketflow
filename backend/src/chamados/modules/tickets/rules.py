@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from chamados.core.permissions import Actor, P, can
 
 FINAL_KINDS = frozenset({"closed", "canceled"})
-# Entregue: à espera da revisão do supervisor.
-REVIEW_KIND = "delivered"
 
 
 @dataclass(frozen=True)
@@ -78,8 +76,8 @@ def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
     ):
         if can(actor, permission):
             actions.add(action)
-    # Escolher um status concluído (Entregue, Concluído): em revisão, só o supervisor ou o admin.
-    if "set_status" in actions and (t.kind != REVIEW_KIND or is_supervisor(actor, t.team_id)):
+    # Escolher um status concluído (Concluído): só o supervisor ou o admin; o agente entrega.
+    if "set_status" in actions and is_supervisor(actor, t.team_id):
         actions.add("set_status_closed")
     # Ações em massa (a lista de chamados): supervisor do grupo ou admin.
     if can(actor, P.TICKET_BULK, t.team_id):

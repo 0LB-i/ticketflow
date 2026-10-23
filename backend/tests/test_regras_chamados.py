@@ -36,7 +36,6 @@ DO_GRUPO = {
     "watch_self",
     "edit",
     "set_status",
-    "set_status_closed",
     "manage_watchers",
     "transfer",
 }
@@ -46,12 +45,12 @@ DONO = {"wait", "close", "cancel"}
 PENDENTE = [
     (membro, DO_GRUPO | {"assign_self", "assign_others"}),
     (responsavel, DO_GRUPO | DONO | {"assign_others"}),
-    (supervisor, DO_GRUPO | DONO | {"assign_self", "assign_others", "bulk"}),
+    (supervisor, DO_GRUPO | DONO | {"set_status_closed", "assign_self", "assign_others", "bulk"}),
     (registrou, DO_GRUPO | {"assign_self", "assign_others", "cancel"}),
     (observador_de_fora, {"comment", "watch_self"}),
     (grupo_anterior, {"watch_self"}),
     (supervisor_de_outro, {"watch_self"}),
-    (admin, DO_GRUPO | DONO | {"assign_others", "bulk"}),
+    (admin, DO_GRUPO | DONO | {"set_status_closed", "assign_others", "bulk"}),
     (auditor, set()),
 ]
 
@@ -89,9 +88,9 @@ def test_finalizado_nao_se_atribui_nem_transfere(kind: str) -> None:
     assert {"comment", "edit", "set_status"} <= acoes  # reabrir pelo formulário
 
 
-# Entregue (kind delivered, a revisão): só o supervisor do grupo ou o admin escolhe um status
-# concluído (Concluído); os demais continuam escolhendo os outros status.
-EM_REVISAO = [
+# Em qualquer situação (Pendente, Entregue...), só o supervisor do grupo ou o admin escolhe um
+# status concluído (Concluído); os demais continuam escolhendo os outros status.
+CONCLUI = [
     (membro, False),
     (responsavel, False),
     (registrou, False),
@@ -100,11 +99,12 @@ EM_REVISAO = [
 ]
 
 
-@pytest.mark.parametrize(("ator", "conclui"), EM_REVISAO)
-def test_em_revisao_so_o_supervisor_conclui(ator: Actor, conclui: bool) -> None:
+@pytest.mark.parametrize("kind", ["open", "waiting", "delivered"])
+@pytest.mark.parametrize(("ator", "conclui"), CONCLUI)
+def test_so_o_supervisor_conclui(ator: Actor, conclui: bool, kind: str) -> None:
     estado = TicketState(
         team_id=GRUPO,
-        kind="delivered",
+        kind=kind,
         created_by_id=registrou.user_id,
         assignee_id=responsavel.user_id,
         is_watcher=False,

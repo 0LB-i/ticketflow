@@ -70,7 +70,7 @@
       {{ field("email", t("usuarios.email"), type="email", value=form.email or "", hint=t("usuarios.semEmail") if edited and not edited.email else None, required=not edited) }}
       {{ field("username", t("usuarios.usuario"), value=form.username or "", hint=t("usuarios.usuarioDica"), required=not edited, autocomplete="off") }}
       {%- if not edited %}
-      {{ field("password", t("usuarios.senhaInicial"), hint=t("usuarios.senhaInicialDica"), required=True, autocomplete="off", minlength="8") }}
+      {{ field("password", t("usuarios.senhaInicial"), type="password", hint=t("usuarios.senhaInicialDica"), required=True, autocomplete="new-password", minlength="8") }}
       {%- endif %}
       {{ select_field("role", t("usuarios.papel"), role_options, form.role) }}
       {%- if not edited %}
