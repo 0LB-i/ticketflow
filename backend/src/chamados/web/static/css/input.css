@@ -150,6 +150,10 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-focus;
   }
+  /* Formulário já enviado, esperando a resposta (static/js/app.js) */
+  form[data-enviando] [type='submit'] {
+    @apply cursor-progress opacity-70;
+  }
 }
 
 /* Texto formatado (Markdown) da descrição e dos comentários, e o mesmo visual no editor. */

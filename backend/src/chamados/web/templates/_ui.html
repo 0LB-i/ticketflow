@@ -95,8 +95,7 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
 
 {#- A cor vem do `kind`; o texto é o nome do status (renomeável pelo admin), docs/10 §10.5. -#}
 {% macro status_badge(kind, label) -%}
-{%- set colors = {"open": "bg-blue-bg text-blue-fg", "waiting": "bg-violet-bg text-violet-fg", "approval": "bg-teal-bg text-teal-fg", "delivered": "bg-teal-bg text-teal-fg", "closed": "bg-green-bg text-green-fg", "canceled": "bg-gray-bg text-gray-fg"} -%}
-<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium {{ colors[kind] }}">{{ label }}</span>
+{{ badge(label, {"open": "blue", "waiting": "violet", "approval": "teal", "delivered": "teal", "closed": "green", "canceled": "gray"}[kind]) }}
 {%- endmacro %}
 
 {#- Menu lateral: os itens aparecem conforme a permissão (só esconde; a rota é que decide). -#}

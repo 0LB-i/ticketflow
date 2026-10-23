@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from chamados.modules.system.models import SystemSetting
+from chamados.web.templating import static
 from tests.conftest import SENHA, FakeMailer, criar_usuario
 
 
@@ -156,6 +157,10 @@ def test_arquivos_estaticos(client: TestClient) -> None:
     r = client.get("/static/js/app.js")
     assert r.status_code == 200
     assert "tf-tema" in r.text
+    assert "cache-control" not in r.headers
+    # Com a versão de static(), o navegador guarda sem perguntar de novo.
+    r = client.get(static("js/app.js"))
+    assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
 
 
 def test_paginas_com_sessao_nao_ficam_no_navegador(client: TestClient, db: Session) -> None:

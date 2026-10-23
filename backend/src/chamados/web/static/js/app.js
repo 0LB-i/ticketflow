@@ -71,6 +71,25 @@ for (const aviso of document.querySelectorAll('[data-aviso="success"]')) {
   setTimeout(() => aviso.remove(), 5000)
 }
 
+// Envio duplo (duplo clique em Registrar, Comentar…): enquanto a resposta não chega, o
+// formulário não sai de novo. A marca entra depois dos outros tratadores do submit, para não
+// prender o formulário que um deles segurou (o chamado.js espera os anexos subirem).
+document.addEventListener('submit', (e) => {
+  const form = e.target
+  if (form.method !== 'post') return
+  if ('enviando' in form.dataset) {
+    e.preventDefault()
+    return
+  }
+  setTimeout(() => {
+    if (!e.defaultPrevented) form.dataset.enviando = ''
+  })
+})
+// Ao voltar para a página (cache do navegador), o formulário pode ser enviado de novo.
+addEventListener('pageshow', () => {
+  for (const form of document.querySelectorAll('form[data-enviando]')) delete form.dataset.enviando
+})
+
 // Formulários de filtro: aplicam ao escolher uma opção. Datas não: o Chrome dispara o change a
 // cada parte digitada (vão com o botão Aplicar ou o Enter).
 document.addEventListener('change', (e) => {

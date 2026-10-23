@@ -5,7 +5,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
-from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
 from chamados import __version__, web
@@ -30,7 +29,7 @@ from chamados.modules.tickets.presence import Presence
 from chamados.modules.tickets.router import router as tickets_router
 from chamados.web.errors import register_web_error_handlers
 from chamados.web.page import Redirect, redirect_response
-from chamados.web.templating import STATIC_DIR
+from chamados.web.templating import STATIC_DIR, CachedStaticFiles
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -89,6 +88,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Telas do servidor (ADR 0011). Endereço desconhecido: a página de erro (web/errors.py).
     app.add_exception_handler(Redirect, redirect_response)
     register_web_error_handlers(app)
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", CachedStaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(web.router)
     return app
