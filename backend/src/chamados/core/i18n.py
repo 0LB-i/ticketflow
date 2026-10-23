@@ -178,6 +178,9 @@ EN: dict[str, str] = {
     "Você só registra chamados nos grupos de que é membro.": (
         "You can only create tickets in teams you are a member of."
     ),
+    "Só o supervisor do grupo registra um chamado já concluído.": (
+        "Only the team supervisor can create an already closed ticket."
+    ),
     "Escreva o comentário.": "Write the comment.",
     "Comentário não encontrado.": "Comment not found.",
     "A data da tarefa não pode ficar no futuro.": "The task date cannot be in the future.",

@@ -238,7 +238,9 @@ def test_entregue_e_a_revisao_so_o_supervisor_conclui(
     status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
     t = registrar(client, cenario, assignee="me")
     url = f"{API}/{t['number']}"
-    assert "set_status_closed" in t["allowed_actions"]
+    # Ana (agente) não conclui, nem antes de entregar
+    assert "set_status_closed" not in t["allowed_actions"]
+    assert client.patch(url, json={"status_id": status["Concluído"]}).status_code == 403
 
     # Ana (responsável) entrega: o chamado fica em revisão (kind delivered)
     r = client.patch(url, json={"status_id": status["Entregue"]})
@@ -322,6 +324,18 @@ def test_status_escolhido_no_formulario(
 
     # Sem status, Pendente; com status, qualquer um, sem comentário nem código de resolução
     assert registrar(client, cenario)["status"]["name"] == "Pendente"
+    # Já concluído: só o supervisor do grupo (Ana é agente)
+    r = client.post(
+        API,
+        json={
+            **base(cenario),
+            "title": "Feito",
+            "category_id": cenario["impressao"],
+            "status_id": status["Arquivado"],
+        },
+    )
+    assert r.status_code == 403
+    entrar(client, "bia@x.com")
     t = registrar(client, cenario, status_id=status["Arquivado"])
     assert t["status"] == {"id": status["Arquivado"], "name": "Arquivado", "kind": "closed"}
     assert t["closed_at"] is not None
@@ -364,6 +378,7 @@ def test_data_de_conclusao_e_de_cancelamento(client: TestClient, cenario: dict[s
     t = registrar(client, cenario, started_at=inicio.isoformat())
     url = f"{API}/{t['number']}"
     quando = "2026-09-28T17:40:00-03:00"
+    entrar(client, "bia@x.com")  # só o supervisor conclui
 
     def patch(**dados: Any) -> Any:
         return client.patch(url, json=dados)

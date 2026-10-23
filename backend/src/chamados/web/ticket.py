@@ -188,7 +188,13 @@ async def _new_ticket_page(
         members=members,
         names={**names, **dict(members)},
         can_choose_status=page.can("ticket.transition"),
-        status_options=[(str(s.id), s.name) for s in statuses],
+        # Os concluídos só para quem supervisiona algum grupo (ou o admin); o serviço confere o
+        # grupo escolhido.
+        status_options=[
+            (str(s.id), s.name)
+            for s in statuses
+            if s.kind != "closed" or auth.actor.role == "admin" or auth.actor.supervises
+        ],
         watcher_options=[p for p in people if p[0] != str(auth.user.public_id)],
         people=[{"id": i, "label": n} for i, n in people],
         pending=await _pending_attachments(page, db, form.attachments),

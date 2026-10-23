@@ -81,6 +81,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - API: criar ou renomear um status com nome repetido responde **409** (antes 422), como os demais cadastros; mudar a ordem dos status passa a ir para a auditoria (`ticket_status.reordered`, com a ordem antes e depois).
 - Usuários e grupos: ao excluir ou desativar uma pessoa, ou tirá-la de um grupo, os chamados abertos dela (daquele grupo, no último caso) não ficam mais sem dono: assume o próximo responsável do chamado ou, se ela era a única, um supervisor ativo do grupo, que recebe o e-mail de atribuição. Se o grupo não tem supervisor, o chamado continua com ela e a tela avisa quais números reatribuir.
 - Fuso horário: datas e horas dos chamados (telas, campos de data e hora, quadro), relatórios e rotinas do worker seguem o fuso da máquina (`timedatectl`), e não mais São Paulo fixo; o `TZ` do ambiente, se houver, vale primeiro. Trocar o fuso da máquina pede reiniciar o `ticketflow.service` e o `ticketflow-worker.service`. Sem migração: os horários já gravados (`timestamptz`) não mudam, só a forma de mostrá-los.
+- Status concluído (Concluído): só o supervisor do grupo ou o admin o escolhe, em qualquer status, e não só no Entregue. O agente não o vê no registro, na edição do chamado nem no Kanban; ele marca como entregue, e o supervisor conclui. Na API, `set_status_closed` só vem para o supervisor do grupo e o admin, e registrar um chamado já concluído sem ser supervisor do grupo responde 403. Sem migração.
 
 ### Removido
 

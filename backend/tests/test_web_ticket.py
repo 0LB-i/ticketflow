@@ -54,6 +54,10 @@ def test_tela_de_registro(client: TestClient, cenario: dict[str, Any]) -> None: 
     # Trocar de grupo traz os membros dele (o HTMX troca só o trecho #responsaveis).
     r = client.get(f"/chamados/novo?grupo={cenario['ti']}")
     assert f'<option value="{cenario["bia"]}">Bia</option>' in r.text
+    # Já concluído, só o supervisor registra.
+    assert ">Concluído</option>" not in r.text
+    entrar(client, "bia@x.com")
+    assert ">Concluído</option>" in client.get("/chamados/novo").text
 
     entrar(client, "auditor@x.com")
     assert "Você ainda não é membro de nenhum grupo" in client.get("/chamados/novo").text
@@ -198,9 +202,13 @@ def test_tarefa_nova_e_reabertura(client: TestClient, cenario: dict[str, Any]) -
     assert _aviso(client, numero) == "Tarefa adicionada"
     assert client.get(f"{API}/{numero}").json()["time_spent_minutes"] == 45
 
-    client.post(
-        f"/chamados/{numero}/status", data=_form(client, status_id=_status(client, "Concluído"))
-    )
+    # Ana (agente) não conclui; Bia (supervisora) conclui
+    concluir = {"status_id": _status(client, "Concluído")}
+    client.post(f"/chamados/{numero}/status", data=_form(client, **concluir))
+    assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "open"
+    entrar(client, "bia@x.com")
+    client.post(f"/chamados/{numero}/status", data=_form(client, **concluir))
+    entrar(client, "ana@x.com")
     r = client.post(url, data=_form(client, texto="", acao="reopen"))
     assert "Escreva na tarefa o motivo da reabertura." in r.text
     dados = _form(client, texto="Voltou a falhar, @Bia", acao="reopen", mention_ids=cenario["bia"])

@@ -639,6 +639,9 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     status = await (
         _status(db, data.status_id) if data.status_id is not None else _default_status(db, "open")
     )
+    # Já concluído: como na edição, só o supervisor do grupo ou o admin.
+    if status.kind == "closed" and not rules.is_supervisor(auth.actor, team.id):
+        raise HTTPException(403, "Só o supervisor do grupo registra um chamado já concluído.")
 
     if data.assignee == "me" or data.assignee == auth.user.public_id:
         # Fora dos próprios grupos, quem registra não pode ficar como responsável.

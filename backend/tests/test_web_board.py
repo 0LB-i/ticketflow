@@ -76,12 +76,8 @@ def test_cada_um_ve_os_seus_e_o_supervisor_os_do_grupo(
     # Mais de um responsável: o principal e "+1", com todos ao passar o mouse.
     assert '<span class="text-blue-fg" title="Bia, Ana">Bia +1</span>' in r.text
     assert 'name="responsavel"' not in r.text  # sem o filtro: só vê o próprio quadro
-    assert list(_destinos(r.text, meu)) == [
-        "Aguardando cliente",
-        "Entregue",
-        "Concluído",
-        "Cancelado",
-    ]
+    # Sem o Concluído: só o supervisor conclui.
+    assert list(_destinos(r.text, meu)) == ["Aguardando cliente", "Entregue", "Cancelado"]
     assert 'name="volta" value="/quadro"' in _cartao(r.text, meu)
     # A coluna do cancelado tem o fundo avermelhado.
     cancelado = _destinos(r.text, meu)["Cancelado"]
@@ -113,6 +109,7 @@ def test_mover_o_cartao_muda_o_status_e_volta_ao_quadro(
     cenario: dict[str, Any],  # noqa: F811
 ) -> None:
     numero = registrar(client, cenario)["number"]
+    entrar(client, "bia@x.com")  # só o supervisor conclui
     html = client.get("/quadro").text
     versao = re.search(r'name="versao" value="([^"]*)"', _cartao(html, numero))
     assert versao
@@ -144,11 +141,13 @@ def test_mover_o_cartao_muda_o_status_e_volta_ao_quadro(
     assert r.headers["location"] == "/chamados"
 
 
-def test_entregue_so_o_supervisor_conclui(
+def test_so_o_supervisor_conclui(
     client: TestClient,
     cenario: dict[str, Any],  # noqa: F811
 ) -> None:
     numero = registrar(client, cenario)["number"]
+    # Ana (agente) não leva o cartão para Concluído, nem antes nem depois de entregar
+    assert "Concluído" not in _destinos(client.get("/quadro").text, numero)
     client.post(f"/chamados/{numero}/entregar", data=_form(client))
     html = client.get("/quadro").text
     assert _colunas(html)["Entregue"] == [numero]
@@ -180,6 +179,7 @@ def test_concluidos_e_cancelados_por_mes(
         registrar(client, cenario)["number"] for _ in range(7)
     )
     status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
+    entrar(client, "bia@x.com")  # só o supervisor conclui
     for numero in (este, virada, passado, retrasado):
         client.patch(f"{API}/{numero}", json={"status_id": status["Concluído"]})
     for numero in (cancelado, cancelado_antes):
@@ -228,6 +228,7 @@ def test_no_mes_passado_as_datas_do_topo(
     concluir, cancelar = (registrar(client, cenario)["number"] for _ in range(2))
     for numero in (concluir, cancelar):
         _mudar_data(db, "started_at", numero, 1)
+    entrar(client, "bia@x.com")  # só o supervisor conclui
 
     # No mês atual, sem as datas.
     html = client.get("/quadro").text
