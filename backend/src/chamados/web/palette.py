@@ -73,7 +73,7 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "surface-raised": "#262626",
         "fg": "#F5F5F5",
         "muted": "#A3A3A3",
-        "border": "#262626",
+        "border": "#404040",
         "border-input": "#737373",
     },
 }
@@ -210,7 +210,8 @@ def _derive(colors: Colors, mode: Mode) -> Tokens:
         bg = _tone(neutral, 0.145, 0.015)
         surface = _tone(neutral, 0.205, 0.015)
         raised = _tone(neutral, 0.269, 0.015)
-        border = raised
+        # Um tom acima do surface-raised, para a divisória aparecer também sobre ele.
+        border = _tone(neutral, 0.371, 0.015)
     light_bgs = _luminance(surface) > 0.18
     backgrounds = [bg, surface, raised]
 

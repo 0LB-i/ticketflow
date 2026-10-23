@@ -478,6 +478,15 @@ document.addEventListener('click', (e) => {
 })
 htmx.onLoad((raiz) => raiz.querySelectorAll('[data-chips-adiciona]').forEach(atualizarTodos))
 
+// --- presença (tickets/_presence.html) ------------------------------------------------------
+
+// Com a aba escondida, o trecho não é pedido: "está vendo" é quem tem o chamado à vista. Sem
+// isso, o Chrome espaça as consultas das abas de fundo para uma por minuto, mais que a validade
+// da presença (45 s), e a pessoa aparecia e sumia.
+document.addEventListener('htmx:beforeRequest', (e) => {
+  if (document.hidden && e.detail.elt.id === 'presenca') e.preventDefault()
+})
+
 // --- cliente --------------------------------------------------------------------------------
 
 function fecharOpcoes(caixa, restaurar = true) {

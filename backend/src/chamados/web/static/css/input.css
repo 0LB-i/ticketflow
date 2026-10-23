@@ -82,7 +82,7 @@
   --tf-surface-raised: #262626;
   --tf-fg: #f5f5f5;
   --tf-muted: #a3a3a3;
-  --tf-border: #262626;
+  --tf-border: #404040;
   --tf-border-input: #737373;
   --tf-danger: #dc2626;
 
@@ -92,12 +92,13 @@
   --tf-green-fg: #86efac;
   --tf-gray-fg: #d4d4d4;
   --tf-red-fg: #fca5a5;
-  --tf-blue-bg: #262626;
-  --tf-violet-bg: #262626;
-  --tf-teal-bg: #262626;
-  --tf-green-bg: #262626;
+  /* Fundos tingidos (o tom 950 de cada cor): a etiqueta se distingue também pelo fundo */
+  --tf-blue-bg: #172554;
+  --tf-violet-bg: #2e1065;
+  --tf-teal-bg: #042f2e;
+  --tf-green-bg: #052e16;
   --tf-gray-bg: #262626;
-  --tf-red-bg: #262626;
+  --tf-red-bg: #450a0a;
 }
 
 @theme inline {

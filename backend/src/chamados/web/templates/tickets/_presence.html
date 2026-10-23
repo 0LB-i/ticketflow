@@ -1,6 +1,7 @@
 {#- Quem mais está com o chamado aberto e as tarefas novas (docs/10 §10.6, "Colisão"). A tela
-    pergunta de novo a cada 20 s e troca o trecho inteiro. -#}
-<span id="presenca" hx-get="{{ base }}/presenca?{{ {'desde': visto_ate} | urlencode }}" hx-trigger="every 20s" hx-swap="outerHTML" aria-live="polite">
+    pergunta de novo a cada 20 s e troca o trecho inteiro; com a aba escondida não pergunta
+    (static/js/chamado.js) e, quando ela volta à vista, pergunta na hora. -#}
+<span id="presenca" hx-get="{{ base }}/presenca?{{ {'desde': visto_ate} | urlencode }}" hx-trigger="every 20s, visibilitychange from:document" hx-swap="outerHTML" aria-live="polite">
   {%- if viewers %} · {% if viewers | length == 1 %}{{ t("chamado.presenca.um", nome=viewers[0]) }}{% else %}{{ t("chamado.presenca.varios", nomes=viewers[:-1] | join(", ") ~ t("chamado.presenca.e") ~ viewers[-1]) }}{% endif %}{% endif %}
   {%- if new_comments %} · <a href="{{ base }}" class="font-medium text-primary underline">{{ t("chamado.presenca.nova") if new_comments == 1 else t("chamado.presenca.novas", n=new_comments) }} · {{ t("chamado.presenca.recarregar") }}</a>{% endif -%}
 </span>

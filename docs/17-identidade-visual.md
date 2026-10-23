@@ -29,7 +29,7 @@ As cores da empresa são **laranja, cinza e branco**. A interface é majoritaria
 | `surface-raised` | `#F5F5F5` (neutral-100) | `#262626` (neutral-800) | Cabeçalho de tabela, menus suspensos |
 | `text` | `#171717` (neutral-900) | `#F5F5F5` (neutral-100) | Texto principal |
 | `text-muted` | `#525252` (neutral-600) | `#A3A3A3` (neutral-400) | Texto secundário, datas, rótulos |
-| `border` | `#E5E5E5` (neutral-200) | `#262626` (neutral-800) | Divisórias decorativas |
+| `border` | `#E5E5E5` (neutral-200) | `#404040` (neutral-700) | Divisórias decorativas |
 | `border-input` | `#737373` (neutral-500) | `#737373` (neutral-500) | Borda de campos de formulário |
 
 O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro); o **amarelo-ouro** (`gold`, só para "Marcar como entregue") é `#FACC15` com texto `#171717` nos dois modos, `#EAB308` no hover.
@@ -40,13 +40,13 @@ O laranja fica **reservado para a marca e as ações**: nenhum status usa laranj
 
 | Badge | Claro (texto / fundo) | Escuro (texto / fundo) |
 |-------|-----------------------|------------------------|
-| Pendente | `#1D4ED8` / `#EFF6FF` (azul) | `#93C5FD` / `#262626` |
-| Aguardando | `#6D28D9` / `#F5F3FF` (violeta) | `#C4B5FD` / `#262626` |
-| Aguardando aprovação | `#0F766E` / `#F0FDFA` (verde-azulado) | `#5EEAD4` / `#262626` |
-| Concluído | `#15803D` / `#F0FDF4` (verde) | `#86EFAC` / `#262626` |
+| Pendente | `#1D4ED8` / `#EFF6FF` (azul) | `#93C5FD` / `#172554` (blue-950) |
+| Aguardando | `#6D28D9` / `#F5F3FF` (violeta) | `#C4B5FD` / `#2E1065` (violet-950) |
+| Aguardando aprovação | `#0F766E` / `#F0FDFA` (verde-azulado) | `#5EEAD4` / `#042F2E` (teal-950) |
+| Concluído | `#15803D` / `#F0FDF4` (verde) | `#86EFAC` / `#052E16` (green-950) |
 | Cancelado | `#404040` / `#F5F5F5` (cinza) | `#D4D4D4` / `#262626` |
 
-Status criados pelo administrador herdam a cor do `kind` deles.
+Status criados pelo administrador herdam a cor do `kind` deles. No escuro, o fundo é o tom 950 da mesma cor (2026-10-23): a etiqueta se distingue também pelo fundo, não só pelo texto; o texto fica entre 8,2:1 e 10,6:1 sobre ele.
 
 ## 17.3 Contraste (WCAG 2.1 AA)
 

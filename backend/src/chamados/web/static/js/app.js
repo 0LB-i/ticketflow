@@ -63,12 +63,36 @@ document.addEventListener('click', (e) => {
   }
 })
 
-// Avisos (docs/13 §13.6): os de sucesso somem em 5 s; todos fecham pelo X.
+// Avisos (docs/13 §13.6): os de sucesso somem em 5 s, contados de novo depois que o mouse e o
+// foco saem deles (dá tempo de ler); todos fecham pelo X.
 document.addEventListener('click', (e) => {
   e.target.closest('[data-fecha-aviso]')?.closest('[data-aviso]').remove()
 })
 for (const aviso of document.querySelectorAll('[data-aviso="success"]')) {
-  setTimeout(() => aviso.remove(), 5000)
+  let espera
+  let mouse = false
+  let foco = false
+  const contar = () => {
+    clearTimeout(espera)
+    if (!mouse && !foco) espera = setTimeout(() => aviso.remove(), 5000)
+  }
+  aviso.addEventListener('mouseenter', () => {
+    mouse = true
+    contar()
+  })
+  aviso.addEventListener('mouseleave', () => {
+    mouse = false
+    contar()
+  })
+  aviso.addEventListener('focusin', () => {
+    foco = true
+    contar()
+  })
+  aviso.addEventListener('focusout', (e) => {
+    foco = aviso.contains(e.relatedTarget)
+    contar()
+  })
+  contar()
 }
 
 // Envio duplo (duplo clique em Registrar, Comentar…): enquanto a resposta não chega, o
