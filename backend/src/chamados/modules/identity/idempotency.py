@@ -9,6 +9,10 @@ rotina `jobs.cleanup` apaga as mais antigas).
 - A primeira ainda em andamento: 409. Se ela parou há mais de 5 min (o processo caiu), a nova
   assume a chave.
 - Erro (4xx ou 5xx): nada fica guardado, e a mesma chave pode ser usada de novo.
+- Só com um token de API válido (`Bearer tf_...`): sem ele, a requisição segue normal (e o app
+  responde 401), e uma resposta guardada não volta para um token revogado. As rotas de
+  `/api/v1/auth/` (login, senhas) ficam de fora, e o `Set-Cookie` nunca é guardado: no banco não
+  fica segredo de sessão.
 
 Middleware ASGI, e não uma dependência: só ele vê a resposta inteira para guardá-la.
 """
@@ -26,8 +30,11 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from chamados.core.errors import problem
 from chamados.core.i18n import request_locale
 from chamados.modules.identity.models import IdempotencyKey
+from chamados.modules.identity.tokens import load_api_token
 
 HEADER = "idempotency-key"
+# Login, convite e senhas: respostas com cookie de sessão, nunca guardadas.
+SKIP = "/api/v1/auth/"
 MAX_LENGTH = 255
 KEEP = timedelta(hours=24)
 STALE = timedelta(minutes=5)
@@ -52,9 +59,17 @@ class IdempotencyMiddleware:
             headers is None
             or scope["method"] != "POST"
             or not scope["path"].startswith("/api/")
+            or scope["path"].startswith(SKIP)
             or (key := headers.get(HEADER)) is None
             or (authorization := headers.get("authorization")) is None
         ):
+            await self.app(scope, receive, send)
+            return
+        sessionmaker = scope["app"].state.sessionmaker
+        scheme, _, raw = authorization.partition(" ")
+        async with sessionmaker() as db:
+            valid = scheme.lower() == "bearer" and await load_api_token(db, raw.strip()) is not None
+        if not valid:
             await self.app(scope, receive, send)
             return
         locale = request_locale(Request(scope))
@@ -69,7 +84,6 @@ class IdempotencyMiddleware:
         fingerprint = digest(
             scope["method"].encode(), scope["path"].encode(), scope["query_string"], body
         )
-        sessionmaker = scope["app"].state.sessionmaker
 
         async with sessionmaker() as db:
             claimed = await db.scalar(
@@ -119,7 +133,9 @@ class IdempotencyMiddleware:
             if message["type"] == "http.response.start":
                 status = message["status"]
                 response_headers.extend(
-                    [k.decode("latin-1"), v.decode("latin-1")] for k, v in message["headers"]
+                    [k.decode("latin-1"), v.decode("latin-1")]
+                    for k, v in message["headers"]
+                    if k.lower() != b"set-cookie"
                 )
             elif message["type"] == "http.response.body":
                 chunks.append(message.get("body", b""))

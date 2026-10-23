@@ -17,7 +17,7 @@ from chamados.modules.identity.models import ApiToken, User
 from chamados.modules.identity.tokens import new_api_token
 from chamados.modules.jobs.models import OutboxEvent
 from chamados.modules.tickets.models import Ticket
-from tests.conftest import criar_usuario
+from tests.conftest import criar_usuario, entrar
 from tests.test_chamados import API, cenario, eventos, registrar  # noqa: F401
 
 
@@ -182,3 +182,29 @@ def test_comando_cria_lista_e_revoga(
     acoes = list(db.scalars(select(AuditLog.action).order_by(AuditLog.id)))
     assert acoes == ["api_token.created", "api_token.revoked"]
     assert raw not in str(db.scalars(select(AuditLog.after)).all())
+
+
+def test_desativar_ou_excluir_revoga_os_tokens(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "adm@x.com", "admin")
+    ana = criar_usuario(db, "ana@x.com")
+    bia = criar_usuario(db, "bia@x.com", nome="Bia")
+    da_ana, da_bia = criar_token(db, "ana@x.com"), criar_token(db, "bia@x.com")
+    entrar(client, "adm@x.com")
+
+    # Reativar a conta não traz o token de volta: ele pode ter vazado
+    url = f"/api/v1/users/{ana.public_id}"
+    assert client.patch(url, json={"is_active": False}).status_code == 200
+    assert client.patch(url, json={"is_active": True}).status_code == 200
+    assert client.delete(f"/api/v1/users/{bia.public_id}").status_code == 204
+
+    pela_api = TestClient(client.app)
+    for raw in (da_ana, da_bia):
+        assert (
+            pela_api.get("/api/v1/me", headers={"Authorization": f"Bearer {raw}"}).status_code
+            == 401
+        )
+    db.expire_all()
+    assert db.scalar(select(ApiToken).where(ApiToken.revoked_at.is_(None))) is None
+    revogados = db.scalars(select(AuditLog).where(AuditLog.action == "api_token.revoked")).all()
+    adm = db.scalar(select(User.id).where(User.email == "adm@x.com"))
+    assert len(revogados) == 2 and {r.actor_user_id for r in revogados} == {adm}

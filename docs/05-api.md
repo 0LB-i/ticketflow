@@ -42,7 +42,7 @@ Authorization: Bearer tf_...
 
 - **Fora da administração:** rotas com permissão própria (usuários, grupos, setores, categorias, status, configurações, auditoria, clientes) respondem 403 a qualquer token, mesmo o de um administrador.
 - **Só pela interface:** sair e trocar a senha (403 com token).
-- Token inválido, revogado, vencido (validade padrão de 365 dias) ou de usuário inativo/excluído: 401. Requisições com token não usam cookie nem CSRF.
+- Token inválido, revogado, vencido ou de usuário inativo/excluído: 401. Desativar ou excluir a pessoa revoga os tokens dela: reativar a conta não os traz de volta. Requisições com token não usam cookie nem CSRF.
 
 **Depois:** escopos mais finos (`tickets:read`, `kb:write`…), contas de serviço (`actor_kind = api_client` ou `ai`).
 

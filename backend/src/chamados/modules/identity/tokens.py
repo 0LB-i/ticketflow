@@ -124,3 +124,15 @@ def revoke_api_token(
         target_id=token.user.public_id,
         after={"token": str(token.public_id), "name": token.name} | ({"via": via} if via else {}),
     )
+
+
+async def revoke_user_api_tokens(
+    db: AsyncSession, user: User, *, actor_user_id: int | None, request: Request | None = None
+) -> None:
+    """Todos os tokens ativos da pessoa (desativada ou excluída): reativar a conta não traz de
+    volta um token que pode ter vazado. O commit fica com quem chama."""
+    tokens = await db.scalars(
+        select(ApiToken).where(ApiToken.user_id == user.id, ApiToken.revoked_at.is_(None))
+    )
+    for token in tokens:
+        revoke_api_token(db, token, actor_user_id=actor_user_id, request=request)

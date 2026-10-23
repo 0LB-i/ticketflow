@@ -20,6 +20,7 @@ from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import MAX_LENGTH, hash_password, password_problem
 from chamados.modules.identity.service import issue_token, link, send_link_email
 from chamados.modules.identity.sessions import now, revoke_sessions
+from chamados.modules.identity.tokens import revoke_user_api_tokens
 from chamados.modules.organization.models import Role, Team, TeamMember
 from chamados.modules.system.service import user_locale
 from chamados.modules.tickets import service as tickets
@@ -279,6 +280,7 @@ async def update_user(
         user.is_active = data.is_active
         if not data.is_active:
             await revoke_sessions(db, user.id)  # docs/09 §9.3: sessões encerradas na hora
+            await revoke_user_api_tokens(db, user, actor_user_id=auth.user.id, request=request)
             await tickets.release(db, auth, user)  # os chamados abertos dela não ficam sem dono
     after = _snapshot(user)
     if after != before:
@@ -312,6 +314,7 @@ async def delete_user(user_id: uuid.UUID, auth: Admin, request: Request, db: DB)
     user.must_change_password = False
     user.memberships.clear()
     await revoke_sessions(db, user.id)
+    await revoke_user_api_tokens(db, user, actor_user_id=auth.user.id, request=request)
     record(
         db,
         "user.deleted",

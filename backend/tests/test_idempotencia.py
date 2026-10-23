@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from chamados.config import Settings
 from chamados.modules.identity.idempotency import digest
-from chamados.modules.identity.models import IdempotencyKey
+from chamados.modules.identity.models import ApiToken, IdempotencyKey
 from chamados.modules.jobs.service import cleanup
 from chamados.modules.tickets.models import Ticket
-from tests.conftest import criar_usuario
+from tests.conftest import SENHA, criar_usuario
 from tests.test_chamados import API, base, cenario  # noqa: F401
 from tests.test_fila import rodar
 from tests.test_tokens_api import com_token, criar_token
@@ -161,3 +161,35 @@ def test_limpeza_diaria(db: Session, settings: Settings) -> None:
     rodar(settings, limpar)
     db.expire_all()
     assert list(db.scalars(select(IdempotencyKey.key))) == ["nova"]
+
+
+def test_sem_token_valido_nada_fica_guardado(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "ana@x.com")
+    raw = criar_token(db, "ana@x.com")
+    login = {"login": "ana@x.com", "password": SENHA}
+    chave = {"Idempotency-Key": "k1"}
+    # Login com um Authorization qualquer (ou até o token certo): o cookie da sessão não vai
+    # para o banco
+    for authorization in ("Bearer lixo", f"Bearer {raw}"):
+        r = client.post(
+            "/api/v1/auth/login", json=login, headers={**chave, "Authorization": authorization}
+        )
+        assert r.status_code == 204 and "idempotent-replayed" not in r.headers
+    assert db.scalar(select(func.count()).select_from(IdempotencyKey)) == 0
+
+
+def test_token_revogado_nao_recebe_a_resposta_guardada(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Session,
+) -> None:
+    com_token(client, criar_token(db, "ana@x.com"))
+    chave = {"Idempotency-Key": "pedido-1"}
+    assert client.post(API, json=_novo(cenario), headers=chave).status_code == 201
+    token = db.scalar(select(ApiToken))
+    assert token is not None
+    token.revoked_at = datetime.now(UTC)
+    db.commit()
+    r = client.post(API, json=_novo(cenario), headers=chave)
+    assert r.status_code == 401
+    assert "idempotent-replayed" not in r.headers
