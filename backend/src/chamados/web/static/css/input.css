@@ -151,10 +151,13 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-focus;
   }
-  /* Formulário já enviado, esperando a resposta (static/js/app.js) */
-  form[data-enviando] [type='submit'] {
-    @apply cursor-progress opacity-70;
-  }
+}
+
+/* Botão de um formulário já enviado, esperando a resposta (static/js/app.js). Fora das camadas
+   do Tailwind para valer sobre o hover:opacity-90 e o disabled:opacity-50 dos botões. */
+[type='submit'][aria-disabled='true'] {
+  cursor: progress;
+  opacity: 0.7;
 }
 
 /* Texto formatado (Markdown) da descrição e dos comentários, e o mesmo visual no editor. */

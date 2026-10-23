@@ -8,7 +8,7 @@ import time
 import uuid
 from collections.abc import Callable
 
-TTL_SECONDS = 45  # a tela pergunta a cada 20 s; quem passa disso fechou o chamado
+TTL_SECONDS = 45  # a tela pergunta a cada 20 s; quem passa disso fechou o chamado ou escondeu a aba
 
 
 class Presence:

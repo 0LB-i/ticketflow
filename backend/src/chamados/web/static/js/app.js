@@ -96,22 +96,26 @@ for (const aviso of document.querySelectorAll('[data-aviso="success"]')) {
 }
 
 // Envio duplo (duplo clique em Registrar, Comentar…): enquanto a resposta não chega, o
-// formulário não sai de novo. A marca entra depois dos outros tratadores do submit, para não
-// prender o formulário que um deles segurou (o chamado.js espera os anexos subirem).
-document.addEventListener('submit', (e) => {
+// formulário não sai de novo e os botões de envio dele (também os de fora, com form="id") ficam
+// esmaecidos. O ouvinte fica na window: roda depois dos do document, então não prende o
+// formulário que um deles segurou (o chamado.js espera os anexos subirem).
+function travar(form, travado) {
+  form.toggleAttribute('data-travado', travado)
+  for (const botao of form.elements) {
+    if (botao.type !== 'submit') continue
+    if (travado) botao.setAttribute('aria-disabled', 'true')
+    else botao.removeAttribute('aria-disabled')
+  }
+}
+addEventListener('submit', (e) => {
   const form = e.target
   if (form.method !== 'post') return
-  if ('enviando' in form.dataset) {
-    e.preventDefault()
-    return
-  }
-  setTimeout(() => {
-    if (!e.defaultPrevented) form.dataset.enviando = ''
-  })
+  if ('travado' in form.dataset) e.preventDefault()
+  else if (!e.defaultPrevented) travar(form, true)
 })
 // Ao voltar para a página (cache do navegador), o formulário pode ser enviado de novo.
 addEventListener('pageshow', () => {
-  for (const form of document.querySelectorAll('form[data-enviando]')) delete form.dataset.enviando
+  for (const form of document.querySelectorAll('form[data-travado]')) travar(form, false)
 })
 
 // Formulários de filtro: aplicam ao escolher uma opção. Datas não: o Chrome dispara o change a

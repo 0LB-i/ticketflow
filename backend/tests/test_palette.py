@@ -1,7 +1,11 @@
 """Paleta derivada das 3 cores (docs/17 §17.2) e os contrastes da WCAG 2.1 AA (§17.3)."""
 
+import re
+from pathlib import Path
+
 import pytest
 
+import chamados.web
 from chamados.web.palette import (
     DEFAULT_COLORS,
     DEFAULT_PALETTE,
@@ -68,6 +72,21 @@ def test_ajusta_os_tons_e_cumpre_os_contrastes(cores: Colors) -> None:
 def test_combinacoes_prontas_cumprem_os_contrastes(cores: Colors) -> None:
     _conferir(palette(cores)["light"])
     _conferir(palette(cores)["dark"])
+
+
+def _tokens_do_css(css: str, seletor: str) -> dict[str, str]:
+    bloco = css.split(f"{seletor} {{", 1)[1].split("}", 1)[0]
+    return dict(re.findall(r"--tf-([\w-]+):\s*(#[0-9a-fA-F]{6})", bloco))
+
+
+def test_etiquetas_cumprem_os_contrastes() -> None:
+    """As cores de status e prioridade não mudam com a personalização: vivem só no input.css."""
+    css = (Path(chamados.web.__file__).parent / "static/css/input.css").read_text()
+    claro = _tokens_do_css(css, ":root")
+    escuro = {**claro, **_tokens_do_css(css, ".dark")}
+    for modo in (claro, escuro):
+        for cor in ("blue", "violet", "teal", "green", "gray", "red"):
+            assert contrast(modo[f"{cor}-fg"], modo[f"{cor}-bg"]) >= 4.5, cor
 
 
 def test_cor_ja_legivel_fica_como_foi_escolhida() -> None:

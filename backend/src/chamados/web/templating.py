@@ -41,7 +41,9 @@ class CachedStaticFiles(StaticFiles):
         status_code: int = 200,
     ) -> Response:
         response = super().file_response(full_path, stat_result, scope, status_code)
-        if scope["query_string"].startswith(b"v="):
+        # v=0: static() não achou o arquivo (ex.: o app.css ainda não gerado); não guarda.
+        query = scope["query_string"]
+        if query.startswith(b"v=") and query != b"v=0":
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         return response
 

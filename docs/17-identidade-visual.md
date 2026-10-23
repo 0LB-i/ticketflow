@@ -46,7 +46,7 @@ O laranja fica **reservado para a marca e as ações**: nenhum status usa laranj
 | Concluído | `#15803D` / `#F0FDF4` (verde) | `#86EFAC` / `#052E16` (green-950) |
 | Cancelado | `#404040` / `#F5F5F5` (cinza) | `#D4D4D4` / `#262626` |
 
-Status criados pelo administrador herdam a cor do `kind` deles. No escuro, o fundo é o tom 950 da mesma cor (2026-10-23): a etiqueta se distingue também pelo fundo, não só pelo texto; o texto fica entre 8,2:1 e 10,6:1 sobre ele.
+Status criados pelo administrador herdam a cor do `kind` deles. No escuro, o fundo é o tom 950 da mesma cor (2026-10-23): a etiqueta se distingue também pelo fundo, não só pelo texto; o texto fica entre 8,1:1 e 10,6:1 sobre ele.
 
 ## 17.3 Contraste (WCAG 2.1 AA)
 
@@ -64,9 +64,9 @@ Mínimos: **4,5:1** para texto e **3:1** para bordas de campos e contorno de foc
 | `text-muted` sobre `surface` | 7,81 / 7,11 | ✅ claro / escuro |
 | `border-input` sobre `surface` | 4,74 / 3,78 | ✅ claro / escuro |
 | Badges de status (claro) | 4,79 a 9,51 | ✅ |
-| Badges de status (escuro) | 4,83 a 10,78 | ✅ |
+| Badges de status (escuro) | 8,15 a 10,62 | ✅ |
 
-Os contrastes são conferidos de novo sempre que um token de cor mudar (`tests/test_palette.py`; com `axe` no Playwright, quando os testes ponta a ponta entrarem).
+Os contrastes são conferidos de novo sempre que um token de cor mudar (`tests/test_palette.py`, que lê também as cores das etiquetas no `input.css`; com `axe` no Playwright, quando os testes ponta a ponta entrarem).
 
 ## 17.4 Modo claro e escuro
 
