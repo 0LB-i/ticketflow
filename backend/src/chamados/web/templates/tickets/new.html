@@ -33,13 +33,13 @@
     {%- endif %}
 
     <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6">
+      <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
         {{ field("titulo", t("novoChamado.tituloCampo"), value=form.title, hint=t("novoChamado.tituloDica"), error=t(errors.title) if errors.title else None, required=True) }}
         {{ editor("descricao", "descricao", t("novoChamado.descricao"), value=form.description, placeholder=t("novoChamado.descricaoDica"), mentions=True, attach=True, tall=True) }}
         {{ uploader(pending) }}
       </div>
 
-      <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+      <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md">
         {{ datetime_field("inicio", t("chamado.inicio"), form.started, error=t(errors.started) if errors.started else None) }}
         {#- Trocar de grupo recomeça a lista de responsáveis (HTMX troca só esse trecho). #}
         <div class="flex flex-col gap-1">

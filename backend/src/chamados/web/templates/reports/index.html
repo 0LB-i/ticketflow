@@ -16,7 +16,7 @@
 {#- Tabela no visual do DataTable da SPA: `columns` são (rótulo, alinhado à direita); as linhas
     vêm do caller. #}
 {% macro table(caption, columns, empty, count) -%}
-<div class="overflow-x-auto rounded-lg border border-border bg-surface">
+<div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
   <table class="w-full border-collapse text-left">
     <caption class="sr-only">{{ caption }}</caption>
     <thead class="bg-surface-raised text-muted">
@@ -76,7 +76,7 @@
   {%- elif report %}
   <dl class="grid grid-cols-2 gap-3 md:grid-cols-5">
     {%- for key, value in [("horas", duration(report.totals.minutes)), ("horasExtras", duration(report.totals.overtime_minutes)), ("tarefas", number(report.totals.tasks)), ("registrados", number(report.totals.tickets_opened)), ("concluidos", number(report.totals.tickets_closed))] %}
-    <div class="rounded-lg border border-border bg-surface p-4">
+    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
       <dt class="text-muted">{{ t("relatorios.cartoes." ~ key) }}</dt>
       <dd class="mt-1 text-2xl font-semibold">{{ value }}</dd>
     </div>
@@ -91,10 +91,10 @@
 
   {%- if tab == "produtividade" %}
   <div class="grid gap-4 lg:grid-cols-2">
-    <div class="rounded-lg border border-border bg-surface p-4">
+    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
       {{ column_chart(t("relatorios.horasPorSemana" if weekly else "relatorios.horasPorDia"), by_day, duration) }}
     </div>
-    <div class="rounded-lg border border-border bg-surface p-4">
+    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
       {{ bar_chart(t("relatorios.horasPorPessoa"), people_bars, duration) }}
       {%- if not people_bars %}
       <p class="text-muted">{{ t("relatorios.vazio") }}</p>
@@ -115,7 +115,7 @@
 
   {%- elif tab == "clientes" %}
   {%- if client_bars %}
-  <div class="rounded-lg border border-border bg-surface p-4">
+  <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
     {{ bar_chart(t("relatorios.horasPorCliente"), client_bars, duration) }}
   </div>
   {%- endif %}
@@ -133,10 +133,10 @@
   {%- else %}
   <p class="text-muted">{{ work_hours }}</p>
   <div class="grid gap-4 lg:grid-cols-2">
-    <div class="rounded-lg border border-border bg-surface p-4">
+    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
       {{ column_chart(t("relatorios.horasExtrasPorSemana" if weekly else "relatorios.horasExtrasPorDia"), overtime_by_day, duration) }}
     </div>
-    <div class="rounded-lg border border-border bg-surface p-4">
+    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
       {{ bar_chart(t("relatorios.horasExtrasPorPessoa"), overtime_bars, duration) }}
       {%- if not overtime_bars %}
       <p class="text-muted">{{ t("relatorios.semExtras") }}</p>

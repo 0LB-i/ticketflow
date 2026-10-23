@@ -63,7 +63,7 @@
     <div class="mb-4">{{ alert(error) }}</div>
     {%- endif %}
     <fieldset{% if not can_edit %} disabled{% endif %} class="grid items-start gap-4 lg:grid-cols-3">
-      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="dados-titulo">
+      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="dados-titulo">
         <h2 id="dados-titulo" class="font-semibold">{{ t("clientes.dados") }}</h2>
         <fieldset class="flex flex-col gap-1">
           <legend class="mb-1 font-medium">{{ t("clientes.tipo") }}</legend>
@@ -109,7 +109,7 @@
         {%- endif %}
       </section>
 
-      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="contato-titulo">
+      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="contato-titulo">
         <h2 id="contato-titulo" class="font-semibold">{{ t("clientes.contato") }}</h2>
         {{ list_field("phones", t("clientes.telefone"), form.phones, "tel", "clientes.adicionarTelefone", "clientes.removerTelefone") }}
         {{ list_field("emails", t("clientes.email"), form.emails, "email", "clientes.adicionarEmail", "clientes.removerEmail") }}
@@ -122,7 +122,7 @@
         </div>
       </section>
 
-      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="endereco-titulo">
+      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="endereco-titulo">
         <h2 id="endereco-titulo" class="font-semibold">{{ t("clientes.endereco") }}</h2>
         <div class="max-w-40">{{ field("postal_code", t("clientes.cep"), value=form.postal_code, error=err("postal_code") or None, required=True, inputmode="numeric", **{"data-mascara": "cep"}) }}</div>
         {{ field("street", t("clientes.logradouro"), value=form.street, error=err("street") or None) }}

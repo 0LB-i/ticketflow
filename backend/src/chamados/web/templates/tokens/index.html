@@ -14,7 +14,7 @@
   </div>
 
   {%- if created %}
-  <section class="flex flex-col gap-3 rounded-lg border border-border bg-green-bg p-4 text-green-fg" aria-labelledby="token-criado">
+  <section class="flex flex-col gap-3 rounded-lg border border-border bg-green-bg p-4 shadow-md text-green-fg" aria-labelledby="token-criado">
     <h2 id="token-criado" class="font-semibold">{{ t("tokens.criado", nome=created.name) }}</h2>
     <p>{{ t("tokens.copieAgora") }}</p>
     <label for="token-valor" class="sr-only">{{ t("tokens.valor") }}</label>
@@ -22,7 +22,7 @@
   </section>
   {%- endif %}
 
-  <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="novo-token">
+  <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="novo-token">
     <h2 id="novo-token" class="font-semibold">{{ t("tokens.novo") }}</h2>
     {%- if error %}{{ alert(error) }}{% endif %}
     <form method="post" action="/meus-tokens" class="flex flex-wrap items-end gap-4">
@@ -34,7 +34,7 @@
     </form>
   </section>
 
-  <div class="overflow-x-auto rounded-lg border border-border bg-surface">
+  <div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
     <table class="w-full border-collapse text-left">
       <caption class="sr-only">{{ t("tokens.titulo") }}</caption>
       <thead class="bg-surface-raised text-muted">

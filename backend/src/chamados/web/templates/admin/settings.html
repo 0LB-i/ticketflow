@@ -19,7 +19,7 @@
   </div>
 
   {#- Idioma e cores. A prévia é pedida ao servidor enquanto se digita (HTMX troca só #previa). #}
-  <form method="post" action="/admin/configuracoes" hx-get="/admin/configuracoes" hx-trigger="input changed[this.checkValidity()] delay:200ms" hx-params="brand,neutral,background" hx-target="#previa" hx-select="#previa" hx-swap="outerHTML" class="flex flex-col gap-6 rounded-lg border border-border bg-surface p-4 md:p-6">
+  <form method="post" action="/admin/configuracoes" hx-get="/admin/configuracoes" hx-trigger="input changed[this.checkValidity()] delay:200ms" hx-params="brand,neutral,background" hx-target="#previa" hx-select="#previa" hx-swap="outerHTML" class="flex flex-col gap-6 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="flex max-w-sm flex-col gap-1">
       {{ select_field("default_locale", t("configuracoes.idiomaPadrao"), locale_options, default_locale) }}
@@ -68,7 +68,7 @@
           {%- for mode, label in [("light", "configuracoes.previaClaro"), ("dark", "configuracoes.previaEscuro")] %}
           <div class="rounded-lg border border-border bg-bg p-4 text-fg{% if mode == 'dark' %} dark{% endif %}" style="{{ preview[mode] }}">
             <p class="mb-3 text-xs font-semibold text-muted uppercase">{{ t(label) }}</p>
-            <div class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+            <div class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md">
               {{ logo() }}
               <span class="inline-flex w-fit rounded-md bg-primary-subtle px-3 py-1.5 font-medium text-primary">{{ t("menu.chamados") }}</span>
               <p class="font-semibold">#1234 {{ t("configuracoes.previaTitulo") }}</p>
@@ -92,7 +92,7 @@
     </div>
   </form>
 
-  <section id="logotipo" class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 md:p-6" aria-labelledby="logotipo-titulo">
+  <section id="logotipo" class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="logotipo-titulo">
     <div>
       <h2 id="logotipo-titulo" class="font-semibold">{{ t("configuracoes.logotipo") }}</h2>
       <p class="mt-1 text-muted">{{ t("configuracoes.logotipoDescricao") }}</p>
@@ -122,7 +122,7 @@
   </section>
 
   {#- Status dos chamados: criar, renomear, ordenar e remover. #}
-  <section id="status" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6" aria-labelledby="status-titulo">
+  <section id="status" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="status-titulo">
     <div>
       <h2 id="status-titulo" class="font-semibold">{{ t("statusConfig.titulo") }}</h2>
       <p class="mt-1 text-muted">{{ t("statusConfig.descricao") }}</p>
@@ -186,7 +186,7 @@
   </section>
 
   {#- Expediente: dias, horário e feriados. #}
-  <form id="expediente" method="post" action="/admin/configuracoes/expediente" aria-labelledby="expediente-titulo" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 md:p-6">
+  <form id="expediente" method="post" action="/admin/configuracoes/expediente" aria-labelledby="expediente-titulo" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div>
       <h2 id="expediente-titulo" class="font-semibold">{{ t("expediente.titulo") }}</h2>

@@ -422,6 +422,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 - O modo escuro é a classe `dark` no `<html>`, aplicada pelo `static/js/tema.js` antes da primeira pintura (escolha guardada no navegador em `tf-tema`; menu do tema no `app.js`).
 - **Cores personalizadas:** `web/palette.py` deriva os tokens que dependem da identidade a partir das 3 cores das Configurações, em OKLCH, mantendo o matiz e ajustando o tom até cumprir os contrastes da WCAG AA ([docs/17 §17.3](docs/17-identidade-visual.md#173-contraste-wcag-21-aa)). Com as cores padrão, usa a paleta original escolhida à mão (`DEFAULT_PALETTE`). A folha vai embutida no `<head>` (`<style id="tf-cores">`).
 - Cores de status e do botão destrutivo **não** dependem das 3 cores.
+- **Sombra dos blocos:** todo bloco da página (tabela, painel, seção de formulário, cartão; o `rounded-lg border border-border bg-surface`) leva `shadow-md`, para dar profundidade. O que flutua sobre a página (menus, avisos, janelas e a barra do status em massa) usa `shadow-lg` ou `shadow-xl`.
 
 ### 4.3 Idiomas
 
