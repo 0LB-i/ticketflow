@@ -42,7 +42,7 @@ from chamados.web.formatting import (
     parse_duration,
     parse_local,
 )
-from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
+from chamados.web.page import LoggedPage, LoggedPageDep, PageDep, check_csrf, get_logged_page
 
 router = APIRouter()
 
@@ -448,10 +448,17 @@ def _since(value: str) -> datetime | None:
 
 @router.get("/chamados/{number:int}/presenca")
 async def presence(
-    number: int, page: LoggedPageDep, db: DB, request: Request, desde: str = ""
-) -> HTMLResponse:
+    number: int, page: PageDep, db: DB, request: Request, desde: str = ""
+) -> Response:
     """O trecho que a tela pergunta a cada 20 s: quem mais está vendo e as tarefas novas. Passa
-    pela visibilidade, mas não conta como visita (novidades) nem vai para a auditoria."""
+    pela visibilidade, mas não conta como visita (novidades) nem vai para a auditoria.
+
+    Sem sessão (ex.: expirou com a aba escondida), não leva ao login como as outras telas: a
+    pessoa perderia o texto que deixou no editor. O 286 faz o HTMX parar de perguntar, sem
+    trocar o trecho."""
+    if page.auth is None or page.auth.user.must_change_password:
+        return Response(status_code=286, headers={"HX-Reswap": "none"})
+    page = await get_logged_page(page)
     ticket = await tickets_service.load(db, page.auth, str(number))
     since = _since(desde)
     return page.render(

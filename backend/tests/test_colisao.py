@@ -154,6 +154,20 @@ def test_quem_mais_esta_vendo(
     assert client.get(_pergunta(html)).status_code == 403
 
 
+def test_sessao_expirada_nao_leva_ao_login(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+) -> None:
+    """A aba escondida não pergunta; ao voltar, a sessão pode ter expirado. O trecho para de
+    perguntar (286) e não troca a página pelo login, que apagaria o texto do editor."""
+    pergunta = _pergunta(client.get(f"/chamados/{registrar(client, cenario)['number']}").text)
+    client.cookies.clear()
+    r = client.get(pergunta, headers={"HX-Request": "true"})
+    assert r.status_code == 286
+    assert r.headers["HX-Reswap"] == "none"
+    assert "HX-Redirect" not in r.headers
+
+
 def test_aviso_de_tarefa_nova(
     client: TestClient,
     cenario: dict[str, Any],  # noqa: F811
