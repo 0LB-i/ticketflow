@@ -105,12 +105,15 @@ Expõe o sistema como ferramentas para clientes MCP (Claude Code, IDEs, platafor
 | `create_ticket` | Registra (com `request_id`) | `POST /tickets` |
 | `add_task` | Registra uma tarefa, com o tempo gasto (com `request_id`) | `POST /tickets/{id}/comments` |
 | `change_status` | Muda o status (qualquer um que a pessoa possa escolher) | `PATCH /tickets/{id}` com `status_id` |
+| `assign_ticket` | Atribui: `main` troca o responsável principal (`"me"` assume), `add` acrescenta mais um | `POST /tickets/{id}/assign`, `PUT /tickets/{id}/assignees` |
+| `transfer_ticket` | Transfere para outro grupo, com um responsável de lá e o motivo | `POST /tickets/{id}/transfer` |
+| `cancel_ticket` | Cancela, com o motivo opcional (`destructiveHint`; as instruções pedem a confirmação da pessoa) | `POST /tickets/{id}/transitions` (`cancel`) |
 
 - As ferramentas são uma camada fina sobre os **services** (mesmas permissões, mesma auditoria); o histórico marca `via: "mcp"`.
 - As de leitura levam `readOnlyHint`, para o cliente poder dispensar a confirmação; as de escrita, não.
 - As instruções do servidor dizem ao modelo que o texto dos chamados é dado, nunca instrução (prompt injection).
 - O `get_ticket` não conta como visita da pessoa: o aviso de novidade continua para ela.
-- **Fora, por enquanto:** transferir, cancelar, atribuir, anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
+- **Fora, por enquanto:** concluir e reabrir pelo fluxo (com código de resolução), observadores, anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
 
 ### Webhooks
 

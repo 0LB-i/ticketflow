@@ -69,10 +69,13 @@ def test_ferramentas_anunciadas(
     )
     tools = {t["name"]: t for t in _rpc(client, raw, "tools/list")["tools"]}
     leitura = {"list_tickets", "get_ticket", "get_ticket_history", "list_options", "search_clients"}
-    escrita = {"create_ticket", "add_task", "change_status"}
+    escrita = {"create_ticket", "add_task", "change_status", "assign_ticket", "transfer_ticket"}
+    escrita |= {"cancel_ticket"}
     assert set(tools) == leitura | escrita
     assert all(tools[n]["annotations"]["readOnlyHint"] for n in leitura)
     assert not any(tools[n]["annotations"]["readOnlyHint"] for n in escrita)
+    destrutivas = {n for n in escrita if tools[n]["annotations"]["destructiveHint"]}
+    assert destrutivas == {"cancel_ticket"}
 
 
 def test_leitura_com_a_visibilidade_da_pessoa(
@@ -165,3 +168,68 @@ def test_recusa_da_regra_vem_no_idioma_da_pessoa(
     client.cookies.clear()
     ana = criar_token(db, "ana@x.com")
     assert erro(client, ana, "change_status", number=numero, status_id=999) == "Status not found."
+
+
+def test_atribuir_transferir_e_cancelar(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Session,
+) -> None:
+    numero = registrar(client, cenario)["number"]  # da Ana, no TI
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com")
+
+    # add: a Bia entra como mais uma responsável; repetir não muda nada
+    for _ in range(2):
+        r = ferramenta(
+            client, ana, "assign_ticket", number=numero, assignee=cenario["bia"], mode="add"
+        )
+    assert r["assignee"]["display_name"] == "Ana"
+    assert [c["display_name"] for c in r["co_assignees"]] == ["Bia"]
+    # main: a Bia vira a principal, no lugar da Ana
+    r = ferramenta(client, ana, "assign_ticket", number=numero, assignee=cenario["bia"])
+    assert r["assignee"]["display_name"] == "Bia" and r["co_assignees"] == []
+    # "me": a Ana assume de volta
+    r = ferramenta(client, ana, "assign_ticket", number=numero, assignee="me")
+    assert r["assignee"]["display_name"] == "Ana"
+    texto = erro(client, ana, "assign_ticket", number=numero, assignee=cenario["caio"])
+    assert texto == "O responsável precisa ser um membro ativo do grupo."
+
+    # Transferir para a Infra, com o Caio; a Ana deixa de poder alterar
+    r = ferramenta(
+        client,
+        ana,
+        "transfer_ticket",
+        number=numero,
+        team_id=cenario["infra"],
+        assignee_id=cenario["caio"],
+        reason="É da rede",
+    )
+    assert r["team"]["name"] == "Infra" and r["assignee"]["display_name"] == "Caio"
+    assert (
+        erro(client, ana, "cancel_ticket", number=numero)
+        == "Você não tem permissão para esta ação."
+    )
+
+    # O Caio cancela; repetir não dá erro
+    caio = criar_token(db, "caio@x.com")
+    for _ in range(2):
+        r = ferramenta(client, caio, "cancel_ticket", number=numero, comment="Duplicado do #999")
+        assert r["status"]["kind"] == "canceled"
+    client.headers["Authorization"] = f"Bearer {caio}"
+    tipos = [e["type"] for e in eventos(client, numero)]
+    assert tipos.count("ticket.status_changed") == 1
+    assert "ticket.transferred" in tipos
+
+
+def test_cancelar_com_token_de_leitura(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Session,
+) -> None:
+    numero = registrar(client, cenario)["number"]
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com", "read")
+    assert (
+        erro(client, ana, "cancel_ticket", number=numero) == "Este token de API só permite leitura."
+    )
