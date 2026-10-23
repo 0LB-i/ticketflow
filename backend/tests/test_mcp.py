@@ -1,6 +1,8 @@
 """Servidor MCP em /mcp (modules/mcp_server): ferramentas sobre os mesmos services da API, com o
 token de API da pessoa."""
 
+import json
+from datetime import UTC, datetime, timedelta
 from itertools import count
 from typing import Any
 
@@ -8,7 +10,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from chamados.modules.identity.idempotency import digest
+from chamados.modules.identity.models import IdempotencyKey
 from chamados.modules.tickets.models import Ticket, TicketRead
+from chamados.modules.tickets.schemas import CommentIn
+from tests.conftest import criar_usuario
 from tests.test_chamados import cenario, eventos, registrar  # noqa: F401
 from tests.test_tokens_api import criar_token
 
@@ -233,3 +239,71 @@ def test_cancelar_com_token_de_leitura(
     assert (
         erro(client, ana, "cancel_ticket", number=numero) == "Este token de API só permite leitura."
     )
+
+
+def test_change_status_nao_cancela(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Session,
+) -> None:
+    numero = registrar(client, cenario)["number"]
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com")
+    opcoes = ferramenta(client, ana, "list_options")
+    cancelado = next(s["id"] for s in opcoes["statuses"] if s["kind"] == "canceled")
+    texto = erro(client, ana, "change_status", number=numero, status_id=cancelado)
+    assert texto == "Para cancelar o chamado, use cancel_ticket."
+    lido = ferramenta(client, ana, "get_ticket", number=numero)
+    assert lido["ticket"]["status"]["kind"] == "open"
+
+
+def test_request_id_parado_e_retomado(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Session,
+) -> None:
+    numero = registrar(client, cenario)["number"]
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com")
+    args = {"number": numero, **CommentIn(body="Feito").model_dump(mode="json")}
+    parada = IdempotencyKey(
+        owner_hash=digest(f"Bearer {ana}".encode()),
+        key="mcp:r9",
+        fingerprint=digest(json.dumps(args, sort_keys=True, default=str).encode()),
+    )
+    db.add(parada)
+    db.commit()
+    texto = erro(client, ana, "add_task", number=numero, body="Feito", request_id="r9")
+    assert texto == "Uma chamada com este request_id ainda está em andamento."
+
+    # Parada há mais de 5 minutos (o processo caiu): a nova assume
+    parada.created_at = datetime.now(UTC) - timedelta(minutes=6)
+    db.commit()
+    assert ferramenta(client, ana, "add_task", number=numero, body="Feito", request_id="r9")
+
+
+def test_dados_invalidos_sem_os_valores(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Session,
+) -> None:
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com")
+    # Passa no schema da ferramenta (3 caracteres), mas o do chamado tira os espaços
+    texto = erro(
+        client,
+        ana,
+        "create_ticket",
+        title="  ab  ",
+        client_id=cenario["cliente"],
+        team_id=cenario["ti"],
+    )
+    assert texto == "Dados inválidos: title."
+
+
+def test_senha_provisoria(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "ana@x.com", trocar_senha=True)
+    ana = criar_token(db, "ana@x.com", "read")
+    assert erro(client, ana, "list_tickets") == "Troque a senha provisória antes de continuar."
+    r = client.get("/api/v1/me", headers={"Authorization": f"Bearer {ana}"})
+    assert r.status_code == 403

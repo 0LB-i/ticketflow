@@ -55,6 +55,7 @@ EN: dict[str, str] = {
     "Tokens de API não acessam a administração.": "API tokens cannot access administration.",
     "Esta ação só pode ser feita pela interface.": "This action is only available in the app.",
     "Dê um nome ao token.": "Give the token a name.",
+    "Para cancelar o chamado, use cancel_ticket.": "To cancel the ticket, use cancel_ticket.",
     "Uma chamada com este request_id ainda está em andamento.": (
         "A call with this request_id is still in progress."
     ),

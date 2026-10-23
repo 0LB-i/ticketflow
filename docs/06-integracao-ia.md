@@ -104,7 +104,7 @@ Expõe o sistema como ferramentas para clientes MCP (Claude Code, IDEs, platafor
 | `search_clients` | Clientes ativos pelo nome | `GET /clients/options` |
 | `create_ticket` | Registra (com `request_id`) | `POST /tickets` |
 | `add_task` | Registra uma tarefa, com o tempo gasto (com `request_id`) | `POST /tickets/{id}/comments` |
-| `change_status` | Muda o status (qualquer um que a pessoa possa escolher) | `PATCH /tickets/{id}` com `status_id` |
+| `change_status` | Muda o status (qualquer um que a pessoa possa escolher, menos um cancelado: para isso, `cancel_ticket`) | `PATCH /tickets/{id}` com `status_id` |
 | `assign_ticket` | Atribui: `main` troca o responsável principal (`"me"` assume), `add` acrescenta mais um | `POST /tickets/{id}/assign`, `PUT /tickets/{id}/assignees` |
 | `transfer_ticket` | Transfere para outro grupo, com um responsável de lá e o motivo | `POST /tickets/{id}/transfer` |
 | `cancel_ticket` | Cancela, com o motivo opcional (`destructiveHint`; as instruções pedem a confirmação da pessoa) | `POST /tickets/{id}/transitions` (`cancel`) |

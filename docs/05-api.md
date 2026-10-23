@@ -40,7 +40,7 @@ Authorization: Bearer tf_...
 | `read` | Só `GET`: listar e ler chamados, tarefas, histórico, anexos, opções dos formulários |
 | `write` | Também criar e alterar chamados, comentar, anexar |
 
-- **Fora da administração:** rotas com permissão própria (usuários, grupos, setores, categorias, status, configurações, auditoria, clientes) respondem 403 a qualquer token, mesmo o de um administrador.
+- **Fora da administração:** as rotas que exigem uma permissão de administração respondem 403 a qualquer token, mesmo o de um administrador: usuários, tokens de todos, a gestão de grupos, setores, categorias, status e códigos de resolução (criar, alterar, ordenar, remover), configurações, auditoria e o cadastro de clientes. As leituras abertas a qualquer pessoa logada continuam: `GET /teams` (sem os e-mails dos membros), `/departments`, `/categories`, `/statuses`, `/resolution-codes`, `/clients/options`, `/work-hours`.
 - **Só pela interface:** sair e trocar a senha (403 com token).
 - Token inválido, revogado, vencido ou de usuário inativo/excluído: 401. Desativar ou excluir a pessoa revoga os tokens dela: reativar a conta não os traz de volta. Requisições com token não usam cookie nem CSRF.
 

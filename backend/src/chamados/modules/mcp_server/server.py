@@ -10,9 +10,11 @@ outras plataformas) consultam e operam os chamados como ferramentas (docs/06).
   de uma regra (`HTTPException`) volta como erro da ferramenta, no idioma da pessoa.
 - **Repetição:** as ferramentas de escrita aceitam `request_id`: a mesma chamada repetida devolve o
   primeiro resultado, sem registrar de novo (a tabela da `Idempotency-Key`, com chaves `mcp:`).
-- **Proteção contra DNS rebinding do SDK desligada:** ela só aceitaria `Host: localhost`, e atrás
-  do nginx o endereço é outro. Sem cookie, um site de terceiros não tem como usar a sessão de
-  ninguém: o token vai num cabeçalho que o navegador não manda sozinho.
+- **Proteção contra DNS rebinding do SDK desligada:** ela confere o `Host` e o `Origin` contra uma
+  lista, e aqui não protegeria nada a mais. O ataque usa o navegador da vítima, que manda os
+  cookies do site, mas não um cabeçalho `Authorization`: sem o token, a rota responde 401. Ligada,
+  a lista de endereços (o do `APP_BASE_URL`, o IP, o 127.0.0.1) teria de acompanhar cada
+  instalação, e um endereço esquecido derrubaria os clientes.
 
 O SDK só deixa rodar o gerenciador de sessões uma vez por instância: `running()` cria o servidor
 a cada lifespan do app, e a rota `/mcp` (`Endpoint`) repassa para a instância atual.
@@ -30,7 +32,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp_types import ToolAnnotations
 from pydantic import Field, ValidationError
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
@@ -41,9 +43,10 @@ from chamados import __version__
 from chamados.core.errors import problem
 from chamados.core.i18n import Locale, request_locale, translate
 from chamados.modules.catalog import router as catalog_api
+from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.clients import router as clients_api
 from chamados.modules.identity.deps import Auth, actor_of
-from chamados.modules.identity.idempotency import digest
+from chamados.modules.identity.idempotency import STALE, digest
 from chamados.modules.identity.models import IdempotencyKey
 from chamados.modules.identity.tokens import load_api_token
 from chamados.modules.organization import router as organization_api
@@ -119,7 +122,10 @@ def build(app: FastAPI) -> MCPServer:
             except HTTPException as exc:
                 raise ToolError(translate(str(exc.detail), locale)) from exc
             except ValidationError as exc:
-                raise ToolError(str(exc)) from exc
+                # Só os nomes dos campos (como o SDK nos argumentos): o valor é dado da pessoa.
+                fields = sorted({".".join(str(p) for p in e["loc"]) for e in exc.errors()})
+                message = f"{translate('Dados inválidos', locale)}: {', '.join(fields)}."
+                raise ToolError(message) from exc
 
     async def once(
         ctx: Context,
@@ -140,6 +146,21 @@ def build(app: FastAPI) -> MCPServer:
             .on_conflict_do_nothing()
             .returning(IdempotencyKey.id)
         )
+        if claimed is None:
+            # A mesma regra do middleware: uma primeira chamada parada há mais de 5 min (o
+            # processo caiu) não trava o request_id.
+            claimed = await db.scalar(
+                update(IdempotencyKey)
+                .where(
+                    IdempotencyKey.owner_hash == owner,
+                    IdempotencyKey.key == f"mcp:{key}",
+                    IdempotencyKey.fingerprint == fingerprint,
+                    IdempotencyKey.status_code.is_(None),
+                    IdempotencyKey.created_at < func.now() - STALE,
+                )
+                .values(created_at=func.now())
+                .returning(IdempotencyKey.id)
+            )
         await db.commit()
         if claimed is None:
             saved = await db.scalar(
@@ -332,10 +353,16 @@ def build(app: FastAPI) -> MCPServer:
         number: int,
         status_id: Annotated[int, Field(description="de list_options")],
     ) -> dict[str, Any]:
-        """Muda o status do chamado (qualquer status que a pessoa possa escolher na tela).
-        Repetir com o mesmo status não muda nada."""
-        async with call(ctx, write=True) as (db, auth, _):
+        """Muda o status do chamado (qualquer status que a pessoa possa escolher na tela), menos
+        para um status cancelado: para isso, cancel_ticket. Repetir com o mesmo status não muda
+        nada."""
+        async with call(ctx, write=True) as (db, auth, locale):
             ticket = await service.load(db, auth, str(number))
+            # Cancelar pede a confirmação da pessoa (cancel_ticket é a ferramenta destrutiva):
+            # change_status não pode ser o atalho.
+            status = await db.get(TicketStatus, status_id)
+            if status is not None and status.kind == "canceled":
+                raise ToolError(translate("Para cancelar o chamado, use cancel_ticket.", locale))
             await service.update(db, auth, ticket, TicketUpdate(status_id=status_id))
             detail = await queries.load_detail(db, auth, str(number))
             return {"number": detail.number, "status": detail.status.model_dump(mode="json")}

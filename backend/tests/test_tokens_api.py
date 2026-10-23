@@ -208,3 +208,14 @@ def test_desativar_ou_excluir_revoga_os_tokens(client: TestClient, db: Session) 
     revogados = db.scalars(select(AuditLog).where(AuditLog.action == "api_token.revoked")).all()
     adm = db.scalar(select(User.id).where(User.email == "adm@x.com"))
     assert len(revogados) == 2 and {r.actor_user_id for r in revogados} == {adm}
+
+
+def test_emails_dos_membros_nao_vao_para_um_token(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "adm@x.com", "admin", grupos={"TI": "member"})
+    raw = criar_token(db, "adm@x.com")
+    entrar(client, "adm@x.com")
+    pela_tela = client.get("/api/v1/teams").json()["items"][0]["members"]
+    assert [m["email"] for m in pela_tela] == ["adm@x.com"]
+    com_token(client, raw)
+    pelo_token = client.get("/api/v1/teams").json()["items"][0]["members"]
+    assert [m["email"] for m in pelo_token] == [None]

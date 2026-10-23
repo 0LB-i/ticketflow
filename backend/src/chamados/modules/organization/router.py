@@ -122,7 +122,8 @@ async def _name_taken(db: AsyncSession, name: str, except_id: int | None = None)
 @router.get("/teams", response_model=TeamList)
 async def list_teams(auth: CurrentAuth, db: DB) -> TeamList:
     teams = (await db.scalars(select(Team).options(_TEAM_LOAD).order_by(Team.name))).all()
-    emails = can(auth.actor, P.ADMIN_ORGANIZATION)
+    # Os e-mails dos membros são da administração: nunca para um token de API (docs/05).
+    emails = auth.token is None and can(auth.actor, P.ADMIN_ORGANIZATION)
     return TeamList(items=[_team_out(t, emails=emails) for t in teams])
 
 
