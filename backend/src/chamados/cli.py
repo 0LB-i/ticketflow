@@ -1,10 +1,11 @@
-"""Comando `chamados`: migrações, primeiro administrador, anexos, worker e contrato OpenAPI."""
+"""Comando `chamados`: migrações, primeiro administrador, tokens de API, anexos, worker e contrato
+OpenAPI."""
 
 import argparse
 import asyncio
 import json
 import sys
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from alembic import command
@@ -69,6 +70,115 @@ async def _create_admin(email: str, name: str) -> str:
         await engine.dispose()
 
 
+async def _create_token(login: str, name: str, read_only: bool, days: int) -> str:
+    """Token de API em nome de um usuário (docs/05). O valor só aparece aqui, uma vez."""
+    from sqlalchemy import or_, select
+
+    from chamados.db.engine import create_engine
+    from chamados.db.session import make_sessionmaker
+    from chamados.modules.audit.service import record
+    from chamados.modules.identity.models import User
+    from chamados.modules.identity.tokens import new_api_token
+
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        async with make_sessionmaker(engine)() as db:
+            user = await db.scalar(
+                select(User).where(or_(User.email == login, User.username == login))
+            )
+            if user is None or not user.is_active:
+                raise SystemExit(f"Usuário ativo não encontrado: {login}.")
+            expires_at = datetime.now(UTC) + timedelta(days=days) if days else None
+            raw, token = new_api_token(user, name, "read" if read_only else "write", expires_at)
+            db.add(token)
+            await db.flush()
+            record(
+                db,
+                "api_token.created",
+                target_type="user",
+                target_id=user.public_id,
+                after={
+                    "token": str(token.public_id),
+                    "name": name,
+                    "scope": token.scope,
+                    "expires_at": expires_at.isoformat() if expires_at else None,
+                    "via": "cli",
+                },
+            )
+            await db.commit()
+            return raw
+    finally:
+        await engine.dispose()
+
+
+async def _list_tokens() -> list[str]:
+    from sqlalchemy import select
+
+    from chamados.db.engine import create_engine
+    from chamados.db.session import make_sessionmaker
+    from chamados.modules.identity.models import ApiToken
+
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        async with make_sessionmaker(engine)() as db:
+            tokens = await db.scalars(
+                select(ApiToken).where(ApiToken.revoked_at.is_(None)).order_by(ApiToken.id)
+            )
+            return [
+                "\t".join(
+                    [
+                        str(t.public_id),
+                        t.user.email or t.user.username or "",
+                        t.scope,
+                        t.name,
+                        f"expira {t.expires_at:%Y-%m-%d}" if t.expires_at else "sem validade",
+                        f"usado {t.last_used_at:%Y-%m-%d %H:%M}"
+                        if t.last_used_at
+                        else "nunca usado",
+                    ]
+                )
+                for t in tokens
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def _revoke_token(token_id: str) -> None:
+    import uuid
+
+    from sqlalchemy import select
+
+    from chamados.db.engine import create_engine
+    from chamados.db.session import make_sessionmaker
+    from chamados.modules.audit.service import record
+    from chamados.modules.identity.models import ApiToken
+
+    try:
+        public_id = uuid.UUID(token_id)
+    except ValueError:
+        raise SystemExit(f"Id inválido: {token_id}.") from None
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        async with make_sessionmaker(engine)() as db:
+            token = await db.scalar(select(ApiToken).where(ApiToken.public_id == public_id))
+            if token is None or token.revoked_at is not None:
+                raise SystemExit(f"Token ativo não encontrado: {token_id}.")
+            token.revoked_at = datetime.now(UTC)
+            record(
+                db,
+                "api_token.revoked",
+                target_type="user",
+                target_id=token.user.public_id,
+                after={"token": str(token.public_id), "name": token.name, "via": "cli"},
+            )
+            await db.commit()
+    finally:
+        await engine.dispose()
+
+
 async def _purge_attachments() -> int:
     """À mão; o worker já roda a limpeza todo dia (docs/11 §11.4)."""
     from chamados.db.engine import create_engine
@@ -104,6 +214,20 @@ def main(argv: list[str] | None = None) -> None:
     create.add_argument("--email", required=True)
     create.add_argument("--name", required=True)
 
+    token = sub.add_parser("token", help="tokens de API").add_subparsers(
+        dest="token_cmd", required=True
+    )
+    token_create = token.add_parser("create", help="cria um token de API e mostra o valor")
+    token_create.add_argument("--user", required=True, help="e-mail ou nome de usuário")
+    token_create.add_argument("--name", required=True, help="para que serve (ex.: Claude Code)")
+    token_create.add_argument("--read-only", action="store_true", help="só leitura")
+    token_create.add_argument(
+        "--days", type=int, default=365, help="validade em dias (0: sem validade; padrão: 365)"
+    )
+    token.add_parser("list", help="lista os tokens não revogados")
+    token_revoke = token.add_parser("revoke", help="revoga um token")
+    token_revoke.add_argument("id", help="o id mostrado em `chamados token list`")
+
     files = sub.add_parser("attachments", help="anexos").add_subparsers(
         dest="attachments_cmd", required=True
     )
@@ -126,6 +250,18 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "admin":
         url = asyncio.run(_create_admin(args.email.strip(), args.name.strip()))
         print(f"Administrador criado. Para definir a senha (link válido por 24 h):\n{url}")
+    elif args.cmd == "token":
+        match args.token_cmd:
+            case "create":
+                raw = asyncio.run(
+                    _create_token(args.user.strip(), args.name.strip(), args.read_only, args.days)
+                )
+                print(f"Token criado. Guarde-o agora: ele não aparece de novo.\n{raw}")
+            case "list":
+                print("\n".join(asyncio.run(_list_tokens())) or "Nenhum token ativo.")
+            case _:
+                asyncio.run(_revoke_token(args.id))
+                print("Token revogado.")
     elif args.cmd == "attachments":
         print(f"Envios não vinculados apagados: {asyncio.run(_purge_attachments())}")
     elif args.cmd == "worker":

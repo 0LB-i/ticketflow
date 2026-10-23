@@ -25,23 +25,26 @@ A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a
 | Cliente | Mecanismo |
 |---------|-----------|
 | Interface web (telas do servidor) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF num campo escondido do formulário ou no header (HTMX e envio de anexos). Nenhum token fica no `localStorage` |
-| Integrações e agentes de IA (futuro) | `Authorization: Bearer <token>`, um token de API com **escopos** |
+| Integrações e agentes de IA | `Authorization: Bearer <token>`, um token de API com escopo `read` ou `write` (abaixo) |
 
-### Tokens de API (futuro)
+### Tokens de API
 
-Ficaram para depois da v1.0 (revisão de escopo de 2026-10-09). O desenho fica registrado aqui.
+Desde 2026-10-23 (migração `0032`). Um token sempre age **em nome de um usuário**: passa pelas mesmas permissões e pela mesma visibilidade dele, e o que faz aparece no histórico e na auditoria como dele. Ainda não há tela: quem administra o servidor cria e revoga pelo comando `chamados token` ([ARCHITECTURE 3.10](../ARCHITECTURE.md#310-comando-chamados-clipy)).
 
-**Escopos:**
+```
+Authorization: Bearer tf_...
+```
 
 | Escopo | Permite |
 |--------|---------|
-| `tickets:read` | Listar e ler chamados (respeitando a visibilidade do usuário que o token representa) |
-| `tickets:write` | Criar e alterar chamados, comentar |
-| `kb:read` / `kb:write` | Base de conhecimento |
-| `users:read` | Consultar usuários (dados mínimos) |
-| `admin` | Configuração (nunca concedido a agentes de IA) |
+| `read` | Só `GET`: listar e ler chamados, tarefas, histórico, anexos, opções dos formulários |
+| `write` | Também criar e alterar chamados, comentar, anexar |
 
-Um token de API sempre age **em nome de** um usuário (`acts_as_user_id`) ou de uma conta de serviço. Assim toda ação passa pelas mesmas regras de permissão e aparece na auditoria como `actor_kind = api_client` ou `ai`.
+- **Fora da administração:** rotas com permissão própria (usuários, grupos, setores, categorias, status, configurações, auditoria, clientes) respondem 403 a qualquer token, mesmo o de um administrador.
+- **Só pela interface:** sair e trocar a senha (403 com token).
+- Token inválido, revogado, vencido (validade padrão de 365 dias) ou de usuário inativo/excluído: 401. Requisições com token não usam cookie nem CSRF.
+
+**Depois:** escopos mais finos (`tickets:read`, `kb:write`…), contas de serviço (`actor_kind = api_client` ou `ai`) e a tela "Meus tokens".
 
 ## Endpoints (primeira versão)
 

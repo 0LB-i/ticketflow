@@ -1,4 +1,4 @@
-"""Usuários, sessões e tokens de uso único (docs/09)."""
+"""Usuários, sessões, tokens de uso único (docs/09) e tokens de API (docs/05)."""
 
 import uuid
 from datetime import datetime
@@ -94,5 +94,28 @@ class AuthToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+
+class ApiToken(Base):
+    """Token de API (`Authorization: Bearer`): age em nome do usuário, com as permissões dele.
+    `read` só permite leitura. Aqui fica só o hash."""
+
+    __tablename__ = "api_tokens"
+    __table_args__ = (CheckConstraint("scope IN ('read', 'write')", name="scope"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    public_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, unique=True, server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(Text)
+    scope: Mapped[str] = mapped_column(Text)
+    token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(lazy="joined")

@@ -193,5 +193,6 @@ def reject_cross_site(request: Request) -> None:
 
 def check_csrf(page: LoggedPage, token: str) -> None:
     """Formulários que alteram dados mandam o token CSRF da sessão num campo escondido."""
-    if not csrf_ok(page.auth.session, token):
+    session = page.auth.session
+    if session is None or not csrf_ok(session, token):
         raise HTTPException(403, "Token CSRF ausente ou inválido.")

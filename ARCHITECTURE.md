@@ -92,7 +92,8 @@ HTTP ─► rota (router.py) ─► dependências ─► service.py / regras ─
 ```
 
 1. `main.create_app()` cria a aplicação, registra os tratadores de erro, inclui os routers de cada módulo sob `/api/v1`, devolve 404 em JSON para qualquer `/api/*` desconhecido e, por último, monta `/static` e as telas do servidor (3.11); um endereço desconhecido fora de `/api` mostra a página de erro.
-2. **Autenticação** (`identity/deps.py`, `get_auth`): lê o cookie de sessão, confere o CSRF em métodos que alteram dados, **relê o usuário e os grupos a cada requisição** (mudanças de papel valem na hora) e monta o `Actor`. Com a senha provisória (`must_change_password`), só três rotas funcionam até a troca.
+2. **Autenticação** (`identity/deps.py`, `get_auth`): com `Authorization: Bearer`, vale o token de API (abaixo); sem ele, lê o cookie de sessão, confere o CSRF em métodos que alteram dados, **relê o usuário e os grupos a cada requisição** (mudanças de papel valem na hora) e monta o `Actor`. Com a senha provisória (`must_change_password`), só três rotas funcionam até a troca. O `Auth` leva `session` **ou** `token` (os services só usam `user` e `actor`); o que só faz sentido na interface (sair, trocar a senha) pede `require_session()`.
+   - **Token de API** (`api_tokens`, docs/05): age em nome de um usuário, com as permissões e a visibilidade dele; sem cookie e sem CSRF. O escopo `read` só passa em `GET`; `write` também altera. Um token nunca passa por `require(P.X)`: administração, auditoria e clientes ficam fora do alcance dele, mesmo o de um administrador. No banco fica só o SHA-256; o valor (`tf_…`) aparece uma vez, no `chamados token create`. Usuário inativo ou excluído, token revogado ou vencido: 401.
 3. **Rota → service:** rotas simples (cadastros) fazem o trabalho no próprio `router.py`; quando há regra de negócio, a rota delega a um `service.py`. Não existe camada de *repository*: os services usam o SQLAlchemy diretamente. Nos chamados, a montagem das respostas de leitura (lista, detalhe, tarefas, histórico) fica em `queries.py`, sem objetos HTTP de resposta: a API, as telas e as integrações que vierem a usam igual.
 4. **Transação:** cada operação faz um único `commit` no fim. Histórico (`ticket_events`) e auditoria (`audit_log`) entram na **mesma transação** da mudança.
 5. **Erros:** qualquer `HTTPException(status, "mensagem em português")` vira Problem Details (`{"type", "title", "status", "detail"}`) em `core/errors.py`, com `title` e `detail` traduzidos para o idioma do `Accept-Language` (3.6). Erros de validação viram 422 com a lista `errors`; exceções não tratadas viram 500 e vão para o log.
@@ -115,7 +116,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 
 | Módulo | Arquivos | Responsabilidade | Rotas |
 |--------|----------|------------------|-------|
-| `identity` | `models` (User, UserSession, AuthToken), `router` (login, `/me`), `admin_router` (usuários), `deps`, `sessions`, `passwords`, `tokens`, `ratelimit`, `service` (convites e e-mails), `schemas` | Login, sessões e CSRF, senhas (Argon2id), convite e redefinição, força bruta, usuários, idioma da pessoa | `/auth/*`, `/me`, `/users` |
+| `identity` | `models` (User, UserSession, AuthToken, ApiToken), `router` (login, `/me`), `admin_router` (usuários), `deps`, `sessions`, `passwords`, `tokens` (segredos e tokens de API), `ratelimit`, `service` (convites e e-mails), `schemas` | Login, sessões e CSRF, senhas (Argon2id), convite e redefinição, força bruta, usuários, idioma da pessoa | `/auth/*`, `/me`, `/users` |
 | `organization` | `models` (Role, Team, TeamMember, Department), `router` | Papéis, grupos e membros, setores atendidos | `/teams`, `/departments` |
 | `catalog` | `models` (Category, TicketStatus, ResolutionCode), `router` | Árvore de categorias (até 3 níveis; sem tela desde que saíram dos chamados), status por `kind`, códigos de resolução | `/categories`, `/statuses`, `/resolution-codes` |
 | `clients` | `models` (Client), `router`, `documents` (CPF, CNPJ alfanumérico, telefone, CEP) | Cadastro de clientes pessoa física e jurídica, com contato e endereço; sem exclusão (inativa) | `/clients` |
@@ -261,6 +262,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0029` | `client.view` também sai dos papéis: o cadastro de clientes é só do grupo Administradores |
 | `0030` | `outbox` (eventos de domínio) e `jobs` (fila de tarefas), consumidos pelo worker |
 | `0031` | Índice `ticket_comments_done_idx` (`done_at` das tarefas não removidas), para o período dos relatórios |
+| `0032` | `api_tokens` (tokens de API, em nome de um usuário) |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -272,6 +274,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 |---------|-----|
 | `chamados db upgrade [rev]` / `downgrade rev` / `current` | Migrações |
 | `chamados admin create --email … --name …` | Cria um administrador e mostra o link para definir a senha (recuperação de acesso) |
+| `chamados token create --user … --name … [--read-only] [--days 365]` / `list` / `revoke id` | Tokens de API: cria (mostra o valor uma vez), lista os ativos e revoga; criar e revogar vão para a auditoria (`api_token.*`) |
 | `chamados attachments purge` | Apaga os envios não vinculados há mais de 24 h, à mão (o worker já faz isso todo dia) |
 | `chamados worker` | O worker (3.12): fica no ar até receber SIGTERM ou Ctrl+C |
 | `chamados openapi [-o arquivo]` | Exporta o contrato OpenAPI, para integrações (5) |
@@ -414,6 +417,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 |------|------|
 | Senhas | Argon2id; mínimo de 8 caracteres; lista de senhas comuns (`identity/senhas_comuns.txt`) |
 | Sessão | Cookie `tf_sessao` (HttpOnly, SameSite=Lax, Secure em produção); só o hash fica no banco; expira por inatividade e por prazo máximo; desativar o usuário encerra as sessões |
+| Tokens de API | `Authorization: Bearer`; só o hash no banco; escopo `read`/`write`; fora da administração; validade padrão de 365 dias; revogação pelo `chamados token revoke` |
 | CSRF | Token sincronizado: cookie `tf_csrf` (legível pelo JavaScript da página) conferido com o hash da sessão; nas telas, num campo escondido (`csrf_token`) ou no header `X-CSRF-Token` (HTMX e envio de anexos) |
 | Força bruta | Limite por IP em memória (a API roda num processo só; a presença do chamado também, 3.5) + espera progressiva e bloqueio da conta (`ratelimit.py`) |
 | Permissões | Sempre no backend (3.4); a interface só esconde botões |
@@ -473,7 +477,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 | Status personalizados, ocultar comentário, testes ponta a ponta (Playwright) | — | Sprint 5 |
 | Tela da auditoria | A API `GET /admin/audit-log` já existe | Sprint 5 |
 | MFA, sessões, aprovações, sino de notificações | — | Fase 2 |
-| Tokens de API, webhooks, IA, MCP | — | Depois da v1.0, [docs/06](docs/06-integracao-ia.md) |
+| Tela dos tokens de API, `Idempotency-Key`, webhooks, IA, MCP | `identity`, `jobs` (webhooks) | Depois da v1.0, [docs/06](docs/06-integracao-ia.md) |
 
 ## 11. Receitas
 

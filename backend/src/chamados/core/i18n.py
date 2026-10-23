@@ -50,6 +50,10 @@ EN: dict[str, str] = {
     "Muitas tentativas. Tente de novo mais tarde.": "Too many attempts. Try again later.",
     "Sessão expirada ou inexistente. Entre novamente.": "Session expired. Please sign in again.",
     "Token CSRF ausente ou inválido.": "Missing or invalid CSRF token.",
+    "Token de API inválido, expirado ou revogado.": "Invalid, expired or revoked API token.",
+    "Este token de API só permite leitura.": "This API token is read-only.",
+    "Tokens de API não acessam a administração.": "API tokens cannot access administration.",
+    "Esta ação só pode ser feita pela interface.": "This action is only available in the app.",
     "Troque a senha provisória antes de continuar.": (
         "Change the temporary password before continuing."
     ),

@@ -9,7 +9,7 @@ from chamados.core.permissions import effective_permissions
 from chamados.db.session import DB
 from chamados.modules.audit.service import client_ip, record
 from chamados.modules.identity import ratelimit
-from chamados.modules.identity.deps import CurrentAuth, SettingsDep
+from chamados.modules.identity.deps import CurrentAuth, SettingsDep, require_session
 from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import hash_password, password_problem, verify_password
 from chamados.modules.identity.schemas import (
@@ -126,7 +126,7 @@ async def login(
 async def logout(
     auth: CurrentAuth, request: Request, response: Response, db: DB, settings: SettingsDep
 ) -> None:
-    auth.session.revoked_at = now()
+    require_session(auth).revoked_at = now()
     record(db, "auth.logout", request=request, actor_user_id=auth.user.id)
     await db.commit()
     clear_cookies(response, settings)
@@ -230,6 +230,7 @@ async def update_me(data: MeUpdate, auth: CurrentAuth, db: DB) -> Me:
 async def change_password(
     data: ChangePasswordIn, auth: CurrentAuth, request: Request, db: DB
 ) -> None:
+    session = require_session(auth)
     user = auth.user
     # Na troca obrigatória a pessoa acabou de entrar com a senha provisória: não pede de novo.
     if not user.must_change_password:
@@ -245,6 +246,6 @@ async def change_password(
     user.password_hash = await run_in_threadpool(hash_password, data.new_password)
     user.password_changed_at = now()
     user.must_change_password = False
-    await revoke_sessions(db, auth.user.id, keep_id=auth.session.id)
+    await revoke_sessions(db, auth.user.id, keep_id=session.id)
     record(db, "auth.password_changed", request=request, actor_user_id=auth.user.id)
     await db.commit()
