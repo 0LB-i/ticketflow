@@ -356,6 +356,50 @@ def test_status_escolhido_no_formulario(
     assert client.patch(url, json={"status_id": status["Cancelado"]}).status_code == 403
 
 
+def test_data_de_conclusao_e_de_cancelamento(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Concluir ou cancelar com a data informada (o quadro no mês passado): é o closed_at dos
+    relatórios, ou o canceled_at."""
+    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
+    inicio = datetime(2026, 9, 1, 12, tzinfo=UTC)
+    t = registrar(client, cenario, started_at=inicio.isoformat())
+    url = f"{API}/{t['number']}"
+    quando = "2026-09-28T17:40:00-03:00"
+
+    def patch(**dados: Any) -> Any:
+        return client.patch(url, json=dados)
+
+    # Só ao mudar para um status concluído ou cancelado, nem no futuro, nem antes do início.
+    r = patch(finished_at=quando)
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "A data de conclusão só vale ao mudar para um status concluído ou cancelado."
+    )
+    assert patch(status_id=status["Aguardando cliente"], finished_at=quando).status_code == 422
+    futuro = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    r = patch(status_id=status["Concluído"], finished_at=futuro)
+    assert r.json()["detail"] == "A data de conclusão não pode ficar no futuro."
+    r = patch(status_id=status["Concluído"], finished_at="2026-08-31T12:00:00Z")
+    assert r.json()["detail"] == "A data de conclusão não pode ser antes do início."
+    assert client.get(url).json()["closed_at"] is None  # nada mudou
+
+    r = patch(status_id=status["Concluído"], finished_at=quando).json()
+    assert datetime.fromisoformat(r["closed_at"]) == datetime.fromisoformat(quando)
+    assert r["canceled_at"] is None
+    assert eventos(client, t["number"])[-1]["payload"]["finished_at"] == "2026-09-28T20:40:00+00:00"
+    # Já concluído: a data não vale de novo (nem muda a que está).
+    assert patch(status_id=status["Concluído"], finished_at=quando).status_code == 422
+
+    r = patch(status_id=status["Cancelado"], finished_at="2026-09-29T09:00:00-03:00").json()
+    assert datetime.fromisoformat(r["canceled_at"]) == datetime(2026, 9, 29, 12, tzinfo=UTC)
+    r = patch(status_id=status["Pendente"]).json()  # sair do cancelado apaga a data
+    assert r["canceled_at"] is None and r["closed_at"] is None
+    # Sem data, agora; pelo fluxo (o Cancelar do detalhe), também.
+    assert patch(status_id=status["Cancelado"]).json()["canceled_at"] is not None
+    outro = registrar(client, cenario)["number"]
+    client.post(f"{API}/{outro}/transitions", json={"action": "cancel"})
+    assert client.get(f"{API}/{outro}").json()["canceled_at"] is not None
+
+
 # --- edição ------------------------------------------------------------------------------------
 
 

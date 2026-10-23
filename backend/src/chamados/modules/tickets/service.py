@@ -348,6 +348,56 @@ async def list_tickets(
     return rows[:limit], next_cursor
 
 
+# Quadro: teto de cartões, para a página não ficar pesada.
+BOARD_LIMIT = 500
+
+
+def _in_month(column: Any, month: tuple[datetime, datetime]) -> ColumnElement[bool]:
+    """Do início do mês (inclusive) ao início do seguinte (exclusive)."""
+    return and_(column >= month[0], column < month[1])
+
+
+async def board(
+    db: AsyncSession,
+    auth: Auth,
+    *,
+    month: tuple[datetime, datetime],
+) -> tuple[list[tuple[Ticket, bool]], bool]:
+    """Chamados do quadro (kanban), com o aviso de novidade: os de que a pessoa é responsável e,
+    do supervisor, também os dos grupos que supervisiona; o admin vê todos. Concluídos e
+    cancelados só do mês (o início dele e o do seguinte), pela data da conclusão ou do
+    cancelamento, senão essas colunas crescem sempre. O segundo valor diz se passou do teto
+    (ficam os mais antigos)."""
+    actor = auth.actor
+    scope = (
+        true()
+        if actor.role == "admin"
+        else or_(assigned_to(auth.user.id), Ticket.team_id.in_(actor.supervises))
+    )
+    stmt = _ordered(
+        select(Ticket, has_news(auth.user.id).label("has_news"))
+        .join(Ticket.status)
+        # Os observadores e os outros responsáveis entram nas ações de cada cartão.
+        .options(
+            contains_eager(Ticket.status),
+            selectinload(Ticket.watchers),
+            selectinload(Ticket.co_assignees),
+        )
+        .where(
+            ticket_visibility_filter(actor),
+            scope,
+            or_(
+                TicketStatus.kind.not_in(rules.FINAL_KINDS),
+                and_(TicketStatus.kind == "closed", _in_month(Ticket.closed_at, month)),
+                and_(TicketStatus.kind == "canceled", _in_month(Ticket.canceled_at, month)),
+            ),
+        )
+        .limit(BOARD_LIMIT + 1)
+    )
+    rows = [(t, news) for t, news in (await db.execute(stmt)).all()]
+    return rows[:BOARD_LIMIT], len(rows) > BOARD_LIMIT
+
+
 async def counts(db: AsyncSession, auth: Auth) -> dict[str, int]:
     """Quantos chamados visíveis há em cada fila, numa consulta só."""
     views: tuple[TicketView, ...] = ("mine", "waiting", "watching")
@@ -394,12 +444,23 @@ async def _status(db: AsyncSession, status_id: int) -> TicketStatus:
     return status
 
 
-def _apply_status(ticket: Ticket, before: TicketStatus | None, status: TicketStatus) -> None:
-    """Status escolhido livremente: acerta a data de conclusão e a contagem de reaberturas."""
+def _apply_status(
+    ticket: Ticket,
+    before: TicketStatus | None,
+    status: TicketStatus,
+    finished_at: datetime | None = None,
+) -> None:
+    """Status escolhido livremente: acerta as datas de conclusão e de cancelamento (agora, ou a
+    `finished_at` informada) e a contagem de reaberturas."""
     was_closed = before is not None and before.kind == "closed"
     ticket.status = status
+    if status.kind == "canceled":
+        if before is None or before.kind != "canceled":
+            ticket.canceled_at = finished_at or func.now()
+    else:
+        ticket.canceled_at = None
     if status.kind == "closed" and not was_closed:
-        ticket.closed_at = func.now()
+        ticket.closed_at = finished_at or func.now()
     elif status.kind != "closed" and was_closed:
         ticket.closed_at = None
         ticket.resolution_code_id = None
@@ -641,6 +702,7 @@ EDIT_FIELDS = {
 
 
 CHANGED_BY_OTHER = "O chamado foi alterado por outra pessoa. Recarregue e tente de novo."
+FINISHED_ONLY_FINAL = "A data de conclusão só vale ao mudar para um status concluído ou cancelado."
 
 
 def etag(ticket: Ticket) -> str:
@@ -658,17 +720,37 @@ async def _check_if_match(db: AsyncSession, ticket: Ticket, if_match: str) -> No
         raise HTTPException(412, CHANGED_BY_OTHER)
 
 
-def _change_status(db: AsyncSession, auth: Auth, ticket: Ticket, status: TicketStatus) -> None:
+def _change_status(
+    db: AsyncSession,
+    auth: Auth,
+    ticket: Ticket,
+    status: TicketStatus,
+    finished_at: datetime | None = None,
+) -> None:
     """Status escolhido livremente (set_status); um concluído pede set_status_closed."""
     require(auth, ticket, "set_status")
     if status.kind == "closed":
         require(auth, ticket, "set_status_closed")
     if status.id != ticket.status_id:
         before = ticket.status
-        add_event(
-            db, ticket, "ticket.status_changed", auth, **{"from": ref(before), "to": ref(status)}
-        )
-        _apply_status(ticket, before, status)
+        payload: dict[str, Any] = {"from": ref(before), "to": ref(status)}
+        if finished_at is not None:
+            payload["finished_at"] = finished_at.isoformat()
+        add_event(db, ticket, "ticket.status_changed", auth, **payload)
+        _apply_status(ticket, before, status, finished_at)
+
+
+def _finished_at(
+    ticket: Ticket, status: TicketStatus, value: datetime, started_at: datetime | None
+) -> datetime:
+    """Data informada da conclusão ou do cancelamento (ex.: o quadro no mês passado): só ao
+    mudar para um desses status, nem no futuro nem antes do início."""
+    if status.kind not in rules.FINAL_KINDS or status.id == ticket.status_id:
+        raise HTTPException(422, FINISHED_ONLY_FINAL)
+    value = _not_future(value, "A data de conclusão não pode ficar no futuro.")
+    if value < (started_at or ticket.started_at):
+        raise HTTPException(422, "A data de conclusão não pode ser antes do início.")
+    return value
 
 
 async def bulk_status(
@@ -707,6 +789,7 @@ async def update(
     se os campos mudaram desde então."""
     changes = data.model_dump(exclude_unset=True)
     attachment_ids = changes.pop("attachment_ids", None) or []
+    finished_at = changes.pop("finished_at", None)
     if changes.keys() & EDIT_FIELDS or attachment_ids:
         require(auth, ticket, "edit")
     if if_match is not None:
@@ -714,7 +797,12 @@ async def update(
     # Imagens coladas ao editar a descrição.
     await attachments.link(db, auth, ticket, attachment_ids)
     if changes.get("status_id") is not None:
-        _change_status(db, auth, ticket, await _status(db, changes["status_id"]))
+        status = await _status(db, changes["status_id"])
+        if finished_at is not None:
+            finished_at = _finished_at(ticket, status, finished_at, changes.get("started_at"))
+        _change_status(db, auth, ticket, status, finished_at)
+    elif finished_at is not None:
+        raise HTTPException(422, FINISHED_ONLY_FINAL)
     diff: dict[str, dict[str, Any]] = {}
 
     def put(field: str, new: Any, before: Any = None, after: Any = None) -> None:
@@ -984,6 +1072,8 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
     if data.action == "close":
         ticket.resolution_code_id = code.id if code else None
         ticket.closed_at = func.now()
+    elif data.action == "cancel":
+        ticket.canceled_at = func.now()
     elif data.action == "reopen":
         # Volta para o mesmo responsável (docs/10 §10.5).
         ticket.reopened_count += 1

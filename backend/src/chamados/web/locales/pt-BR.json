@@ -12,6 +12,7 @@
     "usuarios": "Usuários",
     "grupos": "Grupos",
     "chamados": "Chamados",
+    "quadro": "Quadro",
     "clientes": "Clientes",
     "relatorios": "Relatórios",
     "configuracoes": "Configurações",
@@ -229,6 +230,16 @@
     "naoMudaram": "Não mudaram: {lista}",
     "eMais": "e mais {n}",
     "demaisParaMudar": "Selecione no máximo {n} chamados de cada vez."
+  },
+  "quadro": {
+    "titulo": "Quadro",
+    "mes": "Concluídos e cancelados",
+    "mesAtual": "Mês atual",
+    "mesPassado": "Mês passado",
+    "alterado": "Alterado em {data}",
+    "concluirEm": "Concluir em",
+    "cancelarEm": "Cancelar em",
+    "limite": "Mostrando os {n} chamados mais antigos. Filtre por responsável para ver os demais."
   },
   "novoChamado": {
     "titulo": "Novo chamado",

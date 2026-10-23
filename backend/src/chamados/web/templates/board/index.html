@@ -1,0 +1,83 @@
+{#- Quadro (kanban): uma coluna por status; arrastar o cartão para outra coluna muda o status
+    (static/js/quadro.js). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import field, select_field with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ t("quadro.titulo") }}{% endblock %}
+
+{% block head %}
+<script src="{{ static('js/quadro.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-4">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-xl font-semibold">{{ t("quadro.titulo") }}</h1>
+    {#- O mês vale para os concluídos e os cancelados, senão essas colunas crescem sempre. No mês
+        passado, as datas que um cartão solto nessas colunas leva (quadro.js), para os relatórios
+        contarem o chamado no mês certo; só dias do mês passado, e o último de início. #}
+    <form method="get" action="/quadro" data-envia-ao-mudar class="flex flex-wrap items-end gap-3">
+      {%- if people %}
+      <div class="w-64">{{ select_field("responsavel", t("chamado.responsavel"), [("", t("chamados.filtros.todos"))] + people, filters.responsavel or "") }}</div>
+      {%- endif %}
+      <div class="w-56">{{ select_field("mes", t("quadro.mes"), [("", t("quadro.mesAtual")), ("passado", t("quadro.mesPassado"))], filters.mes or "") }}</div>
+      {%- if filters.mes %}
+      <div class="w-44">{{ field("concluir_em", t("quadro.concluirEm"), "date", filters.concluir_em, min=month_dates[0], max=month_dates[1], required=True) }}</div>
+      <div class="w-44">{{ field("cancelar_em", t("quadro.cancelarEm"), "date", filters.cancelar_em, min=month_dates[0], max=month_dates[1], required=True) }}</div>
+      {%- endif %}
+    </form>
+  </div>
+
+  {%- if truncated %}
+  <p class="rounded-md bg-primary-subtle p-3 text-fg" role="status">{{ t("quadro.limite", n=limit) }}</p>
+  {%- endif %}
+
+  {#- Cada coluna vai, no mínimo, até o pé da tela (o que sobra depois do cabeçalho e do título):
+      dá para soltar o cartão em qualquer altura. #}
+  <div class="flex items-start gap-4 overflow-x-auto pb-2">
+    {%- for status, cards in columns %}
+    <section aria-labelledby="coluna-{{ status.id }}" data-coluna="{{ status.id }}"
+      {%- if filters.mes and status.kind in ("closed", "canceled") %} data-data-de="{{ 'concluir_em' if status.kind == 'closed' else 'cancelar_em' }}"{% endif %} class="flex min-h-[calc(100dvh-13rem)] w-72 shrink-0 flex-col gap-2 rounded-lg {{ 'bg-danger/20' if status.kind == 'canceled' else 'bg-surface-raised' }} p-2 data-alvo:ring-2 data-alvo:ring-primary">
+      <h2 id="coluna-{{ status.id }}" class="flex items-center justify-between px-1 font-semibold">
+        {{ status.name }}
+        <span class="rounded-full bg-surface px-2 text-sm font-normal tabular-nums text-muted">{{ cards | length }}</span>
+      </h2>
+      <ol class="flex flex-1 flex-col gap-2" data-cartoes>
+        {%- for card in cards %}
+        {%- set ticket = card.ticket %}
+        <li data-cartao draggable="{{ 'true' if card.targets else 'false' }}" class="rounded-md border border-border bg-surface p-3 shadow-md {{ 'cursor-grab' if card.targets }}">
+          <div class="flex items-start justify-between gap-2">
+            <a href="/chamados/{{ ticket.number }}" class="font-medium hover:underline">
+              <span class="text-primary tabular-nums">#{{ ticket.number }}</span> {{ ticket.title }}
+            </a>
+            {%- if card.has_news %}
+            <span role="img" aria-label="{{ t('chamados.novidade') }}" title="{{ t('chamados.novidade') }}">{{ icon("message-circle", "size-4 shrink-0 text-primary") }}</span>
+            {%- endif %}
+          </div>
+          {#- O principal e "+N" para os outros responsáveis; todos os nomes ao passar o mouse. #}
+          {%- set others = ticket.co_assignees | map(attribute="user.display_name") | list %}
+          <p class="mt-1 text-sm text-muted">{{ card.client }} · <span class="text-blue-fg"{% if others %} title="{{ ([ticket.assignee.display_name] + others) | join(', ') }}"{% endif %}>{{ ticket.assignee.display_name }}{% if others %} +{{ others | length }}{% endif %}</span></p>
+          <p class="mt-1 text-xs text-muted">{{ t("quadro.alterado", data=datetime(ticket.updated_at)) }}</p>
+          {%- if card.targets %}
+          {#- Soltar o cartão numa coluna de `data-destinos` envia o status dela (quadro.js). #}
+          <form method="post" action="/chamados/{{ ticket.number }}/status" data-destinos="{{ card.targets | map(attribute='id') | join(' ') }}" hidden>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="versao" value="{{ card.etag }}">
+            <input type="hidden" name="volta" value="{{ current_url }}">
+            <input type="hidden" name="status_id">
+            {%- if filters.mes %}
+            {#- O dia vem do topo ao soltar; a hora é o fim dele (não fica antes do início). #}
+            <input type="hidden" name="conclusao_data">
+            <input type="hidden" name="conclusao_hora" value="23:59">
+            {%- endif %}
+          </form>
+          {%- endif %}
+        </li>
+        {%- endfor %}
+      </ol>
+    </section>
+    {%- endfor %}
+  </div>
+</div>
+{% endblock %}

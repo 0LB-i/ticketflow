@@ -81,6 +81,7 @@ class Ticket(Base):
     )
     first_assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     search_vector: Mapped[Any] = mapped_column(
         TSVECTOR, Computed(TICKET_SEARCH, persisted=True), deferred=True
     )

@@ -112,6 +112,7 @@ async def detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
         else None,
         reopened_count=t.reopened_count,
         closed_at=t.closed_at,
+        canceled_at=t.canceled_at,
         co_assignees=[
             UserRef(id=c.user.public_id, display_name=c.user.display_name) for c in t.co_assignees
         ],

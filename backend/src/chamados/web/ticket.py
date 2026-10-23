@@ -42,7 +42,14 @@ from chamados.web.formatting import (
     parse_duration,
     parse_local,
 )
-from chamados.web.page import LoggedPage, LoggedPageDep, PageDep, check_csrf, get_logged_page
+from chamados.web.page import (
+    LoggedPage,
+    LoggedPageDep,
+    PageDep,
+    check_csrf,
+    get_logged_page,
+    safe_next,
+)
 
 router = APIRouter()
 
@@ -518,10 +525,14 @@ async def _act(
     csrf_token: str,
     action: Callable[[], Awaitable[object]],
     done: str | None,
+    volta: str = "",
 ) -> RedirectResponse:
-    """Ação da lateral: executa, volta ao chamado e mostra o resultado no canto."""
+    """Ação da lateral: executa, volta ao chamado (ou à `volta`, ex.: o quadro) e mostra o
+    resultado no canto."""
     check_csrf(page, csrf_token)
-    response = RedirectResponse(f"/chamados/{number}", status_code=303)
+    response = RedirectResponse(
+        safe_next(volta) if volta else f"/chamados/{number}", status_code=303
+    )
     try:
         await action()
     except ValidationError:
@@ -582,15 +593,22 @@ async def change_status(
     csrf_token: Field = "",
     status_id: Field = "",
     versao: Field = "",
+    volta: Field = "",
+    conclusao_data: Field = "",
+    conclusao_hora: Field = "",
 ) -> Response:
+    """Também do quadro: no mês passado, com a data da conclusão (ou do cancelamento)."""
+    data: dict[str, Any] = {"status_id": status_id}
+    if conclusao_data:
+        # Inválida, fica o texto: o TicketUpdate recusa, com o aviso de erro comum.
+        data["finished_at"] = parse_local(conclusao_data, conclusao_hora) or conclusao_data
     return await _act(
         page,
         number,
         csrf_token,
-        lambda: _update(
-            page, db, number, TicketUpdate.model_validate({"status_id": status_id}), versao
-        ),
+        lambda: _update(page, db, number, TicketUpdate.model_validate(data), versao),
         "chamado.feito.status",
+        volta,
     )
 
 

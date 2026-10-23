@@ -12,6 +12,7 @@
     "usuarios": "Users",
     "grupos": "Teams",
     "chamados": "Tickets",
+    "quadro": "Board",
     "clientes": "Clients",
     "relatorios": "Reports",
     "configuracoes": "Settings",
@@ -229,6 +230,16 @@
     "naoMudaram": "Not changed: {lista}",
     "eMais": "and {n} more",
     "demaisParaMudar": "Select at most {n} tickets at a time."
+  },
+  "quadro": {
+    "titulo": "Board",
+    "mes": "Closed and canceled",
+    "mesAtual": "This month",
+    "mesPassado": "Last month",
+    "alterado": "Changed on {data}",
+    "concluirEm": "Close on",
+    "cancelarEm": "Cancel on",
+    "limite": "Showing the {n} oldest tickets. Filter by assignee to see the others."
   },
   "novoChamado": {
     "titulo": "New ticket",

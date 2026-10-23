@@ -181,6 +181,13 @@ EN: dict[str, str] = {
     "Escreva o comentário.": "Write the comment.",
     "Comentário não encontrado.": "Comment not found.",
     "A data da tarefa não pode ficar no futuro.": "The task date cannot be in the future.",
+    "A data de conclusão não pode ficar no futuro.": "The completion date cannot be in the future.",
+    "A data de conclusão não pode ser antes do início.": (
+        "The completion date cannot be before the start."
+    ),
+    "A data de conclusão só vale ao mudar para um status concluído ou cancelado.": (
+        "The completion date only applies when changing to a closed or canceled status."
+    ),
     "Só o autor altera a tarefa.": "Only the author can change the task.",
     "O chamado já está neste grupo.": "The ticket is already in this team.",
     "O chamado foi alterado por outra pessoa. Recarregue e tente de novo.": (

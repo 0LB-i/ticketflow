@@ -79,6 +79,7 @@ class TicketOut(TicketSummary):
     resolution_code: ResolutionRef | None
     reopened_count: int
     closed_at: datetime | None
+    canceled_at: datetime | None
     co_assignees: list[UserRef] = Field(description="outros responsáveis, além do assignee")
     watchers: list[WatcherOut]
     attachments: list[AttachmentOut] = Field(description="do registro e de todos os comentários")
@@ -170,6 +171,11 @@ class TicketUpdate(BaseModel):
     started_at: AwareDatetime | None = None
     status_id: int | None = Field(
         default=None, description="qualquer status, sem as exigências do fluxo (set_status)"
+    )
+    finished_at: AwareDatetime | None = Field(
+        default=None,
+        description="com status_id de um status concluído ou cancelado: quando foi concluído ou "
+        "cancelado (sem valor, agora); nem no futuro nem antes do início",
     )
     attachment_ids: list[uuid.UUID] | None = Field(
         default=None, max_length=10, description="imagens coladas na descrição (POST /uploads)"
