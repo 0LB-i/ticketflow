@@ -141,7 +141,15 @@ async def open_ticket(
 ) -> TicketOut:
     """A abertura do detalhe (já carregado com `service.load`): audita o acesso a confidencial,
     guarda a visita e monta o detalhe. `request` só dá o IP e o navegador à auditoria."""
-    # Regra 6 do docs/08 §8.4: admin e auditor leem confidenciais, e isso fica na auditoria.
+    await audit_confidential(db, auth, ticket, request)
+    await service.mark_read(db, auth, ticket)
+    return await detail(db, auth, ticket)
+
+
+async def audit_confidential(
+    db: AsyncSession, auth: Auth, ticket: Ticket, request: Request | None = None
+) -> None:
+    """Regra 6 do docs/08 §8.4: admin e auditor leem confidenciais, e isso fica na auditoria."""
     if (
         ticket.category
         and ticket.category.is_confidential
@@ -157,8 +165,6 @@ async def open_ticket(
             target_id=ticket.public_id,
         )
         await db.commit()
-    await service.mark_read(db, auth, ticket)
-    return await detail(db, auth, ticket)
 
 
 def comment_out(c: TicketComment) -> CommentOut:

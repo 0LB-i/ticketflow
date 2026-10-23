@@ -55,6 +55,12 @@ EN: dict[str, str] = {
     "Tokens de API não acessam a administração.": "API tokens cannot access administration.",
     "Esta ação só pode ser feita pela interface.": "This action is only available in the app.",
     "Dê um nome ao token.": "Give the token a name.",
+    "Uma chamada com este request_id ainda está em andamento.": (
+        "A call with this request_id is still in progress."
+    ),
+    "Este request_id já foi usado com outros dados.": (
+        "This request_id was already used with different data."
+    ),
     "Token não encontrado.": "Token not found.",
     "Idempotency-Key: de 1 a 255 caracteres.": "Idempotency-Key: 1 to 255 characters.",
     "Uma requisição com esta Idempotency-Key ainda está em andamento.": (

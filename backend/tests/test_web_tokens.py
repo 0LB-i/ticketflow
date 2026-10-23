@@ -29,6 +29,7 @@ def test_criar_mostra_o_valor_uma_vez_e_ele_funciona(client: TestClient, db: Ses
     r = client.get("/meus-tokens")
     assert r.status_code == 200
     assert "Você ainda não tem tokens." in r.text
+    assert "claude mcp add --transport http ticketflow http://teste/mcp" in r.text
 
     status, texto = _criar(client, nome="Claude Code", escopo="write", dias="30")
     assert status == 201

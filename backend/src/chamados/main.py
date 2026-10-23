@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 from starlette.exceptions import HTTPException
+from starlette.routing import Route
 
 from chamados import __version__, web
 from chamados.config import Settings, get_settings
@@ -22,6 +23,7 @@ from chamados.modules.identity.admin_router import router as users_router
 from chamados.modules.identity.idempotency import IdempotencyMiddleware
 from chamados.modules.identity.ratelimit import IpLimiter
 from chamados.modules.identity.router import router as auth_router
+from chamados.modules.mcp_server import server as mcp_server
 from chamados.modules.notifications.email import make_mailer
 from chamados.modules.organization.router import router as organization_router
 from chamados.modules.reports.router import router as reports_router
@@ -41,7 +43,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.engine = create_engine(settings.database_url)
         app.state.sessionmaker = make_sessionmaker(app.state.engine)
-        yield
+        async with mcp_server.running(app):
+            yield
         await app.state.engine.dispose()
 
     app = FastAPI(
@@ -86,6 +89,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     async def api_not_found(path: str) -> None:
         raise HTTPException(404)
+
+    # Servidor MCP para assistentes de IA (modules/mcp_server), fora do OpenAPI.
+    app.router.routes.append(
+        Route("/mcp", mcp_server.Endpoint(), methods=["GET", "POST", "DELETE"])
+    )
 
     # Telas do servidor (ADR 0011). Endereço desconhecido: a página de erro (web/errors.py).
     app.add_exception_handler(Redirect, redirect_response)

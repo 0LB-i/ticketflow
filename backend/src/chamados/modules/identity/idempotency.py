@@ -33,12 +33,13 @@ KEEP = timedelta(hours=24)
 STALE = timedelta(minutes=5)
 
 
-def _sha256(*parts: bytes) -> str:
-    digest = hashlib.sha256()
+def digest(*parts: bytes) -> str:
+    """SHA-256 das partes, separadas (a mesma conta no MCP, para o `request_id`)."""
+    sha = hashlib.sha256()
     for part in parts:
-        digest.update(part)
-        digest.update(b"\x1f")
-    return digest.hexdigest()
+        sha.update(part)
+        sha.update(b"\x1f")
+    return sha.hexdigest()
 
 
 class IdempotencyMiddleware:
@@ -64,8 +65,8 @@ class IdempotencyMiddleware:
             return
 
         body = await _read_body(receive)
-        owner = _sha256(authorization.encode())
-        fingerprint = _sha256(
+        owner = digest(authorization.encode())
+        fingerprint = digest(
             scope["method"].encode(), scope["path"].encode(), scope["query_string"], body
         )
         sessionmaker = scope["app"].state.sessionmaker

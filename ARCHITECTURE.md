@@ -10,6 +10,8 @@ Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-
 
 Em 2026-10-21 entraram o outbox, a fila de tarefas e o worker (F1-S4-03, seção 3.12) e, por eles, as notificações por e-mail dos chamados (F1-S4-04, 3.13).
 
+Em 2026-10-23 entraram os tokens de API (com a tela Tokens de API e a `Idempotency-Key`, 3.1) e o servidor MCP para assistentes de IA (3.14).
+
 Em 2026-10-17 começou a migração da interface da SPA em Vue para telas renderizadas no servidor, com Jinja2, HTMX e Tailwind ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Em 2026-10-19 ela terminou (WEB-06): todas as telas são do servidor, e saíram o `frontend/`, o Node e o serviço do Vite. O histórico e as pendências estão no [docs/19](docs/19-migracao-da-interface.md); a estrutura, na seção 3.11.
 
 ---
@@ -20,6 +22,7 @@ Em 2026-10-17 começou a migração da interface da SPA em Vue para telas render
 navegador ── HTTPS ──► nginx ──► uvicorn (ticketflow.service) ──► PostgreSQL 17 (ou 16)
                                    │
                                    ├─ /api/*    API REST (FastAPI)
+                                   ├─ /mcp      servidor MCP para assistentes de IA (modules/mcp_server)
                                    └─ /*        telas do servidor (Jinja2 + HTMX, web/) e /static
 
 chamados worker (ticketflow-worker.service) ──► PostgreSQL: outbox → fila de tarefas, rotinas diárias
@@ -127,6 +130,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
 | `reports` | `schemas`, `service` (escopo, cálculo, horas fora do expediente), `pdf` (ReportLab), `router` | Relatórios de horas: por pessoa, cliente e dia, horas extras e PDF (3.7.2) | `/reports`, `/reports/options`, `/reports/pdf` |
 | `notifications` | `email` (`Mailer`), `handlers` (quem recebe o quê), `messages` (textos), `tasks` (envio pelo worker) | E-mail por SMTP ou para o log; notificações dos chamados (3.13) | — |
+| `mcp_server` | `server` (ferramentas, `running()` no lifespan, rota `Endpoint`) | Servidor MCP para assistentes de IA, com o token de API da pessoa (3.14) | `/mcp` (fora de `/api`) |
 | `jobs` | `models` (OutboxEvent, Job), `service` (outbox, fila, repasse, agenda, limpeza), `worker` (loop, tarefas, rotinas, handlers) | Outbox de eventos, fila de tarefas e o processo `chamados worker` (3.12) | — |
 
 Os módulos podem importar modelos e services uns dos outros (por exemplo, `tickets` usa `catalog`, `organization` e `identity`), mas **a decisão de permissão de um chamado só acontece em `tickets`** e **o registro na auditoria só por `audit.service.record()`**.
@@ -370,6 +374,18 @@ Regras em [docs/10 §10.10](docs/10-chamados.md#1010-notificações). Os handler
 - Ainda sem preferências por pessoa (F2-S6-01): todos recebem tudo da tabela.
 - Convite, redefinição e bloqueio continuam enviados na hora (`Mailer.send`, que só registra a falha no log).
 
+### 3.14 Servidor MCP (`modules/mcp_server/`)
+
+Assistentes de IA (Claude Code e outros clientes MCP) consultam e operam os chamados como ferramentas. Plano maior em [docs/06](docs/06-integracao-ia.md).
+
+- **Transporte:** Streamable HTTP em `/mcp`, sem estado (`stateless_http`) e com respostas em JSON: cada POST é independente, sem sessão MCP no servidor. SDK oficial `mcp` (2.x, `MCPServer`).
+- **Quem age:** o dono do token de API (3.1), com `Auth(via="mcp")`: as mesmas permissões, a mesma visibilidade e o histórico com `via: "mcp"`. A rota (`Endpoint`) recusa sem token válido (401, `WWW-Authenticate: Bearer`); cada ferramenta confere o token de novo, na própria sessão do banco (`call()`). Token `read` só usa as ferramentas de leitura.
+- **Ferramentas:** leitura (`list_tickets`, `get_ticket` com as tarefas, `get_ticket_history`, `list_options` com status e grupos, `search_clients`) e escrita (`create_ticket`, `add_task`, `change_status`, que é o `set_status`). Elas chamam os services e `tickets/queries.py`, como a API; a `HTTPException` vira `ToolError`, traduzida para o idioma da pessoa. O `get_ticket` audita o acesso a confidencial, mas não grava a visita (o aviso de novidade continua para a pessoa).
+- **Repetição:** as de escrita que registram algo (`create_ticket`, `add_task`) aceitam `request_id`: a mesma chamada devolve o primeiro resultado, guardado em `idempotency_keys` com a chave `mcp:<request_id>` (mesmo dono, a mesma regra do 3.1). `change_status` repetido não muda nada.
+- **Instância por lifespan:** o SDK só deixa rodar o gerenciador de sessões uma vez por instância; `running(app)` cria o servidor no lifespan do app (os testes reabrem o lifespan a cada teste), e a rota fixa `/mcp` repassa para `app.state.mcp_app`.
+- **DNS rebinding:** a proteção do SDK fica desligada (`TransportSecuritySettings`): ligada, ela só aceita `Host: localhost`, e atrás do nginx o endereço é outro. Sem cookie, um site de terceiros não usa a sessão de ninguém.
+- **Conectar:** a tela `/meus-tokens` mostra o comando do Claude Code (`claude mcp add --transport http ticketflow <APP_BASE_URL>/mcp --header "Authorization: Bearer tf_…"`).
+
 ---
 
 ## 4. Telas, tema e idiomas
@@ -411,7 +427,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 
 ## 5. Contrato da API
 
-- A API JSON (`/api/v1`) continua para integrações e agentes de IA. O contrato sai dos modelos Pydantic: `/api/docs` (Swagger) e `chamados openapi -o arquivo` (3.10).
+- A API JSON (`/api/v1`) continua para integrações e agentes de IA; os assistentes que falam MCP usam `/mcp` (3.14), com o mesmo token. O contrato sai dos modelos Pydantic: `/api/docs` (Swagger) e `chamados openapi -o arquivo` (3.10).
 - Campos novos são aditivos. Mudança incompatível só numa nova versão da API (`/api/v2`), conforme o [docs/05](docs/05-api.md).
 - As telas chamam as funções das rotas, os services e `tickets/queries.py` direto (3.11), sem HTTP: os testes das telas (`test_web_*.py`) cobrem esse uso.
 
@@ -481,7 +497,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 | Status personalizados, ocultar comentário, testes ponta a ponta (Playwright) | — | Sprint 5 |
 | Tela da auditoria | A API `GET /admin/audit-log` já existe | Sprint 5 |
 | MFA, sessões, aprovações, sino de notificações | — | Fase 2 |
-| Webhooks, IA, MCP | `identity`, `jobs` (webhooks) | Depois da v1.0, [docs/06](docs/06-integracao-ia.md) |
+| Webhooks, IA (o sistema chamando modelos: triagem, resumo, sugestão) | `jobs` (webhooks), um módulo `ai` | Depois da v1.0, [docs/06](docs/06-integracao-ia.md) |
 
 ## 11. Receitas
 
@@ -513,6 +529,11 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 2. Rotina diária: o nome também em `worker.ROUTINES`, com o horário (São Paulo). Evento que vira tarefa: um handler `async def handler(db, settings, event)` em `worker.HANDLERS` que chama `service.enqueue()`.
 3. A tarefa pode rodar mais de uma vez (entrega "pelo menos uma vez"): ela precisa aguentar isso.
 4. Teste chamando `service.run_next` com a tarefa (veja `tests/test_fila.py`).
+
+**Nova ferramenta MCP** (3.14)
+1. Função `@server.tool(annotations=READ ou WRITE)` em `mcp_server/server.py`, com descrição (docstring) e `Field(description=…)` nos parâmetros: é o que o modelo lê.
+2. Dentro de `async with call(ctx, write=…) as (db, auth, locale)`, só service ou `tickets/queries.py` (nenhuma regra na ferramenta). Se registra algo, `request_id` com `once()`.
+3. Teste em `tests/test_mcp.py` (`ferramenta()` e `erro()`), inclusive quem não pode.
 
 **Nova permissão**
 1. Código em `P` (`core/permissions.py`) e nos papéis (`ROLES`); se depende de supervisão, em `SUPERVISOR`.

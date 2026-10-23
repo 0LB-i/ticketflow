@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
 from chamados.config import Settings
-from chamados.modules.identity.idempotency import _sha256
+from chamados.modules.identity.idempotency import digest
 from chamados.modules.identity.models import IdempotencyKey
 from chamados.modules.jobs.service import cleanup
 from chamados.modules.tickets.models import Ticket
@@ -114,9 +114,9 @@ def test_em_andamento_e_abandonada(
     corpo = _novo(cenario)
     pedido = client.build_request("POST", API, json=corpo)
     em_andamento = IdempotencyKey(
-        owner_hash=_sha256(f"Bearer {raw}".encode()),
+        owner_hash=digest(f"Bearer {raw}".encode()),
         key="pedido-1",
-        fingerprint=_sha256(b"POST", API.encode(), b"", pedido.content),
+        fingerprint=digest(b"POST", API.encode(), b"", pedido.content),
     )
     db.add(em_andamento)
     db.commit()

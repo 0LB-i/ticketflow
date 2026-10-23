@@ -79,6 +79,9 @@
     <h2 id="como-usar" class="font-semibold">{{ t("tokens.comoUsar") }}</h2>
     <p class="text-muted">{{ t("tokens.comoUsarApi") }}</p>
     <pre class="overflow-x-auto rounded-md border border-border bg-surface-raised p-3 font-mono text-sm"><code>curl -H "Authorization: Bearer tf_…" {{ base_url }}/api/v1/tickets</code></pre>
+    <p class="text-muted">{{ t("tokens.comoUsarMcp") }}</p>
+    <pre class="overflow-x-auto rounded-md border border-border bg-surface-raised p-3 font-mono text-sm"><code>claude mcp add --transport http ticketflow {{ base_url }}/mcp --header "Authorization: Bearer tf_…"</code></pre>
+    <p class="text-muted">{{ t("tokens.mcpOutros", url=base_url ~ "/mcp") }}</p>
   </section>
 </div>
 {% endblock %}

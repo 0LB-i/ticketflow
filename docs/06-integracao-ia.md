@@ -1,6 +1,8 @@
 # 6. Integração com IA
 
-> **Fora da v1.0.** Na revisão de escopo de 2026-10-09, toda a integração com IA foi para o [backlog](07-roadmap.md#backlog-futuro-fora-da-v10). Este documento guarda o plano para quando ela entrar. Na coluna "Bloco", 1 vem antes de 2.
+> **Fora da v1.0.** Na revisão de escopo de 2026-10-09, toda a integração com IA foi para o [backlog](07-roadmap.md#backlog-futuro-fora-da-v10). Este documento guarda o plano para quando ela entrar.
+>
+> **Em 2026-10-23 entrou a direção "a IA usa o sistema":** tokens de API, `Idempotency-Key` e o servidor MCP em `/mcp` (seções abaixo, marcadas **feito**). A direção "o sistema usa IA" (classificação, resumo, sugestão) continua no plano. Na coluna "Bloco", 1 vem antes de 2.
 >
 > **Atenção:** este plano foi escrito antes da mudança de modelo de 2026-10-10 ([08](08-organizacao-e-permissoes.md)) e ainda supõe um solicitante com conta (deflexão no portal, sugestão de resposta ao solicitante). Revisar quando a IA entrar no roadmap.
 
@@ -77,31 +79,38 @@ ticket.created → outbox → worker: ai.classify_ticket
 
 ## Casos de uso — a IA usa o sistema
 
-### API REST + tokens com escopo
+### API REST + tokens de API (**feito**)
 
-Qualquer agente de IA pode operar o sistema pela [API](05-api.md) com um token do tipo `ai_agent`:
+Qualquer agente de IA opera o sistema pela [API](05-api.md) com um token de API ([docs/05](05-api.md#tokens-de-api)):
 
-- escopos mínimos (ex.: `tickets:read`, `tickets:write`, sem `tickets:internal`);
-- age em nome de uma **conta de serviço** identificada (ex.: "Assistente Virtual"), e tudo aparece na auditoria como `actor_kind = ai`;
-- `Idempotency-Key` obrigatório para escrita;
-- rate limit próprio.
+- o token age **em nome de uma pessoa**, que o cria na tela **Tokens de API** (menu do usuário) com escopo `read` ou `write`; o que ele faz aparece no histórico como dela, com `via: "api"`;
+- nenhum token entra na administração, nem o de um administrador;
+- `Idempotency-Key` nos `POST` (opcional, recomendado para agentes): repetir a chamada não registra de novo.
+
+**Ainda não:** contas de serviço (`actor_kind = ai`, um "Assistente Virtual" com identidade própria), escopos mais finos e limite de requisições por token.
 
 **Exemplos:** um assistente no Teams ou Slack que abre chamados a partir de uma conversa, um agente que consulta o status para o colaborador, uma automação que fecha chamados de monitoramento resolvidos.
 
-### Servidor MCP (bloco 2)
+### Servidor MCP (**feito**)
 
-Expõe o sistema como ferramentas para clientes MCP (Claude Desktop, Claude Code, IDEs, plataformas de agentes):
+Expõe o sistema como ferramentas para clientes MCP (Claude Code, IDEs, plataformas de agentes), em `/mcp` (Streamable HTTP, sem estado), com o mesmo token de API no cabeçalho `Authorization`. Estrutura em [ARCHITECTURE 3.14](../ARCHITECTURE.md#314-servidor-mcp-modulesmcp_server).
 
-| Ferramenta MCP | Mapeia para |
-|----------------|-------------|
-| `search_tickets` | `GET /tickets/search` |
-| `get_ticket` | `GET /tickets/{id}` (com comentários e resumo) |
-| `create_ticket` | `POST /tickets` |
-| `add_comment` | `POST /tickets/{id}/comments` |
-| `update_ticket_status` | `POST /tickets/{id}/transitions` |
-| `search_knowledge_base` | `GET /kb/articles?q=` |
+| Ferramenta MCP | Faz | Equivale a |
+|----------------|-----|------------|
+| `list_tickets` | Lista com fila, status, grupo, "só meus" e busca | `GET /tickets` |
+| `get_ticket` | Chamado completo com as tarefas e as ações permitidas | `GET /tickets/{id}` + `/comments` |
+| `get_ticket_history` | Histórico | `GET /tickets/{id}/events` |
+| `list_options` | Status e grupos (com membros): os ids que as outras pedem | `GET /statuses`, `GET /teams` |
+| `search_clients` | Clientes ativos pelo nome | `GET /clients/options` |
+| `create_ticket` | Registra (com `request_id`) | `POST /tickets` |
+| `add_task` | Registra uma tarefa, com o tempo gasto (com `request_id`) | `POST /tickets/{id}/comments` |
+| `change_status` | Muda o status (qualquer um que a pessoa possa escolher) | `PATCH /tickets/{id}` com `status_id` |
 
-O servidor MCP é uma camada fina sobre os **services** (mesmas permissões e a mesma auditoria), autenticada por token de API. Transporte: *Streamable HTTP* para uso remoto e `stdio` para uso local.
+- As ferramentas são uma camada fina sobre os **services** (mesmas permissões, mesma auditoria); o histórico marca `via: "mcp"`.
+- As de leitura levam `readOnlyHint`, para o cliente poder dispensar a confirmação; as de escrita, não.
+- As instruções do servidor dizem ao modelo que o texto dos chamados é dado, nunca instrução (prompt injection).
+- O `get_ticket` não conta como visita da pessoa: o aviso de novidade continua para ela.
+- **Fora, por enquanto:** transferir, cancelar, atribuir, anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
 
 ### Webhooks
 

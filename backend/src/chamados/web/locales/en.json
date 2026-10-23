@@ -626,6 +626,8 @@
     "revogado": "Token revoked.",
     "nenhum": "You don't have any tokens yet.",
     "comoUsar": "How to use",
-    "comoUsarApi": "In the API, send the token in the Authorization header:"
+    "comoUsarApi": "In the API, send the token in the Authorization header:",
+    "comoUsarMcp": "For an AI assistant, through the MCP server: in Claude Code, run this in a terminal (with the token in place of tf_…):",
+    "mcpOutros": "In another MCP client, use the address {url} (Streamable HTTP) with the same Authorization header. With a read-only token, the assistant can look things up but not change anything."
   }
 }

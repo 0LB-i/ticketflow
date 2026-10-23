@@ -39,11 +39,9 @@ class Auth:
     actor: Actor
     session: UserSession | None = None
     token: ApiToken | None = None
-
-    @property
-    def via(self) -> str:
-        """Por onde a ação chegou: "web" (a interface, pela sessão) ou "api" (um token)."""
-        return "web" if self.token is None else "api"
+    # Por onde a ação chegou: "web" (a interface), "api" (um token) ou "mcp" (um assistente de
+    # IA pelo servidor MCP, também com token). Vai para o histórico (`via`) fora da interface.
+    via: str = "web"
 
 
 async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
@@ -73,7 +71,7 @@ async def _token_auth(request: Request, db: DB, authorization: str) -> Auth:
         raise HTTPException(403, "Troque a senha provisória antes de continuar.")
     if request.method in UNSAFE and token.scope != "write":
         raise HTTPException(403, "Este token de API só permite leitura.")
-    return Auth(user=token.user, actor=actor_of(token.user), token=token)
+    return Auth(user=token.user, actor=actor_of(token.user), token=token, via="api")
 
 
 def session_auth(session: UserSession) -> Auth:

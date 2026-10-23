@@ -626,6 +626,8 @@
     "revogado": "Token revogado.",
     "nenhum": "Você ainda não tem tokens.",
     "comoUsar": "Como usar",
-    "comoUsarApi": "Na API, mande o token no cabeçalho Authorization:"
+    "comoUsarApi": "Na API, mande o token no cabeçalho Authorization:",
+    "comoUsarMcp": "Para um assistente de IA, pelo servidor MCP: no Claude Code, rode no terminal (com o token no lugar de tf_…):",
+    "mcpOutros": "Em outro cliente MCP, use o endereço {url} (Streamable HTTP) com o mesmo cabeçalho Authorization. Com um token só de leitura, o assistente consulta, mas não altera nada."
   }
 }
