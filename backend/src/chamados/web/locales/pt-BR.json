@@ -12,7 +12,7 @@
     "usuarios": "Usuários",
     "grupos": "Grupos",
     "chamados": "Chamados",
-    "quadro": "Quadro",
+    "quadro": "Kanban",
     "clientes": "Clientes",
     "relatorios": "Relatórios",
     "configuracoes": "Configurações",
@@ -232,7 +232,7 @@
     "demaisParaMudar": "Selecione no máximo {n} chamados de cada vez."
   },
   "quadro": {
-    "titulo": "Quadro",
+    "titulo": "Kanban",
     "mes": "Concluídos e cancelados",
     "mesAtual": "Mês atual",
     "mesPassado": "Mês passado",

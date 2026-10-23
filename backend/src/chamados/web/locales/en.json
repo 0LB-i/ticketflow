@@ -12,7 +12,7 @@
     "usuarios": "Users",
     "grupos": "Teams",
     "chamados": "Tickets",
-    "quadro": "Board",
+    "quadro": "Kanban",
     "clientes": "Clients",
     "relatorios": "Reports",
     "configuracoes": "Settings",
@@ -232,7 +232,7 @@
     "demaisParaMudar": "Select at most {n} tickets at a time."
   },
   "quadro": {
-    "titulo": "Board",
+    "titulo": "Kanban",
     "mes": "Closed and canceled",
     "mesAtual": "This month",
     "mesPassado": "Last month",

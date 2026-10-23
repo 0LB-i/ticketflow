@@ -1,4 +1,4 @@
-{#- Quadro (kanban): uma coluna por status; arrastar o cartão para outra coluna muda o status
+{#- Kanban: uma coluna por status; arrastar o cartão para outra coluna muda o status
     (static/js/quadro.js). -#}
 {% extends "app.html" %}
 {% from "_ui.html" import field, select_field with context %}
@@ -16,15 +16,16 @@
     <h1 class="text-xl font-semibold">{{ t("quadro.titulo") }}</h1>
     {#- O mês vale para os concluídos e os cancelados, senão essas colunas crescem sempre. No mês
         passado, as datas que um cartão solto nessas colunas leva (quadro.js), para os relatórios
-        contarem o chamado no mês certo; só dias do mês passado, e o último de início. #}
-    <form method="get" action="/quadro" data-envia-ao-mudar class="flex flex-wrap items-end gap-3">
-      {%- if people %}
-      <div class="w-64">{{ select_field("responsavel", t("chamado.responsavel"), [("", t("chamados.filtros.todos"))] + people, filters.responsavel or "") }}</div>
-      {%- endif %}
-      <div class="w-56">{{ select_field("mes", t("quadro.mes"), [("", t("quadro.mesAtual")), ("passado", t("quadro.mesPassado"))], filters.mes or "") }}</div>
+        contarem o chamado no mês certo; só dias do mês passado, e o último de início. Elas entram à
+        esquerda, para o mês e o responsável não saírem do lugar. #}
+    <form method="get" action="/quadro" data-envia-ao-mudar class="flex flex-wrap items-end justify-end gap-3">
       {%- if filters.mes %}
       <div class="w-44">{{ field("concluir_em", t("quadro.concluirEm"), "date", filters.concluir_em, min=month_dates[0], max=month_dates[1], required=True) }}</div>
       <div class="w-44">{{ field("cancelar_em", t("quadro.cancelarEm"), "date", filters.cancelar_em, min=month_dates[0], max=month_dates[1], required=True) }}</div>
+      {%- endif %}
+      <div class="w-56">{{ select_field("mes", t("quadro.mes"), [("", t("quadro.mesAtual")), ("passado", t("quadro.mesPassado"))], filters.mes or "") }}</div>
+      {%- if people %}
+      <div class="w-64">{{ select_field("responsavel", t("chamado.responsavel"), [("", t("chamados.filtros.todos"))] + people, filters.responsavel or "") }}</div>
       {%- endif %}
     </form>
   </div>
