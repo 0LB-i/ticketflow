@@ -85,7 +85,10 @@ def add_event(
     mention_ids: Sequence[uuid.UUID] = (),
     **payload: Any,
 ) -> None:
-    """Grava no histórico e no outbox. `mention_ids` vai só para o outbox (as notificações)."""
+    """Grava no histórico e no outbox. `mention_ids` vai só para o outbox (as notificações). Fora
+    da interface, o payload leva `via` (ex.: "api", por um token)."""
+    if auth.via != "web":
+        payload["via"] = auth.via
     db.add(
         TicketEvent(
             ticket_id=ticket.id, event_type=event_type, actor_user_id=auth.user.id, payload=payload
@@ -102,7 +105,11 @@ def publish_ticket_event(
     data: dict[str, Any],
     mention_ids: Sequence[uuid.UUID] = (),
 ) -> None:
-    extra = {"mention_ids": [str(i) for i in dict.fromkeys(mention_ids)]} if mention_ids else {}
+    extra: dict[str, Any] = (
+        {"mention_ids": [str(i) for i in dict.fromkeys(mention_ids)]} if mention_ids else {}
+    )
+    if auth.via != "web":
+        extra["via"] = auth.via
     publish(db, event_type, ticket_id=ticket.id, actor_user_id=auth.user.id, data=data, **extra)
 
 

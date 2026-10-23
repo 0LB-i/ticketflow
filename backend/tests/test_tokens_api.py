@@ -15,8 +15,10 @@ from chamados.config import get_settings
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.identity.models import ApiToken, User
 from chamados.modules.identity.tokens import new_api_token
+from chamados.modules.jobs.models import OutboxEvent
+from chamados.modules.tickets.models import Ticket
 from tests.conftest import criar_usuario
-from tests.test_chamados import API, cenario, registrar  # noqa: F401
+from tests.test_chamados import API, cenario, eventos, registrar  # noqa: F401
 
 
 def criar_token(
@@ -51,6 +53,33 @@ def test_token_de_escrita_age_como_o_usuario_sem_csrf(
     assert client.get("/api/v1/me").json()["display_name"] == "Ana"
     usado = db.scalar(select(ApiToken.last_used_at))
     assert usado is not None
+
+
+def test_o_que_o_token_faz_fica_marcado_como_api(
+    client: TestClient,
+    cenario: dict[str, Any],  # noqa: F811
+    db: Session,
+) -> None:
+    pela_tela = registrar(client, cenario)["number"]
+    com_token(client, criar_token(db, "ana@x.com"))
+    pelo_token = registrar(client, cenario)["number"]
+    assert client.post(f"{API}/{pela_tela}/comments", json={"body": "Oi"}).status_code == 201
+
+    assert "via" not in eventos(client, pela_tela)[0]["payload"]
+    criado = eventos(client, pelo_token)[0]
+    assert criado["type"] == "ticket.created"
+    assert criado["actor"]["display_name"] == "Ana"
+    assert criado["payload"]["via"] == "api"
+    outbox = {
+        (e.event_type, e.payload["ticket_id"]): e.payload
+        for e in db.scalars(select(OutboxEvent).order_by(OutboxEvent.id))
+    }
+    ids = {
+        t: db.scalar(select(Ticket.id).where(Ticket.number == t)) for t in (pela_tela, pelo_token)
+    }
+    assert "via" not in outbox[("ticket.created", ids[pela_tela])]
+    assert outbox[("ticket.created", ids[pelo_token])]["via"] == "api"
+    assert outbox[("comment.created", ids[pela_tela])]["via"] == "api"
 
 
 def test_token_de_leitura_so_le(

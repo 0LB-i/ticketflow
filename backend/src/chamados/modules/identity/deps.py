@@ -40,6 +40,11 @@ class Auth:
     session: UserSession | None = None
     token: ApiToken | None = None
 
+    @property
+    def via(self) -> str:
+        """Por onde a ação chegou: "web" (a interface, pela sessão) ou "api" (um token)."""
+        return "web" if self.token is None else "api"
+
 
 async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
     if (authorization := request.headers.get("authorization")) is not None:
