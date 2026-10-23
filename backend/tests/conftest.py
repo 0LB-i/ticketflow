@@ -38,7 +38,7 @@ SENHA = "uma senha longa de teste"
 TABELAS = (
     "ticket_events, ticket_comments, ticket_watchers, ticket_co_assignees, ticket_teams, "
     "ticket_reads, tickets, attachments, categories, settings, audit_log, auth_tokens, "
-    "user_sessions, api_tokens, idempotency_keys, team_members, teams, departments, users, "
+    "user_sessions, api_tokens, idempotency_keys, team_members, teams, users, "
     "clients, outbox, jobs"
 )
 

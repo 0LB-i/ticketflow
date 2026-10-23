@@ -42,7 +42,7 @@ flowchart LR
         AP[Aprovações] --> D
     end
     subgraph Admin
-        AU[Usuários] --- AG[Grupos] --- AS[Setores atendidos] --- AC[Categorias]
+        AU[Usuários] --- AG[Grupos] --- AC[Categorias]
         AT[Status e códigos] --- ACF[Configurações] --- AA[Auditoria]
     end
 ```
@@ -63,7 +63,6 @@ flowchart LR
 | `/perfil` | Dados pessoais, senha, sessões ativas, notificações, tema, MFA | Todos | 1 (MFA e notificações: 2) |
 | `/admin/usuarios` | Usuários: criar (senha inicial, grupos como membro), excluir, papel | Admin | 1 |
 | `/admin/grupos` | Grupos, membros e supervisores | Admin | 1 |
-| `/admin/setores` | Árvore de setores atendidos | Admin | 1 |
 | `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade | Admin | 1 (aprovação: 2) |
 | `/admin/status` | Status (criar com `kind`, renomear, ordenar) e códigos de resolução | Admin | 1 |
 | `/admin/configuracoes` | Idioma padrão (português ou inglês; cada pessoa pode escolher outro no menu do usuário), as três cores da identidade com prévia nos modos claro e escuro ([17.2](17-identidade-visual.md#172-cores)) e logotipo. Depois: nome do sistema, e-mail de envio (SMTP), anexos (tipos, limites) | Admin | 1 |
@@ -98,7 +97,7 @@ Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **
 ```
 Chamados
 [Meus 12] [Aguardando 5] [Acompanhando 2] [Todos]
-Grupo: [TI – Suporte ▾]  Categoria: [Todas ▾]  Setor: [Todos ▾]
+Grupo: [TI – Suporte ▾]  Categoria: [Todas ▾]
 ┌───┬──────┬────────────────────────────┬──────────────┬───────────┬──────────┐
 │ ☐ │ #    │ Título                     │ Para         │ Responsáv.│ Parado há│
 ├───┼──────┼────────────────────────────┼──────────────┼───────────┼──────────┤
@@ -132,4 +131,4 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 
 Macros Jinja com Tailwind e HTML nativo (`<dialog>`, `<details>`, `<select>`), em `backend/src/chamados/web/templates/_ui.html` e `_fields.html`, com as cores e a tipografia de [Identidade visual](17-identidade-visual.md):
 
-Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias, setores) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status) · Avatar · Tabela · Paginação "carregar mais" · Árvore (setores, categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto
+Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status) · Avatar · Tabela · Paginação "carregar mais" · Árvore (categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto

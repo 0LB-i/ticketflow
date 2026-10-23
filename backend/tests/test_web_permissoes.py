@@ -41,7 +41,6 @@ AREAS = {
     "/admin/usuarios": {P.ADMIN_USERS},
     "/admin/tokens": {P.ADMIN_USERS},
     "/admin/grupos": {P.ADMIN_ORGANIZATION},
-    "/admin/setores": {P.ADMIN_ORGANIZATION},
     "/admin/configuracoes": {P.ADMIN_SETTINGS},
     "/admin/clientes": {P.CLIENT_VIEW, P.CLIENT_MANAGE},
 }

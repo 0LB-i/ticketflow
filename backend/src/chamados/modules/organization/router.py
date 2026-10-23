@@ -1,4 +1,4 @@
-"""Grupos e setores atendidos (docs/08, docs/13: /admin/grupos e /admin/setores).
+"""Grupos (docs/08, docs/13: /admin/grupos).
 
 Listar exige estar logado (os formulários de chamado usam as listas). Alterar exige
 admin.organization.
@@ -14,12 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from chamados.core.permissions import P, can
-from chamados.core.text import optional_text
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, CurrentAuth, require
 from chamados.modules.identity.models import User
-from chamados.modules.organization.models import Department, Team, TeamMember
+from chamados.modules.organization.models import Team, TeamMember
 from chamados.modules.tickets import service as tickets
 
 router = APIRouter(tags=["organização"])
@@ -236,148 +235,3 @@ async def remove_member(
     await db.commit()
     db.expire_all()
     return _team_out(await _team(db, team_id))
-
-
-# --- setores atendidos ----------------------------------------------------------------------
-
-
-class DepartmentOut(BaseModel):
-    id: uuid.UUID
-    name: str
-    code: str | None
-    parent_id: uuid.UUID | None
-    is_active: bool
-
-
-class DepartmentList(BaseModel):
-    items: list[DepartmentOut]
-
-
-class DepartmentCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
-    code: str | None = Field(default=None, max_length=50)
-    parent_id: uuid.UUID | None = None
-
-
-class DepartmentUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=100)
-    code: str | None = Field(default=None, max_length=50)
-    parent_id: uuid.UUID | None = None
-    is_active: bool | None = None
-
-
-def _dept_out(d: Department) -> DepartmentOut:
-    return DepartmentOut(
-        id=d.public_id,
-        name=d.name,
-        code=d.code,
-        parent_id=d.parent.public_id if d.parent else None,
-        is_active=d.is_active,
-    )
-
-
-def _dept_snapshot(d: Department) -> dict[str, object]:
-    return {"name": d.name, "code": d.code, "parent_id": d.parent_id, "is_active": d.is_active}
-
-
-async def _dept(db: AsyncSession, dept_id: uuid.UUID) -> Department:
-    dept = await db.scalar(
-        select(Department)
-        .where(Department.public_id == dept_id)
-        .options(selectinload(Department.parent))
-    )
-    if dept is None:
-        raise HTTPException(404, "Setor não encontrado.")
-    return dept
-
-
-async def _check_unique(
-    db: AsyncSession, name: str, parent_id: int | None, code: str | None, except_id: int | None
-) -> None:
-    same_name = select(Department.id).where(
-        Department.name == name, Department.parent_id.is_not_distinct_from(parent_id)
-    )
-    if except_id is not None:
-        same_name = same_name.where(Department.id != except_id)
-    # Sem autoflush: a alteração pendente violaria a constraint antes da resposta 409.
-    with db.no_autoflush:
-        if await db.scalar(same_name):
-            raise HTTPException(409, "Já existe um setor com este nome no mesmo nível.")
-        if code:
-            same_code = select(Department.id).where(Department.code == code)
-            if except_id is not None:
-                same_code = same_code.where(Department.id != except_id)
-            if await db.scalar(same_code):
-                raise HTTPException(409, "Já existe um setor com este código.")
-
-
-@router.get("/departments", response_model=DepartmentList)
-async def list_departments(_: CurrentAuth, db: DB) -> DepartmentList:
-    rows = (
-        await db.scalars(
-            select(Department).options(selectinload(Department.parent)).order_by(Department.name)
-        )
-    ).all()
-    return DepartmentList(items=[_dept_out(d) for d in rows])
-
-
-@router.post("/departments", response_model=DepartmentOut, status_code=201)
-async def create_department(
-    data: DepartmentCreate, auth: Admin, request: Request, db: DB
-) -> DepartmentOut:
-    parent = await _dept(db, data.parent_id) if data.parent_id else None
-    name, code = data.name.strip(), optional_text(data.code)
-    await _check_unique(db, name, parent.id if parent else None, code, None)
-    dept = Department(name=name, code=code, parent_id=parent.id if parent else None)
-    db.add(dept)
-    await db.flush()
-    record(
-        db,
-        "department.created",
-        request=request,
-        actor_user_id=auth.user.id,
-        target_type="department",
-        target_id=dept.public_id,
-        after=_dept_snapshot(dept),
-    )
-    await db.commit()
-    return _dept_out(await _dept(db, dept.public_id))
-
-
-@router.patch("/departments/{dept_id}", response_model=DepartmentOut)
-async def update_department(
-    dept_id: uuid.UUID, data: DepartmentUpdate, auth: Admin, request: Request, db: DB
-) -> DepartmentOut:
-    dept = await _dept(db, dept_id)
-    before = _dept_snapshot(dept)
-    changes = data.model_dump(exclude_unset=True)
-    if "parent_id" in changes:
-        new_parent = await _dept(db, changes["parent_id"]) if changes["parent_id"] else None
-        # Sem ciclos: o novo setor acima não pode ser o próprio nem um subsetor dele.
-        ancestor = new_parent
-        while ancestor is not None:
-            if ancestor.id == dept.id:
-                raise HTTPException(422, "Um setor não pode ficar abaixo dele mesmo.")
-            ancestor = await db.get(Department, ancestor.parent_id) if ancestor.parent_id else None
-        dept.parent_id = new_parent.id if new_parent else None
-    if changes.get("name") is not None:
-        dept.name = changes["name"].strip()
-    if "code" in changes:
-        dept.code = optional_text(changes["code"])
-    if changes.get("is_active") is not None:
-        dept.is_active = changes["is_active"]
-    await _check_unique(db, dept.name, dept.parent_id, dept.code, dept.id)
-    if _dept_snapshot(dept) != before:
-        record(
-            db,
-            "department.updated",
-            request=request,
-            actor_user_id=auth.user.id,
-            target_type="department",
-            target_id=dept.public_id,
-            before=before,
-            after=_dept_snapshot(dept),
-        )
-    await db.commit()
-    db.expire_all()
-    return _dept_out(await _dept(db, dept_id))

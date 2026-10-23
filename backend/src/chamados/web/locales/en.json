@@ -11,7 +11,6 @@
     "administracao": "Administration",
     "usuarios": "Users",
     "grupos": "Teams",
-    "setores": "Departments served",
     "chamados": "Tickets",
     "clientes": "Clients",
     "relatorios": "Reports",
@@ -158,18 +157,6 @@
     },
     "semMembros": "No members yet.",
     "salveAntes": "Save the team to add members."
-  },
-  "setores": {
-    "titulo": "Departments served",
-    "descricao": "Company areas the teams work for. Used to classify tickets and in reports.",
-    "novo": "New department",
-    "nome": "Name",
-    "codigo": "Code (optional)",
-    "acima": "Parent department",
-    "nenhumAcima": "None (top-level department)",
-    "editar": "Edit department",
-    "criado": "Department created",
-    "vazio": "No departments yet."
   },
   "trocarSenha": {
     "titulo": "Change the temporary password",

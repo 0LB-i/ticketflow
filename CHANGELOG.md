@@ -80,6 +80,10 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - API: criar ou renomear um status com nome repetido responde **409** (antes 422), como os demais cadastros; mudar a ordem dos status passa a ir para a auditoria (`ticket_status.reordered`, com a ordem antes e depois).
 - Usuários e grupos: ao excluir ou desativar uma pessoa, ou tirá-la de um grupo, os chamados abertos dela (daquele grupo, no último caso) não ficam mais sem dono: assume o próximo responsável do chamado ou, se ela era a única, um supervisor ativo do grupo, que recebe o e-mail de atribuição. Se o grupo não tem supervisor, o chamado continua com ela e a tela avisa quais números reatribuir.
 
+### Removido
+
+- Setores atendidos: saem a tela Administração → Setores atendidos (`/admin/setores`), a API `/departments` e o campo `department_id` do chamado (na API, `department_id` no registro e no `PATCH` passa a ser ignorado, e `department` sai das respostas). Migração `0034`: apaga a tabela `departments` e a coluna `tickets.department_id`, com os setores cadastrados; o histórico dos chamados e a auditoria continuam com as mudanças antigas.
+
 ### Variáveis de ambiente
 
 - `DATABASE_URL`, `LOG_LEVEL`, `LOG_FORMAT` (`json` em produção).

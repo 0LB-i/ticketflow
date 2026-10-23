@@ -32,7 +32,7 @@ from chamados.modules.catalog.models import (
 )
 from chamados.modules.clients.models import Client
 from chamados.modules.identity.models import User
-from chamados.modules.organization.models import Department, Team
+from chamados.modules.organization.models import Team
 
 # Busca textual em português, sem acentos (configuração pt_br da migração 0001).
 TICKET_SEARCH = (
@@ -65,8 +65,6 @@ class Ticket(Base):
     description: Mapped[str] = mapped_column(Text, server_default=text("''"))
     type: Mapped[str] = mapped_column(Text)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    # Para quem é a tarefa: setor e pessoa atendidos, sem conta no sistema (docs/08).
-    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"))
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
     beneficiary_name: Mapped[str | None] = mapped_column(Text)  # contato: quem pediu, texto livre
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
@@ -91,7 +89,6 @@ class Ticket(Base):
     assignee: Mapped[User] = relationship(foreign_keys=[assignee_id], lazy="joined")
     team: Mapped[Team] = relationship(lazy="joined")
     category: Mapped[Category | None] = relationship(lazy="joined")
-    department: Mapped[Department | None] = relationship(lazy="joined")
     client: Mapped[Client | None] = relationship(lazy="joined")
     status: Mapped[TicketStatus] = relationship(lazy="joined")
     resolution_code: Mapped[ResolutionCode | None] = relationship(lazy="joined")

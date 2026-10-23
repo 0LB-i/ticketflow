@@ -10,7 +10,7 @@
 
 ## 14.2 Filtros comuns
 
-Período (padrão: últimos 30 dias) · Grupo · Responsável · Setor atendido · Categoria · Tipo
+Período (padrão: últimos 30 dias) · Grupo · Responsável · Categoria · Tipo
 
 ## 14.3 Indicadores
 
@@ -25,7 +25,6 @@ Período (padrão: últimos 30 dias) · Grupo · Responsável · Setor atendido 
 | **Tempo até a conclusão** | Do registro até o status `closed`. Mostrado **bruto** e **líquido** (descontando o tempo em "Aguardando") | `closed_at`, `ticket_events` |
 | **Taxa de reabertura** | % dos concluídos com pelo menos uma reabertura | `reopened_count` |
 | **Transferências por chamado** | Média de mudanças de grupo | `ticket_events` (`ticket.transferred`) |
-| **Demanda por setor** | Chamados registrados e horas medianas por setor atendido | `department_id` |
 | **Principais categorias** | As 10 categorias com mais chamados registrados no período | `category_id` |
 | **Registrados × concluídos por semana** | Gráfico de linhas: mostra se a fila está crescendo | `created_at`, `closed_at` |
 
@@ -36,14 +35,14 @@ O cálculo do tempo líquido usa os eventos `ticket.status_changed` para somar o
 | Painel | Quem vê | Conteúdo |
 |--------|---------|----------|
 | **Meu painel** | Cada membro | Meus chamados em aberto por status · com novidades · concluídos por mim na semana · minha mediana de tempo até a conclusão |
-| **Painel do grupo** | Supervisor do grupo (`report.view_team`) | Backlog por status e por idade · registrados × concluídos por semana · chamados por responsável · tempos (mediana) · principais categorias · demanda por setor · taxa de reabertura |
+| **Painel do grupo** | Supervisor do grupo (`report.view_team`) | Backlog por status e por idade · registrados × concluídos por semana · chamados por responsável · tempos (mediana) · principais categorias · taxa de reabertura |
 | **Visão geral** | Admin, auditor (`report.view_all`) | Os indicadores do painel do grupo para todos os grupos, lado a lado · usuários ativos no período |
 
 ## 14.5 Relatórios em lista (exportáveis em CSV)
 
 | Relatório | Colunas principais |
 |-----------|--------------------|
-| **Chamados** | Número, título, tipo, categoria, status, grupo, responsável, registrado por, setor atendido, pessoa atendida, registrado em, assumido em, concluído em, tempos, reaberturas |
+| **Chamados** | Número, título, tipo, categoria, status, grupo, responsável, registrado por, pessoa atendida, registrado em, assumido em, concluído em, tempos, reaberturas |
 | **Transferências** | Número, de qual grupo, para qual grupo, motivo, quem, quando |
 
 A exportação respeita os mesmos filtros e a visibilidade, e fica registrada na auditoria (`ticket.export`).

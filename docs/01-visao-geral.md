@@ -18,26 +18,26 @@ Construir uma ferramenta de trabalho para as equipes que:
 
 1. centralize as tarefas em **filas por equipe**, cada chamado com responsável e histórico;
 2. dê à equipe e ao supervisor **visibilidade** do que está em aberto, parado ou concluído;
-3. gere indicadores (volume, tempos, demanda por setor atendido);
+3. gere indicadores (volume, tempos, demanda por cliente);
 4. seja **API-first**, preparado para integrar depois com outros sistemas e com **IAs**, tanto consumindo serviços de IA (triagem, resumo, sugestão de resposta) quanto sendo operado por agentes de IA. Essas integrações ficam para depois da versão 1.0;
 5. rode sobre **Python + PostgreSQL**, com operação simples (poucos componentes de infraestrutura).
 
 ## Público
 
-> Primeira instalação: **empresa**. Só os **membros das equipes** usam o sistema: eles mesmos registram os chamados, distribuem e executam. Os demais colaboradores não têm conta; quando uma tarefa é para alguém de fora da equipe, o chamado registra o setor e o nome da pessoa atendida (decisão de 2026-10-10, [08](08-organizacao-e-permissoes.md)).
+> Primeira instalação: **empresa**. Só os **membros das equipes** usam o sistema: eles mesmos registram os chamados, distribuem e executam. Os demais colaboradores não têm conta; quando uma tarefa é para alguém de fora da equipe, o chamado registra o cliente e o nome da pessoa atendida (decisão de 2026-10-10, [08](08-organizacao-e-permissoes.md)).
 
 | Perfil | O que faz |
 |--------|-----------|
 | **Agente** | Membro de uma equipe. Registra, assume, executa e acompanha chamados. |
 | **Supervisor** | Coordena um grupo: distribui chamados, aprova os que exigem aprovação, acompanha relatórios. |
-| **Administrador** | Configura o sistema: usuários, grupos, setores atendidos, categorias, status e e-mail. |
+| **Administrador** | Configura o sistema: usuários, grupos, categorias, status e e-mail. |
 | **Auditor** | Consulta tudo, sem alterar. |
 
 ## Escopo
 
 ### Dentro do escopo (versão 1.0)
 
-- Registro de chamados pela própria equipe, com setor e pessoa atendidos
+- Registro de chamados pela própria equipe, com cliente e pessoa atendidos
 - Filas, atribuição, transferência, status e categorias
 - Comentários com @menções, observadores e anexos
 - Aprovação do supervisor para categorias selecionadas

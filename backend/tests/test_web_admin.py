@@ -1,4 +1,4 @@
-"""Telas do servidor de usuários, grupos e setores atendidos (ADR 0011)."""
+"""Telas do servidor de usuários e grupos (ADR 0011)."""
 
 import re
 from typing import Any
@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from chamados.modules.identity.models import User
-from chamados.modules.organization.models import Department, Team, TeamMember
+from chamados.modules.organization.models import Team, TeamMember
 from tests.conftest import criar_usuario, entrar, grupo
 from tests.test_admin_users import NOVO
 
@@ -31,12 +31,11 @@ def _admin(client: TestClient, db: Session) -> User:
 def test_so_quem_tem_a_permissao(client: TestClient, db: Session) -> None:
     criar_usuario(db, grupos={"TI": "supervisor"})
     entrar(client)
-    for url in ("/admin/usuarios", "/admin/grupos", "/admin/setores"):
+    for url in ("/admin/usuarios", "/admin/grupos"):
         assert client.get(url).status_code == 403, url
     # Mesmo enviando direto: a permissão da API fica numa dependência que a tela não usa.
     assert client.post("/admin/usuarios/novo", data=_form(client, **NOVO)).status_code == 403
     assert client.post("/admin/grupos/novo", data=_form(client, name="Novo")).status_code == 403
-    assert client.post("/admin/setores/novo", data=_form(client, name="RH")).status_code == 403
     assert db.scalar(select(Team).where(Team.name == "Novo")) is None
 
 
@@ -140,50 +139,6 @@ def test_grupo_e_membros(client: TestClient, db: Session) -> None:
     assert not team.is_active  # caixa "Ativo" desmarcada
     assert "Suporte N1" not in client.get("/admin/grupos").text
     assert "Suporte N1" in client.get("/admin/grupos?inativos=true").text
-
-
-# --- setores ---------------------------------------------------------------------------------
-
-
-def test_setores_em_arvore(client: TestClient, db: Session) -> None:
-    _admin(client, db)
-    client.post("/admin/setores/novo", data=_form(client, name="Financeiro", code="FIN"))
-    fin = db.scalar(select(Department).where(Department.name == "Financeiro"))
-    assert fin is not None
-    r = client.post(
-        "/admin/setores/novo",
-        data=_form(client, name="Contas a pagar", parent_id=str(fin.public_id)),
-    )
-    assert _aviso(r.text) == "Setor criado"
-    assert 'aria-level="2"' in r.text
-    contas = db.scalar(select(Department).where(Department.name == "Contas a pagar"))
-    assert contas is not None
-
-    # O setor acima nunca é o próprio setor nem um subsetor dele.
-    r = client.get(f"/admin/setores?editar={fin.public_id}")
-    opcoes = r.text.split('id="campo-parent_id"')[1].split("</select>")[0]
-    assert "Contas a pagar" not in opcoes and ">Financeiro<" not in opcoes
-
-    dados = {"name": "Financeiro", "code": "FIN", "parent_id": "", "is_active": ""}
-    client.post(f"/admin/setores/{fin.public_id}", data=_form(client, **dados))
-    db.refresh(fin)
-    assert not fin.is_active
-
-
-def test_setor_acima_inativo_continua_nas_opcoes(client: TestClient, db: Session) -> None:
-    _admin(client, db)
-    client.post("/admin/setores/novo", data=_form(client, name="Financeiro"))
-    fin = db.scalar(select(Department).where(Department.name == "Financeiro"))
-    assert fin is not None
-    client.post(
-        "/admin/setores/novo", data=_form(client, name="Contas", parent_id=str(fin.public_id))
-    )
-    contas = db.scalar(select(Department).where(Department.name == "Contas"))
-    assert contas is not None
-    client.post(f"/admin/setores/{fin.public_id}", data=_form(client, name="Financeiro"))  # inativa
-    r = client.get(f"/admin/setores?editar={contas.public_id}")
-    # Sem a opção, o navegador escolheria "Nenhum" e salvar apagaria o vínculo.
-    assert f'<option value="{fin.public_id}" selected>Financeiro (Inativo)</option>' in r.text
 
 
 def test_filtros_da_lista_continuam(client: TestClient, db: Session) -> None:

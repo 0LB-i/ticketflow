@@ -37,20 +37,7 @@ Todos recebem um **convite por e-mail** para criar a senha ([9.4](09-login-e-aut
 - **Papel:** Agente, Administrador ou Auditor. Supervisor não é papel: é marcado no grupo.
 - O administrador pode ser uma das pessoas da TI. Nesse caso ela tem papel Administrador e também é membro do grupo.
 
-## 15.4 Setores atendidos
-
-Para quais áreas a TI trabalha. Usados só no campo "Para quem" do chamado e nos relatórios. Podem ter subsetores.
-
-| Setor | Setor acima |
-|-------|-------------|
-| *Diretoria (exemplo)* | — |
-| *Administrativo (exemplo)* | — |
-| *Financeiro (exemplo)* | Administrativo |
-| *Comercial (exemplo)* | — |
-| *RH (exemplo)* | Administrativo |
-| *TI (exemplo, para tarefas internas da própria TI)* | — |
-
-## 15.5 Categorias (proposta inicial para a TI)
+## 15.4 Categorias (proposta inicial para a TI)
 
 Proposta genérica para começar o piloto. Ajustar aos sistemas e equipamentos da empresa.
 

@@ -13,7 +13,6 @@ Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado
 | Grupo | Fila responsável | Categoria (padrão) ou quem registra; muda por transferência |
 | Responsável | Membro(s) que estão executando (**obrigatório**: não há chamado sem responsável) | Quem registra (ele mesmo, outros membros ou o grupo todo), quem assume ou quem atribui (uma ou várias pessoas do grupo, ou o grupo todo) |
 | Registrado por | Membro que criou o chamado | Sistema |
-| Setor atendido | Área para a qual a tarefa é feita (opcional) | Quem registra |
 | Pessoa atendida | Nome de quem pediu ou será atendido, em texto livre, sem conta no sistema (opcional) | Quem registra |
 | Status | Etapa do ciclo de vida (10.5) | Fluxo |
 | Observadores | Colegas que acompanham | Qualquer membro do grupo |
@@ -55,7 +54,7 @@ Grupo*         [TI – Suporte ▾]            (só os grupos de que sou membro)
 Categoria*     [TI › Acessos › Novo acesso ▾]   (filtrada pelo grupo; busca por texto)
 Título*        [______________________________________]
 Descrição      [ editor de texto (colar prints)       ]
-Para quem      Setor [Comercial ▾]   Pessoa [Carla Dias      ]   (opcionais)
+Para quem      Pessoa [Carla Dias      ]   (opcional)
 Usuários       [Ana ×] [+ adicionar pessoa ▾]   (começa com quem registra; pelo menos uma pessoa;
                                                  "Todas as pessoas do grupo" marca todos os membros)
 Observadores   [+ adicionar colega]
@@ -136,7 +135,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 **Ordenação padrão:** a data de registro (mais antigo primeiro).
 
-**Indicadores na lista:** ícone de "novidade", responsável, setor atendido, há quanto tempo está parado.
+**Indicadores na lista:** ícone de "novidade", responsável, há quanto tempo está parado.
 
 ### Distribuição do trabalho
 
@@ -179,7 +178,6 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 - **Menções:** `@nome` notifica o colega, que vira observador do chamado.
 - **Colisão:** o sistema mostra quem mais está com o chamado aberto ("Ana também está vendo", ao lado de "Registrado há…", atualizado a cada 20 s; "está vendo" é quem tem o chamado numa aba à vista: a aba escondida não pergunta e some em até 45 s, e volta na hora em que reaparece; se a sessão expirou nesse meio-tempo, o trecho só para de atualizar, sem levar ao login, para não apagar o que estava sendo escrito). Se chegou um comentário novo depois que a tela foi carregada, o mesmo trecho avisa ("1 tarefa nova · Recarregar"), e o envio de uma tarefa com a tela desatualizada não grava: a página volta com a tarefa nova à vista e o texto preservado, e o envio seguinte passa. Alterações de campos (status, cliente, "Marcar como entregue" e o `PATCH` da API) usam `ETag` para não sobrescrever a mudança de outra pessoa; tarefas, responsáveis e observadores não contam.
 - **Rascunho automático:** o texto em edição é salvo localmente no navegador e restaurado se a página for recarregada.
-- **Histórico do setor:** acesso rápido aos últimos chamados do mesmo setor atendido.
 
 ### Transferência
 

@@ -61,7 +61,6 @@ class TicketSummary(BaseModel):
     status: StatusRef
     team: Ref
     category: CategoryRef | None
-    department: Ref | None
     client: Ref | None
     beneficiary_name: str | None = Field(description="contato: quem pediu (texto livre)")
     assignee: UserRef
@@ -136,7 +135,6 @@ class TicketCreate(BaseModel):
     type: TicketType | None = Field(
         default=None, description='sem tipo, usa o da categoria (sem categoria, "incident")'
     )
-    department_id: uuid.UUID | None = None
     client_id: uuid.UUID = Field(description="cliente ativo")
     beneficiary_name: str | None = Field(
         default=None, max_length=200, description="contato: quem pediu (texto livre)"
@@ -165,7 +163,6 @@ class TicketUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=50_000)
     category_id: uuid.UUID | None = Field(default=None, description="nula tira a categoria")
     type: TicketType | None = None
-    department_id: uuid.UUID | None = None
     client_id: uuid.UUID | None = Field(default=None, description="outro cliente ativo")
     beneficiary_name: str | None = Field(
         default=None, max_length=200, description="contato: quem pediu (texto livre)"

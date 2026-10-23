@@ -83,7 +83,7 @@ EN: dict[str, str] = {
     "Essa senha é muito comum ou fácil de adivinhar. Escolha outra.": (
         "This password is too common or easy to guess. Choose another one."
     ),
-    # Usuários, grupos e setores
+    # Usuários e grupos
     "Usuário não encontrado.": "User not found.",
     "Você não pode excluir o próprio usuário.": "You cannot delete your own user.",
     "Já existe um usuário com este e-mail.": "A user with this email already exists.",
@@ -104,12 +104,6 @@ EN: dict[str, str] = {
     "Grupo não encontrado.": "Team not found.",
     "Já existe um grupo com este nome.": "A team with this name already exists.",
     "Este usuário não é membro do grupo.": "This user is not a member of the team.",
-    "Setor não encontrado.": "Department not found.",
-    "Já existe um setor com este nome no mesmo nível.": (
-        "A department with this name already exists at this level."
-    ),
-    "Já existe um setor com este código.": "A department with this code already exists.",
-    "Um setor não pode ficar abaixo dele mesmo.": "A department cannot be placed under itself.",
     # Categorias
     "Categoria não encontrada.": "Category not found.",
     "Grupo padrão não encontrado.": "Default team not found.",
@@ -126,7 +120,6 @@ EN: dict[str, str] = {
     'Responsável: use "me" ou o id.': 'Assignee: use "me" or the id.',
     "Categoria não encontrada ou inativa.": "Category not found or inactive.",
     "Grupo não encontrado ou inativo.": "Team not found or inactive.",
-    "Setor não encontrado ou inativo.": "Department not found or inactive.",
     "Cliente não encontrado ou inativo.": "Client not found or inactive.",
     "O chamado precisa de um cliente.": "The ticket needs a client.",
     # Anexos

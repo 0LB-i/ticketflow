@@ -11,7 +11,6 @@
     "administracao": "Administração",
     "usuarios": "Usuários",
     "grupos": "Grupos",
-    "setores": "Setores atendidos",
     "chamados": "Chamados",
     "clientes": "Clientes",
     "relatorios": "Relatórios",
@@ -158,18 +157,6 @@
     },
     "semMembros": "Nenhum membro ainda.",
     "salveAntes": "Salve o grupo para adicionar membros."
-  },
-  "setores": {
-    "titulo": "Setores atendidos",
-    "descricao": "Áreas da empresa para as quais as equipes trabalham. Servem para classificar os chamados e para os relatórios.",
-    "novo": "Novo setor",
-    "nome": "Nome",
-    "codigo": "Código (opcional)",
-    "acima": "Setor acima",
-    "nenhumAcima": "Nenhum (setor principal)",
-    "editar": "Editar setor",
-    "criado": "Setor criado",
-    "vazio": "Nenhum setor cadastrado ainda."
   },
   "trocarSenha": {
     "titulo": "Troque a senha provisória",

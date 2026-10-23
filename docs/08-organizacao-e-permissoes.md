@@ -1,15 +1,14 @@
-# 8. Organização, grupos, setores e permissões
+# 8. Organização, grupos e permissões
 
 Este documento define **quem é quem** no sistema e **quem pode fazer o quê**. As regras daqui são a referência para o motor de permissões do backend e para os testes de permissão.
 
-> **Modelo (decisão de 2026-10-10):** o TicketFlow é a **ferramenta de trabalho das equipes**. Só os membros das equipes têm conta: eles mesmos registram os chamados (as tarefas da equipe), distribuem entre si e acompanham. Os demais colaboradores da empresa **não** entram no sistema; quando uma tarefa é para alguém de fora, o chamado só registra o setor e o nome da pessoa atendida, para os relatórios.
+> **Modelo (decisão de 2026-10-10):** o TicketFlow é a **ferramenta de trabalho das equipes**. Só os membros das equipes têm conta: eles mesmos registram os chamados (as tarefas da equipe), distribuem entre si e acompanham. Os demais colaboradores da empresa **não** entram no sistema; quando uma tarefa é para alguém de fora, o chamado só registra o cliente e o contato (quem pediu), para os relatórios. Os setores atendidos saíram em 2026-10-23.
 
 ## 8.1 Conceitos
 
 | Conceito | Nome no código | O que é | Exemplos |
 |----------|----------------|---------|----------|
 | **Grupo** | `team` | Equipe que registra e executa chamados. Cada grupo tem uma fila. | TI – Suporte; TI – Infraestrutura; RH – Departamento Pessoal |
-| **Setor atendido** | `department` | Área da empresa **para a qual** a tarefa é feita. Só um cadastro para os relatórios: ninguém faz login como setor. | Financeiro › Contas a Pagar; Comercial; RH |
 | **Categoria** | `category` | **O que** é a tarefa. Árvore de até 3 níveis. | TI › Acessos › Novo acesso a sistema; TI › Equipamentos › Instalação |
 | **Papel** | `role` | Conjunto de permissões **globais** do usuário | Agente, Administrador, Auditor |
 | **Atribuição contextual** | — | Permissão extra que vale só em um contexto | Supervisor *de um grupo*, observador *de um chamado* |
@@ -19,8 +18,6 @@ erDiagram
     roles ||--o{ users : "papel global (1 por usuário)"
     teams ||--o{ team_members : "membros"
     users ||--o{ team_members : "membro ou supervisor"
-    departments ||--o{ departments : "subsetor de"
-    departments ||--o{ tickets : "setor atendido (opcional)"
     categories ||--o{ categories : "subcategoria de"
     teams ||--o{ categories : "grupo padrão"
 ```
@@ -31,7 +28,7 @@ erDiagram
 - Em cada grupo, o usuário é `member` ou `supervisor`. Um grupo pode ter vários supervisores.
 - Um grupo tem: nome, categorias atendidas, forma de aviso de chamado novo e se está ativo.
 - Uma categoria tem: grupo padrão, tipo padrão (incidente, requisição, tarefa), se exige aprovação do supervisor e se é **confidencial**.
-- Setores, grupos e categorias **não são apagados**, só desativados, para preservar o histórico e os relatórios.
+- Grupos e categorias **não são apagados**, só desativados, para preservar o histórico e os relatórios.
 
 ## 8.2 Papéis globais
 
@@ -64,7 +61,7 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `ticket.view_team` | Ver chamados dos grupos de que é membro |
 | `ticket.view_all` | Ver todos os chamados (inclusive de outros grupos) |
 | `ticket.comment` | Comentar (todos os comentários são visíveis a quem vê o chamado) |
-| `ticket.edit` | Alterar título, descrição, categoria, tipo, setor e pessoa atendidos e tags |
+| `ticket.edit` | Alterar título, descrição, categoria, tipo, cliente, contato e tags |
 | `ticket.assign_self` | Assumir um chamado ("pegar para mim") |
 | `ticket.assign_others` | Atribuir a outro membro do grupo |
 | `ticket.transfer` | Transferir para outro grupo |
@@ -86,7 +83,7 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `report.view_team` | Relatórios dos próprios grupos |
 | `report.view_all` | Relatórios de todos os grupos |
 | `admin.users` | Usuários: criar, desativar, alterar papel |
-| `admin.organization` | Grupos, membros e setores atendidos |
+| `admin.organization` | Grupos e membros |
 | `admin.catalog` | Categorias, tipos e status (inclusive criar novos status) |
 | `admin.settings` | Configurações gerais e identidade visual |
 | `audit.view` | Log de auditoria (logins, mudanças de configuração e de permissão) |
@@ -154,7 +151,7 @@ Todos os comentários e anexos são visíveis a quem vê o chamado: não existe 
 | Campo | Membro do grupo | Supervisor do grupo | Observador de outro grupo |
 |-------|-----------------|---------------------|---------------------------|
 | Título, descrição, categoria, tipo | Sim | Sim | — |
-| Setor e pessoa atendidos | Sim | Sim | — |
+| Cliente e contato | Sim | Sim | — |
 | Grupo (transferência) | Sim, com motivo | Sim | — |
 | Responsável | Assumir para si (todo chamado tem responsável: não volta para a fila) | Qualquer membro do grupo | — |
 | Status | Conforme o fluxo | Conforme o fluxo + aprovar | — |

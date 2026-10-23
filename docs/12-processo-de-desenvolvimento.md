@@ -87,7 +87,7 @@ Não há homologação separada: com um único desenvolvedor, mais um servidor s
 | Telas | pytest (o HTML que cada rota devolve) | Campos, permissões, redirecionamentos e mensagens de erro (`test_web_*.py`) |
 | Ponta a ponta | Playwright | Fluxos completos: registrar → assumir → aguardar → concluir → reabrir; aprovação; transferência |
 
-**Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com grupos, setores atendidos, usuários de todos os perfis e chamados em todos os status.
+**Dados de teste:** *factories* (factory-boy) no backend e um comando `chamados dev seed`, que cria uma empresa fictícia com grupos, usuários de todos os perfis e chamados em todos os status.
 
 ## 12.8 Quando houver remoto no GitHub (plano guardado)
 

@@ -20,7 +20,7 @@ Quando o SSO existir, o administrador poderá ligar **"SSO obrigatório"**: o lo
 1. A empresa instala o sistema no servidor ([ADR 0010](adr/0010-producao-systemd.md)). A instalação já traz um **administrador padrão**: usuário `admin`, senha `admin` (decisão de 2026-10-10).
 2. Logo depois de instalar, alguém da TI entra com `admin` / `admin`. O sistema leva direto para a tela **"Troque a senha provisória"**, e até a troca a API recusa qualquer outra ação, exceto sair.
 3. Na tela de usuários, o administrador cadastra um e-mail para o usuário `admin` (para poder receber links de redefinição) e, se quiser, cria administradores nominais.
-4. O administrador configura grupos, setores atendidos e categorias e cadastra os usuários, que recebem um convite por e-mail.
+4. O administrador configura grupos e categorias e cadastra os usuários, que recebem um convite por e-mail.
 
 Detalhes do administrador padrão:
 
@@ -50,7 +50,7 @@ sequenceDiagram
     A->>DB: cria sessão (user_sessions)
     A-->>S: Set-Cookie: sessão (HttpOnly, Secure, SameSite=Lax) + cookie CSRF
     S->>A: GET /api/v1/me
-    A-->>S: usuário, papel, setor, grupos, permissões
+    A-->>S: usuário, papel, grupos, permissões
 ```
 
 ### Regras
@@ -97,7 +97,7 @@ sequenceDiagram
 - O **backend** é o cliente OIDC confidencial. O navegador nunca recebe nem guarda tokens do provedor.
 - **Identificação do usuário:** primeiro pelo `sub` (`users.external_id`). No primeiro login, pelo e-mail, se `email_verified` for verdadeiro e o domínio estiver na lista permitida.
 - **Criação automática (JIT):** se o usuário não existir e o domínio for permitido, ele é criado com o papel padrão (Agente, sem grupo até o admin incluí-lo) e os mapeamentos são aplicados. Domínios fora da lista são recusados.
-- **Configuração** (tela de administração): URL do emissor (*issuer*), client ID, referência ao segredo, domínios permitidos, nomes das *claims* (nome, e-mail, setor, grupos) e a opção "SSO obrigatório".
+- **Configuração** (tela de administração): URL do emissor (*issuer*), client ID, referência ao segredo, domínios permitidos, nomes das *claims* (nome, e-mail, grupos) e a opção "SSO obrigatório".
 - **Desligamento de colaborador:** desativado no provedor, ele não consegue mais entrar. Como as sessões têm duração limitada (9.7), o acesso termina em poucas horas. A sincronização ativa (SCIM) fica para o futuro.
 
 ## 9.6 Mapeamento de grupos do provedor de identidade
@@ -113,7 +113,6 @@ O administrador associa grupos do Entra ID / Google / Keycloak a elementos do si
 | `GG-TI-Infra-Coord` | Supervisor do grupo **TI – Infraestrutura** |
 | `GG-Auditoria` | Papel **Auditor** |
 
-- O **setor** pode vir de um atributo (ex.: `department` no Entra ID), associado a um setor cadastrado por nome ou código.
 - Os mapeamentos são aplicados **a cada login**. O que vem do provedor é marcado com `source = 'idp'`: se a pessoa sair do grupo no provedor, sai também do grupo no sistema. Vínculos feitos à mão (`source = 'manual'`) não são afetados.
 - Se uma pessoa estiver em mais de um grupo mapeado para papéis diferentes, vale o **papel mais alto**: Admin > Auditor > Agente.
 

@@ -12,7 +12,7 @@ Na revisão de escopo de 2026-10-09, vários itens passaram para **W** (depois d
 
 | ID | Requisito | Prior. |
 |----|-----------|--------|
-| RF-01.1 | Membro da equipe registra chamado com título, descrição, categoria, setor e pessoa atendidos e anexos | M |
+| RF-01.1 | Membro da equipe registra chamado com título, descrição, categoria, cliente e pessoa atendidos e anexos | M |
 | RF-01.2 | Número sequencial legível (ex.: `#2026-000123`) além do ID interno | M |
 | RF-01.3 | Fluxo de status configurável, com um fluxo padrão (ver abaixo) | M |
 | RF-01.4 | ~~Prioridade (baixa, média, alta, crítica) definida por impacto × urgência~~ (removida em 2026-10-13) | W |
@@ -27,7 +27,7 @@ Na revisão de escopo de 2026-10-09, vários itens passaram para **W** (depois d
 | RF-01.13 | Pesquisa de satisfação ao fechar | W (sem solicitante com conta) |
 | RF-01.14 | Abertura de chamado por e-mail (caixa monitorada) e resposta por e-mail | W (sem solicitante com conta) |
 | RF-01.15 | Tipos de chamado: incidente, requisição, tarefa | M |
-| RF-01.16 | Abertura em nome de outra pessoa (telefone, presencial) | W (substituído pelos campos setor e pessoa atendidos) |
+| RF-01.16 | Abertura em nome de outra pessoa (telefone, presencial) | W (substituído pelos campos cliente e pessoa atendidos) |
 | RF-01.17 | Aprovação pelo supervisor do grupo, por categoria | S |
 | RF-01.18 | Respostas prontas (macros) pessoais, do grupo e globais | W (futuro) |
 | RF-01.19 | Categorias confidenciais com visibilidade restrita | M |
@@ -57,9 +57,9 @@ Removido: não haverá SLA (metas de prazo, calendário de expediente, alertas).
 | RF-04.3 | Sincronização / login via LDAP/Active Directory | W |
 | RF-04.4 | Papéis: agente, admin, auditor (RBAC) + supervisor por grupo | M |
 | RF-04.5 | Regras de visibilidade conforme [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) | M |
-| RF-04.6 | Setores atendidos em árvore (só para classificação e relatórios); grupos com membros e supervisores | M |
+| RF-04.6 | Grupos com membros e supervisores (os setores atendidos saíram em 2026-10-23) | M |
 | RF-04.7 | MFA (TOTP), obrigatório para administradores no login local | S |
-| RF-04.8 | Mapeamento de grupos do provedor de identidade para papel, setor e grupos | W (depende de SSO) |
+| RF-04.8 | Mapeamento de grupos do provedor de identidade para papel e grupos | W (depende de SSO) |
 | RF-04.9 | Papéis personalizados | W (futuro) |
 
 Detalhes em [Organização e permissões](08-organizacao-e-permissoes.md) e [Login e autenticação](09-login-e-autenticacao.md).
@@ -105,7 +105,7 @@ Detalhes em [Organização e permissões](08-organizacao-e-permissoes.md) e [Log
 | ID | Requisito | Prior. |
 |----|-----------|--------|
 | RF-08.1 | Painel: abertos, por status, por equipe | S |
-| RF-08.2 | Indicadores: tempo na fila, tempo até a conclusão, demanda por setor atendido | S |
+| RF-08.2 | Indicadores: tempo na fila, tempo até a conclusão | S |
 | RF-08.3 | Exportação CSV | S |
 
 ## Requisitos não funcionais

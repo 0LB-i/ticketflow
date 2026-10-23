@@ -25,7 +25,7 @@ O dia D é marcado no início da Sprint 5. Sugestão: uma **terça ou quarta-fei
 | Quando | O quê | Responsável | Pronto quando |
 |--------|-------|-------------|---------------|
 | D−15 | Servidor de produção pronto conforme o [manual](18-manual-do-servidor.md): HTTPS e e-mail de envio funcionando | Desenvolvedor | Todos os passos de 18.3 conferidos |
-| D−10 | Troca da senha do `admin` padrão (se ainda não foi feita no D−15) e carga inicial ([15](15-estrutura-inicial.md)): grupos, setores atendidos, categorias, usuários convidados | Administrador | Todos os membros conseguem entrar |
+| D−10 | Troca da senha do `admin` padrão (se ainda não foi feita no D−15) e carga inicial ([15](15-estrutura-inicial.md)): grupos, categorias, usuários convidados | Administrador | Todos os membros conseguem entrar |
 | D−7 | **Treinamento** de 1 hora (16.5) + guia rápido (16.6) | Desenvolvedor | Cada membro registrou, assumiu e concluiu um chamado de teste |
 | D−3 a D−1 | **Levantamento das tarefas em aberto**: cada membro lista o que está com ele hoje (e-mails, anotações, mensagens, planilhas) | Equipe da TI | Lista pronta para cadastrar |
 | **D** | **Virada.** Até o meio-dia, cada um cadastra as próprias tarefas em aberto. A partir daí vale a regra: *se não está no TicketFlow, não existe* | Equipe da TI | Nenhuma tarefa em aberto fora do sistema |
@@ -39,7 +39,7 @@ O dia D é marcado no início da Sprint 5. Sugestão: uma **terça ou quarta-fei
 Regras simples, para que o sistema reflita de fato o trabalho da TI. A equipe ajusta na retrospectiva.
 
 1. **Todo pedido vira chamado**, por qualquer canal que chegue, se levar mais de 15 minutos ou depender de outra pessoa. Pedidos rápidos resolvidos na hora são opcionais.
-2. **Quem recebe o pedido registra**, preenchendo setor e pessoa atendidos.
+2. **Quem recebe o pedido registra**, preenchendo cliente e pessoa atendidos.
 3. **Tarefa parada vai para "Aguardando"**, com um comentário dizendo o que falta.
 4. **Concluir com o que foi feito.** O texto da conclusão é o que vai ajudar na próxima vez.
 5. **Combinar no chamado.** Decisões e informações importantes ficam em comentário, não só na conversa.

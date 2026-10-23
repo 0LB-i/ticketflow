@@ -1,4 +1,4 @@
-"""Papéis, grupos e setores atendidos (docs/08)."""
+"""Papéis e grupos (docs/08)."""
 
 import uuid
 from datetime import datetime
@@ -13,7 +13,6 @@ from sqlalchemy import (
     Identity,
     SmallInteger,
     Text,
-    UniqueConstraint,
     func,
     text,
 )
@@ -34,25 +33,6 @@ class Role(Base):
     permissions: Mapped[list[str]] = mapped_column(ARRAY(Text))
     is_system: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class Department(Base):
-    """Setor atendido: só classificação e relatórios, sem login (docs/08 §8.1)."""
-
-    __tablename__ = "departments"
-    __table_args__ = (UniqueConstraint("parent_id", "name", postgresql_nulls_not_distinct=True),)
-
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
-    public_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, unique=True, server_default=text("gen_random_uuid()")
-    )
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"))
-    name: Mapped[str] = mapped_column(Text)
-    code: Mapped[str | None] = mapped_column(Text, unique=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    parent: Mapped["Department | None"] = relationship(remote_side=[id])
 
 
 class Team(Base):

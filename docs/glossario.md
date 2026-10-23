@@ -11,7 +11,6 @@ Termos do domínio em português e o nome usado no código (ver [ADR 0001](adr/0
 | Responsável | `assignee` | Membro que está executando o chamado |
 | Grupo (fila) | `team` | Equipe que registra e executa chamados |
 | Supervisor | `team_members.role = 'supervisor'` | Coordenador de um grupo; aprova chamados |
-| Setor atendido | `department` | Área da empresa para a qual a tarefa é feita. Só para relatórios: setores não têm login |
 | Pessoa atendida | `beneficiary_name` | Nome, em texto livre, de quem pediu ou será atendido. Não tem conta no sistema |
 | Papel | `role` | Conjunto de permissões globais: agente, admin ou auditor |
 | Categoria | `category` | O que é a tarefa |

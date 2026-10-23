@@ -37,7 +37,7 @@ from chamados.modules.clients.models import Client
 from chamados.modules.identity.deps import Auth
 from chamados.modules.identity.models import User
 from chamados.modules.jobs.service import publish
-from chamados.modules.organization.models import Department, Team, TeamMember
+from chamados.modules.organization.models import Team, TeamMember
 from chamados.modules.tickets import rules
 from chamados.modules.tickets.models import (
     Ticket,
@@ -62,7 +62,7 @@ Assignee = Literal["me"] | uuid.UUID
 
 
 def ref(
-    obj: User | Team | Category | Department | Client | TicketStatus | ResolutionCode | None,
+    obj: User | Team | Category | Client | TicketStatus | ResolutionCode | None,
 ) -> Any:
     """Referência gravada no histórico: id e nome na data do evento."""
     if obj is None:
@@ -410,12 +410,11 @@ def _apply_status(ticket: Ticket, before: TicketStatus | None, status: TicketSta
 INACTIVE = {
     Category: "Categoria não encontrada ou inativa.",
     Team: "Grupo não encontrado ou inativo.",
-    Department: "Setor não encontrado ou inativo.",
     Client: "Cliente não encontrado ou inativo.",
 }
 
 
-async def _active[M: (Category, Team, Department, Client)](
+async def _active[M: (Category, Team, Client)](
     db: AsyncSession, model: type[M], public_id: uuid.UUID
 ) -> M:
     """Cadastro ativo pelo id público; 422 se não existe ou foi inativado."""
@@ -571,7 +570,6 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     member = team.id in auth.actor.teams
     if not member and not can(auth.actor, P.TICKET_VIEW_ALL):
         raise HTTPException(403, "Você só registra chamados nos grupos de que é membro.")
-    department = await _active(db, Department, data.department_id) if data.department_id else None
     client = await _active(db, Client, data.client_id)
     if data.watcher_ids and not can(auth.actor, P.TICKET_WATCH):
         raise HTTPException(403, FORBIDDEN)
@@ -603,7 +601,6 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
         description=data.description,
         type=data.type or (category.default_type if category else "incident"),
         created_by_id=auth.user.id,
-        department_id=department.id if department else None,
         client_id=client.id,
         beneficiary_name=optional_text(data.beneficiary_name),
         team_id=team.id,
@@ -637,7 +634,6 @@ EDIT_FIELDS = {
     "description",
     "category_id",
     "type",
-    "department_id",
     "client_id",
     "beneficiary_name",
     "started_at",
@@ -741,10 +737,6 @@ async def update(
         new_id = changes["category_id"]
         category = await _active(db, Category, new_id) if new_id else None
         put("category_id", category.id if category else None, ref(ticket.category), ref(category))
-    if "department_id" in changes:
-        new_id = changes["department_id"]
-        dept = await _active(db, Department, new_id) if new_id else None
-        put("department_id", dept.id if dept else None, ref(ticket.department), ref(dept))
     if "client_id" in changes:
         if changes["client_id"] is None:
             raise HTTPException(422, "O chamado precisa de um cliente.")

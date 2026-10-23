@@ -40,7 +40,7 @@ Authorization: Bearer tf_...
 | `read` | Só `GET`: listar e ler chamados, tarefas, histórico, anexos, opções dos formulários |
 | `write` | Também criar e alterar chamados, comentar, anexar |
 
-- **Fora da administração:** as rotas que exigem uma permissão de administração respondem 403 a qualquer token, mesmo o de um administrador: usuários, tokens de todos, a gestão de grupos, setores, categorias, status e códigos de resolução (criar, alterar, ordenar, remover), configurações, auditoria e o cadastro de clientes. As leituras abertas a qualquer pessoa logada continuam: `GET /teams` (sem os e-mails dos membros), `/departments`, `/categories`, `/statuses`, `/resolution-codes`, `/clients/options`, `/work-hours`.
+- **Fora da administração:** as rotas que exigem uma permissão de administração respondem 403 a qualquer token, mesmo o de um administrador: usuários, tokens de todos, a gestão de grupos, categorias, status e códigos de resolução (criar, alterar, ordenar, remover), configurações, auditoria e o cadastro de clientes. As leituras abertas a qualquer pessoa logada continuam: `GET /teams` (sem os e-mails dos membros), `/departments`, `/categories`, `/statuses`, `/resolution-codes`, `/clients/options`, `/work-hours`.
 - **Só pela interface:** sair e trocar a senha (403 com token).
 - Token inválido, revogado, vencido ou de usuário inativo/excluído: 401. Desativar ou excluir a pessoa revoga os tokens dela: reativar a conta não os traz de volta. Requisições com token não usam cookie nem CSRF.
 
@@ -56,7 +56,7 @@ Authorization: Bearer tf_...
 | `GET` | `/tickets/counts` | Quantos chamados há em cada fila (os contadores das abas) |
 | `POST` | `/tickets` | Registrar chamado: `assignee` (`"me"` ou um membro do grupo) e `client_id` são obrigatórios |
 | `GET` | `/tickets/{id}` | Detalhe |
-| `PATCH` | `/tickets/{id}` | Alterar campos (título, categoria, setor e pessoa atendidos, tags) |
+| `PATCH` | `/tickets/{id}` | Alterar campos (título, categoria, cliente e contato, tags) |
 | `POST` | `/tickets/{id}/transitions` | Mudar status pelo fluxo: `{"action": "close", "comment": "...", "resolution_code_id": ...}`. Ações: `wait`, `resume`, `close`, `reopen`, `cancel` ([10.5](10-chamados.md#105-status-e-fluxo)); o comentário vira comentário do chamado |
 | `GET` | `/tickets/{id}/comments` | Listar comentários |
 | `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "mention_ids": [...], "attachment_ids": [...]}`. Os `@mencionados` vão em `mention_ids` (o editor os escolhe numa lista) e viram observadores |
@@ -107,7 +107,7 @@ Um chamado que o usuário não pode ver responde `403` ("Você não tem acesso a
 
 ### Demais recursos
 
-`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/teams`, `/departments` (setores atendidos), `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/settings`
+`/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/settings`
 
 Futuro: `/saved-views`, `/admin/idp-mappings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
 
@@ -150,7 +150,6 @@ Content-Type: application/json
   "description": "Financeiro avisou por telefone: aparece 'offline'.",
   "team_id": "5a0c...",
   "category_id": "b6f1...",
-  "department_id": "9e3d...",
   "beneficiary_name": "João Silva",
   "assignee": "me"
 }

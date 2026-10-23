@@ -16,14 +16,14 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 | 5 | [API](docs/05-api.md) | Convenções REST, autenticação, endpoints; webhooks (futuro) |
 | 6 | [Integração com IA](docs/06-integracao-ia.md) | Plano para depois da v1.0: casos de uso, arquitetura, segurança e LGPD |
 | 7 | [Roadmap](docs/07-roadmap.md) | Fases, sprints, entregas e critérios de pronto |
-| 8 | [Organização e permissões](docs/08-organizacao-e-permissoes.md) | Grupos, setores atendidos, papéis, permissões e visibilidade |
+| 8 | [Organização e permissões](docs/08-organizacao-e-permissoes.md) | Grupos, papéis, permissões e visibilidade |
 | 9 | [Login e autenticação](docs/09-login-e-autenticacao.md) | Login por e-mail e senha, MFA, sessões |
 | 10 | [Como funcionam os chamados](docs/10-chamados.md) | Registro, status, fluxo, trabalho da equipe, aprovações, notificações |
 | 11 | [Anexos e arquivos](docs/11-anexos-e-arquivos.md) | Onde se anexa, tipos, limites, armazenamento, permissões |
 | 12 | [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md) | Repositório local, tarefas, commits, verificação local, definição de pronto, testes |
 | 13 | [Telas e navegação](docs/13-telas-e-navegacao.md) | Mapa de telas, menus por perfil, rascunhos e padrões de interação |
 | 14 | [Relatórios e indicadores](docs/14-relatorios-e-indicadores.md) | Indicadores, painéis por perfil e exportações |
-| 15 | [Estrutura da empresa](docs/15-estrutura-inicial.md) | Modelo para a carga inicial: grupos, usuários, setores atendidos, categorias |
+| 15 | [Estrutura da empresa](docs/15-estrutura-inicial.md) | Modelo para a carga inicial: grupos, usuários, categorias |
 | 16 | [Plano de implantação](docs/16-implantacao.md) | Virada da TI, treinamento, combinados, acompanhamento e expansão |
 | 17 | [Identidade visual](docs/17-identidade-visual.md) | Nome, cores, contraste, tipografia, logotipo e e-mails |
 | 18 | [Manual do servidor](docs/18-manual-do-servidor.md) | Instalação no Ubuntu 24.04, atualização, rotina e problemas comuns |
