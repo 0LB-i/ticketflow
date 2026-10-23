@@ -94,6 +94,7 @@ HTTP ─► rota (router.py) ─► dependências ─► service.py / regras ─
 1. `main.create_app()` cria a aplicação, registra os tratadores de erro, inclui os routers de cada módulo sob `/api/v1`, devolve 404 em JSON para qualquer `/api/*` desconhecido e, por último, monta `/static` e as telas do servidor (3.11); um endereço desconhecido fora de `/api` mostra a página de erro.
 2. **Autenticação** (`identity/deps.py`, `get_auth`): com `Authorization: Bearer`, vale o token de API (abaixo); sem ele, lê o cookie de sessão, confere o CSRF em métodos que alteram dados, **relê o usuário e os grupos a cada requisição** (mudanças de papel valem na hora) e monta o `Actor`. Com a senha provisória (`must_change_password`), só três rotas funcionam até a troca. O `Auth` leva `session` **ou** `token` (os services só usam `user` e `actor`); o que só faz sentido na interface (sair, trocar a senha) pede `require_session()`.
    - **Token de API** (`api_tokens`, docs/05): age em nome de um usuário, com as permissões e a visibilidade dele; sem cookie e sem CSRF. O escopo `read` só passa em `GET`; `write` também altera. Um token nunca passa por `require(P.X)`: administração, auditoria e clientes ficam fora do alcance dele, mesmo o de um administrador. No banco fica só o SHA-256; o valor (`tf_…`) aparece uma vez, no `chamados token create`. Usuário inativo ou excluído, token revogado ou vencido: 401.
+   - **`Idempotency-Key`** (`identity/idempotency.py`, um middleware ASGI, porque só ele vê a resposta inteira): num `POST` em `/api/` com `Authorization` e a chave, a primeira resposta de sucesso (2xx) fica em `idempotency_keys` e volta igual, com `Idempotent-Replayed: true`, para a mesma chave do mesmo token, sem executar de novo. Mesma chave com outro corpo: 422; a primeira ainda em andamento: 409 (parada há mais de 5 min, a nova assume); erro não fica guardado. Opcional; pela interface (sessão), ignorada.
 3. **Rota → service:** rotas simples (cadastros) fazem o trabalho no próprio `router.py`; quando há regra de negócio, a rota delega a um `service.py`. Não existe camada de *repository*: os services usam o SQLAlchemy diretamente. Nos chamados, a montagem das respostas de leitura (lista, detalhe, tarefas, histórico) fica em `queries.py`, sem objetos HTTP de resposta: a API, as telas e as integrações que vierem a usam igual.
 4. **Transação:** cada operação faz um único `commit` no fim. Histórico (`ticket_events`) e auditoria (`audit_log`) entram na **mesma transação** da mudança.
 5. **Erros:** qualquer `HTTPException(status, "mensagem em português")` vira Problem Details (`{"type", "title", "status", "detail"}`) em `core/errors.py`, com `title` e `detail` traduzidos para o idioma do `Accept-Language` (3.6). Erros de validação viram 422 com a lista `errors`; exceções não tratadas viram 500 e vão para o log.
@@ -116,7 +117,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 
 | Módulo | Arquivos | Responsabilidade | Rotas |
 |--------|----------|------------------|-------|
-| `identity` | `models` (User, UserSession, AuthToken, ApiToken), `router` (login, `/me`), `admin_router` (usuários), `deps`, `sessions`, `passwords`, `tokens` (segredos e tokens de API), `ratelimit`, `service` (convites e e-mails), `schemas` | Login, sessões e CSRF, senhas (Argon2id), convite e redefinição, força bruta, usuários, idioma da pessoa | `/auth/*`, `/me`, `/users` |
+| `identity` | `models` (User, UserSession, AuthToken, ApiToken), `router` (login, `/me`), `admin_router` (usuários), `deps`, `sessions`, `passwords`, `tokens` (segredos e tokens de API), `idempotency` (middleware da `Idempotency-Key`), `ratelimit`, `service` (convites e e-mails), `schemas` | Login, sessões e CSRF, senhas (Argon2id), convite e redefinição, força bruta, usuários, idioma da pessoa | `/auth/*`, `/me`, `/users` |
 | `organization` | `models` (Role, Team, TeamMember, Department), `router` | Papéis, grupos e membros, setores atendidos | `/teams`, `/departments` |
 | `catalog` | `models` (Category, TicketStatus, ResolutionCode), `router` | Árvore de categorias (até 3 níveis; sem tela desde que saíram dos chamados), status por `kind`, códigos de resolução | `/categories`, `/statuses`, `/resolution-codes` |
 | `clients` | `models` (Client), `router`, `documents` (CPF, CNPJ alfanumérico, telefone, CEP) | Cadastro de clientes pessoa física e jurídica, com contato e endereço; sem exclusão (inativa) | `/clients` |
@@ -263,6 +264,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0030` | `outbox` (eventos de domínio) e `jobs` (fila de tarefas), consumidos pelo worker |
 | `0031` | Índice `ticket_comments_done_idx` (`done_at` das tarefas não removidas), para o período dos relatórios |
 | `0032` | `api_tokens` (tokens de API, em nome de um usuário) |
+| `0033` | `idempotency_keys` (respostas guardadas da `Idempotency-Key`) |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -346,7 +348,7 @@ chamados worker, a cada volta:                  ▼
 - **Repasse** (`service.relay`): cada evento vai ao handler do seu tipo (`worker.HANDLERS`, hoje os de `notifications/handlers.py`), que cria as tarefas com `service.enqueue()`. Um handler que falha é desfeito (savepoint), o erro fica em `outbox.error` e no log, e os outros eventos seguem. Evento sem handler só é marcado.
 - **Tarefas** (`jobs`, `worker.TASKS`): `async def tarefa(db, settings, args)`, numa sessão própria (faz o próprio commit). Enquanto roda, a linha fica travada (`FOR UPDATE SKIP LOCKED`): outro worker a pula, e se o processo cair a transação é desfeita e a tarefa volta sozinha para a fila. Não há status "rodando". A entrega é "pelo menos uma vez".
 - **Falha:** volta para a fila com espera de 30 s, 2 min, 8 min e 32 min (`retry_delay`), com o erro em `last_error`; na 5ª (`max_attempts`) fica `failed` e vai para o log.
-- **Rotinas** (`worker.ROUTINES`, horário de São Paulo): `attachments.purge` às 03:00 e `jobs.cleanup` às 03:30 (apaga tarefas `done` e eventos processados há mais de 7 dias, e `failed` há mais de 30). A `dedup_key` (`attachments.purge:2026-10-21`) é única: dois workers não agendam a mesma rotina, e um worker que sobe depois do horário a roda na hora. No lugar do advisory lock sugerido no docs/03, porque ele sozinho não lembraria se a rotina do dia já rodou.
+- **Rotinas** (`worker.ROUTINES`, horário de São Paulo): `attachments.purge` às 03:00 e `jobs.cleanup` às 03:30 (apaga tarefas `done` e eventos processados há mais de 7 dias, `failed` há mais de 30 e as `Idempotency-Key` com mais de 24 h). A `dedup_key` (`attachments.purge:2026-10-21`) é única: dois workers não agendam a mesma rotina, e um worker que sobe depois do horário a roda na hora. No lugar do advisory lock sugerido no docs/03, porque ele sozinho não lembraria se a rotina do dia já rodou.
 - **Encerramento:** SIGTERM (o `systemctl stop`) ou SIGINT terminam a tarefa em curso e saem. Um erro de banco derruba o processo, e o systemd o sobe de novo (`Restart=on-failure`).
 - **Serviço:** `ticketflow-worker.service` acompanha o `ticketflow.service` (`PartOf` e `WantedBy=ticketflow.service`): sobe, para e reinicia junto com ele, mas é um processo à parte. Rodar dentro do uvicorn foi descartado: o `--reload` e os reinícios da API cortariam tarefas no meio, e um travamento de um derrubaria o outro.
 
@@ -477,7 +479,7 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 | Status personalizados, ocultar comentário, testes ponta a ponta (Playwright) | — | Sprint 5 |
 | Tela da auditoria | A API `GET /admin/audit-log` já existe | Sprint 5 |
 | MFA, sessões, aprovações, sino de notificações | — | Fase 2 |
-| Tela dos tokens de API, `Idempotency-Key`, webhooks, IA, MCP | `identity`, `jobs` (webhooks) | Depois da v1.0, [docs/06](docs/06-integracao-ia.md) |
+| Tela dos tokens de API, webhooks, IA, MCP | `identity`, `jobs` (webhooks) | Depois da v1.0, [docs/06](docs/06-integracao-ia.md) |
 
 ## 11. Receitas
 

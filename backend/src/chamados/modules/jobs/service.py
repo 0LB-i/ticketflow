@@ -11,6 +11,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from chamados.config import Settings
+from chamados.modules.identity import idempotency
+from chamados.modules.identity.models import IdempotencyKey
 from chamados.modules.jobs.models import Job, OutboxEvent
 
 log = structlog.get_logger(__name__)
@@ -136,8 +138,11 @@ async def schedule(db: AsyncSession, routines: Mapping[str, time], now: datetime
 
 
 async def cleanup(db: AsyncSession, _settings: Settings, _args: dict[str, Any]) -> None:
-    """Rotina diária: sem ela, a fila e o outbox crescem para sempre."""
+    """Rotina diária: sem ela, a fila, o outbox e as Idempotency-Key crescem para sempre."""
     await db.execute(delete(OutboxEvent).where(OutboxEvent.processed_at < func.now() - KEEP_DONE))
+    await db.execute(
+        delete(IdempotencyKey).where(IdempotencyKey.created_at < func.now() - idempotency.KEEP)
+    )
     await db.execute(
         delete(Job).where(
             or_(

@@ -1,4 +1,4 @@
-"""Usuários, sessões, tokens de uso único (docs/09) e tokens de API (docs/05)."""
+"""Usuários, sessões, tokens de uso único (docs/09), tokens de API e Idempotency-Key (docs/05)."""
 
 import uuid
 from datetime import datetime
@@ -12,10 +12,11 @@ from sqlalchemy import (
     Identity,
     SmallInteger,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import CITEXT, INET, UUID
+from sqlalchemy.dialects.postgresql import BYTEA, CITEXT, INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from chamados.db.base import Base
@@ -119,3 +120,23 @@ class ApiToken(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(lazy="joined")
+
+
+class IdempotencyKey(Base):
+    """`Idempotency-Key` de um POST com token de API (docs/05): a resposta de sucesso fica guardada
+    e é repetida, sem executar de novo, para a mesma chave do mesmo token."""
+
+    __tablename__ = "idempotency_keys"
+    __table_args__ = (UniqueConstraint("owner_hash", "key"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    # SHA-256 do header Authorization: a chave vale para um token.
+    owner_hash: Mapped[str] = mapped_column(Text)
+    key: Mapped[str] = mapped_column(Text)
+    # SHA-256 do método, do caminho e do corpo: a mesma chave com outra requisição é recusada.
+    fingerprint: Mapped[str] = mapped_column(Text)
+    # Nulo enquanto a primeira requisição está em andamento.
+    status_code: Mapped[int | None] = mapped_column(SmallInteger)
+    headers: Mapped[list[list[str]] | None] = mapped_column(JSONB)
+    body: Mapped[bytes | None] = mapped_column(BYTEA)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

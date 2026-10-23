@@ -33,6 +33,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Colisão no chamado: ao lado de "Registrado há…", a tela mostra quem mais está com o chamado aberto e avisa quando chega uma tarefa nova ("1 tarefa nova · Recarregar"), atualizando a cada 20 s; uma tarefa enviada com a tela desatualizada não é gravada, e a página volta com a tarefa nova e o texto preservado. Mudar o status, o cliente ou marcar como entregue depois que outra pessoa mudou o chamado mostra um aviso, sem gravar. Na API, o `GET /tickets/{id}` e o `PATCH` devolvem o header `ETag` (e o campo `etag`), e o `PATCH` com `If-Match` desatualizado responde **412**; sem `If-Match`, nada muda para as integrações. Sem migração.
 - Migração `0004`: categorias, status, códigos de resolução, chamados, grupos que atuaram, observadores, comentários e histórico (só aceita inserção).
 - Tokens de API para integrações e agentes de IA: `Authorization: Bearer`, em nome de um usuário e com as permissões dele; escopo de leitura ou de escrita; sem acesso à administração. Criados, listados e revogados no servidor por `chamados token create|list|revoke` (vão para a auditoria). Migração `0032`: `api_tokens`.
+- `Idempotency-Key` nos `POST` com token de API: repetir a chamada (ex.: depois de um timeout) devolve a primeira resposta, sem registrar de novo. A rotina diária do worker apaga as chaves com mais de 24 h. Migração `0033`: `idempotency_keys`.
 
 ### Mudado
 

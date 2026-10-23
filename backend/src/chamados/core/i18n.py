@@ -54,6 +54,13 @@ EN: dict[str, str] = {
     "Este token de API só permite leitura.": "This API token is read-only.",
     "Tokens de API não acessam a administração.": "API tokens cannot access administration.",
     "Esta ação só pode ser feita pela interface.": "This action is only available in the app.",
+    "Idempotency-Key: de 1 a 255 caracteres.": "Idempotency-Key: 1 to 255 characters.",
+    "Uma requisição com esta Idempotency-Key ainda está em andamento.": (
+        "A request with this Idempotency-Key is still in progress."
+    ),
+    "Esta Idempotency-Key já foi usada com outra requisição.": (
+        "This Idempotency-Key was already used with a different request."
+    ),
     "Troque a senha provisória antes de continuar.": (
         "Change the temporary password before continuing."
     ),

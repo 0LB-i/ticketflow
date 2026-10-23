@@ -38,7 +38,8 @@ SENHA = "uma senha longa de teste"
 TABELAS = (
     "ticket_events, ticket_comments, ticket_watchers, ticket_co_assignees, ticket_teams, "
     "ticket_reads, tickets, attachments, categories, settings, audit_log, auth_tokens, "
-    "user_sessions, api_tokens, team_members, teams, departments, users, clients, outbox, jobs"
+    "user_sessions, api_tokens, idempotency_keys, team_members, teams, departments, users, "
+    "clients, outbox, jobs"
 )
 
 
@@ -53,11 +54,15 @@ def _argon2_rapido() -> None:
 def database_url() -> Iterator[str]:
     """Banco de teste limpo e migrado até a última revisão."""
     # O que o último teste deixou (ex.: chamado sem categoria) pode impedir o downgrade: a
-    # migração 0006 volta a exigir a categoria. Num banco novo, as tabelas ainda não existem.
+    # migração 0006 volta a exigir a categoria. Só as tabelas que existem: num banco novo ou numa
+    # revisão anterior (a tabela de uma migração nova), algumas ainda não foram criadas.
     engine = create_engine(TEST_DATABASE_URL)
     with engine.begin() as conn:
-        if conn.scalar(text("SELECT to_regclass('tickets')")) is not None:
-            conn.execute(text(f"TRUNCATE {TABELAS} RESTART IDENTITY CASCADE"))
+        existentes = [
+            t for t in TABELAS.split(", ") if conn.scalar(text(f"SELECT to_regclass('{t}')"))
+        ]
+        if existentes:
+            conn.execute(text(f"TRUNCATE {', '.join(existentes)} RESTART IDENTITY CASCADE"))
     engine.dispose()
     cfg = alembic_config(TEST_DATABASE_URL)
     command.downgrade(cfg, "base")

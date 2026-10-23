@@ -19,6 +19,7 @@ from chamados.modules.audit.router import router as audit_router
 from chamados.modules.catalog.router import router as catalog_router
 from chamados.modules.clients.router import router as clients_router
 from chamados.modules.identity.admin_router import router as users_router
+from chamados.modules.identity.idempotency import IdempotencyMiddleware
 from chamados.modules.identity.ratelimit import IpLimiter
 from chamados.modules.identity.router import router as auth_router
 from chamados.modules.notifications.email import make_mailer
@@ -52,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/api/openapi.json",
     )
     register_error_handlers(app)
+    app.add_middleware(IdempotencyMiddleware)
     app.state.settings = settings
     app.state.mailer = make_mailer(settings)
     app.state.ip_limiter = IpLimiter()
