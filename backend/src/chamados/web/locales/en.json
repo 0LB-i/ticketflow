@@ -15,7 +15,8 @@
     "chamados": "Tickets",
     "clientes": "Clients",
     "relatorios": "Reports",
-    "configuracoes": "Settings"
+    "configuracoes": "Settings",
+    "tokens": "API tokens"
   },
   "tema": {
     "titulo": "Theme",
@@ -629,5 +630,12 @@
     "comoUsarApi": "In the API, send the token in the Authorization header:",
     "comoUsarMcp": "For an AI assistant, through the MCP server: in Claude Code, run this in a terminal (with the token in place of tf_…):",
     "mcpOutros": "In another MCP client, use the address {url} (Streamable HTTP) with the same Authorization header. With a read-only token, the assistant can look things up but not change anything."
+  },
+  "tokensAdmin": {
+    "titulo": "API tokens",
+    "explicacao": "Everyone's active tokens, with their last use. Revoking cuts off access immediately. Each person creates their own in API tokens, in the user menu.",
+    "pessoa": "Person",
+    "todasAsPessoas": "Everyone",
+    "nenhum": "No active tokens."
   }
 }

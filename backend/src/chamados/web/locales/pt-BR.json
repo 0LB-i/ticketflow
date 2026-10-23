@@ -15,7 +15,8 @@
     "chamados": "Chamados",
     "clientes": "Clientes",
     "relatorios": "Relatórios",
-    "configuracoes": "Configurações"
+    "configuracoes": "Configurações",
+    "tokens": "Tokens de API"
   },
   "tema": {
     "titulo": "Tema",
@@ -629,5 +630,12 @@
     "comoUsarApi": "Na API, mande o token no cabeçalho Authorization:",
     "comoUsarMcp": "Para um assistente de IA, pelo servidor MCP: no Claude Code, rode no terminal (com o token no lugar de tf_…):",
     "mcpOutros": "Em outro cliente MCP, use o endereço {url} (Streamable HTTP) com o mesmo cabeçalho Authorization. Com um token só de leitura, o assistente consulta, mas não altera nada."
+  },
+  "tokensAdmin": {
+    "titulo": "Tokens de API",
+    "explicacao": "Os tokens ativos de todas as pessoas, com o último uso. Revogar corta o acesso na hora. Cada pessoa cria os seus em Tokens de API, no menu do usuário.",
+    "pessoa": "Pessoa",
+    "todasAsPessoas": "Todas as pessoas",
+    "nenhum": "Nenhum token ativo."
   }
 }

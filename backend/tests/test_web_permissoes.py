@@ -18,25 +18,28 @@ from chamados.modules.attachments import router as attachments
 from chamados.modules.audit import router as audit
 from chamados.modules.catalog import router as catalog
 from chamados.modules.clients import router as clients
-from chamados.modules.identity import admin_router
+from chamados.modules.identity import admin_router, admin_tokens
 from chamados.modules.identity import router as identity
 from chamados.modules.organization import router as organization
 from chamados.modules.reports import router as reports
 from chamados.modules.system import router as system
 from chamados.modules.tickets import router as tickets
 from chamados.web import admin, auth, settings, ticket, tokens
+from chamados.web import admin_tokens as web_admin_tokens
 from chamados.web import clients as web_clients
 from chamados.web import reports as web_reports
 from chamados.web import tickets as web_tickets
 
-API: tuple[ModuleType, ...] = (admin_router, attachments, audit, catalog, clients, identity)
+API: tuple[ModuleType, ...] = (admin_router, admin_tokens, attachments, audit, catalog, clients)
+API += (identity,)
 API += (organization, reports, system, tickets)
 WEB: tuple[ModuleType, ...] = (admin, auth, settings, ticket, tokens, web_clients, web_reports)
-WEB += (web_tickets,)
+WEB += (web_tickets, web_admin_tokens)
 
 # Cada área da administração e o que as telas dela exigem.
 AREAS = {
     "/admin/usuarios": {P.ADMIN_USERS},
+    "/admin/tokens": {P.ADMIN_USERS},
     "/admin/grupos": {P.ADMIN_ORGANIZATION},
     "/admin/setores": {P.ADMIN_ORGANIZATION},
     "/admin/configuracoes": {P.ADMIN_SETTINGS},
