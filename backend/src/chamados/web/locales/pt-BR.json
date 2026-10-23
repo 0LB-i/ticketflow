@@ -48,7 +48,8 @@
   },
   "usuario": {
     "menu": "Menu do usuário",
-    "sair": "Sair"
+    "sair": "Sair",
+    "tokens": "Tokens de API"
   },
   "login": {
     "titulo": "Entrar",
@@ -596,5 +597,35 @@
     "enviandoImagem": "Enviando a imagem…",
     "remover": "Remover {nome}",
     "demais": "No máximo {n} arquivos por envio."
+  },
+  "tokens": {
+    "titulo": "Tokens de API",
+    "explicacao": "Um token deixa uma integração ou um assistente de IA (como o Claude Code) usar o TicketFlow em seu nome, com as suas permissões. Ele não acessa a administração. Revogue o que não usar mais.",
+    "criado": "Token \"{nome}\" criado",
+    "copieAgora": "Copie o valor agora: ele não aparece de novo. Guarde-o como uma senha.",
+    "valor": "Valor do token",
+    "novo": "Novo token",
+    "nome": "Nome",
+    "nomeDica": "Para que serve, ex.: Claude Code no meu computador.",
+    "semNome": "Dê um nome ao token.",
+    "escopo": "Acesso",
+    "escopos": {
+      "read": "Só leitura",
+      "write": "Leitura e escrita"
+    },
+    "validade": "Validade",
+    "dias": "{n} dias",
+    "criar": "Criar token",
+    "criadoEm": "Criado em",
+    "expiraEm": "Expira em",
+    "ultimoUso": "Último uso",
+    "semValidade": "Sem validade",
+    "vencido": "Vencido",
+    "nuncaUsado": "Nunca usado",
+    "revogar": "Revogar",
+    "revogado": "Token revogado.",
+    "nenhum": "Você ainda não tem tokens.",
+    "comoUsar": "Como usar",
+    "comoUsarApi": "Na API, mande o token no cabeçalho Authorization:"
   }
 }

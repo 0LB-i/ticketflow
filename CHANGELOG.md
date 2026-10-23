@@ -34,6 +34,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Migração `0004`: categorias, status, códigos de resolução, chamados, grupos que atuaram, observadores, comentários e histórico (só aceita inserção).
 - Tokens de API para integrações e agentes de IA: `Authorization: Bearer`, em nome de um usuário e com as permissões dele; escopo de leitura ou de escrita; sem acesso à administração. Criados, listados e revogados no servidor por `chamados token create|list|revoke` (vão para a auditoria). Migração `0032`: `api_tokens`.
 - `Idempotency-Key` nos `POST` com token de API: repetir a chamada (ex.: depois de um timeout) devolve a primeira resposta, sem registrar de novo. A rotina diária do worker apaga as chaves com mais de 24 h. Migração `0033`: `idempotency_keys`.
+- Tela **Tokens de API** (menu do usuário, `/meus-tokens`): cada pessoa cria os próprios tokens (nome, só leitura ou leitura e escrita, validade de 30, 90 ou 365 dias), vê o último uso e revoga. Na API, `/me/tokens`. Sem migração.
 
 ### Mudado
 

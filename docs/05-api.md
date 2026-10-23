@@ -29,7 +29,7 @@ A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a
 
 ### Tokens de API
 
-Desde 2026-10-23 (migração `0032`). Um token sempre age **em nome de um usuário**: passa pelas mesmas permissões e pela mesma visibilidade dele, e o que faz aparece no histórico e na auditoria como dele. Ainda não há tela: quem administra o servidor cria e revoga pelo comando `chamados token` ([ARCHITECTURE 3.10](../ARCHITECTURE.md#310-comando-chamados-clipy)).
+Desde 2026-10-23 (migração `0032`). Um token sempre age **em nome de um usuário**: passa pelas mesmas permissões e pela mesma visibilidade dele, e o que faz aparece no histórico e na auditoria como dele. Cada pessoa cria e revoga os próprios na tela **Tokens de API** (menu do usuário, `/meus-tokens`) ou por `GET`/`POST /me/tokens` e `DELETE /me/tokens/{id}` (só com a sessão da interface; o valor vem uma vez, no campo `token` da criação; validade de 1 a 365 dias, padrão 90). Quem administra o servidor também pode usar o comando `chamados token` ([ARCHITECTURE 3.10](../ARCHITECTURE.md#310-comando-chamados-clipy)).
 
 ```
 Authorization: Bearer tf_...
@@ -44,7 +44,7 @@ Authorization: Bearer tf_...
 - **Só pela interface:** sair e trocar a senha (403 com token).
 - Token inválido, revogado, vencido (validade padrão de 365 dias) ou de usuário inativo/excluído: 401. Requisições com token não usam cookie nem CSRF.
 
-**Depois:** escopos mais finos (`tickets:read`, `kb:write`…), contas de serviço (`actor_kind = api_client` ou `ai`) e a tela "Meus tokens".
+**Depois:** escopos mais finos (`tickets:read`, `kb:write`…), contas de serviço (`actor_kind = api_client` ou `ai`) e uma tela do admin com os tokens de todos.
 
 ## Endpoints (primeira versão)
 

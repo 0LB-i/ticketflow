@@ -1,4 +1,7 @@
-"""Login, sessão, convite, redefinição e troca de senha (docs/09 §9.9)."""
+"""Login, sessão, convite, redefinição e troca de senha (docs/09 §9.9); os tokens de API da
+pessoa (docs/05)."""
+
+import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -10,9 +13,13 @@ from chamados.db.session import DB
 from chamados.modules.audit.service import client_ip, record
 from chamados.modules.identity import ratelimit
 from chamados.modules.identity.deps import CurrentAuth, SettingsDep, require_session
-from chamados.modules.identity.models import User
+from chamados.modules.identity.models import ApiToken, User
 from chamados.modules.identity.passwords import hash_password, password_problem, verify_password
 from chamados.modules.identity.schemas import (
+    ApiTokenCreated,
+    ApiTokenIn,
+    ApiTokenList,
+    ApiTokenOut,
     ChangePasswordIn,
     ForgotIn,
     LoginIn,
@@ -32,6 +39,7 @@ from chamados.modules.identity.service import (
     send_locked_email,
 )
 from chamados.modules.identity.sessions import clear_cookies, create_session, now, revoke_sessions
+from chamados.modules.identity.tokens import issue_api_token, revoke_api_token
 from chamados.modules.organization.models import TeamMember
 from chamados.modules.system.service import user_locale
 
@@ -248,4 +256,62 @@ async def change_password(
     user.must_change_password = False
     await revoke_sessions(db, auth.user.id, keep_id=session.id)
     record(db, "auth.password_changed", request=request, actor_user_id=auth.user.id)
+    await db.commit()
+
+
+# --- tokens de API da própria pessoa (docs/05): só pela sessão, um token não cria outro --------
+
+
+def _token_out(t: ApiToken) -> ApiTokenOut:
+    return ApiTokenOut(
+        id=t.public_id,
+        name=t.name,
+        scope=t.scope,
+        created_at=t.created_at,
+        expires_at=t.expires_at,
+        last_used_at=t.last_used_at,
+    )
+
+
+@router.get("/me/tokens", response_model=ApiTokenList)
+async def list_my_tokens(auth: CurrentAuth, db: DB) -> ApiTokenList:
+    """Os tokens não revogados da pessoa (os vencidos também, até serem revogados)."""
+    require_session(auth)
+    rows = await db.scalars(
+        select(ApiToken)
+        .where(ApiToken.user_id == auth.user.id, ApiToken.revoked_at.is_(None))
+        .order_by(ApiToken.created_at.desc(), ApiToken.id.desc())
+    )
+    return ApiTokenList(items=[_token_out(t) for t in rows])
+
+
+@router.post("/me/tokens", response_model=ApiTokenCreated, status_code=201)
+async def create_my_token(
+    data: ApiTokenIn, auth: CurrentAuth, db: DB, request: Request
+) -> ApiTokenCreated:
+    require_session(auth)
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(422, "Dê um nome ao token.")
+    raw, token = issue_api_token(
+        db, auth.user, name, data.scope, data.days, actor_user_id=auth.user.id, request=request
+    )
+    await db.commit()
+    await db.refresh(token)
+    return ApiTokenCreated(**dict(_token_out(token)), token=raw)
+
+
+@router.delete("/me/tokens/{token_id}", status_code=204)
+async def revoke_my_token(token_id: uuid.UUID, auth: CurrentAuth, db: DB, request: Request) -> None:
+    require_session(auth)
+    token = await db.scalar(
+        select(ApiToken).where(
+            ApiToken.public_id == token_id,
+            ApiToken.user_id == auth.user.id,
+            ApiToken.revoked_at.is_(None),
+        )
+    )
+    if token is None:
+        raise HTTPException(404, "Token não encontrado.")
+    revoke_api_token(db, token, actor_user_id=auth.user.id, request=request)
     await db.commit()

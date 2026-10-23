@@ -48,7 +48,8 @@
   },
   "usuario": {
     "menu": "User menu",
-    "sair": "Sign out"
+    "sair": "Sign out",
+    "tokens": "API tokens"
   },
   "login": {
     "titulo": "Sign in",
@@ -596,5 +597,35 @@
     "enviandoImagem": "Uploading the image…",
     "remover": "Remove {nome}",
     "demais": "At most {n} files per submission."
+  },
+  "tokens": {
+    "titulo": "API tokens",
+    "explicacao": "A token lets an integration or an AI assistant (such as Claude Code) use TicketFlow on your behalf, with your permissions. It cannot access administration. Revoke the ones you no longer use.",
+    "criado": "Token \"{nome}\" created",
+    "copieAgora": "Copy the value now: it won't be shown again. Keep it like a password.",
+    "valor": "Token value",
+    "novo": "New token",
+    "nome": "Name",
+    "nomeDica": "What it is for, e.g. Claude Code on my computer.",
+    "semNome": "Give the token a name.",
+    "escopo": "Access",
+    "escopos": {
+      "read": "Read only",
+      "write": "Read and write"
+    },
+    "validade": "Valid for",
+    "dias": "{n} days",
+    "criar": "Create token",
+    "criadoEm": "Created",
+    "expiraEm": "Expires",
+    "ultimoUso": "Last used",
+    "semValidade": "No expiry",
+    "vencido": "Expired",
+    "nuncaUsado": "Never used",
+    "revogar": "Revoke",
+    "revogado": "Token revoked.",
+    "nenhum": "You don't have any tokens yet.",
+    "comoUsar": "How to use",
+    "comoUsarApi": "In the API, send the token in the Authorization header:"
   }
 }

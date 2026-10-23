@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
@@ -52,3 +53,26 @@ class Me(BaseModel):
 
 class MeUpdate(BaseModel):
     locale: Locale | None = Field(description="nulo volta ao idioma padrão do sistema")
+
+
+class ApiTokenIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100, description="para que serve (ex.: Claude Code)")
+    scope: Literal["read", "write"] = "read"
+    days: int = Field(default=90, ge=1, le=365, description="validade em dias")
+
+
+class ApiTokenOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    scope: Literal["read", "write"]
+    created_at: datetime
+    expires_at: datetime | None
+    last_used_at: datetime | None
+
+
+class ApiTokenCreated(ApiTokenOut):
+    token: str = Field(description="o valor, mostrado só nesta resposta")
+
+
+class ApiTokenList(BaseModel):
+    items: list[ApiTokenOut]

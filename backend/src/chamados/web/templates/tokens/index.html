@@ -1,0 +1,84 @@
+{#- Meus tokens de API (docs/05): criar, ver e revogar. O valor do token novo aparece só nesta
+    resposta. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, badge, button_class, field, select_field with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ t("tokens.titulo") }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-5xl flex-col gap-6">
+  <div class="flex flex-col gap-1">
+    <h1 class="text-xl font-semibold">{{ t("tokens.titulo") }}</h1>
+    <p class="text-muted">{{ t("tokens.explicacao") }}</p>
+  </div>
+
+  {%- if created %}
+  <section class="flex flex-col gap-3 rounded-lg border border-border bg-green-bg p-4 text-green-fg" aria-labelledby="token-criado">
+    <h2 id="token-criado" class="font-semibold">{{ t("tokens.criado", nome=created.name) }}</h2>
+    <p>{{ t("tokens.copieAgora") }}</p>
+    <label for="token-valor" class="sr-only">{{ t("tokens.valor") }}</label>
+    <input id="token-valor" type="text" readonly value="{{ created.token }}" class="h-10 w-full rounded-md border border-border-input bg-surface px-3 font-mono text-fg">
+  </section>
+  {%- endif %}
+
+  <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4" aria-labelledby="novo-token">
+    <h2 id="novo-token" class="font-semibold">{{ t("tokens.novo") }}</h2>
+    {%- if error %}{{ alert(error) }}{% endif %}
+    <form method="post" action="/meus-tokens" class="flex flex-wrap items-end gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="w-full max-w-sm">{{ field("nome", t("tokens.nome"), value=form.nome, hint=t("tokens.nomeDica"), required=True, maxlength=100) }}</div>
+      <div class="w-56 pb-7">{{ select_field("escopo", t("tokens.escopo"), [("read", t("tokens.escopos.read")), ("write", t("tokens.escopos.write"))], form.escopo) }}</div>
+      <div class="w-40 pb-7">{{ select_field("dias", t("tokens.validade"), days_options, form.dias) }}</div>
+      <div class="pb-7"><button type="submit" class="{{ button_class() }}">{{ icon("plus", "size-4") }} {{ t("tokens.criar") }}</button></div>
+    </form>
+  </section>
+
+  <div class="overflow-x-auto rounded-lg border border-border bg-surface">
+    <table class="w-full border-collapse text-left">
+      <caption class="sr-only">{{ t("tokens.titulo") }}</caption>
+      <thead class="bg-surface-raised text-muted">
+        <tr>
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("tokens.nome") }}</th>
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("tokens.escopo") }}</th>
+          <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("tokens.criadoEm") }}</th>
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("tokens.expiraEm") }}</th>
+          <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("tokens.ultimoUso") }}</th>
+          <th scope="col" class="px-3 py-2"><span class="sr-only">{{ t("tokens.revogar") }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for tk in tokens %}
+        <tr class="border-t border-border">
+          <td class="px-3 py-2 font-medium">{{ tk.name }}</td>
+          <td class="px-3 py-2">{{ badge(t("tokens.escopos." ~ tk.scope), "violet" if tk.scope == "write" else "blue") }}</td>
+          <td class="hidden px-3 py-2 md:table-cell">{{ datetime(tk.created_at) }}</td>
+          <td class="px-3 py-2">
+            {%- if tk.expires_at is none %}{{ t("tokens.semValidade") }}
+            {%- elif tk.expires_at <= now %}{{ badge(t("tokens.vencido"), "red") }}
+            {%- else %}{{ datetime(tk.expires_at) }}{% endif -%}
+          </td>
+          <td class="hidden px-3 py-2 md:table-cell">{{ ago(tk.last_used_at) if tk.last_used_at else t("tokens.nuncaUsado") }}</td>
+          <td class="px-3 py-2 text-right">
+            <form method="post" action="/meus-tokens/{{ tk.id }}/revogar">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="{{ button_class('ghost', 'sm') }}" aria-label="{{ t('tokens.revogar') }} {{ tk.name }}">{{ icon("trash", "size-4") }} <span class="hidden sm:inline">{{ t("tokens.revogar") }}</span></button>
+            </form>
+          </td>
+        </tr>
+        {%- else %}
+        <tr>
+          <td colspan="6" class="px-3 py-6 text-center text-muted">{{ t("tokens.nenhum") }}</td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <section class="flex flex-col gap-2" aria-labelledby="como-usar">
+    <h2 id="como-usar" class="font-semibold">{{ t("tokens.comoUsar") }}</h2>
+    <p class="text-muted">{{ t("tokens.comoUsarApi") }}</p>
+    <pre class="overflow-x-auto rounded-md border border-border bg-surface-raised p-3 font-mono text-sm"><code>curl -H "Authorization: Bearer tf_…" {{ base_url }}/api/v1/tickets</code></pre>
+  </section>
+</div>
+{% endblock %}

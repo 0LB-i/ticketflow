@@ -5,7 +5,7 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from alembic import command
@@ -76,9 +76,8 @@ async def _create_token(login: str, name: str, read_only: bool, days: int) -> st
 
     from chamados.db.engine import create_engine
     from chamados.db.session import make_sessionmaker
-    from chamados.modules.audit.service import record
     from chamados.modules.identity.models import User
-    from chamados.modules.identity.tokens import new_api_token
+    from chamados.modules.identity.tokens import issue_api_token
 
     settings = get_settings()
     engine = create_engine(settings.database_url)
@@ -89,23 +88,8 @@ async def _create_token(login: str, name: str, read_only: bool, days: int) -> st
             )
             if user is None or not user.is_active:
                 raise SystemExit(f"Usuário ativo não encontrado: {login}.")
-            expires_at = datetime.now(UTC) + timedelta(days=days) if days else None
-            raw, token = new_api_token(user, name, "read" if read_only else "write", expires_at)
-            db.add(token)
-            await db.flush()
-            record(
-                db,
-                "api_token.created",
-                target_type="user",
-                target_id=user.public_id,
-                after={
-                    "token": str(token.public_id),
-                    "name": name,
-                    "scope": token.scope,
-                    "expires_at": expires_at.isoformat() if expires_at else None,
-                    "via": "cli",
-                },
-            )
+            scope = "read" if read_only else "write"
+            raw, _ = issue_api_token(db, user, name, scope, days, actor_user_id=None, via="cli")
             await db.commit()
             return raw
     finally:
@@ -152,8 +136,8 @@ async def _revoke_token(token_id: str) -> None:
 
     from chamados.db.engine import create_engine
     from chamados.db.session import make_sessionmaker
-    from chamados.modules.audit.service import record
     from chamados.modules.identity.models import ApiToken
+    from chamados.modules.identity.tokens import revoke_api_token
 
     try:
         public_id = uuid.UUID(token_id)
@@ -166,14 +150,7 @@ async def _revoke_token(token_id: str) -> None:
             token = await db.scalar(select(ApiToken).where(ApiToken.public_id == public_id))
             if token is None or token.revoked_at is not None:
                 raise SystemExit(f"Token ativo não encontrado: {token_id}.")
-            token.revoked_at = datetime.now(UTC)
-            record(
-                db,
-                "api_token.revoked",
-                target_type="user",
-                target_id=token.user.public_id,
-                after={"token": str(token.public_id), "name": token.name, "via": "cli"},
-            )
+            revoke_api_token(db, token, actor_user_id=None, via="cli")
             await db.commit()
     finally:
         await engine.dispose()

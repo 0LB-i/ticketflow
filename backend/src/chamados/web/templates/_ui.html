@@ -165,6 +165,9 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
       {%- endfor %}
     </form>
     <div class="my-1 h-px bg-border" role="separator"></div>
+    <a href="/meus-tokens" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 text-left hover:bg-surface-raised">
+      {{ icon("key-round", "size-4") }} {{ t("usuario.tokens") }}
+    </a>
     <form method="post" action="/sair">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 text-left hover:bg-surface-raised">

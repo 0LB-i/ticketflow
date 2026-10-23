@@ -2,12 +2,15 @@
 
 import hashlib
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
+from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from chamados.modules.audit.service import record
 from chamados.modules.identity.models import ApiToken, User
 from chamados.modules.organization.models import TeamMember
 
@@ -31,8 +34,14 @@ def new_api_token(
 ) -> tuple[str, ApiToken]:
     """(valor mostrado uma vez só, token para gravar)."""
     raw = API_TOKEN_PREFIX + secrets.token_urlsafe(32)
+    # O id já na criação: a auditoria o grava antes do flush.
     token = ApiToken(
-        user=user, name=name, scope=scope, token_hash=sha256(raw), expires_at=expires_at
+        public_id=uuid.uuid4(),
+        user=user,
+        name=name,
+        scope=scope,
+        token_hash=sha256(raw),
+        expires_at=expires_at,
     )
     return raw, token
 
@@ -61,3 +70,57 @@ async def load_api_token(db: AsyncSession, raw: str) -> ApiToken | None:
         token.last_used_at = t
         await db.commit()
     return token
+
+
+def issue_api_token(
+    db: AsyncSession,
+    user: User,
+    name: str,
+    scope: str,
+    days: int | None,
+    *,
+    actor_user_id: int | None,
+    request: Request | None = None,
+    via: str | None = None,
+) -> tuple[str, ApiToken]:
+    """Cria o token (validade em dias; None, sem validade) e grava na auditoria; o commit fica com
+    quem chama. O valor só existe aqui: no banco fica o hash."""
+    expires_at = datetime.now(UTC) + timedelta(days=days) if days else None
+    raw, token = new_api_token(user, name, scope, expires_at)
+    db.add(token)
+    after = {
+        "token": str(token.public_id),
+        "name": name,
+        "scope": scope,
+        "expires_at": expires_at.isoformat() if expires_at else None,
+    }
+    record(
+        db,
+        "api_token.created",
+        request=request,
+        actor_user_id=actor_user_id,
+        target_type="user",
+        target_id=user.public_id,
+        after=after | ({"via": via} if via else {}),
+    )
+    return raw, token
+
+
+def revoke_api_token(
+    db: AsyncSession,
+    token: ApiToken,
+    *,
+    actor_user_id: int | None,
+    request: Request | None = None,
+    via: str | None = None,
+) -> None:
+    token.revoked_at = datetime.now(UTC)
+    record(
+        db,
+        "api_token.revoked",
+        request=request,
+        actor_user_id=actor_user_id,
+        target_type="user",
+        target_id=token.user.public_id,
+        after={"token": str(token.public_id), "name": token.name} | ({"via": via} if via else {}),
+    )
