@@ -17,8 +17,8 @@ from chamados.core.i18n import translate as translate_api
 from chamados.db.session import DB
 from chamados.modules.catalog import router as catalog_api
 from chamados.modules.organization import router as organization_api
+from chamados.modules.tickets import queries, service
 from chamados.modules.tickets import router as tickets_api
-from chamados.modules.tickets import service
 from chamados.modules.tickets.schemas import BulkStatusIn, StatusKind, TicketView
 from chamados.web.page import HOME, FlashKind, LoggedPageDep, Redirect, check_csrf, safe_next
 
@@ -74,13 +74,13 @@ async def tickets_page(
     # Status e responsável só filtram a aba Todos; as outras já os definem.
     kind = next((k for k in KINDS if k == status), None) if view == "all" else None
     mine = view == "all" and responsavel == "eu"
-    result = await tickets_api.list_tickets(
-        auth,
+    result = await queries.list_page(
         db,
+        auth,
         view=view,
         team=team,
         assignee="me" if mine else None,
-        status=[kind] if kind else None,
+        kinds=[kind] if kind else [],
         q=q,
         limit=50,
         cursor=cursor,

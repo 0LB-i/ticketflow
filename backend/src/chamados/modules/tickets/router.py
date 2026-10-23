@@ -4,128 +4,33 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Request, Response
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.i18n import request_locale, translate
 from chamados.db.session import DB
-from chamados.modules.attachments import service as attachments
-from chamados.modules.audit.service import record
-from chamados.modules.identity.deps import Auth, CurrentAuth
-from chamados.modules.identity.models import User
-from chamados.modules.tickets import service
-from chamados.modules.tickets.models import Ticket, TicketComment, TicketEvent
+from chamados.modules.identity.deps import CurrentAuth
+from chamados.modules.tickets import queries, service
 from chamados.modules.tickets.schemas import (
     AssigneesIn,
     AssignIn,
     BulkFailure,
     BulkResult,
     BulkStatusIn,
-    CategoryRef,
     CommentIn,
     CommentList,
     CommentOut,
     EventList,
-    EventOut,
-    PersonTime,
-    ResolutionRef,
     StatusKind,
-    StatusRef,
     TicketCounts,
     TicketCreate,
-    TicketListItem,
     TicketOut,
     TicketPage,
-    TicketSummary,
     TicketUpdate,
     TicketView,
     TransferIn,
     TransitionIn,
-    UserRef,
-    WatcherOut,
 )
-from chamados.modules.tickets.schemas import Ref as RefOut
-from chamados.modules.tickets.visibility import SEE_EVERYTHING, sees_without_privilege
 
 router = APIRouter(prefix="/tickets", tags=["chamados"])
-
-
-def _user(u: User | None) -> UserRef | None:
-    return UserRef(id=u.public_id, display_name=u.display_name) if u else None
-
-
-def _summary(t: Ticket, paths: dict[int, str]) -> TicketSummary:
-    return TicketSummary(
-        id=t.public_id,
-        number=t.number,
-        title=t.title,
-        type=t.type,
-        status=StatusRef(id=t.status.id, name=t.status.name, kind=t.status.kind),
-        team=RefOut(id=t.team.public_id, name=t.team.name),
-        category=CategoryRef(
-            id=t.category.public_id, name=t.category.name, path=paths[t.category.id]
-        )
-        if t.category
-        else None,
-        department=RefOut(id=t.department.public_id, name=t.department.name)
-        if t.department
-        else None,
-        client=RefOut(id=t.client.public_id, name=t.client.label) if t.client else None,
-        beneficiary_name=t.beneficiary_name,
-        assignee=UserRef(id=t.assignee.public_id, display_name=t.assignee.display_name),
-        started_at=t.started_at,
-        created_at=t.created_at,
-        updated_at=t.updated_at,
-    )
-
-
-async def detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
-    paths = await service.category_paths(db, [t])
-    times = [
-        PersonTime(id=u.public_id, display_name=u.display_name, minutes=m)
-        for u, m in await service.time_by_person(db, t)
-    ]
-    return TicketOut(
-        **dict(_summary(t, paths)),
-        description=t.description,
-        created_by=_user(t.created_by),
-        resolution_code=ResolutionRef(id=t.resolution_code.id, name=t.resolution_code.name)
-        if t.resolution_code
-        else None,
-        reopened_count=t.reopened_count,
-        closed_at=t.closed_at,
-        co_assignees=[
-            UserRef(id=c.user.public_id, display_name=c.user.display_name) for c in t.co_assignees
-        ],
-        watchers=[
-            WatcherOut(id=w.user.public_id, display_name=w.user.display_name, kind=w.kind)
-            for w in t.watchers
-        ],
-        attachments=await attachments.of_ticket(db, t.id),
-        time_spent_minutes=sum(p.minutes for p in times),
-        time_by_person=times,
-        etag=service.etag(t),
-        allowed_actions=sorted(service.actions(auth, t)),
-    )
-
-
-async def load_detail(db: AsyncSession, auth: Auth, ticket_ref: str) -> TicketOut:
-    """O detalhe relido do banco, sem marcar a visita nem auditar o acesso (depois de uma
-    alteração, e nos trechos das telas do servidor)."""
-    return await detail(db, auth, await service.load(db, auth, ticket_ref))
-
-
-def _comment_out(c: TicketComment) -> CommentOut:
-    return CommentOut(
-        id=c.public_id,
-        author=_user(c.author),
-        body=c.body,
-        is_solution=c.is_solution,
-        time_spent_minutes=c.time_spent_minutes,
-        done_at=c.done_at,
-        created_at=c.created_at,
-        edited_at=c.edited_at,
-    )
 
 
 @router.get("", response_model=TicketPage)
@@ -143,7 +48,7 @@ async def list_tickets(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     cursor: str | None = None,
 ) -> TicketPage:
-    rows, next_cursor = await service.list_tickets(
+    return await queries.list_page(
         db,
         auth,
         view=view,
@@ -153,14 +58,6 @@ async def list_tickets(
         q=q,
         limit=limit,
         cursor=cursor,
-    )
-    paths = await service.category_paths(db, [t for t, _, _ in rows])
-    return TicketPage(
-        items=[
-            TicketListItem(**dict(_summary(t, paths)), has_news=news, time_spent_minutes=minutes)
-            for t, news, minutes in rows
-        ],
-        next_cursor=next_cursor,
     )
 
 
@@ -188,37 +85,14 @@ async def create_ticket(
 ) -> TicketOut:
     ticket = await service.create(db, auth, data)
     response.headers["Location"] = f"/api/v1/tickets/{ticket.public_id}"
-    return await load_detail(db, auth, str(ticket.public_id))
-
-
-async def open_ticket(db: AsyncSession, auth: Auth, request: Request, ticket: Ticket) -> TicketOut:
-    """A abertura do detalhe (já carregado com `service.load`): audita o acesso a confidencial,
-    guarda a visita e monta o detalhe."""
-    # Regra 6 do docs/08 §8.4: admin e auditor leem confidenciais, e isso fica na auditoria.
-    if (
-        ticket.category
-        and ticket.category.is_confidential
-        and auth.actor.role in SEE_EVERYTHING
-        and not sees_without_privilege(auth.actor, ticket)
-    ):
-        record(
-            db,
-            "ticket.confidential_viewed",
-            request=request,
-            actor_user_id=auth.user.id,
-            target_type="ticket",
-            target_id=ticket.public_id,
-        )
-        await db.commit()
-    await service.mark_read(db, auth, ticket)
-    return await detail(db, auth, ticket)
+    return await queries.load_detail(db, auth, str(ticket.public_id))
 
 
 @router.get("/{ticket_ref}", response_model=TicketOut)
 async def get_ticket(
     ticket_ref: str, auth: CurrentAuth, db: DB, request: Request, response: Response
 ) -> TicketOut:
-    out = await open_ticket(db, auth, request, await service.load(db, auth, ticket_ref))
+    out = await queries.open_ticket(db, auth, await service.load(db, auth, ticket_ref), request)
     response.headers["ETag"] = out.etag
     return out
 
@@ -237,7 +111,7 @@ async def update_ticket(
 ) -> TicketOut:
     ticket = await service.load(db, auth, ticket_ref)
     await service.update(db, auth, ticket, data, if_match)
-    out = await load_detail(db, auth, ticket_ref)
+    out = await queries.load_detail(db, auth, ticket_ref)
     response.headers["ETag"] = out.etag
     return out
 
@@ -245,7 +119,7 @@ async def update_ticket(
 @router.post("/{ticket_ref}/assign", response_model=TicketOut)
 async def assign_ticket(ticket_ref: str, data: AssignIn, auth: CurrentAuth, db: DB) -> TicketOut:
     await service.assign(db, auth, await service.load(db, auth, ticket_ref), data.assignee)
-    return await load_detail(db, auth, ticket_ref)
+    return await queries.load_detail(db, auth, ticket_ref)
 
 
 @router.put("/{ticket_ref}/assignees", response_model=TicketOut)
@@ -255,7 +129,7 @@ async def set_ticket_assignees(
     """Vários responsáveis de uma vez (ou o grupo inteiro): a lista completa."""
     ticket = await service.load(db, auth, ticket_ref)
     await service.set_assignees(db, auth, ticket, data.assignee_ids)
-    return await load_detail(db, auth, ticket_ref)
+    return await queries.load_detail(db, auth, ticket_ref)
 
 
 @router.post("/{ticket_ref}/transfer", response_model=TicketOut)
@@ -265,7 +139,7 @@ async def transfer_ticket(
     ticket = await service.load(db, auth, ticket_ref)
     await service.transfer(db, auth, ticket, data.team_id, data.assignee_id, data.reason)
     # Quem transferiu pode ter perdido o acesso de alteração, mas continua vendo (regra 2).
-    return await load_detail(db, auth, ticket_ref)
+    return await queries.load_detail(db, auth, ticket_ref)
 
 
 @router.post("/{ticket_ref}/transitions", response_model=TicketOut)
@@ -273,7 +147,7 @@ async def transition_ticket(
     ticket_ref: str, data: TransitionIn, auth: CurrentAuth, db: DB
 ) -> TicketOut:
     await service.transition(db, auth, await service.load(db, auth, ticket_ref), data)
-    return await load_detail(db, auth, ticket_ref)
+    return await queries.load_detail(db, auth, ticket_ref)
 
 
 # 204: quem se retira de um chamado de outro grupo deixa de vê-lo.
@@ -289,19 +163,9 @@ async def remove_watcher(ticket_ref: str, user_id: uuid.UUID, auth: CurrentAuth,
     await service.set_watcher(db, auth, ticket, user_id, watching=False)
 
 
-async def comments(db: AsyncSession, ticket: Ticket) -> CommentList:
-    """As tarefas (não removidas) de um chamado já carregado com `service.load`."""
-    rows = await db.scalars(
-        select(TicketComment)
-        .where(TicketComment.ticket_id == ticket.id, TicketComment.deleted_at.is_(None))
-        .order_by(TicketComment.done_at, TicketComment.id)
-    )
-    return CommentList(items=[_comment_out(c) for c in rows])
-
-
 @router.get("/{ticket_ref}/comments", response_model=CommentList)
 async def list_comments(ticket_ref: str, auth: CurrentAuth, db: DB) -> CommentList:
-    return await comments(db, await service.load(db, auth, ticket_ref))
+    return await queries.comments(db, await service.load(db, auth, ticket_ref))
 
 
 @router.post("/{ticket_ref}/comments", response_model=CommentOut, status_code=201)
@@ -309,7 +173,7 @@ async def add_comment(ticket_ref: str, data: CommentIn, auth: CurrentAuth, db: D
     ticket = await service.load(db, auth, ticket_ref)
     comment = await service.add_comment(db, auth, ticket, data)
     await db.refresh(comment)
-    return _comment_out(comment)
+    return queries.comment_out(comment)
 
 
 @router.patch("/{ticket_ref}/comments/{comment_id}", response_model=CommentOut)
@@ -318,7 +182,7 @@ async def edit_comment(
 ) -> CommentOut:
     ticket = await service.load(db, auth, ticket_ref)
     comment = await service.edit_comment(db, auth, ticket, comment_id, data)
-    return _comment_out(comment)
+    return queries.comment_out(comment)
 
 
 @router.delete("/{ticket_ref}/comments/{comment_id}", status_code=204)
@@ -329,21 +193,4 @@ async def delete_comment(ticket_ref: str, comment_id: uuid.UUID, auth: CurrentAu
 
 @router.get("/{ticket_ref}/events", response_model=EventList)
 async def list_events(ticket_ref: str, auth: CurrentAuth, db: DB) -> EventList:
-    ticket = await service.load(db, auth, ticket_ref)
-    rows = await db.scalars(
-        select(TicketEvent)
-        .where(TicketEvent.ticket_id == ticket.id)
-        .order_by(TicketEvent.created_at, TicketEvent.id)
-    )
-    return EventList(
-        items=[
-            EventOut(
-                id=e.id,
-                type=e.event_type,
-                actor=_user(e.actor),
-                payload=e.payload,
-                created_at=e.created_at,
-            )
-            for e in rows
-        ]
-    )
+    return await queries.events(db, await service.load(db, auth, ticket_ref))

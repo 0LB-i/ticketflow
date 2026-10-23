@@ -1,6 +1,7 @@
 """Registro (docs/10 §10.4) e detalhe do chamado (docs/10 §10.6), com as ações da lateral e as
 tarefas. O que aparece depende de `allowed_actions`; cada ação passa pela mesma função da API
-(`tickets/router.py`), que confere a permissão.
+(`tickets/router.py`) ou pelo service, que confere a permissão; as leituras vêm de
+`tickets/queries.py`.
 """
 
 import re
@@ -22,6 +23,7 @@ from chamados.modules.catalog import router as catalog_api
 from chamados.modules.clients import router as clients_api
 from chamados.modules.organization import router as organization_api
 from chamados.modules.organization.router import TeamOut
+from chamados.modules.tickets import queries
 from chamados.modules.tickets import router as tickets_api
 from chamados.modules.tickets import service as tickets_service
 from chamados.modules.tickets.schemas import (
@@ -292,7 +294,7 @@ async def create_ticket(
                 ),
             }
         )
-        ticket = await tickets_api.create_ticket(data, page.auth, db, Response())
+        ticket = await tickets_service.create(db, page.auth, data)
     except ValidationError:
         error = page.t("comum.erroInesperado")
     except HTTPException as exc:
@@ -354,10 +356,10 @@ async def _ticket_page(
     # Os trechos pedidos pelo HTMX (editar, remover, grupo de destino) não contam como nova
     # visita nem vão de novo para a auditoria do confidencial.
     if request.headers.get("HX-Request"):
-        ticket = await tickets_api.detail(db, auth, loaded)
+        ticket = await queries.detail(db, auth, loaded)
     else:
-        ticket = await tickets_api.open_ticket(db, auth, request, loaded)
-    comments = (await tickets_api.comments(db, loaded)).items
+        ticket = await queries.open_ticket(db, auth, loaded, request)
+    comments = (await queries.comments(db, loaded)).items
     # A última tarefa que a pessoa vê: o aviso de tarefa nova conta a partir dela.
     seen_until = max((c.created_at for c in comments), default=ticket.created_at).isoformat()
     teams = (await organization_api.list_teams(auth, db)).items
@@ -548,7 +550,7 @@ async def set_assignees(
     async def action() -> None:
         ids = responsaveis or []
         if "*" in ids:
-            ticket = await tickets_api.load_detail(db, page.auth, str(number))
+            ticket = await queries.load_detail(db, page.auth, str(number))
             teams = (await organization_api.list_teams(page.auth, db)).items
             ids = [*ids, *(m[0] for m in _members(teams, str(ticket.team.id)))]
         data = AssigneesIn.model_validate(
@@ -559,9 +561,10 @@ async def set_assignees(
     return await _act(page, number, csrf_token, action, "chamado.feito.atribuido")
 
 
-def _update(page: LoggedPage, db: DB, number: int, data: TicketUpdate, versao: str) -> Any:
+async def _update(page: LoggedPage, db: DB, number: int, data: TicketUpdate, versao: str) -> None:
     """PATCH com o ETag que a tela mostrou (`versao`): 412 se outra pessoa mudou os campos."""
-    return tickets_api.update_ticket(str(number), data, page.auth, db, Response(), versao or None)
+    ticket = await tickets_service.load(db, page.auth, str(number))
+    await tickets_service.update(db, page.auth, ticket, data, versao or None)
 
 
 @router.post("/chamados/{number:int}/status")

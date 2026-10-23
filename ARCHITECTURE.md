@@ -93,7 +93,7 @@ HTTP ─► rota (router.py) ─► dependências ─► service.py / regras ─
 
 1. `main.create_app()` cria a aplicação, registra os tratadores de erro, inclui os routers de cada módulo sob `/api/v1`, devolve 404 em JSON para qualquer `/api/*` desconhecido e, por último, monta `/static` e as telas do servidor (3.11); um endereço desconhecido fora de `/api` mostra a página de erro.
 2. **Autenticação** (`identity/deps.py`, `get_auth`): lê o cookie de sessão, confere o CSRF em métodos que alteram dados, **relê o usuário e os grupos a cada requisição** (mudanças de papel valem na hora) e monta o `Actor`. Com a senha provisória (`must_change_password`), só três rotas funcionam até a troca.
-3. **Rota → service:** rotas simples (cadastros) fazem o trabalho no próprio `router.py`; quando há regra de negócio, a rota delega a um `service.py`. Não existe camada de *repository*: os services usam o SQLAlchemy diretamente.
+3. **Rota → service:** rotas simples (cadastros) fazem o trabalho no próprio `router.py`; quando há regra de negócio, a rota delega a um `service.py`. Não existe camada de *repository*: os services usam o SQLAlchemy diretamente. Nos chamados, a montagem das respostas de leitura (lista, detalhe, tarefas, histórico) fica em `queries.py`, sem objetos HTTP de resposta: a API, as telas e as integrações que vierem a usam igual.
 4. **Transação:** cada operação faz um único `commit` no fim. Histórico (`ticket_events`) e auditoria (`audit_log`) entram na **mesma transação** da mudança.
 5. **Erros:** qualquer `HTTPException(status, "mensagem em português")` vira Problem Details (`{"type", "title", "status", "detail"}`) em `core/errors.py`, com `title` e `detail` traduzidos para o idioma do `Accept-Language` (3.6). Erros de validação viram 422 com a lista `errors`; exceções não tratadas viram 500 e vão para o log.
 
@@ -119,7 +119,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `organization` | `models` (Role, Team, TeamMember, Department), `router` | Papéis, grupos e membros, setores atendidos | `/teams`, `/departments` |
 | `catalog` | `models` (Category, TicketStatus, ResolutionCode), `router` | Árvore de categorias (até 3 níveis; sem tela desde que saíram dos chamados), status por `kind`, códigos de resolução | `/categories`, `/statuses`, `/resolution-codes` |
 | `clients` | `models` (Client), `router`, `documents` (CPF, CNPJ alfanumérico, telefone, CEP) | Cadastro de clientes pessoa física e jurídica, com contato e endereço; sem exclusão (inativa) | `/clients` |
-| `tickets` | `models`, `schemas`, `router`, `service`, `rules`, `visibility` | Chamados, comentários, observadores, atribuição (um ou mais responsáveis), transferência, transições e histórico | `/tickets/*` |
+| `tickets` | `models`, `schemas`, `router`, `service`, `queries` (leituras montadas nos schemas de saída), `rules`, `visibility` | Chamados, comentários, observadores, atribuição (um ou mais responsáveis), transferência, transições e histórico | `/tickets/*` |
 | `system` | `models` (SystemSetting), `router`, `service`, `work_hours` (expediente) | Configurações da instalação: idioma padrão, cores, logotipo, expediente; idioma efetivo de um usuário | `/branding`, `/admin/settings`, `/work-hours` |
 | `audit` | `models` (AuditLog), `service` (`record()`), `router` | Auditoria de login e administração | `/admin/audit-log` |
 | `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
@@ -303,7 +303,7 @@ web/
                          configuracoes.js, vendor/htmx, vendor/tiptap), fonts/
 ```
 
-- **Sem regra na tela:** a rota da tela chama a função da rota da API (`identity.router.login(...)`) ou o service, e só monta o HTML. Os erros da API (`HTTPException`) viram a mensagem na tela, traduzida por `Page.api_message()`.
+- **Sem regra na tela:** a rota da tela chama a função da rota da API (`identity.router.login(...)`), o service ou, nos chamados, `tickets/queries.py`, e só monta o HTML. Se a função da rota pede `Response` ou `Request` só para cabeçalhos, a tela chama o service, sem objeto vazio. Os erros da API (`HTTPException`) viram a mensagem na tela, traduzida por `Page.api_message()`.
 - **Sessão:** `get_page` lê o cookie `tf_sessao` (`load_session` + `session_auth`, as mesmas peças do `get_auth` da API). `LoggedPageDep` exige login (sem sessão, `/login?volta=…`) e, com a senha provisória, só abre `/trocar-senha` e `/sair`.
 - **Permissão das telas de administração:** as rotas de administração da API conferem a permissão numa dependência (`require(P.X)`), que **não roda** quando a tela chama a função direto. Por isso a tela usa `requires(P.X)` (`page.py`), que confere a mesma permissão antes; as ações de chamado não precisam, porque a regra fica no service (`allowed_actions`). O `tests/test_web_permissoes.py` garante isso: acha as funções da API protegidas por `require`, as telas que as usam (direto ou por outra função do módulo; dentro de `if page.can("x")` a permissão x já conta) e falha se a tela não tiver o `requires` correspondente, ou se uma tela em `/admin/` não exigir a permissão da área (`AREAS`). Módulo novo de telas ou de API entra nas listas do teste.
 - **Idioma:** o da pessoa ou o padrão do sistema; nas telas sem login, o padrão. `t("chave", nome=…)` nos templates. O catálogo é lido de novo quando o JSON muda (o `--reload` do uvicorn só olha os `.py`).
@@ -406,7 +406,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 
 - A API JSON (`/api/v1`) continua para integrações e agentes de IA. O contrato sai dos modelos Pydantic: `/api/docs` (Swagger) e `chamados openapi -o arquivo` (3.10).
 - Campos novos são aditivos. Mudança incompatível só numa nova versão da API (`/api/v2`), conforme o [docs/05](docs/05-api.md).
-- As telas chamam as funções das rotas direto (3.11), sem HTTP: os testes das telas (`test_web_*.py`) cobrem esse uso.
+- As telas chamam as funções das rotas, os services e `tickets/queries.py` direto (3.11), sem HTTP: os testes das telas (`test_web_*.py`) cobrem esse uso.
 
 ## 6. Segurança (resumo do que está implementado)
 
