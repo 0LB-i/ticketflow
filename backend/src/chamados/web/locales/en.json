@@ -363,7 +363,6 @@
   },
   "relatorios": {
     "titulo": "Reports",
-    "descricao": "Hours worked, clients and overtime. You see your own work; supervisors see their team's.",
     "aplicar": "Apply",
     "baixarPdf": "Download PDF",
     "periodo": "Period",
@@ -438,7 +437,6 @@
   },
   "configuracoes": {
     "titulo": "Settings",
-    "descricao": "System language and visual identity. They apply to all users.",
     "idiomaPadrao": "Default language",
     "idiomaDica": "Each person can choose another language in the user menu.",
     "cores": "Colors",

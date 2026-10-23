@@ -43,7 +43,6 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
-      <p class="mt-1 text-muted">{{ t("relatorios.descricao") }}</p>
     </div>
     {%- if pdf_url %}
     <a href="{{ pdf_url }}" download class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixarPdf") }}</a>

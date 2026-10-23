@@ -363,7 +363,6 @@
   },
   "relatorios": {
     "titulo": "Relatórios",
-    "descricao": "Horas trabalhadas, clientes e horas extras. Você vê o seu trabalho; o supervisor vê o do grupo.",
     "aplicar": "Aplicar",
     "baixarPdf": "Baixar PDF",
     "periodo": "Período",
@@ -438,7 +437,6 @@
   },
   "configuracoes": {
     "titulo": "Configurações",
-    "descricao": "Idioma e identidade visual do sistema. Valem para todos os usuários.",
     "idiomaPadrao": "Idioma padrão",
     "idiomaDica": "Cada pessoa pode escolher outro idioma no menu do usuário.",
     "cores": "Cores",
