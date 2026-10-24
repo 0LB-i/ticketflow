@@ -1,0 +1,362 @@
+"""Relatórios: o que a tela tira da URL (docs/14 §14.8). O modelo (`aba`), o período e os
+filtros ficam na URL, como na lista de chamados. Grupo, pessoa, cliente e status aceitam vários
+valores (o parâmetro repetido). Sem nenhum filtro na URL, valem os salvos no modelo; o formulário
+sempre manda o período, então mexer num filtro passa a valer o da URL, e "Salvar filtros" o
+guarda no modelo.
+"""
+
+import uuid
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+from typing import Annotated, Any
+from urllib.parse import urlencode
+
+from fastapi import Depends, HTTPException, Query
+from starlette.datastructures import FormData
+
+from chamados.db.session import DB
+from chamados.modules.reports import builder, saved, service
+from chamados.modules.reports import router as reports_api
+from chamados.modules.reports.builder import (
+    BUILTINS,
+    CUSTOM,
+    RELATIVE,
+    FilterSpec,
+    PeriodSpec,
+    ReportConfig,
+)
+from chamados.modules.reports.models import ReportModel
+from chamados.modules.reports.schemas import ReportOptions
+from chamados.web.formatting import TIMEZONE, format_day, format_month
+from chamados.web.page import LoggedPage
+
+# Modelo pronto (slug da aba na URL) → chave do catálogo (relatorios.abas.*).
+TABS = {
+    "produtividade": "produtividade",
+    "clientes": "clientes",
+    "horas-extras": "horasExtras",
+    "chamados": "chamados",
+}
+
+
+NO_CLIENT = "sem-cliente"
+
+
+# Período relativo (slug) → chave do catálogo (relatorios.periodos.*).
+RELATIVE_KEYS = dict(
+    zip(
+        RELATIVE,
+        (
+            "mesAtual",
+            "mesAnterior",
+            "ultimos7",
+            "ultimos30",
+            "ultimos90",
+            "trimestreAtual",
+            "trimestreAnterior",
+            "anoAteHoje",
+        ),
+        strict=True,
+    )
+)
+
+
+Values = Annotated[list[str] | None, Query()]
+
+
+@dataclass
+class Params:
+    """O modelo e os filtros como vêm na URL (ou num formulário, com os mesmos nomes); um ausente
+    é None. Sem nenhum filtro, valem os salvos no modelo."""
+
+    aba: str | None = None
+    periodo: str | None = None
+    de: str | None = None
+    ate: str | None = None
+    grupo: Values = None
+    pessoa: Values = None
+    cliente: Values = None
+    status: Values = None
+    comparar: str | None = None
+
+    def hidden(self) -> list[tuple[str, str]]:
+        """Os filtros em campos escondidos de um formulário."""
+        fields = []
+        for name in FILTER_FIELDS:
+            value = getattr(self, name)
+            fields += [(name, v) for v in ([value] if isinstance(value, str) else value or [])]
+        return fields
+
+
+ParamsDep = Annotated[Params, Depends()]
+
+
+FILTER_FIELDS = ("periodo", "de", "ate", "grupo", "pessoa", "cliente", "status", "comparar")
+
+
+@dataclass
+class Month:
+    value: str  # "2026-10"
+    label: str
+    start: date
+    end: date
+
+
+def last_months(locale: str, today: date) -> list[Month]:
+    """Os 12 últimos meses, o atual primeiro."""
+    months = []
+    first = today.replace(day=1)
+    for _ in range(12):
+        last = (first + timedelta(days=31)).replace(day=1) - timedelta(days=1)
+        months.append(Month(f"{first:%Y-%m}", format_month(locale, first), first, last))
+        first = (first - timedelta(days=1)).replace(day=1)
+    return months
+
+
+def _date(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _uuids(values: list[str] | None) -> list[uuid.UUID]:
+    """Os valores que são UUID, sem repetir; o resto (ex.: "sem-cliente") fica de fora."""
+    result = []
+    for value in values or []:
+        try:
+            parsed = uuid.UUID(value)
+        except ValueError:
+            continue
+        if parsed not in result:
+            result.append(parsed)
+    return result
+
+
+@dataclass
+class Choice:
+    """O modelo aberto: um pronto (`model` None) ou um da pessoa."""
+
+    slug: str  # a aba na URL
+    name: str
+    config: ReportConfig | None  # None: o modelo salvo não vale mais (error)
+    model: ReportModel | None = None
+
+
+@dataclass
+class State:
+    """O que a tela e o CSV de um bloco tiram da URL: o modelo, o período e os filtros."""
+
+    choice: Choice
+    models: list[ReportModel]
+    options: ReportOptions
+    period: str
+    start_text: str
+    end_text: str
+    start: date | None
+    end: date | None
+    teams: list[uuid.UUID]
+    people: list[uuid.UUID]
+    clients: list[uuid.UUID]
+    no_client: bool
+    statuses: list[int]
+    compare: bool = False
+    filters: service.Filters | None = None
+    error: str | None = None
+    warning: str | None = None
+    query: dict[str, str | list[str] | None] = field(default_factory=dict)
+
+    def specs(self) -> tuple[PeriodSpec, FilterSpec]:
+        """O período e os filtros como o modelo os guarda. Um mês da lista vira as datas dele."""
+        if self.period in RELATIVE:
+            period = PeriodSpec(kind=self.period, compare=self.compare)
+        else:
+            period = PeriodSpec(kind=CUSTOM, start=self.start, end=self.end, compare=self.compare)
+        filters = FilterSpec(
+            teams=self.teams,
+            people=self.people,
+            clients=self.clients,
+            no_client=self.no_client,
+            statuses=self.statuses,
+        )
+        return period, filters
+
+
+def _choice(page: LoggedPage, aba: str | None, models: list[ReportModel]) -> Choice:
+    def builtin(slug: str) -> Choice:
+        return Choice(slug, page.t(f"relatorios.abas.{TABS[slug]}"), BUILTINS[slug])
+
+    if aba in BUILTINS:
+        return builtin(aba)
+    model = next((m for m in models if str(m.public_id) == aba), None)
+    if model is None and aba is None:
+        model = next((m for m in models if m.is_default), None)
+    if model is None:
+        return builtin("produtividade")
+    try:
+        config: ReportConfig | None = saved.config_of(model)
+    except HTTPException:
+        config = None
+    return Choice(str(model.public_id), model.name, config, model)
+
+
+async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
+    auth = page.auth
+    today = datetime.now(TIMEZONE).date()
+    months = last_months(page.locale, today)
+    models = await saved.list_mine(db, auth)
+    choice = _choice(page, params.aba, models)
+    periodo, de, ate = params.periodo, params.de, params.ate
+    grupo, pessoa, cliente, status = params.grupo, params.pessoa, params.cliente, params.status
+    comparar = params.comparar
+    options = await reports_api.report_options(auth, db)
+
+    # Sem filtro na URL, valem os do modelo. Os salvos que deixaram de valer para a pessoa
+    # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
+    warning = None
+    url = (periodo, de, ate, grupo, pessoa, cliente, status, comparar)
+    compare = comparar == "1"
+    if all(v is None for v in url) and choice.config is not None:
+        spec, saved_filters = choice.config.period, choice.config.filters
+        periodo = spec.kind
+        compare = spec.compare
+        de = spec.start.isoformat() if spec.start else None
+        ate = spec.end.isoformat() if spec.end else None
+        lost = []
+        teams = [t for t in saved_filters.teams if t in {o.id for o in options.teams}]
+        if len(teams) < len(saved_filters.teams):
+            lost.append(page.t("relatorios.grupo"))
+        people = [p for p in saved_filters.people if p in {o.id for o in options.people}]
+        if len(people) < len(saved_filters.people):
+            lost.append(page.t("relatorios.pessoa"))
+        clients = [c for c in saved_filters.clients if c in {o.id for o in options.clients}]
+        if len(clients) < len(saved_filters.clients):
+            lost.append(page.t("relatorios.cliente"))
+        statuses = [s for s in saved_filters.statuses if s in {o.id for o in options.statuses}]
+        if len(statuses) < len(saved_filters.statuses):
+            lost.append(page.t("relatorios.status"))
+        no_client = saved_filters.no_client
+        if lost:
+            warning = page.t("relatorios.filtrosSalvosInvalidos", filtros=", ".join(lost))
+    else:
+        teams, people, clients = _uuids(grupo), _uuids(pessoa), _uuids(cliente)
+        no_client = NO_CLIENT in (cliente or [])
+        statuses = [int(v) for v in status or [] if v.isdigit()]
+
+    # Um período relativo, um mês da lista ou o personalizado; sem período (ou um desconhecido),
+    # o mês atual. Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em
+    # hoje; uma data apagada é um período inválido.
+    month = next((m for m in months if m.value == periodo), None)
+    period = (
+        periodo if periodo and (periodo in RELATIVE or periodo == CUSTOM or month) else "mes-atual"
+    )
+    if period in RELATIVE:
+        first, last = builder.relative_period(period, today)
+        start_text, end_text = first.isoformat(), last.isoformat()
+    elif month:
+        start_text, end_text = month.start.isoformat(), month.end.isoformat()
+    else:
+        start_text = months[0].start.isoformat() if de is None else de
+        end_text = today.isoformat() if ate is None else ate
+    start, end = _date(start_text), _date(end_text)
+
+    state = State(
+        choice=choice,
+        models=models,
+        options=options,
+        period=period,
+        start_text=start_text,
+        end_text=end_text,
+        start=start,
+        end=end,
+        teams=teams,
+        people=people,
+        clients=clients,
+        no_client=no_client,
+        statuses=statuses,
+        compare=compare,
+        warning=warning,
+    )
+    if choice.config is None:
+        state.error = page.t("relatorios.modeloInvalido")
+    elif start and end and start <= end:
+        try:
+            state.filters = await service.resolve(
+                db,
+                auth,
+                start=start,
+                end=end,
+                teams=teams,
+                people=people,
+                clients=clients,
+                no_client=no_client,
+                statuses=statuses,
+            )
+        except HTTPException as exc:
+            state.error = page.api_message(exc)
+    state.query = {
+        "periodo": period,
+        "de": start_text if period == CUSTOM else None,
+        "ate": end_text if period == CUSTOM else None,
+        "grupo": [str(t) for t in teams],
+        "pessoa": [str(p) for p in people],
+        "cliente": ([NO_CLIENT] if no_client else []) + [str(c) for c in clients],
+        "status": [str(s) for s in statuses],
+        "comparar": "1" if compare else None,
+    }
+    return state
+
+
+def with_query(path: str, query: dict[str, Any]) -> str:
+    params = {k: v for k, v in query.items() if v}
+    return f"{path}?{urlencode(params, doseq=True)}" if params else path
+
+
+def interval_text(page: LoggedPage, state: State) -> str | None:
+    start, end = state.start, state.end
+    if not (start and end and start <= end):
+        return None
+    parts = []
+    if state.period != CUSTOM:
+        parts.append(
+            page.t(
+                "relatorios.intervalo",
+                de=format_day(page.locale, start),
+                ate=format_day(page.locale, end),
+            )
+        )
+    if state.compare:
+        first, last = builder.previous_period(
+            start, end, year_to_date=state.period == "ano-ate-hoje"
+        )
+        parts.append(
+            page.t(
+                "relatorios.comparacao.com",
+                de=format_day(page.locale, first),
+                ate=format_day(page.locale, last),
+            )
+        )
+    return " · ".join(parts) or None
+
+
+def form_params(form: FormData) -> Params:
+    """Os filtros vindos num formulário (os mesmos nomes da URL); um ausente fica None."""
+
+    def one(name: str) -> str | None:
+        value = form.get(name)
+        return value if isinstance(value, str) else None
+
+    def many(name: str) -> list[str] | None:
+        values = [v for v in form.getlist(name) if isinstance(v, str)]
+        return values or None
+
+    return Params(
+        periodo=one("periodo"),
+        de=one("de"),
+        ate=one("ate"),
+        grupo=many("grupo"),
+        pessoa=many("pessoa"),
+        cliente=many("cliente"),
+        status=many("status"),
+        comparar=one("comparar"),
+    )

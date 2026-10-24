@@ -29,12 +29,24 @@ from chamados.web import admin_tokens as web_admin_tokens
 from chamados.web import board as web_board
 from chamados.web import clients as web_clients
 from chamados.web import reports as web_reports
+from chamados.web import reports_downloads as web_reports_downloads
+from chamados.web import reports_editor as web_reports_editor
 from chamados.web import tickets as web_tickets
 
 API: tuple[ModuleType, ...] = (admin_router, admin_tokens, attachments, audit, catalog, clients)
 API += (identity,)
 API += (organization, reports, system, tickets)
-WEB: tuple[ModuleType, ...] = (admin, auth, settings, ticket, tokens, web_clients, web_reports)
+WEB: tuple[ModuleType, ...] = (
+    admin,
+    auth,
+    settings,
+    ticket,
+    tokens,
+    web_clients,
+    web_reports,
+    web_reports_downloads,
+    web_reports_editor,
+)
 WEB += (web_tickets, web_admin_tokens, web_board)
 
 # Cada área da administração e o que as telas dela exigem.

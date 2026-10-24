@@ -1,0 +1,331 @@
+"""Relatórios: o editor de um modelo pessoal (docs/14 §14.8.1 e §14.8.3) e o "Salvar filtros".
+
+O formulário tem os campos de cada bloco (`b<i>-visual`, `b<i>-agrupar`, `b<i>-medida(s)`…), lidos
+de `request.form()`. Adicionar, remover, mover e trocar o visual refazem o formulário pelo HTMX,
+sem salvar; só `acao=salvar` grava. O modelo novo leva o período e os filtros da tela, em campos
+escondidos.
+"""
+
+import uuid
+from dataclasses import dataclass, field, replace
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from starlette.datastructures import FormData
+
+from chamados.db.session import DB
+from chamados.modules.reports import builder, saved
+from chamados.modules.reports.builder import (
+    BUILTINS,
+    CATEGORIES,
+    CHARTS,
+    STACKED,
+    TIMES,
+    Block,
+    FilterSpec,
+    PeriodSpec,
+    ReportConfig,
+)
+from chamados.modules.reports.models import ReportModel
+from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
+from chamados.web.reports_blocks import block_title
+from chamados.web.reports_state import ParamsDep, form_params, load_state, with_query
+
+router = APIRouter()
+
+
+@router.post("/relatorios/modelos/{model_id}/filtros")
+async def save_filters(
+    page: LoggedPageDep,
+    db: DB,
+    model_id: uuid.UUID,
+) -> Response:
+    """Guarda no modelo o período e os filtros da tela."""
+    form = await page.request.form()
+    check_csrf(page, str(form.get("csrf_token", "")))
+    model = await saved.get(db, page.auth, model_id)
+    state = await load_state(page, db, replace(form_params(form), aba=str(model_id)))
+    response = RedirectResponse(with_query("/relatorios", {"aba": str(model_id)}), status_code=303)
+    if state.error or state.choice.config is None:
+        page.flash(response, ("error", state.error or page.t("comum.erroInesperado")))
+        return response
+    period, filters = state.specs()
+    await saved.save_filters(
+        db, model, state.choice.config.model_copy(update={"period": period, "filters": filters})
+    )
+    await db.commit()
+    page.flash(response, ("success", page.t("relatorios.filtrosSalvos")))
+    return response
+
+
+NEW_BLOCK = Block(visual="table", dimension="person", measures=["hours"])
+
+
+@dataclass
+class EditorForm:
+    name: str = ""
+    hours: str = "hm"
+    is_default: bool = False
+    audience: str = "internal"  # ou "client": o relatório para o cliente (§14.8.5)
+    show_people: bool = False
+    blocks: list[Block] = field(default_factory=list)
+    errors: dict[int, str] = field(default_factory=dict)  # bloco → erro
+    error: str | None = None
+
+
+def _read_block(form: FormData, i: int) -> Block:
+    """Um bloco do formulário. As escolhas que não cabem no visual (ex.: depois de trocá-lo) se
+    ajustam: o agrupamento vai para um que ele aceita e a medida passa de uma para várias."""
+
+    def one(name: str) -> str:
+        value = form.get(f"b{i}-{name}")
+        return value.strip() if isinstance(value, str) else ""
+
+    visual = one("visual") if one("visual") in builder.VISUALS else "table"
+    dimension = one("agrupar") if one("agrupar") in builder.DIMENSIONS else None
+    if visual in ("cards", "tasks"):
+        dimension = None
+    elif visual == "bars" and dimension not in (*CATEGORIES, "age"):
+        dimension = "person"
+    elif (visual == "line" and dimension not in TIMES) or (
+        visual == "stacked" and dimension in (None, "age")
+    ):
+        dimension = "day"
+    elif dimension is None:
+        dimension = "day" if visual == "columns" else "person"
+    single = one("medida")
+    checked = [v for v in form.getlist(f"b{i}-medidas") if isinstance(v, str)]
+    measures = [m for m in builder.MEASURES if m in checked]
+    if visual == "stacked":
+        measures = list(STACKED)
+    elif visual in CHARTS:
+        chosen = single if single in builder.MEASURES else (measures or ["hours"])[0]
+        measures = [chosen]
+    elif not measures and single in builder.MEASURES:
+        measures = [single]
+    top = one("maiores")
+    order = one("ordem")
+    return Block(
+        visual=visual,
+        title=one("titulo")[:120],
+        dimension=dimension,
+        measures=measures,
+        top=min(int(top), 100) if top.isdigit() and int(top) > 0 else None,
+        order=order if order in ("desc", "asc", "name") else "desc",
+        only_overtime=one("extras") == "1",
+    )
+
+
+def _read_editor(form: FormData) -> tuple[EditorForm, str]:
+    count = form.get("blocos")
+    total = min(int(count), 12) if isinstance(count, str) and count.isdigit() else 0
+    hours = form.get("horas")
+    editor = EditorForm(
+        name=str(form.get("nome", "")),
+        hours=hours if hours in ("hm", "decimal") else "hm",
+        is_default=form.get("inicial") == "1",
+        audience="client" if form.get("publico") == "client" else "internal",
+        show_people=form.get("atendeu") == "1",
+        blocks=[_read_block(form, i) for i in range(total)],
+    )
+    return editor, str(form.get("acao", "salvar"))
+
+
+def _apply(editor: EditorForm, action: str) -> None:
+    """Adicionar, remover e mover blocos (o formulário volta sem salvar)."""
+    blocks = editor.blocks
+    if action == "adicionar" and len(blocks) < 12:
+        blocks.append(NEW_BLOCK.model_copy())
+        return
+    verb, _, number = action.partition("-")
+    if not number.isdigit() or int(number) >= len(blocks):
+        return
+    i = int(number)
+    if verb == "remover":
+        del blocks[i]
+    elif verb == "subir" and i > 0:
+        blocks[i - 1], blocks[i] = blocks[i], blocks[i - 1]
+    elif verb == "descer" and i < len(blocks) - 1:
+        blocks[i + 1], blocks[i] = blocks[i], blocks[i + 1]
+
+
+def _editor_page(
+    page: LoggedPage,
+    editor: EditorForm,
+    *,
+    model: ReportModel | None,
+    hidden: list[tuple[str, str]],
+    back: str,
+    status_code: int = 200,
+) -> HTMLResponse:
+    action = f"/relatorios/modelos/{model.public_id}" if model else "/relatorios/modelos"
+    # O que cada visual agrupa: as barras, cadastros e idade; a linha, só períodos; a idade é
+    # do em aberto, que não tem horas para empilhar.
+    dimensions = {
+        "bars": (*CATEGORIES, "age"),
+        "columns": builder.DIMENSIONS,
+        "stacked": tuple(d for d in builder.DIMENSIONS if d != "age"),
+        "line": TIMES,
+        "table": builder.DIMENSIONS,
+    }
+    return page.render(
+        "reports/editor.html",
+        status_code=status_code,
+        form=editor,
+        model=model,
+        action=action,
+        hidden=hidden,
+        back=back,
+        dimensions=dimensions,
+        categories=CATEGORIES,
+        charts=CHARTS,
+        visual_options=[(v, page.t(f"relatorios.visuais.{v}")) for v in builder.VISUALS],
+        dimension_options={
+            visual: [(d, page.t(f"relatorios.dimensoes.{d}").capitalize()) for d in options]
+            for visual, options in dimensions.items()
+        },
+        measure_options=[(m, page.t(f"relatorios.medidas.{m}")) for m in builder.MEASURES],
+        order_options=[(o, page.t(f"relatorios.ordens.{o}")) for o in ("desc", "asc", "name")],
+        placeholders=[
+            block_title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")
+            for b in editor.blocks
+        ],
+    )
+
+
+def _base(page: LoggedPage, base: str | None, models: list[ReportModel]) -> EditorForm:
+    """O formulário de um modelo novo: os blocos do modelo de onde ele saiu."""
+    source = next((m for m in models if str(m.public_id) == base), None)
+    if source is not None:
+        config = saved.config_of(source)
+        name = page.t("relatorios.editor.copiaDe", nome=source.name)[: saved.MAX_NAME]
+    else:
+        config = BUILTINS.get(base or "", BUILTINS["produtividade"])
+        name = ""
+    return EditorForm(
+        name=name,
+        hours=config.hours,
+        audience=config.audience,
+        show_people=config.show_people,
+        blocks=list(config.blocks),
+    )
+
+
+@router.get("/relatorios/modelos/novo")
+async def new_model(
+    page: LoggedPageDep,
+    db: DB,
+    params: ParamsDep,
+    base: str | None = None,
+) -> HTMLResponse:
+    """Salvar como modelo: os blocos do modelo aberto e os filtros da tela."""
+    models = await saved.list_mine(db, page.auth)
+    try:
+        editor = _base(page, base, models)
+    except HTTPException as exc:
+        editor = EditorForm(blocks=[NEW_BLOCK], error=page.api_message(exc))
+    return _editor_page(
+        page,
+        editor,
+        model=None,
+        hidden=params.hidden(),
+        back=with_query("/relatorios", {"aba": base}),
+    )
+
+
+@router.get("/relatorios/modelos/{model_id}/editar")
+async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLResponse:
+    model = await saved.get(db, page.auth, model_id)
+    back = with_query("/relatorios", {"aba": str(model_id)})
+    try:
+        config = saved.config_of(model)
+    except HTTPException as exc:
+        editor = EditorForm(name=model.name, blocks=[NEW_BLOCK], error=page.api_message(exc))
+    else:
+        editor = EditorForm(
+            name=model.name,
+            hours=config.hours,
+            is_default=model.is_default,
+            audience=config.audience,
+            show_people=config.show_people,
+            blocks=list(config.blocks),
+        )
+    return _editor_page(page, editor, model=model, hidden=[], back=back)
+
+
+@router.post("/relatorios/modelos")
+async def create_model(page: LoggedPageDep, db: DB) -> Response:
+    return await _submit(page, db, None)
+
+
+@router.post("/relatorios/modelos/{model_id}")
+async def update_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> Response:
+    return await _submit(page, db, await saved.get(db, page.auth, model_id))
+
+
+async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Response:
+    """Salvar, ou só refazer o formulário (adicionar, remover, mover, trocar o visual)."""
+    form = await page.request.form()
+    check_csrf(page, str(form.get("csrf_token", "")))
+    editor, action = _read_editor(form)
+    hidden = form_params(form).hidden()
+    back = with_query("/relatorios", {"aba": str(model.public_id) if model else None})
+    if action != "salvar":
+        _apply(editor, action)
+        return _editor_page(page, editor, model=model, hidden=hidden, back=back)
+
+    for i, block in enumerate(editor.blocks):
+        try:
+            builder.check_block(block)
+        except HTTPException as exc:
+            editor.errors[i] = page.api_message(exc)
+    if not editor.blocks and editor.audience == "internal":
+        editor.error = page.t("relatorios.editor.semBlocos")
+    if editor.errors or editor.error:
+        return _editor_page(page, editor, model=model, hidden=hidden, back=back, status_code=422)
+
+    try:
+        if model is None:
+            # O período e os filtros vêm da tela de onde o modelo saiu.
+            state = await load_state(page, db, form_params(form))
+            period, filters = state.specs() if state.start and state.end else (None, None)
+            config = ReportConfig(
+                period=period or PeriodSpec(),
+                filters=filters or FilterSpec(),
+                hours=editor.hours,
+                audience=editor.audience,
+                show_people=editor.show_people,
+                blocks=editor.blocks,
+            )
+        else:
+            config = ReportConfig.model_validate(
+                {
+                    **saved.config_of(model).model_dump(),
+                    "hours": editor.hours,
+                    "audience": editor.audience,
+                    "show_people": editor.show_people,
+                    "blocks": editor.blocks,
+                }
+            )
+        model = await saved.save(
+            db, page.auth, model, name=editor.name, config=config, is_default=editor.is_default
+        )
+    except HTTPException as exc:
+        editor.error = page.api_message(exc)
+        return _editor_page(page, editor, model=model, hidden=hidden, back=back, status_code=422)
+    await db.commit()
+    response = RedirectResponse(with_query("/relatorios", {"aba": str(model.public_id)}), 303)
+    page.flash(response, ("success", page.t("relatorios.editor.salvo")))
+    return response
+
+
+@router.post("/relatorios/modelos/{model_id}/excluir")
+async def delete_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> Response:
+    form = await page.request.form()
+    check_csrf(page, str(form.get("csrf_token", "")))
+    model = await saved.get(db, page.auth, model_id)
+    await saved.delete(db, model)
+    await db.commit()
+    response = RedirectResponse("/relatorios", status_code=303)
+    page.flash(response, ("success", page.t("relatorios.editor.excluido")))
+    return response
