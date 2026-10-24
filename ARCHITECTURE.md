@@ -47,7 +47,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0035
+│   ├── migrations/        Alembic: env.py e versions/0001…0037
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   ├── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
 │   └── bench/             benchmark: tempo e precisão com 50 mil chamados (seção 7.1)
@@ -279,9 +279,11 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0034` | Sem setores atendidos: saem `departments` e `tickets.department_id` |
 | `0035` | `tickets.canceled_at` (data do cancelamento; os já cancelados ficam com o `updated_at`) |
 | `0036` | `report_models` (modelos de relatório pessoais: a configuração em JSONB, nome único por pessoa sem diferenciar maiúsculas, no máximo um inicial) |
+| `0037` | Índice `tickets_created_idx` (`created_at`, `id`): a ordem da lista de chamados e do cursor |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
+- **Sem JIT:** a engine do app (`db/engine.py`) conecta com `jit=off`. O filtro de visibilidade (vários `OR EXISTS`) infla o custo estimado, e o JIT levava ~0,7 s para compilar consultas que rodam em ~30 ms (medido pelo benchmark, 7.1). A configuração do servidor não muda; o motivo e as alternativas estão no [ADR 0012](docs/adr/0012-postgresql-sem-jit.md).
 - **Nova migração:** gerar com o autogenerate do Alembic a partir dos modelos, **revisar à mão** (sequences, triggers, cargas iniciais e índices parciais não são detectados) e conferir que o `downgrade` funciona. O teste `test_migrations` desce até a base e sobe de novo.
 
 ### 3.10 Comando `chamados` (`cli.py`)

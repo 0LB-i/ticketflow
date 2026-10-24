@@ -18,7 +18,7 @@ Princípios, escolhas de tecnologia e arquitetura-alvo. Para o mapa do código c
 | Validação / schemas | Pydantic v2 | Integrado ao FastAPI; também usado para saídas estruturadas de IA |
 | ORM / SQL | SQLAlchemy 2.x (async) + psycopg 3 | Maduro, tipado, permite SQL explícito quando necessário |
 | Migrações | Alembic | Padrão de mercado com SQLAlchemy |
-| Banco | PostgreSQL 17 (suporte a 16) | Ver [ADR 0003](adr/0003-postgresql.md) |
+| Banco | PostgreSQL 17 (suporte a 16), com o JIT desligado nas conexões do aplicativo | Ver [ADR 0003](adr/0003-postgresql.md) e [ADR 0012](adr/0012-postgresql-sem-jit.md) |
 | Busca textual | `tsvector` com a configuração `pt_br` (`portuguese` + `unaccent`, já criada na migração 0001) | Nativo, sem serviço extra. Entra na Sprint 4 |
 | Busca vetorial (futuro) | `pgvector` (HNSW) | Nativo, sem serviço extra. Entra com a IA |
 | Fila de tarefas | Fila própria: tabelas `outbox` e `jobs` no PostgreSQL + `SKIP LOCKED` (a biblioteca *Procrastinate* foi avaliada e descartada: schema fora do Alembic e sem outbox) | Sem broker extra; transacional com os dados. Desde a Sprint 4 ([ARCHITECTURE 3.12](../ARCHITECTURE.md#312-worker-outbox-e-fila-de-tarefas-modulesjobs)) |

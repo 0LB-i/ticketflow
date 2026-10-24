@@ -128,7 +128,10 @@ Meta do [docs/02](docs/02-requisitos.md#requisitos-não-funcionais): p95 < 300 m
 
 | Código | Entrega | Estado | Commit |
 |--------|---------|--------|--------|
-| DES-01 | Benchmark (`backend/bench/`): massa de 50 mil chamados, 33 cenários com meta de tempo e conferência do resultado | feito | |
+| DES-01 | Benchmark (`backend/bench/`): massa de 50 mil chamados, 33 cenários com meta de tempo e conferência do resultado | feito | 9454088 |
+| DES-02 | Sem JIT nas conexões do app: listas, buscas, contadores e quadro passavam de 1 s só compilando a consulta ([ADR 0012](docs/adr/0012-postgresql-sem-jit.md)) | feito | |
+| DES-03 | Índice `tickets(created_at, id)` para a ordem da lista (migração 0037) | feito | |
+| DES-04 | PDF do relatório do mês (~5,4 s, meta de 2 s), relatório de 12 meses (~3 s), relatório do mês do admin (~530 ms), a tela Relatórios (~800 ms) e o Quadro do supervisor (p95 ~400 ms, p50 ~180 ms): achar onde vai o tempo (consultas, cálculo das horas fora do expediente, ReportLab, montagem dos cartões) | a fazer | |
 
 ## Rotinas
 

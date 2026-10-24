@@ -15,3 +15,4 @@ Cada decisão de arquitetura relevante é registrada em um arquivo numerado, usa
 | [0009](0009-github.md) | GitHub como plataforma do projeto | Aceita (adiada: repositório local por enquanto) |
 | [0010](0010-producao-systemd.md) | Produção com systemd + uvicorn, sem Docker | Aceita |
 | [0011](0011-interface-web-no-servidor.md) | Interface web renderizada no servidor: Jinja2 + HTMX + Tailwind CSS | Aceita (migração concluída em 2026-10-19) |
+| [0012](0012-postgresql-sem-jit.md) | Conexões do aplicativo com o JIT do PostgreSQL desligado | Aceita |

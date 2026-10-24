@@ -51,6 +51,8 @@ class Ticket(Base):
         CheckConstraint(f"type IN {TICKET_TYPES}", name="type"),
         Index("tickets_queue_idx", "team_id", "status_id", "created_at"),
         Index("tickets_assignee_idx", "assignee_id", "status_id"),
+        # A ordem da lista (e do cursor): o mais antigo primeiro.
+        Index("tickets_created_idx", "created_at", "id"),
         Index("tickets_search_idx", "search_vector", postgresql_using="gin"),
     )
 
