@@ -38,7 +38,8 @@ pastas_afetadas() {
   fi
   for f in "${arquivos[@]}"; do
     case "$f" in
-      docs/* | deploy/* | scripts/* | *.md | .gitignore) ;;
+      # O benchmark (backend/bench) não entra nos testes: roda à parte, com python -m bench.
+      docs/* | deploy/* | scripts/* | *.md | .gitignore | backend/bench/*) ;;
       # Só a API usa web/ (as páginas de erro fora de /api), e esses testes estão em telas.
       backend/src/chamados/web/*) pastas[tests/unidade]=1 pastas[tests/telas]=1 ;;
       backend/tests/*/*)
@@ -73,7 +74,7 @@ if [[ "$modo" == --rapido ]]; then
 fi
 
 etapa "backend: ruff, mypy"
-(cd backend && uv sync -q --frozen && uv run ruff check . && uv run ruff format --check . && uv run mypy src tests)
+(cd backend && uv sync -q --frozen && uv run ruff check . && uv run ruff format --check . && uv run mypy src tests bench)
 
 etapa "backend: testes no PostgreSQL 17"
 banco_no_ar 5432

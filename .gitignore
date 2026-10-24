@@ -33,3 +33,5 @@ test-results/
 
 # Dados locais
 /storage/
+# Resultados do benchmark (backend/bench): cada máquina guarda os seus
+backend/bench/resultados/

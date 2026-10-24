@@ -122,6 +122,14 @@ Concluída em 2026-10-19: todas as telas são do servidor ([ARCHITECTURE 3.11](A
 | WEB-05 | Relatórios (gráficos em SVG e o PDF) | feito | b6c5e5a, 019a6cc |
 | WEB-06 | Troca final: o nginx de desenvolvimento manda tudo ao uvicorn; saem o `frontend/`, o serviço do Vite e o pnpm do `check.sh` e do deploy; os catálogos de idioma passam para `web/locales/` | feito | 7dfc04c |
 
+## Desempenho (RNF-01)
+
+Meta do [docs/02](docs/02-requisitos.md#requisitos-não-funcionais): p95 < 300 ms nas leituras com 50 mil chamados. Medido pelo benchmark ([ARCHITECTURE 7.1](ARCHITECTURE.md#71-benchmark-backendbench)): `cd backend && uv run python -m bench`.
+
+| Código | Entrega | Estado | Commit |
+|--------|---------|--------|--------|
+| DES-01 | Benchmark (`backend/bench/`): massa de 50 mil chamados, 33 cenários com meta de tempo e conferência do resultado | feito | |
+
 ## Rotinas
 
 | Rotina | Frequência | Última vez |

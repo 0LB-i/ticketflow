@@ -86,6 +86,7 @@ criar_banco() {
 }
 criar_banco 5432 chamados
 criar_banco 5432 chamados_test
+criar_banco 5432 chamados_bench  # o benchmark (backend/bench)
 criar_banco 5433 chamados_test
 
 etapa "uv (Python)"

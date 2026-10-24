@@ -49,7 +49,8 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
 │   ├── migrations/        Alembic: env.py e versions/0001…0035
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
-│   └── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
+│   ├── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
+│   └── bench/             benchmark: tempo e precisão com 50 mil chamados (seção 7.1)
 ├── scripts/               check.sh, install-hooks.sh, deploy.sh, instalar-servico-dev.sh, css.sh,
 │                          vendor-tiptap.sh (o único uso de Node, só para trocar a versão do Tiptap),
 │                          preparar-maquina-dev.sh (Ubuntu 24.04 novo pronto para desenvolver)
@@ -487,6 +488,25 @@ Durante a tarefa, roda-se a pasta (ou o arquivo) do que mudou: `uv run pytest te
 | `--rapido` (hook de pre-commit) | ruff nos arquivos do commit; procura segredos |
 | padrão | + mypy e os testes que a mudança desde o último commit afeta, no PostgreSQL 17: só `web/` (e docs) → `tests/unidade` e `tests/telas`; só testes → as pastas deles; qualquer outra coisa (ou nada mudou) → todos, com cobertura (mínimo de 80%) |
 | `--completo` | + todos os testes no PostgreSQL 17, com cobertura, e no 16; auditoria de dependências |
+
+### 7.1 Benchmark (`backend/bench/`)
+
+Mede o que as pessoas fazem no dia a dia com a massa do RNF-01 ([docs/02](docs/02-requisitos.md#requisitos-não-funcionais): p95 < 300 ms nas leituras com 50 mil chamados) e confere se a resposta está **certa**. Fica fora do pytest e do `check.sh` (leva minutos); roda-se à mão, antes e depois de mexer numa consulta, numa tela pesada ou num índice:
+
+```
+cd backend
+uv run python -m bench                  # todos os cenários
+uv run python -m bench --filtro busca   # só os que têm "busca" no nome
+uv run python -m bench --refazer        # gera a massa de novo
+```
+
+| Arquivo | O que faz |
+|---------|-----------|
+| `massa.py` | Gera a massa em SQL, no banco `chamados_bench` (`BENCH_DATABASE_URL`): 50 mil chamados em 3 anos, ~200 mil tarefas, 60 pessoas em 8 grupos, 3 mil clientes, categorias em 3 níveis (com uma confidencial), observadores, transferências e um chamado com 150 tarefas. É a mesma a cada vez (`setseed`) e só é refeita quando as migrações, a `VERSAO` dela ou o `--chamados` mudam (a marca fica no comentário da `alembic_version`, como no banco de teste). Planta palavras e um cliente que a busca precisa achar |
+| `cenarios.py` | Cada cenário: a pessoa (admin, supervisora, agente), a requisição, a meta (300 ms nas leituras, nas telas e nas escritas; 2 s no PDF e no CSV) e a **conferência**: a resposta contra um oráculo em SQL escrito à parte, inclusive a visibilidade do docs/08 §8.4. Mudou uma regra de visibilidade, de fila ou de busca: o oráculo muda junto |
+| `__main__.py` | Sobe o app no próprio processo (`TestClient`, sem uvicorn), entra com cada pessoa, aquece, mede até 30 vezes (no máximo ~10 s por cenário), conta as consultas SQL por requisição e confere. Imprime p50, p95, máximo, a meta e a diferença do p95 para a execução anterior (guardada em `bench/resultados/`, fora do git). Sai com erro se algum cenário passar da meta ou responder errado |
+
+As escritas usam uma pessoa e um grupo só delas ("Escritas"): não mudam as filas que os outros cenários medem. Os tempos dependem da máquina; compare execuções na mesma máquina, sem os testes rodando ao mesmo tempo.
 
 ## 8. Execução
 
