@@ -155,15 +155,17 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 O modelo de público "cliente" é feito para enviar ao cliente, em PDF.
 
-- **Um cliente:** o filtro precisa ter exatamente um cliente.
+- **No editor:** "Público: cliente" (o padrão é interno). Os blocos ficam escondidos e guardados, para quando o modelo voltar a ser interno; a tela mostra a prévia do que vai no PDF.
+- **Um cliente:** o filtro precisa ter exatamente um cliente; sem isso, a tela avisa e não há PDF.
 - **Cabeçalho:** o logotipo da instalação (Configurações), o nome do cliente e o período.
-- **Conteúdo:** totais (horas, chamados registrados e concluídos) e a lista dos chamados do período, com número, título, registrado em, concluído em, status e horas.
-- **Quem atendeu:** opcional no modelo, desligado por padrão.
+- **Conteúdo:** totais (horas, chamados registrados e concluídos) e a lista dos chamados do período (os que tiveram tarefa no período, ou foram registrados ou concluídos nele), com número, título, registrado em, concluído em (se está concluído), status atual e as horas das tarefas do período.
+- **Quem atendeu:** opcional no modelo, desligado por padrão; são os responsáveis do chamado (o principal e os outros).
+- **Rodapé:** só a data em que foi gerado, sem o nome de quem gerou.
 - **Fica de fora:** o texto das tarefas (do chamado aparece só o título, porque as tarefas podem ter anotações internas), o valor por hora, as horas extras, os grupos e qualquer outra informação de organização interna.
 
 ### 14.8.6 PDF do modelo
 
-O PDF segue o modelo: título, filtros usados e os blocos na ordem. Os gráficos são desenhados no próprio ReportLab, em vetor. Os modelos prontos da §14.7 continuam com o PDF de hoje.
+O PDF segue o modelo: título, período (e o de comparação), filtros usados e os blocos na ordem, com os mesmos números e formatos da tela (as listas de tarefas, com as 200 primeiras, como na tela). Os gráficos são desenhados no próprio ReportLab, em vetor, na cor da instalação. Os modelos prontos de horas da §14.7 continuam com o PDF de hoje; o modelo pronto Chamados e os da pessoa usam este. O download vai para a auditoria (`report.exported`, com `format=pdf`).
 
 ### 14.8.7 Fases
 
@@ -172,5 +174,5 @@ O PDF segue o modelo: título, filtros usados e os blocos na ordem. Os gráficos
 | 1 | CSV das telas atuais (cada tabela e as tarefas brutas), períodos relativos, grupo, pessoa, cliente (com "Sem cliente") e status com vários valores. Sem tabela nova | F2-S8-04 |
 | 2 | Construtor guiado com as medidas de tarefas e os registrados e concluídos, modelos pessoais (tabela `report_models`), modelos prontos, modelo inicial, CSV de cada bloco | F2-S8-05 |
 | 3 | Medidas de chamados (§14.3), o modelo pronto "Chamados", idade do em aberto, colunas empilhadas, comparação com o período anterior, detalhar ao clicar (com a lista de chamados e o CSV dela) | F2-S8-06 |
-| 4 | PDF do modelo com gráficos e relatório para o cliente | F2-S8-07 |
+| 4 | PDF do modelo com gráficos e relatório para o cliente (prévia na tela e PDF com o logotipo) | F2-S8-07 |
 | Depois | Envio agendado por e-mail, usando o worker e o outbox ([ARCHITECTURE 3.12](../ARCHITECTURE.md)) | — |

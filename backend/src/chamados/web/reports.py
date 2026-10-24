@@ -10,6 +10,7 @@ os salvos no modelo; o formulário sempre manda o período, então mexer num fil
 da URL, e "Salvar filtros" o guarda no modelo.
 """
 
+import base64
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -20,11 +21,12 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import FormData
 
 from chamados.core.i18n import Locale
 from chamados.db.session import DB
-from chamados.modules.reports import builder, csv_export, saved, service
+from chamados.modules.reports import builder, csv_export, model_pdf, saved, service
 from chamados.modules.reports import router as reports_api
 from chamados.modules.reports.builder import (
     BUILTINS,
@@ -46,8 +48,11 @@ from chamados.modules.reports.builder import (
 )
 from chamados.modules.reports.models import ReportModel
 from chamados.modules.reports.schemas import ReportOptions
+from chamados.modules.system.service import get_value
 from chamados.web.formatting import (
     TIMEZONE,
+    format_date,
+    format_datetime,
     format_day,
     format_duration,
     format_elapsed,
@@ -57,6 +62,7 @@ from chamados.web.formatting import (
     format_percent,
 )
 from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
+from chamados.web.palette import palette
 
 router = APIRouter()
 
@@ -663,8 +669,13 @@ async def reports_page(
     blocks: list[dict[str, Any]] = []
     downloads = None
     work_hours = None
+    client_view = None
     f, config = state.filters, choice.config
-    if f is not None and config is not None:
+    if f is not None and config is not None and config.audience == "client":
+        client_view = await _client_view(page, db, state, f, config)
+        if client_view["ready"]:
+            downloads = {"pdf": _url("/relatorios/pdf", {**query, "aba": slug})}
+    elif f is not None and config is not None:
         data = await service.facts(db, page.auth, f)
         before = None
         if state.compare and any(b.visual == "cards" for b in config.blocks):
@@ -700,6 +711,8 @@ async def reports_page(
         if slug in CSV_TABLES and choice.model is None:
             downloads["pdf"] = _url("/api/v1/reports/pdf", api)
             downloads["csv"] = _url("/api/v1/reports/csv", {**api, "table": CSV_TABLES[slug]})
+        else:  # o PDF do modelo, com os blocos (§14.8.6)
+            downloads["pdf"] = _url("/relatorios/pdf", {**query, "aba": slug})
 
     # "Salvar filtros": num modelo da pessoa, quando os da tela não são os guardados.
     filters_changed = False
@@ -756,10 +769,229 @@ async def reports_page(
         filters_changed=filters_changed,
         new_model_url=_url("/relatorios/modelos/novo", {**query, "base": slug}),
         blocks=blocks,
+        client_view=client_view,
         work_hours=work_hours,
         error=state.error,
         warning=state.warning,
         downloads=downloads,
+    )
+
+
+def _single_client(state: State) -> str | None:
+    """O nome do cliente do relatório para o cliente: o filtro precisa ter um, e só um."""
+    if len(state.clients) != 1 or state.no_client:
+        return None
+    return next((c.name for c in state.options.clients if c.id == state.clients[0]), None)
+
+
+async def _client_view(
+    page: LoggedPage, db: DB, state: State, f: service.Filters, config: ReportConfig
+) -> dict[str, Any]:
+    """O relatório para o cliente (§14.8.5), na tela e no PDF: os totais e os chamados."""
+    client = _single_client(state)
+    if client is None:
+        return {"ready": False, "message": page.t("relatorios.paraCliente.umCliente")}
+    data = await service.facts(db, page.auth, f)
+    tickets = await service.client_tickets(db, page.auth, data)
+    hours = _formatter(page, config, "hours")
+    columns = ["chamado", "titulo", "registrado", "concluido", "status", "horas"]
+    if config.show_people:
+        columns.append("atendeu")
+    rows = []
+    for t in tickets:
+        row = [
+            f"#{t.number}",
+            t.title,
+            format_date(page.locale, t.created_at),
+            format_date(page.locale, t.closed_at) if t.closed_at else "—",
+            t.status,
+            hours(t.minutes),
+        ]
+        if config.show_people:
+            row.append(", ".join(t.people))
+        rows.append(row)
+    return {
+        "ready": True,
+        "client": client,
+        "totals": [
+            (page.t("relatorios.medidas.hours"), hours(sum(t.minutes for t in data.tasks))),
+            (page.t("relatorios.medidas.opened"), format_number(page.locale, len(data.opened))),
+            (page.t("relatorios.medidas.closed"), format_number(page.locale, len(data.closed))),
+        ],
+        "columns": [page.t(f"relatorios.paraCliente.colunas.{c}") for c in columns],
+        "rows": rows,
+    }
+
+
+def _ticks(points: list[Point], step: int, fmt: Format) -> list[tuple[int, str]]:
+    """As marcas do eixo, como as do _charts.html: o topo, a metade e o zero."""
+    highest = max((p.value for p in points), default=0)
+    top = max(step, -(-highest // step) * step)
+    return [(top, fmt(top)), (top // 2, fmt(top // 2)), (0, fmt(0))]
+
+
+def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf.Block]:
+    """Os blocos da tela, já formatados, no formato do PDF."""
+    blocks: list[model_pdf.Block] = []
+    for v in views:
+        visual = v["visual"]
+        if visual == "cards":
+            items = []
+            for card in v["cards"]:
+                note = ""
+                if "before" in card:
+                    note = (
+                        page.t(
+                            "relatorios.comparacao.antes",
+                            variacao=card["change"],
+                            anterior=card["before"],
+                        )
+                        if card["change"]
+                        else page.t("relatorios.comparacao.soAntes", anterior=card["before"])
+                    )
+                items.append((card["label"], card["value"], note))
+            blocks.append(model_pdf.Cards(v["title"], items))
+        elif visual in CHARTS:
+            fmt = v["fmt"]
+            blocks.append(
+                model_pdf.Chart(
+                    v["title"],
+                    visual,
+                    [(p.label, p.value, p.extra, fmt(p.value)) for p in v["points"]],
+                    ticks=_ticks(v["points"], v["step"], fmt),
+                    legend=v.get("labels"),
+                    empty=v.get("empty", ""),
+                )
+            )
+        elif visual == "table":
+            blocks.append(
+                model_pdf.Grid(
+                    v["title"],
+                    v["columns"],
+                    [[label, *(text for text, _ in cells)] for label, _, cells in v["rows"]],
+                    total=[text for text, _ in v["total"]],
+                    total_label=page.t("relatorios.total"),
+                    empty=page.t("relatorios.nada"),
+                )
+            )
+        else:
+            columns = ["quando", "pessoa", "chamado", "tempo", "foraDoExpediente"]
+            blocks.append(
+                model_pdf.Grid(
+                    v["title"],
+                    [page.t(f"relatorios.colunas.{c}") for c in columns],
+                    [
+                        [
+                            format_datetime(page.locale, t["done_at"]),
+                            t["person"],
+                            f"#{t['number']} {t['title']}",
+                            t["minutes"],
+                            t["overtime"],
+                        ]
+                        for t in v["tasks"]
+                    ],
+                    empty=v["empty"],
+                    note=page.t("relatorios.listaCortada", n=len(v["tasks"]), total=v["count"])
+                    if v["count"] > len(v["tasks"])
+                    else "",
+                )
+            )
+    return blocks
+
+
+def _filters_line(page: LoggedPage, state: State) -> str:
+    """Os filtros usados, para o cabeçalho do PDF."""
+    o = state.options
+    parts = []
+    for key, chosen in (
+        ("grupo", [t.name for t in o.teams if t.id in state.teams]),
+        ("pessoa", [p.name for p in o.people if p.id in state.people]),
+        (
+            "cliente",
+            ([page.t("relatorios.semCliente")] if state.no_client else [])
+            + [c.name for c in o.clients if c.id in state.clients],
+        ),
+        ("status", [s.name for s in o.statuses if s.id in state.statuses]),
+    ):
+        if chosen:
+            parts.append(f"{page.t(f'relatorios.{key}')}: {', '.join(chosen)}")
+    return " · ".join(parts)
+
+
+@router.get("/relatorios/pdf")
+async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response:
+    """O PDF do modelo aberto (§14.8.6) ou, num modelo para o cliente, o relatório para ele
+    (§14.8.5); com os filtros da tela, e vai para a auditoria."""
+    state = await _state(page, db, params)
+    f, config = state.filters, state.choice.config
+    if state.error or f is None or config is None:
+        raise HTTPException(422, "Não foi possível gerar o PDF com estes filtros.")
+    locale = page.locale
+    now = format_datetime(locale, datetime.now(TIMEZONE))
+    period = page.t(
+        "relatorios.pdf.periodo", de=format_date(locale, f.start), ate=format_date(locale, f.end)
+    )
+    if config.audience == "client":
+        view = await _client_view(page, db, state, f, config)
+        if not view["ready"]:
+            raise HTTPException(422, "O relatório do cliente precisa de um cliente (só um).")
+        stored = await get_value(db, "logo")
+        logo = base64.b64decode(stored["data"]) if stored else None
+        content = await run_in_threadpool(
+            model_pdf.render_client,
+            logo,
+            page.t("relatorios.paraCliente.titulo"),
+            [view["client"], period],
+            view["totals"],
+            model_pdf.Grid("", view["columns"], view["rows"], empty=page.t("relatorios.nada")),
+            page.t("relatorios.paraCliente.gerado", quando=now),
+        )
+        table = "client"
+    else:
+        data = await service.facts(db, page.auth, f)
+        before = None
+        if state.compare and any(b.visual == "cards" for b in config.blocks):
+            first, last = builder.previous_period(
+                f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
+            )
+            before = await service.facts(db, page.auth, replace(f, start=first, end=last))
+        views = [
+            _view(page, state, f, config, data, block, i, before)
+            for i, block in enumerate(config.blocks)
+        ]
+        lines = [period]
+        if state.compare:
+            first, last = builder.previous_period(
+                f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
+            )
+            lines.append(
+                page.t(
+                    "relatorios.pdf.comparado",
+                    de=format_date(locale, first),
+                    ate=format_date(locale, last),
+                )
+            )
+        lines.append(_filters_line(page, state))
+        colors = page.branding.colors
+        primary = palette(colors.model_dump() if colors else None)["light"]["primary"]
+        content = await run_in_threadpool(
+            model_pdf.render_model,
+            state.choice.name,
+            [line for line in lines if line],
+            _pdf_blocks(page, views),
+            page.t("relatorios.pdf.gerado", quando=now, quem=page.auth.user.display_name),
+            primary,
+        )
+        table = "model"
+    reports_api.record_export(
+        db, page.request, page.auth, f, format="pdf", table=table, model=state.choice.name
+    )
+    await db.commit()
+    name = f"relatorio-{f.start:%Y-%m-%d}-a-{f.end:%Y-%m-%d}.pdf"
+    return Response(
+        content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
 
 
@@ -928,6 +1160,8 @@ class EditorForm:
     name: str = ""
     hours: str = "hm"
     is_default: bool = False
+    audience: str = "internal"  # ou "client": o relatório para o cliente (§14.8.5)
+    show_people: bool = False
     blocks: list[Block] = field(default_factory=list)
     errors: dict[int, str] = field(default_factory=dict)  # bloco → erro
     error: str | None = None
@@ -984,6 +1218,8 @@ def _read_editor(form: FormData) -> tuple[EditorForm, str]:
         name=str(form.get("nome", "")),
         hours=hours if hours in ("hm", "decimal") else "hm",
         is_default=form.get("inicial") == "1",
+        audience="client" if form.get("publico") == "client" else "internal",
+        show_people=form.get("atendeu") == "1",
         blocks=[_read_block(form, i) for i in range(total)],
     )
     return editor, str(form.get("acao", "salvar"))
@@ -1060,7 +1296,13 @@ def _base(page: LoggedPage, base: str | None, models: list[ReportModel]) -> Edit
     else:
         config = BUILTINS.get(base or "", BUILTINS["produtividade"])
         name = ""
-    return EditorForm(name=name, hours=config.hours, blocks=list(config.blocks))
+    return EditorForm(
+        name=name,
+        hours=config.hours,
+        audience=config.audience,
+        show_people=config.show_people,
+        blocks=list(config.blocks),
+    )
 
 
 @router.get("/relatorios/modelos/novo")
@@ -1094,6 +1336,8 @@ async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLRe
             name=model.name,
             hours=config.hours,
             is_default=model.is_default,
+            audience=config.audience,
+            show_people=config.show_people,
             blocks=list(config.blocks),
         )
     return _editor_page(page, editor, model=model, hidden=[], back=back)
@@ -1125,7 +1369,7 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
             builder.check_block(block)
         except HTTPException as exc:
             editor.errors[i] = page.api_message(exc)
-    if not editor.blocks:
+    if not editor.blocks and editor.audience == "internal":
         editor.error = page.t("relatorios.editor.semBlocos")
     if editor.errors or editor.error:
         return _editor_page(page, editor, model=model, hidden=hidden, back=back, status_code=422)
@@ -1139,11 +1383,19 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
                 period=period or PeriodSpec(),
                 filters=filters or FilterSpec(),
                 hours=editor.hours,
+                audience=editor.audience,
+                show_people=editor.show_people,
                 blocks=editor.blocks,
             )
         else:
-            config = saved.config_of(model).model_copy(
-                update={"hours": editor.hours, "blocks": editor.blocks}
+            config = ReportConfig.model_validate(
+                {
+                    **saved.config_of(model).model_dump(),
+                    "hours": editor.hours,
+                    "audience": editor.audience,
+                    "show_people": editor.show_people,
+                    "blocks": editor.blocks,
+                }
             )
         model = await saved.save(
             db, page.auth, model, name=editor.name, config=config, is_default=editor.is_default

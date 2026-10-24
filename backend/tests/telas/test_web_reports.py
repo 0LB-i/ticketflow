@@ -12,13 +12,16 @@ from datetime import date, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
+from chamados.modules.reports import model_pdf
 from chamados.modules.reports.builder import relative_period
 from chamados.modules.reports.models import ReportModel
+from chamados.modules.system.models import SystemSetting
 from chamados.modules.tickets.models import Ticket
 from chamados.web.formatting import TIMEZONE, format_day, format_month
 from tests.apoio import API, dia_util_passado, em, formulario, registrar, tarefa
@@ -529,3 +532,121 @@ def test_colunas_empilhadas_e_idade_no_editor(client: TestClient, cenario: dict[
     assert "Horas por dia: no expediente e extras" in r.text
     assert "No expediente: 30min · Horas extras: 1h" in r.text
     assert "fill-blue-fg" in r.text
+
+
+# --- PDF do modelo e relatório para o cliente (docs/14 §14.8, fase 4) ------------------------
+
+
+def _capturar(monkeypatch: pytest.MonkeyPatch, nome: str) -> list[tuple[Any, ...]]:
+    """Troca o desenho do PDF por um que guarda o que recebeu."""
+    chamadas: list[tuple[Any, ...]] = []
+
+    def desenhar(*args: Any) -> bytes:
+        chamadas.append(args)
+        return b"%PDF-teste"
+
+    monkeypatch.setattr(model_pdf, nome, desenhar)
+    return chamadas
+
+
+def _link_pdf(html: str) -> str:
+    achado = re.search(r'<a href="(/relatorios/pdf\?[^"]+)" download', html)
+    assert achado, "sem o link do PDF do modelo"
+    return achado.group(1).replace("&amp;", "&")
+
+
+def test_pdf_do_modelo(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 90, em(dia, 19))
+    campos = {
+        "blocos": "3",
+        "b0-visual": "cards",
+        "b0-medidas": ["hours", "closed"],
+        "b1-visual": "stacked",
+        "b1-agrupar": "day",
+        "b2-visual": "table",
+        "b2-agrupar": "person",
+        "b2-medidas": ["hours"],
+    }
+    dados = formulario(client, nome="Mensal", horas="hm", acao="salvar", **campos)
+    r = client.post("/relatorios/modelos", data=dados, follow_redirects=False)
+    modelo = parse_qs(urlsplit(r.headers["location"]).query)["aba"][0]
+
+    # As abas de horas continuam com o PDF da API; a Chamados e os modelos, com o do modelo.
+    assert "/relatorios/pdf?" not in client.get("/relatorios").text
+    assert "/relatorios/pdf?" in client.get("/relatorios", params={"aba": "chamados"}).text
+    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo, comparar="1"))
+    assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
+    chamadas = _capturar(monkeypatch, "render_model")
+    r = client.get(_link_pdf(r.text))
+    assert r.status_code == 200 and r.content == b"%PDF-teste"
+    assert r.headers["content-type"] == "application/pdf"
+    titulo, linhas, blocos, rodape, cor = chamadas[0]
+    assert titulo == "Mensal" and cor == "#C2410C"
+    anterior = (dia - timedelta(days=1)).strftime("%d/%m/%Y")
+    assert linhas[0] == f"Período: {dia:%d/%m/%Y} a {dia:%d/%m/%Y}"
+    assert linhas[1] == f"Comparado com {anterior} a {anterior}"
+    assert [type(b).__name__ for b in blocos] == ["Cards", "Chart", "Grid"]
+    assert blocos[0].items[0][:2] == ("Horas", "1h30")
+    assert blocos[1].kind == "stacked" and blocos[1].points[0][1:3] == (90, 60)
+    assert blocos[2].rows == [["Ana", "1h30"]] and blocos[2].total == ["1h30"]
+    assert rodape.endswith("por Ana")
+    registro = db.scalars(
+        select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
+    ).all()[-1]
+    assert (registro.after or {})["format"] == "pdf" and (registro.after or {})["table"] == "model"
+
+
+def test_relatorio_para_o_cliente(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
+    dia = dia_util_passado()
+    numero = registrar(client, cenario, client_id=padaria, title="Impressora")["number"]
+    tarefa(client, numero, 90, em(dia, 19))
+    registrar(client, cenario, title="De outro cliente")
+
+    # No editor, o público "cliente" esconde os blocos (guardados) e oferece "quem atendeu".
+    dados = formulario(client, nome="X", horas="hm", acao="atualizar", blocos="1", publico="client")
+    r = client.post("/relatorios/modelos", data={**dados, **TABELA})
+    assert '<div class="flex flex-col gap-4" hidden>' in r.text
+    assert 'name="atendeu"' in r.text and "formato fixo" in r.text
+    modelo = _criar(client, "Para a padaria", publico="client", atendeu="1")
+
+    # Sem um cliente (só um) no filtro, a tela avisa e não há PDF.
+    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo))
+    assert "precisa de um cliente, e só um" in r.text and "/relatorios/pdf?" not in r.text
+    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo, cliente=[padaria, "sem-cliente"]))
+    assert "precisa de um cliente, e só um" in r.text
+
+    filtros = _um_dia(dia, aba=modelo, cliente=padaria)
+    r = client.get("/relatorios", params=filtros)
+    assert "Prévia do relatório para Padaria Pão Quente." in r.text
+    assert '<td class="px-3 py-2">#' + str(numero) + "</td>" in r.text
+    assert "De outro cliente" not in r.text
+    assert '<th scope="col" class="px-3 py-2 font-medium">Atendido por</th>' in r.text
+    assert '<th scope="col" class="px-3 py-2 font-medium">Horas extras</th>' not in r.text
+
+    assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
+    # O PDF leva o logotipo da instalação.
+    db.add(
+        SystemSetting(
+            key="logo", value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"}
+        )
+    )
+    db.commit()
+    chamadas = _capturar(monkeypatch, "render_client")
+    r = client.get(_link_pdf(r.text))
+    assert r.status_code == 200
+    logo, titulo, linhas, totais, chamados, rodape = chamadas[0]
+    assert logo == b"hello" and titulo == "Relatório de atendimento"
+    assert linhas[0] == "Padaria Pão Quente" and linhas[1].startswith("Período:")
+    assert totais[0] == ("Horas", "1h30")
+    assert chamados.columns[-1] == "Atendido por"
+    assert chamados.rows[0][0] == f"#{numero}" and chamados.rows[0][-1] == "Ana"
+    assert "Ana" not in rodape  # sem o nome de quem gerou
+    sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
+    assert sem_cliente.status_code == 422

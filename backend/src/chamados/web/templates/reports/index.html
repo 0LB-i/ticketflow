@@ -141,6 +141,30 @@
   {%- endif %}
   {%- if error %}
   {{ alert(error) }}
+  {%- elif client_view %}
+  {#- Modelo para o cliente: a prévia do que vai no PDF (totais e chamados), sem os blocos. #}
+  {%- if not client_view.ready %}
+  {{ alert(client_view.message, "info") }}
+  {%- else %}
+  <p class="text-muted">{{ t("relatorios.paraCliente.previa", cliente=client_view.client) }}</p>
+  <dl class="grid grid-cols-2 gap-3 md:grid-cols-3">
+    {%- for label, value in client_view.totals %}
+    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
+      <dt class="text-muted">{{ label }}</dt>
+      <dd class="mt-1 text-2xl font-semibold">{{ value }}</dd>
+    </div>
+    {%- endfor %}
+  </dl>
+  {% call table(t("relatorios.paraCliente.titulo"), client_view.columns, t("relatorios.nada"), client_view.rows | length) %}
+    {%- for row in client_view.rows %}
+    <tr class="border-t border-border">
+      {%- for cell in row %}
+      <td class="px-3 py-2">{{ cell }}</td>
+      {%- endfor %}
+    </tr>
+    {%- endfor %}
+  {% endcall %}
+  {%- endif %}
   {%- elif blocks %}
   {%- if work_hours %}
   <p class="text-muted">{{ work_hours }}</p>

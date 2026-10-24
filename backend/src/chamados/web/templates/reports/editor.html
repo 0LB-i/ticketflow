@@ -49,9 +49,18 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
       {{ field("nome", t("relatorios.editor.nome"), value=form.name, required=True, maxlength="80") }}
       {{ select("horas", t("relatorios.editor.horas"), [("hm", t("relatorios.editor.formatoHm")), ("decimal", t("relatorios.editor.formatoDecimal"))], form.hours) }}
     </div>
+    <div class="grid gap-3 sm:grid-cols-2">
+      {{ select("publico", t("relatorios.editor.publico"), [("internal", t("relatorios.editor.publicos.internal")), ("client", t("relatorios.editor.publicos.client"))], form.audience, refresh("atualizar", "change")) }}
+    </div>
+    {%- if form.audience == "client" %}
+    <p class="text-muted">{{ t("relatorios.editor.clienteAjuda") }}</p>
+    {{ checkbox("atendeu", t("relatorios.editor.atendeu"), checked=form.show_people) }}
+    {%- endif %}
     {{ checkbox("inicial", t("relatorios.editor.inicial"), checked=form.is_default) }}
     <p class="text-muted">{{ t("relatorios.editor.filtrosEditar" if model else "relatorios.editor.filtrosNovo") }}</p>
 
+    {#- No modelo para o cliente, os blocos ficam escondidos (e guardados): o PDF é fixo. #}
+    <div class="flex flex-col gap-4"{% if form.audience == "client" %} hidden{% endif %}>
     <h2 class="text-lg font-semibold">{{ t("relatorios.editor.blocos") }}</h2>
     {%- for b in form.blocks %}
     {%- set i = loop.index0 %}
@@ -100,8 +109,10 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
     </fieldset>
     {%- endfor %}
 
+    </div>
+
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <button type="button" {{ refresh("adicionar") }}{% if form.blocks | length >= 12 %} disabled{% endif %} class="{{ button_class('secondary') }}">{{ icon("plus", "size-4") }} {{ t("relatorios.editor.adicionar") }}</button>
+      <button type="button"{% if form.audience == "client" %} hidden{% endif %} {{ refresh("adicionar") }}{% if form.blocks | length >= 12 %} disabled{% endif %} class="{{ button_class('secondary') }}">{{ icon("plus", "size-4") }} {{ t("relatorios.editor.adicionar") }}</button>
       <div class="flex gap-2">
         <a href="{{ back }}" class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</a>
         <button type="submit" name="acao" value="salvar" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>

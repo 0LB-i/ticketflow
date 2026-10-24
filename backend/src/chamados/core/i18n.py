@@ -191,6 +191,12 @@ EN: dict[str, str] = {
     ),
     "Você já tem um modelo com este nome.": "You already have a template with this name.",
     "Você chegou ao limite de 50 modelos.": "You have reached the limit of 50 templates.",
+    "Não foi possível gerar o PDF com estes filtros.": (
+        "The PDF could not be generated with these filters."
+    ),
+    "O relatório do cliente precisa de um cliente (só um).": (
+        "The client report needs a client (just one)."
+    ),
     "Não foi possível gerar o CSV com estes filtros.": (
         "The CSV could not be generated with these filters."
     ),

@@ -501,6 +501,66 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
     )
 
 
+@dataclass
+class ClientTicket:
+    """Um chamado do relatório para o cliente (docs/14 §14.8.5): só o que o cliente pode ver."""
+
+    number: int
+    title: str
+    created_at: datetime
+    closed_at: datetime | None  # só se está concluído
+    status: str
+    minutes: int  # as horas das tarefas do período
+    people: list[str]  # os responsáveis (o modelo escolhe se aparecem)
+
+
+async def client_tickets(db: AsyncSession, auth: Auth, data: Facts) -> list[ClientTicket]:
+    """Os chamados do período para o cliente: os com tarefa, os registrados e os concluídos nele
+    (já com os filtros e o escopo de `data`), com as horas das tarefas do período."""
+    minutes: dict[int, int] = defaultdict(int)
+    for t in data.tasks:
+        minutes[t.ticket_number] += t.minutes
+    numbers = set(minutes) | {t.number for t in (*data.opened, *data.closed)}
+    if not numbers:
+        return []
+    rows = await db.execute(
+        select(Ticket.id, Ticket.number, Ticket.title, Ticket.created_at, Ticket.closed_at)
+        .add_columns(TicketStatus.name, TicketStatus.kind, Ticket.assignee_id)
+        .join(TicketStatus, TicketStatus.id == Ticket.status_id)
+        .where(Ticket.number.in_(numbers), ticket_visibility_filter(auth.actor))
+        .order_by(Ticket.number)
+    )
+    tickets = rows.all()
+    people: dict[int, set[int]] = defaultdict(set)
+    for r in tickets:
+        people[r.id].add(r.assignee_id)
+    co = await db.execute(
+        select(TicketCoAssignee.ticket_id, TicketCoAssignee.user_id).where(
+            TicketCoAssignee.ticket_id.in_([r.id for r in tickets])
+        )
+    )
+    for ticket_id, user_id in co:
+        people[ticket_id].add(user_id)
+    names = {
+        u.id: u.display_name
+        for u in await db.scalars(
+            select(User).where(User.id.in_({u for ids in people.values() for u in ids}))
+        )
+    }
+    return [
+        ClientTicket(
+            number=r.number,
+            title=r.title,
+            created_at=r.created_at,
+            closed_at=r.closed_at if r.kind == "closed" else None,
+            status=r.name,
+            minutes=minutes.get(r.number, 0),
+            people=sorted(names[u] for u in people[r.id]),
+        )
+        for r in tickets
+    ]
+
+
 async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = False) -> Report:
     """Os números das telas prontas, da API e do PDF. `all_tasks`: também a lista de todas as
     tarefas (`Report.tasks`, para o CSV)."""

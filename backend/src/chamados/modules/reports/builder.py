@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from typing import Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from chamados.modules.reports.service import Facts, TaskFact, TicketFact
 
@@ -150,7 +150,17 @@ class ReportConfig(BaseModel):
     period: PeriodSpec = PeriodSpec()
     filters: FilterSpec = FilterSpec()
     hours: Literal["hm", "decimal"] = "hm"  # 7h30 ou 7,5 h
-    blocks: list[Block] = Field(min_length=1, max_length=12)
+    # Para o cliente (§14.8.5): o PDF tem um formato fixo (totais e chamados) e os blocos não
+    # aparecem; `show_people`, mostrar quem atendeu (os responsáveis).
+    audience: Literal["internal", "client"] = "internal"
+    show_people: bool = False
+    blocks: list[Block] = Field(max_length=12)
+
+    @model_validator(mode="after")
+    def _has_blocks(self) -> "ReportConfig":
+        if self.audience == "internal" and not self.blocks:
+            raise ValueError("um modelo interno precisa de ao menos um bloco")
+        return self
 
 
 _CARDS = Block(visual="cards", measures=["hours", "overtime", "tasks", "opened", "closed"])

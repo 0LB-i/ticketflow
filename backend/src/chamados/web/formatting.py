@@ -54,6 +54,13 @@ def format_hours(locale: str, minutes: int) -> str:
     return f"{text if locale == 'en' else text.replace('.', ',')} h"
 
 
+def format_date(locale: str, value: date | datetime) -> str:
+    """Data com o ano: "05/10/2026" ou "2026-10-05" (um momento, no fuso da máquina)."""
+    if isinstance(value, datetime):
+        value = value.astimezone(TIMEZONE).date()
+    return value.strftime("%d/%m/%Y" if locale == "pt-BR" else "%Y-%m-%d")
+
+
 def format_elapsed(minutes: int) -> str:
     """Tempo corrido longo (até a conclusão): "3d 4h", "2d", ou como format_duration abaixo de um
     dia."""

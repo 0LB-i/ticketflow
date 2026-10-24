@@ -107,7 +107,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F2-S8-04 | Relatórios, fase 1 ([14.8](docs/14-relatorios-e-indicadores.md#148-relatórios-personalizados-pedido-do-usuário-2026-10-24)): CSV das telas atuais, períodos relativos, filtros com vários valores | feito | |
 | F2-S8-05 | Relatórios, fase 2: construtor guiado (medidas de tarefas, registrados e concluídos), modelos pessoais salvos, modelos prontos, modelo inicial, CSV de cada bloco | feito | |
 | F2-S8-06 | Relatórios, fase 3: medidas de chamados (§14.3), modelo pronto Chamados, idade do em aberto, colunas empilhadas, comparação com o período anterior, detalhar ao clicar (com a lista de chamados) | feito | |
-| F2-S8-07 | Relatórios, fase 4: PDF do modelo com gráficos e relatório para o cliente | a fazer | |
+| F2-S8-07 | Relatórios, fase 4: PDF do modelo com gráficos e relatório para o cliente | feito | |
 
 ## Migração da interface para o servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md))
 

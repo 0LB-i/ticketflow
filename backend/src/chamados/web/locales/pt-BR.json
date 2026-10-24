@@ -500,7 +500,14 @@
       "salvo": "Modelo salvo.",
       "excluido": "Modelo excluído.",
       "copiaDe": "Cópia de {nome}",
-      "empilhadasAjuda": "Mostra as horas no expediente e as horas extras, uma sobre a outra."
+      "empilhadasAjuda": "Mostra as horas no expediente e as horas extras, uma sobre a outra.",
+      "publico": "Público",
+      "publicos": {
+        "internal": "Interno",
+        "client": "Cliente (PDF para enviar)"
+      },
+      "atendeu": "Mostrar quem atendeu (os responsáveis)",
+      "clienteAjuda": "O relatório para o cliente tem um formato fixo: os totais e os chamados do período, sem horas extras, grupos nem o texto das tarefas. Os blocos ficam guardados, para quando o modelo voltar a ser interno."
     },
     "idades": {
       "0": "até 1 dia",
@@ -538,6 +545,26 @@
         "cancelado": "Cancelado em",
         "idade": "Idade"
       }
+    },
+    "paraCliente": {
+      "titulo": "Relatório de atendimento",
+      "umCliente": "O relatório para o cliente precisa de um cliente, e só um, no filtro de cliente.",
+      "previa": "Prévia do relatório para {cliente}. O PDF leva também o logotipo da instalação.",
+      "gerado": "Gerado em {quando}",
+      "colunas": {
+        "chamado": "Chamado",
+        "titulo": "Título",
+        "registrado": "Registrado em",
+        "concluido": "Concluído em",
+        "status": "Status",
+        "horas": "Horas",
+        "atendeu": "Atendido por"
+      }
+    },
+    "pdf": {
+      "periodo": "Período: {de} a {ate}",
+      "gerado": "Gerado em {quando} por {quem}",
+      "comparado": "Comparado com {de} a {ate}"
     }
   },
   "expediente": {

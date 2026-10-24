@@ -500,7 +500,14 @@
       "salvo": "Template saved.",
       "excluido": "Template deleted.",
       "copiaDe": "Copy of {nome}",
-      "empilhadasAjuda": "Shows the hours within working hours and the overtime, one on top of the other."
+      "empilhadasAjuda": "Shows the hours within working hours and the overtime, one on top of the other.",
+      "publico": "Audience",
+      "publicos": {
+        "internal": "Internal",
+        "client": "Client (PDF to send)"
+      },
+      "atendeu": "Show who handled it (the assignees)",
+      "clienteAjuda": "The client report has a fixed format: the period's totals and tickets, without overtime, teams or task text. The blocks are kept for when the template is internal again."
     },
     "idades": {
       "0": "up to 1 day",
@@ -538,6 +545,26 @@
         "cancelado": "Canceled at",
         "idade": "Age"
       }
+    },
+    "paraCliente": {
+      "titulo": "Service report",
+      "umCliente": "The client report needs a client, and just one, in the client filter.",
+      "previa": "Preview of the report for {cliente}. The PDF also carries the installation logo.",
+      "gerado": "Generated on {quando}",
+      "colunas": {
+        "chamado": "Ticket",
+        "titulo": "Title",
+        "registrado": "Opened at",
+        "concluido": "Closed at",
+        "status": "Status",
+        "horas": "Hours",
+        "atendeu": "Handled by"
+      }
+    },
+    "pdf": {
+      "periodo": "Period: {de} to {ate}",
+      "gerado": "Generated on {quando} by {quem}",
+      "comparado": "Compared with {de} to {ate}"
     }
   },
   "expediente": {
