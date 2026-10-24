@@ -6,6 +6,7 @@ dados (`service.Facts`) são montados à mão.
 import csv
 import io
 from datetime import date, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi import HTTPException
@@ -20,10 +21,11 @@ from chamados.modules.reports.builder import (
     OTHERS,
     Block,
     check_block,
+    previous_period,
     relative_period,
     run,
 )
-from chamados.modules.reports.service import TZ, Facts, TaskFact, TicketFact
+from chamados.modules.reports.service import TZ, Facts, TaskFact, TicketFact, net_minutes
 from chamados.modules.system.work_hours import DEFAULT
 
 ANA, BIA = 1, 2
@@ -49,20 +51,36 @@ def _tarefa(
     )
 
 
-def _chamado(dia: date, pessoas: set[int], cliente: int | None = None) -> TicketFact:
-    return TicketFact(client_id=cliente, team_id=TI, status_id=PENDENTE, day=dia, people=pessoas)
+def _chamado(
+    dia: date, pessoas: set[int], cliente: int | None = None, numero: int = 1000, **extra: Any
+) -> TicketFact:
+    return TicketFact(
+        number=numero,
+        title="Impressora",
+        client_id=cliente,
+        team_id=TI,
+        status_id=PENDENTE,
+        day=dia,
+        people=pessoas,
+        created_at=datetime.combine(dia, datetime.min.time(), TZ),
+        **extra,
+    )
 
 
 def _dados(
     tarefas: list[TaskFact],
     registrados: list[TicketFact] | None = None,
     concluidos: list[TicketFact] | None = None,
+    cancelados: list[TicketFact] | None = None,
+    em_aberto: list[TicketFact] | None = None,
 ) -> Facts:
     return Facts(
         work_hours=DEFAULT,
         tasks=tarefas,
         opened=registrados or [],
         closed=concluidos or [],
+        canceled=cancelados or [],
+        backlog=em_aberto or [],
         users={ANA: User(id=ANA, display_name="Ana"), BIA: User(id=BIA, display_name="Bia")},
         clients={
             PADARIA: Client(id=PADARIA, name="Padaria"),
@@ -104,7 +122,7 @@ def test_os_maiores_outros_e_ordem() -> None:
         ]
     )
 
-    def linhas(**opcoes: object) -> list[tuple[object, int]]:
+    def linhas(**opcoes: object) -> list[tuple[object, int | None]]:
         bloco = Block(visual="table", dimension="client", measures=["hours"], **opcoes)
         return [(x.label or x.key, x.values["hours"]) for x in run(dados, bloco, INICIO, FIM).rows]
 
@@ -171,7 +189,19 @@ def test_lista_de_tarefas() -> None:
         ),
         (
             Block(visual="bars", dimension="day", measures=["hours"]),
-            "As barras agrupam por pessoa, cliente, grupo ou status.",
+            "As barras agrupam por pessoa, cliente, grupo, status ou idade.",
+        ),
+        (
+            Block(visual="stacked", dimension="day", measures=["hours"]),
+            "As colunas empilhadas mostram as horas no expediente e as extras.",
+        ),
+        (
+            Block(visual="bars", dimension="age", measures=["opened"]),
+            "A idade só vale para a medida Em aberto.",
+        ),
+        (
+            Block(visual="line", dimension="week", measures=["backlog"]),
+            "Em aberto é o retrato do fim do período: não se agrupa por dia, semana ou mês.",
         ),
     ],
 )
@@ -185,6 +215,7 @@ def test_modelos_prontos_sao_validos() -> None:
     for config in BUILTINS.values():
         for bloco in config.blocks:
             check_block(bloco)
+    check_block(Block(visual="stacked", dimension="client", measures=["hours", "overtime"]))
 
 
 def test_periodos_relativos() -> None:
@@ -241,3 +272,129 @@ def test_csv_de_um_bloco() -> None:
     assert linhas[0][:5] == ["Quando", "Pessoa", "Chamado", "Título", "Cliente"]
     assert linhas[1][:5] == ["01/10/2026 10:00", "Ana", "1000", "Impressora", "'=Farmácia"]
     assert linhas[1][5:] == ["1,50", "90", "1,00", "60"]
+
+
+# --- medidas de chamados (fase 3) -------------------------------------------------------------
+
+AGUARDANDO, CONCLUIDO = 2, 4
+TIPOS = {PENDENTE: "open", AGUARDANDO: "waiting", CONCLUIDO: "closed"}
+
+
+def _hora(h: float) -> datetime:
+    return datetime(2026, 10, 5, tzinfo=TZ) + timedelta(hours=h)
+
+
+def test_tempo_liquido() -> None:
+    # Sem espera: o líquido é o bruto.
+    assert net_minutes(_hora(0), _hora(10), [(_hora(10), PENDENTE, CONCLUIDO)], TIPOS) == 600
+    # Duas idas a Aguardando (2 h e 1 h) saem do líquido.
+    mudancas = [
+        (_hora(1), PENDENTE, AGUARDANDO),
+        (_hora(3), AGUARDANDO, PENDENTE),
+        (_hora(5), PENDENTE, AGUARDANDO),
+        (_hora(6), AGUARDANDO, PENDENTE),
+        (_hora(10), PENDENTE, CONCLUIDO),
+    ]
+    assert net_minutes(_hora(0), _hora(10), mudancas, TIPOS) == 7 * 60
+    # Reaberto: o tempo em que ficou concluído (das 4 às 8) não conta.
+    reaberto = [
+        (_hora(4), PENDENTE, CONCLUIDO),
+        (_hora(8), CONCLUIDO, PENDENTE),
+        (_hora(10), PENDENTE, CONCLUIDO),
+    ]
+    assert net_minutes(_hora(0), _hora(10), reaberto, TIPOS) == 6 * 60
+    # Conclusão com data informada (às 6), registrada depois: o resto não conta.
+    informada = [(_hora(2), PENDENTE, AGUARDANDO), (_hora(9), AGUARDANDO, CONCLUIDO)]
+    assert net_minutes(_hora(0), _hora(6), informada, TIPOS) == 2 * 60
+
+
+def test_medidas_de_chamados() -> None:
+    concluidos = [
+        _chamado(INICIO, {ANA}, numero=1, lead=60, net_lead=30),
+        _chamado(INICIO, {ANA}, numero=2, lead=180, net_lead=180, reopened=True),
+        _chamado(INICIO, {BIA}, numero=3, lead=600, net_lead=500),
+    ]
+    dados = _dados(
+        [],
+        concluidos=concluidos,
+        cancelados=[_chamado(INICIO, {BIA}, numero=4)],
+        em_aberto=[
+            _chamado(FIM, {ANA}, numero=5, age=60),  # até 1 dia
+            _chamado(FIM, {ANA}, numero=6, age=2 * 24 * 60),  # 1 a 3 dias
+            _chamado(FIM, {BIA}, numero=7, age=30 * 24 * 60),  # mais de 7
+        ],
+    )
+    medidas = ["closed", "canceled", "backlog", "lead_time", "net_lead_time", "reopen_rate"]
+    cartoes = run(dados, Block(visual="cards", measures=medidas), INICIO, FIM)
+    assert cartoes.total == {
+        "closed": 3,
+        "canceled": 1,
+        "backlog": 3,
+        "lead_time": 180,  # a mediana, não a média
+        "net_lead_time": 180,
+        "reopen_rate": 3333,  # 33,33%
+    }
+    por_pessoa = run(
+        dados, Block(visual="table", dimension="person", measures=medidas), INICIO, FIM
+    )
+    assert [(r.label, r.values["lead_time"], r.values["reopen_rate"]) for r in por_pessoa.rows] == [
+        ("Ana", 120, 5000),
+        ("Bia", 600, 0),
+    ]
+    idades = run(dados, Block(visual="columns", dimension="age", measures=["backlog"]), INICIO, FIM)
+    assert [(r.key, r.values["backlog"]) for r in idades.rows] == [(0, 1), (1, 1), (2, 0), (3, 1)]
+    # Sem concluídos, a mediana e a porcentagem não têm base.
+    vazio = run(
+        _dados([]), Block(visual="cards", measures=["lead_time", "reopen_rate"]), INICIO, FIM
+    )
+    assert vazio.total == {"lead_time": None, "reopen_rate": None}
+
+
+def test_periodo_anterior() -> None:
+    assert previous_period(date(2026, 10, 1), date(2026, 10, 31)) == (
+        date(2026, 9, 1),
+        date(2026, 9, 30),
+    )
+    assert previous_period(date(2026, 1, 1), date(2026, 3, 31)) == (
+        date(2025, 10, 1),
+        date(2025, 12, 31),
+    )
+    # Ano até a data: as mesmas datas do ano anterior (29/02 vira 28/02), mesmo que sejam meses
+    # inteiros; sem ser o ano até a data, os meses de antes.
+    assert previous_period(date(2026, 1, 1), date(2026, 10, 24), year_to_date=True) == (
+        date(2025, 1, 1),
+        date(2025, 10, 24),
+    )
+    assert previous_period(date(2028, 1, 1), date(2028, 2, 29), year_to_date=True) == (
+        date(2027, 1, 1),
+        date(2027, 2, 28),
+    )
+    assert previous_period(date(2028, 1, 1), date(2028, 2, 29)) == (
+        date(2027, 11, 1),
+        date(2027, 12, 31),
+    )
+    # Os demais: o mesmo número de dias, logo antes.
+    assert previous_period(date(2026, 10, 18), date(2026, 10, 24)) == (
+        date(2026, 10, 11),
+        date(2026, 10, 17),
+    )
+
+
+def test_csv_dos_chamados_e_da_porcentagem() -> None:
+    concluido = _chamado(INICIO, {ANA}, PADARIA, numero=7, lead=90, net_lead=None, reopened=True)
+    concluido.finished_at = concluido.created_at + timedelta(minutes=90)
+    dados = _dados([], concluidos=[concluido])
+    linhas = _csv(csv_export.render_tickets(dados, [concluido], "closed", "pt-BR"))
+    assert linhas[0][-6:] == [
+        "Concluído em",
+        "Tempo até a conclusão",
+        "Tempo até a conclusão (min)",
+        "Tempo até a conclusão, líquido",
+        "Tempo até a conclusão, líquido (min)",
+        "Reaberto",
+    ]
+    assert linhas[1][:6] == ["7", "Impressora", "Padaria", "TI", "Pendente", "Ana"]
+    assert linhas[1][6:] == ["01/10/2026 00:00", "01/10/2026 01:30", "1,50", "90", "", "", "Sim"]
+    bloco = Block(visual="table", dimension="person", measures=["reopen_rate", "lead_time"])
+    linhas = _csv(csv_export.render_block(dados, run(dados, bloco, INICIO, FIM), "pt-BR"))
+    assert linhas[1] == ["Ana", "100,0", "1,50", "90"]

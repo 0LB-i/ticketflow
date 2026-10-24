@@ -54,6 +54,22 @@ def format_hours(locale: str, minutes: int) -> str:
     return f"{text if locale == 'en' else text.replace('.', ',')} h"
 
 
+def format_elapsed(minutes: int) -> str:
+    """Tempo corrido longo (até a conclusão): "3d 4h", "2d", ou como format_duration abaixo de um
+    dia."""
+    days, rest = divmod(minutes, 24 * 60)
+    if not days:
+        return format_duration(rest)
+    hours = rest // 60
+    return f"{days}d {hours}h" if hours else f"{days}d"
+
+
+def format_percent(locale: str, hundredths: int) -> str:
+    """Porcentagem guardada em centésimos de ponto: 1250 → "12,5%", 3300 → "33%"."""
+    text = f"{hundredths / 100:.1f}".removesuffix(".0")
+    return f"{text if locale == 'en' else text.replace('.', ',')}%"
+
+
 def format_number(locale: str, value: int) -> str:
     """Inteiro com separador de milhar: "1.234" ou "1,234"."""
     text = f"{value:,}"

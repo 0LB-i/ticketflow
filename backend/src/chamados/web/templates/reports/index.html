@@ -2,10 +2,10 @@
     blocos do modelo (cartões, gráficos, tabelas, lista de tarefas) e os downloads com os mesmos
     filtros. Quem vê o quê é decidido pela API. -#}
 {% extends "app.html" %}
-{% from "_ui.html" import alert, button_class, field with context %}
+{% from "_ui.html" import alert, button_class, checkbox, field with context %}
 {% from "_fields.html" import chips with context %}
 {% from "_icons.html" import icon %}
-{% from "reports/_charts.html" import bar_chart, column_chart, line_chart %}
+{% from "reports/_charts.html" import bar_chart, column_chart, line_chart, stacked_chart %}
 
 {% block title %}{{ t("relatorios.titulo") }}{% endblock %}
 
@@ -19,7 +19,13 @@
 <a href="{{ url }}" download class="shrink-0 rounded p-1 text-muted hover:bg-surface-raised hover:text-fg" aria-label="{{ t('relatorios.baixarCsvBloco', bloco=title) }}" title="{{ t('relatorios.baixarCsvBloco', bloco=title) }}">{{ icon("download", "size-4") }}</a>
 {%- endmacro %}
 
-{#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total. #}
+{#- Um texto que, com `href`, é um link (detalhar). #}
+{% macro linked(text, href) -%}
+{%- if href %}<a href="{{ href }}" class="hover:underline">{{ text }}</a>{% else %}{{ text }}{% endif -%}
+{%- endmacro %}
+
+{#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total
+    ((texto, link) de cada coluna). #}
 {% macro table(caption, columns, empty, count, foot=None) -%}
 <div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
   <table class="w-full border-collapse text-left">
@@ -43,8 +49,8 @@
     <tfoot class="border-t-2 border-border font-medium">
       <tr>
         <th scope="row" class="px-3 py-2 text-left">{{ t("relatorios.total") }}</th>
-        {%- for value in foot %}
-        <td class="px-3 py-2 tabular-nums">{{ value }}</td>
+        {%- for value, href in foot %}
+        <td class="px-3 py-2 tabular-nums">{{ linked(value, href) }}</td>
         {%- endfor %}
       </tr>
     </tfoot>
@@ -119,6 +125,8 @@
     {%- for name, label, options, selected, all_key in filters %}
     {{ chips(name, t("relatorios." ~ label), options, selected, dict(options), t("relatorios.adicionar") if selected else t("relatorios." ~ all_key), "relatorios.tirarFiltro") }}
     {%- endfor %}
+    {#- Os cartões mostram a variação sobre o período anterior. mt-7: na linha dos campos. #}
+    <div class="mt-7">{{ checkbox("comparar", t("relatorios.comparacao.campo"), checked=compare) }}</div>
   </form>
 
   {#- Os modelos prontos e os da pessoa. #}
@@ -145,15 +153,18 @@
       <h2 class="font-medium">{{ b.title }}</h2>
       {%- endif %}
       <dl class="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
-        {%- for label, value in b.cards %}
+        {%- for card in b.cards %}
         <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-          <dt class="text-muted">{{ label }}</dt>
-          <dd class="mt-1 text-2xl font-semibold">{{ value }}</dd>
+          <dt class="text-muted">{{ card.label }}</dt>
+          <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
+          {%- if card.before is defined %}
+          <dd class="mt-1 text-sm text-muted tabular-nums">{{ t("relatorios.comparacao.antes", variacao=card.change, anterior=card.before) if card.change else t("relatorios.comparacao.soAntes", anterior=card.before) }}</dd>
+          {%- endif %}
         </div>
         {%- endfor %}
       </dl>
     </section>
-    {%- elif b.visual in ("bars", "columns", "line") %}
+    {%- elif b.visual in ("bars", "columns", "stacked", "line") %}
     <div class="flex items-start gap-2 rounded-lg border border-border bg-surface p-4 shadow-md">
       <div class="min-w-0 flex-1">
         {%- if b.visual == "bars" %}
@@ -163,6 +174,8 @@
         {%- endif %}
         {%- elif b.visual == "columns" %}
         {{ column_chart(b.title, b.points, b.fmt, b.step) }}
+        {%- elif b.visual == "stacked" %}
+        {{ stacked_chart(b.title, b.points, b.fmt, b.step, b.labels) }}
         {%- else %}
         {{ line_chart(b.title, b.points, b.fmt, b.step) }}
         {%- endif %}
@@ -176,11 +189,11 @@
         {{ csv_link(b.csv, b.title) }}
       </div>
       {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total) %}
-        {%- for label, values in b.rows %}
+        {%- for label, href, cells in b.rows %}
         <tr class="border-t border-border">
-          <td class="px-3 py-2">{{ label }}</td>
-          {%- for value in values %}
-          <td class="px-3 py-2 tabular-nums">{{ value }}</td>
+          <td class="px-3 py-2">{{ linked(label, href) }}</td>
+          {%- for value, link in cells %}
+          <td class="px-3 py-2 tabular-nums">{{ linked(value, link) }}</td>
           {%- endfor %}
         </tr>
         {%- endfor %}

@@ -1,0 +1,75 @@
+{#- Os chamados por trás de um número dos relatórios (detalhar, docs/14 §14.8.3), com os filtros
+    da tela e o CSV. As colunas mudam com o tipo: registrados, concluídos (tempos e reabertura),
+    cancelados ou em aberto no fim do período (idade). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-7xl flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-xl font-semibold">{{ title }}</h1>
+      {%- if interval %}
+      <p class="text-muted">{{ interval }}</p>
+      {%- endif %}
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ back }}" class="{{ button_class('secondary') }}">{{ t("relatorios.chamados.voltar") }}</a>
+      {%- if not error %}
+      <a href="{{ csv }}" download class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.chamados.baixarCsv") }}</a>
+      {%- endif %}
+    </div>
+  </div>
+
+  {%- if error %}
+  {{ alert(error) }}
+  {%- else %}
+  <p class="text-muted">{{ t("relatorios.chamados.quantos", n=count) }}{% if count > rows | length %} {{ t("relatorios.chamados.cortada", n=rows | length) }}{% endif %}</p>
+  <div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
+    <table class="w-full border-collapse text-left">
+      <caption class="sr-only">{{ title }}</caption>
+      <thead class="bg-surface-raised text-muted">
+        <tr>
+          {%- set columns = ["chamado", "cliente", "grupo", "status", "responsaveis", "registrado"] %}
+          {%- if kind == "closed" %}{% set columns = columns + ["concluido", "tempo", "liquido", "reaberto"] %}{% endif %}
+          {%- if kind == "canceled" %}{% set columns = columns + ["cancelado"] %}{% endif %}
+          {%- if kind == "backlog" %}{% set columns = columns + ["idade"] %}{% endif %}
+          {%- for column in columns %}
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("relatorios.chamados.colunas." ~ column) }}</th>
+          {%- endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {%- for r in rows %}
+        <tr class="border-t border-border">
+          <td class="px-3 py-2"><a href="/chamados/{{ r.number }}" class="text-primary underline tabular-nums">#{{ r.number }}</a> {{ r.title }}</td>
+          <td class="px-3 py-2">{{ r.client }}</td>
+          <td class="px-3 py-2">{{ r.team }}</td>
+          <td class="px-3 py-2">{{ r.status }}</td>
+          <td class="px-3 py-2">{{ r.people }}</td>
+          <td class="px-3 py-2 tabular-nums">{{ datetime(r.created_at) }}</td>
+          {%- if kind == "closed" %}
+          <td class="px-3 py-2 tabular-nums">{{ datetime(r.finished_at) }}</td>
+          <td class="px-3 py-2 tabular-nums">{{ r.lead }}</td>
+          <td class="px-3 py-2 tabular-nums">{{ r.net_lead }}</td>
+          <td class="px-3 py-2">{{ t("relatorios.chamados.sim") if r.reopened else t("relatorios.chamados.nao") }}</td>
+          {%- elif kind == "canceled" %}
+          <td class="px-3 py-2 tabular-nums">{{ datetime(r.finished_at) }}</td>
+          {%- elif kind == "backlog" %}
+          <td class="px-3 py-2 tabular-nums">{{ r.age }}</td>
+          {%- endif %}
+        </tr>
+        {%- else %}
+        <tr>
+          <td colspan="10" class="px-3 py-6 text-center text-muted">{{ t("relatorios.nada") }}</td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+</div>
+{% endblock %}

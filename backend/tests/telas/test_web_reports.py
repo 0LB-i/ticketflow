@@ -19,8 +19,9 @@ from sqlalchemy.orm import Session
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.reports.builder import relative_period
 from chamados.modules.reports.models import ReportModel
+from chamados.modules.tickets.models import Ticket
 from chamados.web.formatting import TIMEZONE, format_day, format_month
-from tests.apoio import dia_util_passado, em, formulario, registrar, tarefa
+from tests.apoio import API, dia_util_passado, em, formulario, registrar, tarefa
 from tests.conftest import criar_cliente, entrar
 
 
@@ -84,14 +85,19 @@ def test_numeros_graficos_e_abas(client: TestClient, cenario: dict[str, Any], db
     assert f'aria-label="{format_day("pt-BR", dia)}: 2h15"' in r.text
     assert 'height="100.00%"' not in r.text  # o topo do eixo fica acima do maior valor
     assert '<svg width="85.00%" height="16"' in r.text
-    assert '<td class="px-3 py-2">Ana</td>' in r.text
+    # A linha da pessoa aplica o filtro dela ao ser clicada (detalhar).
+    achado = re.search(
+        r'<td class="px-3 py-2"><a href="([^"]+)" class="hover:underline">Ana</a>', r.text
+    )
+    assert achado and f"pessoa={cenario['ana']}" in achado.group(1)
 
     filtros = _um_dia(dia)
     r = client.get("/relatorios", params={**filtros, "aba": "clientes"})
     assert 'aria-current="page">Clientes</a>' in r.text
     assert _pdf(r.text, "csv")["table"] == ["clients"]
     assert "Horas por cliente (os 10 maiores)" in r.text
-    assert '<td class="px-3 py-2">Padaria Pão Quente</td>' in r.text
+    assert 'class="hover:underline">Padaria Pão Quente</a></td>' in r.text
+    assert f"cliente={padaria}" in r.text
     # As abas levam os filtros junto.
     assert f"de={dia.isoformat()}" in r.text
 
@@ -428,3 +434,98 @@ def test_filtro_salvo_que_nao_vale_mais(
     assert "Este modelo foi salvo num formato que não vale mais." in r.text
     r = client.get(f"/relatorios/modelos/{modelo}/editar")
     assert r.status_code == 200 and "Este modelo foi salvo num formato" in r.text
+
+
+# --- medidas de chamados, comparar e detalhar (docs/14 §14.8, fase 3) -------------------------
+
+
+def test_chamados_em_aberto_e_detalhar(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    dia = dia_util_passado()
+    aberto = registrar(client, cenario, title="Ainda aberto")["number"]
+    fechado = registrar(client, cenario, title="Já resolvido")["number"]
+    r = client.post(
+        f"{API}/{fechado}/transitions",
+        json={"action": "close", "comment": "Pronto", "resolution_code_id": 1},
+    )
+    assert r.status_code == 200, r.text
+    # Os dois foram registrados 3 dias antes; o segundo, concluído no dia (data informada).
+    db.execute(
+        update(Ticket)
+        .where(Ticket.number.in_([aberto, fechado]))
+        .values(created_at=em(dia, 12) - timedelta(days=3))
+    )
+    db.execute(update(Ticket).where(Ticket.number == fechado).values(closed_at=em(dia, 12)))
+    db.commit()
+
+    filtros = _um_dia(dia, aba="chamados")
+    r = client.get("/relatorios", params=filtros)
+    assert 'aria-current="page">Chamados</a>' in r.text
+    assert "Em aberto no fim" in r.text and "Mediana até a conclusão" in r.text
+    assert ">3d</a></dd>" in r.text  # o tempo até a conclusão, em dias
+    # O número de chamados abre a lista deles.
+    lista = re.search(r'<a href="(/relatorios/chamados\?[^"]+medida=backlog)"', r.text)
+    assert lista
+    r = client.get(lista.group(1).replace("&amp;", "&"))
+    assert "<title>Em aberto no fim · TicketFlow</title>" in r.text
+    assert f'href="/chamados/{aberto}"' in r.text and f'href="/chamados/{fechado}"' not in r.text
+    assert "Chamados encontrados: 1." in r.text
+
+    # No fim da véspera, o concluído ainda estava aberto, com o status de então.
+    vespera = dia - timedelta(days=1)
+    r = client.get("/relatorios/chamados", params=_um_dia(vespera, medida="backlog"))
+    assert f'href="/chamados/{fechado}"' in r.text and "Chamados encontrados: 2." in r.text
+    assert '<td class="px-3 py-2">Pendente</td>' in r.text
+
+    r = client.get("/relatorios/chamados", params=_um_dia(dia, medida="closed"))
+    assert f'href="/chamados/{fechado}"' in r.text and "3d" in r.text
+    r = client.get("/relatorios/chamados", params=_um_dia(dia, medida="closed", formato="csv"))
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[0][:2] == ["Chamado", "Título"] and linhas[1][:2] == [
+        str(fechado),
+        "Já resolvido",
+    ]
+    registro = db.scalars(
+        select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
+    ).all()[-1]
+    assert (registro.after or {})["table"] == "tickets"
+    assert client.get("/relatorios/chamados", params=_um_dia(dia, medida="xyz")).status_code == 404
+
+
+def test_comparar_e_detalhar_por_linha(client: TestClient, cenario: dict[str, Any]) -> None:
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(dia, 10))
+    tarefa(client, numero, 30, em(dia - timedelta(days=1), 10))
+
+    r = client.get("/relatorios", params=_um_dia(dia, comparar="1"))
+    anterior = format_day("pt-BR", dia - timedelta(days=1))
+    assert f"comparado com {anterior} a {anterior}" in r.text
+    assert "+100% · antes: 30min" in r.text  # 1h contra 30min
+    assert 'name="comparar" value="1" checked' in r.text
+
+    # A coluna do dia aplica o dia como período; a barra da pessoa, a pessoa.
+    de = f"de={dia.isoformat()}&amp;ate={dia.isoformat()}"
+    assert re.search(
+        rf'<a href="/relatorios\?[^"]*periodo=personalizado&amp;{de}[^"]*" aria-label', r.text
+    )
+    assert f"pessoa={cenario['ana']}" in r.text
+
+
+def test_colunas_empilhadas_e_idade_no_editor(client: TestClient, cenario: dict[str, Any]) -> None:
+    dados = formulario(client, nome="X", horas="hm", acao="atualizar", blocos="1")
+    r = client.post("/relatorios/modelos", data={**dados, "b0-visual": "bars"})
+    assert '<option value="age">Idade</option>' in r.text
+    r = client.post("/relatorios/modelos", data={**dados, "b0-visual": "stacked"})
+    assert 'name="b0-medida"' not in r.text and "uma sobre a outra" in r.text
+
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 90, em(dia, 19))  # 60 min fora do expediente
+    campos = {"b0-visual": "stacked", "b0-agrupar": "day"}
+    modelo = _criar(client, "Empilhadas", **{**campos, "b0-medidas": []})
+    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo))
+    assert "Horas por dia: no expediente e extras" in r.text
+    assert "No expediente: 30min · Horas extras: 1h" in r.text
+    assert "fill-blue-fg" in r.text

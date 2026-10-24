@@ -10,9 +10,17 @@ from datetime import date, datetime
 from typing import Literal
 
 from chamados.core.i18n import Locale
-from chamados.modules.reports.builder import DURATIONS, OTHERS, Measure, Result
+from chamados.modules.reports.builder import (
+    DURATIONS,
+    ELAPSED,
+    OTHERS,
+    PERCENT,
+    Measure,
+    Result,
+    Value,
+)
 from chamados.modules.reports.schemas import Report
-from chamados.modules.reports.service import TZ, Facts
+from chamados.modules.reports.service import TZ, Facts, TicketFact
 
 Table = Literal["people", "clients", "overtime", "tasks"]
 
@@ -47,6 +55,22 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "day": "Dia",
         "week": "Semana",
         "month": "Mês",
+        "age": "Idade",
+        "ages": "até 1 dia|1 a 3 dias|3 a 7 dias|mais de 7 dias",
+        "canceled": "Chamados cancelados",
+        "backlog": "Em aberto no fim",
+        "lead_time": "Mediana até a conclusão",
+        "net_lead_time": "Mediana até a conclusão, líquida",
+        "reopen_rate": "Reabertura (%)",
+        "people": "Responsáveis",
+        "created": "Registrado em",
+        "closed_at": "Concluído em",
+        "canceled_at": "Cancelado em",
+        "lead": "Tempo até a conclusão",
+        "net_lead": "Tempo até a conclusão, líquido",
+        "reopened": "Reaberto",
+        "yes": "Sim",
+        "no": "Não",
     },
     "en": {
         "person": "Person",
@@ -70,6 +94,22 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "day": "Day",
         "week": "Week",
         "month": "Month",
+        "age": "Age",
+        "ages": "up to 1 day|1 to 3 days|3 to 7 days|over 7 days",
+        "canceled": "Tickets canceled",
+        "backlog": "Open at the end",
+        "lead_time": "Median time to close",
+        "net_lead_time": "Median time to close, net",
+        "reopen_rate": "Reopened (%)",
+        "people": "Assignees",
+        "created": "Opened at",
+        "closed_at": "Closed at",
+        "canceled_at": "Canceled at",
+        "lead": "Time to close",
+        "net_lead": "Time to close, net",
+        "reopened": "Reopened",
+        "yes": "Yes",
+        "no": "No",
     },
 }
 
@@ -177,14 +217,24 @@ def render_block(data: Facts, result: Result, locale: Locale) -> bytes:
 
     measures = list(result.total)
     head = [t[result.dimension]] if result.dimension else []
+    timed = (*DURATIONS, *ELAPSED)  # em horas decimais e em minutos
     for m in measures:
         column = t[m]
-        head += [column, t["minutes"].format(column=column)] if m in DURATIONS else [column]
+        head += [column, t["minutes"].format(column=column)] if m in timed else [column]
 
-    def values(v: dict[Measure, int]) -> list[str | int]:
+    def values(v: dict[Measure, Value]) -> list[str | int]:
         cells: list[str | int] = []
         for m in measures:
-            cells += hours(v[m]) if m in DURATIONS else [v[m]]
+            value = v[m]
+            if value is None:  # mediana ou porcentagem sem nenhum chamado
+                cells += ["", ""] if m in timed else [""]
+            elif m in timed:
+                cells += hours(value)
+            elif m in PERCENT:
+                percent = f"{value / 100:.1f}"
+                cells.append(percent.replace(".", ",") if pt else percent)
+            else:
+                cells.append(value)
         return cells
 
     if result.dimension == "month":
@@ -194,10 +244,61 @@ def render_block(data: Facts, result: Result, locale: Locale) -> bytes:
     for row in result.rows:
         if isinstance(row.key, date):
             label = row.key.strftime(day_format)
+        elif result.dimension == "age" and isinstance(row.key, int):
+            label = t["ages"].split("|")[row.key]
         elif row.key == OTHERS:
             label = t["others"]
         else:
             label = _text(row.label or t["no_client"])
         rows.append([label, *values(row.values)])
     rows.append([*([t["total"]] if result.dimension else []), *values(result.total)])
+    return _write(head, rows, pt)
+
+
+def render_tickets(data: Facts, tickets: list[TicketFact], kind: str, locale: Locale) -> bytes:
+    """Os chamados por trás de um número (detalhar): os de `kind` (opened, closed, canceled ou
+    backlog), com as colunas de cada um (§14.5)."""
+    t = TEXTS[locale]
+    pt = locale == "pt-BR"
+    moment = "%d/%m/%Y %H:%M" if pt else "%Y-%m-%d %H:%M"
+
+    def hours(minutes: int | None) -> list[str | int]:
+        if minutes is None:
+            return ["", ""]
+        decimal = f"{minutes / 60:.2f}"
+        return [decimal.replace(".", ",") if pt else decimal, minutes]
+
+    def timed(key: str) -> list[str]:
+        return [t[key], t["minutes"].format(column=t[key])]
+
+    head = [t["ticket"], t["title"], t["client"], t["team"], t["status"], t["people"]]
+    head.append(t["created"])
+    if kind == "closed":
+        head += [t["closed_at"], *timed("lead"), *timed("net_lead"), t["reopened"]]
+    elif kind == "canceled":
+        head.append(t["canceled_at"])
+    elif kind == "backlog":
+        head += timed("age")
+    rows: list[list[str | int]] = []
+    for ticket in tickets:
+        client = data.clients.get(ticket.client_id) if ticket.client_id else None
+        people = sorted(data.users[u].display_name for u in ticket.people)
+        row: list[str | int] = [
+            ticket.number,
+            _text(ticket.title),
+            _text(client.label if client else t["no_client"]),
+            _text(data.teams[ticket.team_id].name),
+            _text(data.statuses[ticket.status_id].name),
+            _text(", ".join(people)),
+            ticket.created_at.astimezone(TZ).strftime(moment),
+        ]
+        finished = ticket.finished_at.astimezone(TZ).strftime(moment) if ticket.finished_at else ""
+        if kind == "closed":
+            row += [finished, *hours(ticket.lead), *hours(ticket.net_lead)]
+            row.append(t["yes"] if ticket.reopened else t["no"])
+        elif kind == "canceled":
+            row.append(finished)
+        elif kind == "backlog":
+            row += hours(ticket.age)
+        rows.append(row)
     return _write(head, rows, pt)

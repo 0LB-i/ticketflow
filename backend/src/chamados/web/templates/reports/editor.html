@@ -74,14 +74,17 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {%- if b.visual in dimensions %}
         {{ select("b" ~ i ~ "-agrupar", t("relatorios.editor.agrupar"), dimension_options[b.visual], b.dimension, refresh("atualizar", "change")) }}
         {%- endif %}
-        {%- if b.visual in charts %}
+        {%- if b.visual in charts and b.visual != "stacked" %}
         {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medida"), measure_options, b.measures[0]) }}
         {%- endif %}
-        {%- if b.visual in ("bars", "columns", "table") and b.dimension in categories %}
+        {%- if b.visual in ("bars", "columns", "stacked", "table") and b.dimension in categories %}
         {{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}
         {{ select("b" ~ i ~ "-ordem", t("relatorios.editor.ordem"), order_options, b.order) }}
         {%- endif %}
       </div>
+      {%- if b.visual == "stacked" %}
+      <p class="text-muted">{{ t("relatorios.editor.empilhadasAjuda") }}</p>
+      {%- endif %}
       {%- if b.visual in ("cards", "table") %}
       <fieldset class="flex flex-col gap-2">
         <legend class="font-medium">{{ t("relatorios.editor.medidas") }}</legend>

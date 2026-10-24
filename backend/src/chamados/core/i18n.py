@@ -171,8 +171,15 @@ EN: dict[str, str] = {
     "Escolha ao menos uma medida.": "Choose at least one measure.",
     "Um gráfico mostra uma medida só.": "A chart shows a single measure.",
     "A linha agrupa por dia, semana ou mês.": "A line groups by day, week or month.",
-    "As barras agrupam por pessoa, cliente, grupo ou status.": (
-        "Bars group by person, client, team or status."
+    "As barras agrupam por pessoa, cliente, grupo, status ou idade.": (
+        "Bars group by person, client, team, status or age."
+    ),
+    "As colunas empilhadas mostram as horas no expediente e as extras.": (
+        "Stacked columns show the hours within working hours and the overtime."
+    ),
+    "A idade só vale para a medida Em aberto.": "Age only applies to the Open measure.",
+    "Em aberto é o retrato do fim do período: não se agrupa por dia, semana ou mês.": (
+        "Open is a snapshot of the end of the period: it is not grouped by day, week or month."
     ),
     "Modelo não encontrado.": "Report template not found.",
     "Este modelo foi salvo num formato que não vale mais.": (

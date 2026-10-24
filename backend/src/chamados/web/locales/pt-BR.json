@@ -405,7 +405,8 @@
     "abas": {
       "produtividade": "Produtividade",
       "clientes": "Clientes",
-      "horasExtras": "Horas extras"
+      "horasExtras": "Horas extras",
+      "chamados": "Chamados"
     },
     "colunas": {
       "pessoa": "Pessoa",
@@ -436,7 +437,12 @@
       "overtime": "Horas extras",
       "tasks": "Tarefas",
       "opened": "Chamados registrados",
-      "closed": "Chamados concluídos"
+      "closed": "Chamados concluídos",
+      "canceled": "Chamados cancelados",
+      "backlog": "Em aberto no fim",
+      "lead_time": "Mediana até a conclusão",
+      "net_lead_time": "Mediana até a conclusão (líquida)",
+      "reopen_rate": "Reabertura"
     },
     "dimensoes": {
       "person": "pessoa",
@@ -445,7 +451,8 @@
       "status": "status",
       "day": "dia",
       "week": "semana",
-      "month": "mês"
+      "month": "mês",
+      "age": "idade"
     },
     "visuais": {
       "cards": "Cartões",
@@ -453,7 +460,8 @@
       "columns": "Colunas",
       "line": "Linha",
       "table": "Tabela",
-      "tasks": "Lista de tarefas"
+      "tasks": "Lista de tarefas",
+      "stacked": "Colunas empilhadas (horas)"
     },
     "ordens": {
       "desc": "Maior primeiro",
@@ -491,7 +499,45 @@
       "excluirAviso": "O modelo {nome} sai da sua lista. Os números não mudam: eles vêm dos chamados.",
       "salvo": "Modelo salvo.",
       "excluido": "Modelo excluído.",
-      "copiaDe": "Cópia de {nome}"
+      "copiaDe": "Cópia de {nome}",
+      "empilhadasAjuda": "Mostra as horas no expediente e as horas extras, uma sobre a outra."
+    },
+    "idades": {
+      "0": "até 1 dia",
+      "1": "1 a 3 dias",
+      "2": "3 a 7 dias",
+      "3": "mais de 7 dias"
+    },
+    "noExpediente": "No expediente",
+    "tituloEmpilhado": "Horas por {dimensao}: no expediente e extras",
+    "comparacao": {
+      "campo": "Comparar com o período anterior",
+      "com": "comparado com {de} a {ate}",
+      "antes": "{variacao} · antes: {anterior}",
+      "soAntes": "Antes: {anterior}",
+      "pontos": "{n} p.p."
+    },
+    "chamados": {
+      "voltar": "Voltar ao relatório",
+      "baixarCsv": "Baixar CSV",
+      "quantos": "Chamados encontrados: {n}.",
+      "cortada": "A lista mostra os {n} primeiros; o CSV traz todos.",
+      "sim": "Sim",
+      "nao": "Não",
+      "colunas": {
+        "chamado": "Chamado",
+        "cliente": "Cliente",
+        "grupo": "Grupo",
+        "status": "Status",
+        "responsaveis": "Responsáveis",
+        "registrado": "Registrado em",
+        "concluido": "Concluído em",
+        "tempo": "Até a conclusão",
+        "liquido": "Líquido",
+        "reaberto": "Reaberto",
+        "cancelado": "Cancelado em",
+        "idade": "Idade"
+      }
     }
   },
   "expediente": {

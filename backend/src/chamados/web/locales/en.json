@@ -405,7 +405,8 @@
     "abas": {
       "produtividade": "Productivity",
       "clientes": "Clients",
-      "horasExtras": "Overtime"
+      "horasExtras": "Overtime",
+      "chamados": "Tickets"
     },
     "colunas": {
       "pessoa": "Person",
@@ -436,7 +437,12 @@
       "overtime": "Overtime",
       "tasks": "Tasks",
       "opened": "Tickets opened",
-      "closed": "Tickets closed"
+      "closed": "Tickets closed",
+      "canceled": "Tickets canceled",
+      "backlog": "Open at the end",
+      "lead_time": "Median time to close",
+      "net_lead_time": "Median time to close (net)",
+      "reopen_rate": "Reopened"
     },
     "dimensoes": {
       "person": "person",
@@ -445,7 +451,8 @@
       "status": "status",
       "day": "day",
       "week": "week",
-      "month": "month"
+      "month": "month",
+      "age": "age"
     },
     "visuais": {
       "cards": "Cards",
@@ -453,7 +460,8 @@
       "columns": "Columns",
       "line": "Line",
       "table": "Table",
-      "tasks": "Task list"
+      "tasks": "Task list",
+      "stacked": "Stacked columns (hours)"
     },
     "ordens": {
       "desc": "Largest first",
@@ -491,7 +499,45 @@
       "excluirAviso": "The template {nome} leaves your list. The numbers do not change: they come from the tickets.",
       "salvo": "Template saved.",
       "excluido": "Template deleted.",
-      "copiaDe": "Copy of {nome}"
+      "copiaDe": "Copy of {nome}",
+      "empilhadasAjuda": "Shows the hours within working hours and the overtime, one on top of the other."
+    },
+    "idades": {
+      "0": "up to 1 day",
+      "1": "1 to 3 days",
+      "2": "3 to 7 days",
+      "3": "over 7 days"
+    },
+    "noExpediente": "Within working hours",
+    "tituloEmpilhado": "Hours per {dimensao}: within working hours and overtime",
+    "comparacao": {
+      "campo": "Compare with the previous period",
+      "com": "compared with {de} to {ate}",
+      "antes": "{variacao} · before: {anterior}",
+      "soAntes": "Before: {anterior}",
+      "pontos": "{n} pp"
+    },
+    "chamados": {
+      "voltar": "Back to the report",
+      "baixarCsv": "Download CSV",
+      "quantos": "Tickets found: {n}.",
+      "cortada": "The list shows the first {n}; the CSV has all of them.",
+      "sim": "Yes",
+      "nao": "No",
+      "colunas": {
+        "chamado": "Ticket",
+        "cliente": "Client",
+        "grupo": "Team",
+        "status": "Status",
+        "responsaveis": "Assignees",
+        "registrado": "Opened at",
+        "concluido": "Closed at",
+        "tempo": "Time to close",
+        "liquido": "Net",
+        "reaberto": "Reopened",
+        "cancelado": "Canceled at",
+        "idade": "Age"
+      }
     }
   },
   "expediente": {
