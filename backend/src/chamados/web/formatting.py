@@ -48,6 +48,12 @@ def format_duration(minutes: int) -> str:
     return f"{h}h{m:02d}" if m else f"{h}h"
 
 
+def format_hours(locale: str, minutes: int) -> str:
+    """Tempo em horas decimais: "7,5 h", "0,25 h" (vírgula decimal em português)."""
+    text = f"{minutes / 60:.2f}".rstrip("0").rstrip(".")
+    return f"{text if locale == 'en' else text.replace('.', ',')} h"
+
+
 def format_number(locale: str, value: int) -> str:
     """Inteiro com separador de milhar: "1.234" ou "1,234"."""
     text = f"{value:,}"

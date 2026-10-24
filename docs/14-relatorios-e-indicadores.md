@@ -104,6 +104,8 @@ O modelo guarda a **configuração**, nunca os números. Ao abrir, tudo é calcu
 - **Modelos prontos:** Produtividade, Clientes e Horas extras (os painéis da §14.7) e, quando existirem, os painéis da §14.4. Não podem ser apagados, mas dá para duplicar e ajustar.
 - **Modelo inicial:** cada pessoa escolhe qual modelo abre ao entrar em Relatórios.
 - **Versão da configuração:** a configuração guarda o número da versão do formato. Assim o formato pode mudar sem quebrar os modelos salvos.
+- **Na tela (fase 2):** os modelos prontos e os da pessoa são as abas de Relatórios. **Salvar como modelo** cria um modelo com os blocos da aba aberta e o período e os filtros da tela; **Editar modelo** muda o nome, o formato das horas, o modelo inicial e os blocos. O período e os filtros se ajustam na própria tela: num modelo da pessoa, mexer neles mostra **Salvar filtros**.
+- **Apagar:** é de verdade (nada aponta para um modelo), com confirmação. Até 50 modelos por pessoa, com nomes que não se repetem.
 
 ### 14.8.2 Filtros
 
@@ -112,9 +114,9 @@ O modelo guarda a **configuração**, nunca os números. Ao abrir, tudo é calcu
 | **Grupo, pessoa, cliente** | Vários de cada; "Sem cliente" é uma das opções |
 | **Status** | Vários (o status atual do chamado) |
 | **Categoria, tipo** | Vários de cada; entram quando a tela de chamado deixar escolhê-los (hoje não deixa, e todo chamado é "incidente" sem categoria) |
-| **Situação do chamado** | Aberto, concluído, cancelado |
-| **Papel da pessoa** | Quem fez a tarefa ou quem é responsável pelo chamado |
-| **Só hora extra** | Só as tarefas com tempo fora do expediente |
+| **Situação do chamado** | Aberto, concluído, cancelado (fase 3, com as medidas de chamados) |
+| **Papel da pessoa** | Quem fez a tarefa ou quem é responsável pelo chamado. Por enquanto fixo: nas medidas de tarefas, quem fez; nas de chamados, cada responsável |
+| **Só hora extra** | Na fase 2, uma opção do bloco "lista de tarefas" (os outros blocos já têm a medida "horas extras") |
 | **Comparar** | Com o período anterior de mesmo tamanho: os cartões mostram a variação (ex.: "+12% vs. mês anterior") |
 
 - **Limite de permissão:** grupo e pessoa continuam limitados ao que a pessoa pode ver (403 fora disso).
@@ -126,11 +128,14 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 | Escolha | Opções |
 |---------|--------|
-| **Agrupar por** | Pessoa, cliente, grupo, categoria, tipo, status, dia, semana, mês (ou nada, num cartão) |
+| **Agrupar por** | Pessoa, cliente, grupo, status, dia, semana (de segunda a domingo), mês (ou nada, num cartão). Categoria e tipo, quando a tela de chamado os usar (§14.8.2) |
 | **Medidas de tarefas** | Horas, horas extras, tarefas |
-| **Medidas de chamados** | Registrados, concluídos, cancelados, em aberto, mediana até a conclusão (bruta e líquida), tempo na fila, % de reabertura |
-| **Visual** | Cartão (KPI), barras, colunas, linha, colunas empilhadas (ex.: horas no expediente + extras), tabela (várias medidas, uma por coluna) |
-| **Ajustes** | Título do bloco · só os N maiores, com o resto em "Outros" · ordem · horas em `hh:mm` ou em decimal (`7,5 h`) · valor escrito em cada barra |
+| **Medidas de chamados** | Registrados e concluídos (fase 2, como na §14.7); cancelados, em aberto, mediana até a conclusão (bruta e líquida), tempo na fila, % de reabertura (fase 3) |
+| **Visual** | Cartões (KPI), barras (agrupam por cadastro), colunas, linha (agrupa por período), tabela (várias medidas, uma por coluna, com o total), lista de tarefas. Colunas empilhadas (ex.: horas no expediente + extras) ficam para a fase 3 |
+| **Ajustes** | Título do bloco (vazio: um automático, como "Horas por pessoa") · só os N maiores, com o resto em "Outros" · ordem (maior, menor, nome) · horas em `hh:mm` ou em decimal (`7,5 h`), para o modelo todo. As barras já mostram o valor na ponta; as colunas e a linha, na dica |
+
+- **Pessoa e chamado:** agrupado por pessoa, um chamado conta para cada responsável (como os concluídos da §14.7), mas o total da tabela e o cartão contam o chamado uma vez.
+- **Períodos vazios:** agrupado por dia, semana ou mês, todos os períodos aparecem, mesmo sem nada. Um gráfico por dia de um período de mais de dois meses agrupa por semana (a tabela e o CSV continuam por dia).
 
 - **Sem linha de meta:** a §14.1 não tem metas.
 - **Tempos pela mediana:** a média aparece só como informação secundária (§14.1).
@@ -139,7 +144,7 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 ### 14.8.4 Exportação CSV
 
-- **Dois tipos:** o CSV de um bloco (a tabela agrupada, como na tela) e o dos dados brutos (a lista de tarefas ou de chamados, com as colunas da §14.5 mais as horas).
+- **Dois tipos:** o CSV de um bloco (a tabela agrupada, como na tela, com o total no fim; ou a lista de tarefas inteira) e o dos dados brutos (a lista de tarefas ou de chamados, com as colunas da §14.5 mais as horas). Todo bloco tem o seu botão de download; na lista de tarefas, a tela mostra as 200 primeiras e o CSV traz todas.
 - **Formato:** UTF-8 com BOM, para abrir certo no Excel. Os separadores seguem o idioma: em português, `;` e vírgula decimal. As horas saem em minutos e em horas decimais, para somar na planilha.
 - **Injeção de fórmula:** uma célula que começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro ganha um apóstrofo na frente. Títulos e nomes são texto livre.
 - **Visibilidade e auditoria:** valem a mesma visibilidade e o mesmo escopo da tela, e cada download vai para a auditoria (`report.exported`, com o formato).
@@ -163,7 +168,7 @@ O PDF segue o modelo: título, filtros usados e os blocos na ordem. Os gráficos
 | Fase | Entrega | Tarefa |
 |------|---------|--------|
 | 1 | CSV das telas atuais (cada tabela e as tarefas brutas), períodos relativos, grupo, pessoa, cliente (com "Sem cliente") e status com vários valores. Sem tabela nova | F2-S8-04 |
-| 2 | Construtor guiado com as medidas de tarefas, modelos pessoais (tabela `report_models`), modelos prontos, modelo inicial | F2-S8-05 |
+| 2 | Construtor guiado com as medidas de tarefas e os registrados e concluídos, modelos pessoais (tabela `report_models`), modelos prontos, modelo inicial, CSV de cada bloco | F2-S8-05 |
 | 3 | Medidas de chamados (§14.3, view `ticket_metrics`), comparação com o período anterior, detalhar ao clicar | F2-S8-06 |
 | 4 | PDF do modelo com gráficos e relatório para o cliente | F2-S8-07 |
 | Depois | Envio agendado por e-mail, usando o worker e o outbox ([ARCHITECTURE 3.12](../ARCHITECTURE.md)) | — |

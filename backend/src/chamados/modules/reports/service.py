@@ -8,11 +8,13 @@ filtro de visibilidade dos chamados (regra 1 da arquitetura).
 
 import uuid
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
+from typing import cast
 
 from fastapi import HTTPException
-from sqlalchemy import ColumnElement, func, or_, select, true
+from sqlalchemy import ColumnElement, Row, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.core.permissions import P, can
@@ -197,8 +199,53 @@ def _own_or_supervised(auth: Auth, own: ColumnElement[bool]) -> ColumnElement[bo
     return or_(own, Ticket.team_id.in_(actor.supervises))
 
 
-async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = False) -> Report:
-    """`all_tasks`: também a lista de todas as tarefas (`Report.tasks`, para o CSV)."""
+@dataclass
+class TaskFact:
+    """Uma tarefa do período, com o que os relatórios agrupam."""
+
+    author_id: int
+    minutes: int
+    overtime: int  # minutos fora do expediente
+    done_at: datetime
+    ticket_number: int
+    ticket_title: str
+    client_id: int | None
+    team_id: int
+    status_id: int
+
+    @property
+    def day(self) -> date:
+        return self.done_at.astimezone(TZ).date()
+
+
+@dataclass
+class TicketFact:
+    """Um chamado registrado (ou concluído) no período. `day`: o dia do registro (ou da
+    conclusão); `people`: os responsáveis que contam, principal ou não, só os que a pessoa pode
+    ver e os do filtro de pessoa."""
+
+    client_id: int | None
+    team_id: int
+    status_id: int
+    day: date
+    people: set[int]
+
+
+@dataclass
+class Facts:
+    """Os dados de um período, já com o escopo e os filtros, e os nomes do que aparece neles."""
+
+    work_hours: WorkHours
+    tasks: list[TaskFact]
+    opened: list[TicketFact]
+    closed: list[TicketFact]
+    users: dict[int, User]
+    clients: dict[int, Client]
+    teams: dict[int, Team]
+    statuses: dict[int, TicketStatus]
+
+
+async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
     wh = await get_work_hours(db)
     since, until = _bounds(f)
     me = auth.user.id
@@ -215,30 +262,131 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
     if people_ids:
         task_conds.append(TicketComment.author_id.in_(people_ids))
     # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o autor
-    # de cada linha; os autores vêm depois, uma vez cada.
-    tasks = (
+    # de cada linha; os nomes vêm depois, uma vez cada.
+    rows = await db.execute(
+        select(
+            TicketComment.author_id,
+            TicketComment.time_spent_minutes,
+            TicketComment.done_at,
+            Ticket.number,
+            Ticket.title,
+            Ticket.client_id,
+            Ticket.team_id,
+            Ticket.status_id,
+        )
+        .join(Ticket, Ticket.id == TicketComment.ticket_id)
+        .where(*task_conds)
+        .order_by(TicketComment.done_at)
+    )
+    tasks = [
+        TaskFact(
+            author_id=author_id,
+            minutes=spent or 0,
+            overtime=outside_minutes(done_at, spent, wh) if spent else 0,
+            done_at=done_at,
+            ticket_number=number,
+            ticket_title=title,
+            client_id=client_id,
+            team_id=team_id,
+            status_id=status_id,
+        )
+        for author_id, spent, done_at, number, title, client_id, team_id, status_id in rows
+    ]
+
+    # --- chamados registrados e concluídos no período ---
+    ticket_conds = [*_ticket_filters(auth, f), _own_or_supervised(auth, assigned_to(me))]
+    if people_ids:
+        ticket_conds.append(or_(*(assigned_to(i) for i in people_ids)))
+    columns = (Ticket.id, Ticket.client_id, Ticket.team_id, Ticket.status_id, Ticket.assignee_id)
+    opened = (
         await db.execute(
-            select(
-                TicketComment.author_id,
-                TicketComment.time_spent_minutes,
-                TicketComment.done_at,
-                Ticket.number,
-                Ticket.title,
-                Ticket.client_id,
+            select(*columns, Ticket.created_at).where(
+                *ticket_conds, Ticket.created_at >= since, Ticket.created_at < until
             )
-            .join(Ticket, Ticket.id == TicketComment.ticket_id)
-            .where(*task_conds)
-            .order_by(TicketComment.done_at)
         )
     ).all()
-    authors = {
-        u.id: u
-        for u in await db.scalars(select(User).where(User.id.in_({t.author_id for t in tasks})))
-    }
+    # closed_at é opcional no modelo, mas o filtro do período só traz os preenchidos.
+    closed = cast(
+        Sequence[Row[int, int | None, int, int, int, datetime]],
+        (
+            await db.execute(
+                select(*columns, Ticket.closed_at)
+                .join(TicketStatus, TicketStatus.id == Ticket.status_id)
+                .where(
+                    *ticket_conds,
+                    TicketStatus.kind == "closed",
+                    Ticket.closed_at >= since,
+                    Ticket.closed_at < until,
+                )
+            )
+        ).all(),
+    )
+    # Cada responsável (principal ou não) conta o chamado.
+    assignees: dict[int, set[int]] = defaultdict(set)
+    for ticket_id, _, _, _, assignee_id, _ in (*opened, *closed):
+        if assignee_id:
+            assignees[ticket_id].add(assignee_id)
+    if assignees:
+        co = await db.execute(
+            select(TicketCoAssignee.ticket_id, TicketCoAssignee.user_id).where(
+                TicketCoAssignee.ticket_id.in_(list(assignees))
+            )
+        )
+        for ticket_id, user_id in co:
+            assignees[ticket_id].add(user_id)
+    allowed: set[int] | None = None
+    if people_ids:
+        allowed = people_ids
+    elif not can(auth.actor, P.REPORT_VIEW_ALL):
+        # Um colega de outro grupo pode ser corresponsável: só entra quem a pessoa pode ver.
+        allowed = {me} | set(
+            await db.scalars(
+                select(TeamMember.user_id).where(TeamMember.team_id.in_(auth.actor.supervises))
+            )
+        )
 
+    def ticket_facts(
+        rows: Sequence[Row[int, int | None, int, int, int, datetime]],
+    ) -> list[TicketFact]:
+        return [
+            TicketFact(
+                client_id=client_id,
+                team_id=team_id,
+                status_id=status_id,
+                day=moment.astimezone(TZ).date(),
+                people=assignees[ticket_id] if allowed is None else assignees[ticket_id] & allowed,
+            )
+            for ticket_id, client_id, team_id, status_id, _, moment in rows
+        ]
+
+    opened_facts, closed_facts = ticket_facts(opened), ticket_facts(closed)
+
+    # --- nomes ---
+    every: list[TaskFact | TicketFact] = [*tasks, *opened_facts, *closed_facts]
+    user_ids = {t.author_id for t in tasks}
+    user_ids |= {u for t in (*opened_facts, *closed_facts) for u in t.people}
+    client_ids = {t.client_id for t in every if t.client_id is not None}
+    team_ids = {t.team_id for t in every}
+    return Facts(
+        work_hours=wh,
+        tasks=tasks,
+        opened=opened_facts,
+        closed=closed_facts,
+        users={u.id: u for u in await db.scalars(select(User).where(User.id.in_(user_ids)))},
+        clients={
+            c.id: c for c in await db.scalars(select(Client).where(Client.id.in_(client_ids)))
+        },
+        teams={t.id: t for t in await db.scalars(select(Team).where(Team.id.in_(team_ids)))},
+        statuses={s.id: s for s in await db.scalars(select(TicketStatus))},
+    )
+
+
+async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = False) -> Report:
+    """Os números das telas prontas, da API e do PDF. `all_tasks`: também a lista de todas as
+    tarefas (`Report.tasks`, para o CSV)."""
+    data = await facts(db, auth, f)
     people: dict[int, PersonRow] = {}
     clients: dict[int | None, ClientRow] = {}
-    client_ids: set[int] = set()
     days = {
         f.start + timedelta(days=i): DayRow(
             date=f.start + timedelta(days=i), minutes=0, overtime_minutes=0
@@ -247,11 +395,11 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
     }
     overtime_tasks: list[TaskRow] = []
     task_rows: list[TaskRow] = []
-    row_clients: list[tuple[TaskRow, int | None]] = []  # o nome do cliente vem no fim
 
-    def person_row(user: User) -> PersonRow:
-        if user.id not in people:
-            people[user.id] = PersonRow(
+    def person_row(user_id: int) -> PersonRow:
+        if user_id not in people:
+            user = data.users[user_id]
+            people[user_id] = PersonRow(
                 id=user.public_id,
                 name=user.display_name,
                 minutes=0,
@@ -259,120 +407,61 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
                 tasks=0,
                 tickets_closed=0,
             )
-        return people[user.id]
+        return people[user_id]
 
     def client_row(client_id: int | None) -> ClientRow:
         if client_id not in clients:
+            client = data.clients.get(client_id) if client_id is not None else None
             clients[client_id] = ClientRow(
-                id=None, name=None, minutes=0, tickets_opened=0, tickets_closed=0
+                id=client.public_id if client else None,
+                name=client.label if client else None,
+                minutes=0,
+                tickets_opened=0,
+                tickets_closed=0,
             )
-            if client_id is not None:
-                client_ids.add(client_id)
         return clients[client_id]
 
-    for author_id, time_spent, done_at, number, title, client_id in tasks:
-        minutes = time_spent or 0
-        extra = outside_minutes(done_at, minutes, wh) if minutes else 0
-        author = authors[author_id]
-        p = person_row(author)
+    for t in data.tasks:
+        p = person_row(t.author_id)
         p.tasks += 1
-        p.minutes += minutes
-        p.overtime_minutes += extra
-        client_row(client_id).minutes += minutes
-        day = days[done_at.astimezone(TZ).date()]
-        day.minutes += minutes
-        day.overtime_minutes += extra
-        if extra or all_tasks:
+        p.minutes += t.minutes
+        p.overtime_minutes += t.overtime
+        client = client_row(t.client_id)
+        client.minutes += t.minutes
+        day = days[t.day]
+        day.minutes += t.minutes
+        day.overtime_minutes += t.overtime
+        if t.overtime or all_tasks:
             row = TaskRow(
-                ticket_number=number,
-                ticket_title=title,
-                client=None,
-                person=author.display_name,
-                done_at=done_at,
-                minutes=minutes,
-                overtime_minutes=extra,
+                ticket_number=t.ticket_number,
+                ticket_title=t.ticket_title,
+                client=client.name,
+                person=data.users[t.author_id].display_name,
+                done_at=t.done_at,
+                minutes=t.minutes,
+                overtime_minutes=t.overtime,
             )
-            row_clients.append((row, client_id))
-            if extra:
+            if t.overtime:
                 overtime_tasks.append(row)
             if all_tasks:
                 task_rows.append(row)
-
-    # --- chamados registrados e concluídos no período ---
-    ticket_conds = [*_ticket_filters(auth, f), _own_or_supervised(auth, assigned_to(me))]
-    if people_ids:
-        ticket_conds.append(or_(*(assigned_to(i) for i in people_ids)))
-    opened = await db.execute(
-        select(Ticket.client_id, func.count())
-        .where(*ticket_conds, Ticket.created_at >= since, Ticket.created_at < until)
-        .group_by(Ticket.client_id)
-    )
-    tickets_opened = 0
-    for client_id, count in opened:
-        client_row(client_id).tickets_opened += count
-        tickets_opened += count
-
-    closed = (
-        await db.execute(
-            select(Ticket.id, Ticket.client_id, Ticket.assignee_id)
-            .join(TicketStatus, TicketStatus.id == Ticket.status_id)
-            .where(
-                *ticket_conds,
-                TicketStatus.kind == "closed",
-                Ticket.closed_at >= since,
-                Ticket.closed_at < until,
-            )
-        )
-    ).all()
-    for _, client_id, _ in closed:
-        client_row(client_id).tickets_closed += 1
-    # Concluídos por pessoa: cada responsável (principal ou não) conta o chamado.
-    assignees: dict[int, set[int]] = defaultdict(set)
-    for ticket_id, _, assignee_id in closed:
-        if assignee_id:
-            assignees[ticket_id].add(assignee_id)
-    if closed:
-        co = await db.execute(
-            select(TicketCoAssignee.ticket_id, TicketCoAssignee.user_id).where(
-                TicketCoAssignee.ticket_id.in_([t for t, _, _ in closed])
-            )
-        )
-        for ticket_id, user_id in co:
-            assignees[ticket_id].add(user_id)
-    closers: dict[int, int] = defaultdict(int)
-    for users in assignees.values():
-        for user_id in users:
-            closers[user_id] += 1
-    if people_ids:
-        closers = {u: n for u, n in closers.items() if u in people_ids}
-    elif not can(auth.actor, P.REPORT_VIEW_ALL):
-        # Um colega de outro grupo pode ser corresponsável: só entra quem a pessoa pode ver.
-        allowed = {me} | set(
-            await db.scalars(
-                select(TeamMember.user_id).where(TeamMember.team_id.in_(auth.actor.supervises))
-            )
-        )
-        closers = {u: n for u, n in closers.items() if u in allowed}
-    for user in await db.scalars(select(User).where(User.id.in_(closers))):
-        person_row(user).tickets_closed += closers[user.id]
-
-    # --- nomes dos clientes ---
-    for c in await db.scalars(select(Client).where(Client.id.in_(client_ids))):
-        clients[c.id].id = c.public_id
-        clients[c.id].name = c.label
-    for row, client_id in row_clients:
-        row.client = clients[client_id].name
+    for ticket in data.opened:
+        client_row(ticket.client_id).tickets_opened += 1
+    for ticket in data.closed:
+        client_row(ticket.client_id).tickets_closed += 1
+        for user_id in ticket.people:
+            person_row(user_id).tickets_closed += 1
 
     return Report(
         start=f.start,
         end=f.end,
-        work_hours=wh,
+        work_hours=data.work_hours,
         totals=Totals(
-            minutes=sum(p.minutes for p in people.values()),
-            overtime_minutes=sum(p.overtime_minutes for p in people.values()),
-            tasks=len(tasks),
-            tickets_opened=tickets_opened,
-            tickets_closed=len(closed),
+            minutes=sum(t.minutes for t in data.tasks),
+            overtime_minutes=sum(t.overtime for t in data.tasks),
+            tasks=len(data.tasks),
+            tickets_opened=len(data.opened),
+            tickets_closed=len(data.closed),
         ),
         people=sorted(people.values(), key=lambda p: (-p.minutes, p.name)),
         clients=sorted(

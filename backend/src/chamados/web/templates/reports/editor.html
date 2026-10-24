@@ -1,0 +1,119 @@
+{#- Editor de um modelo de relatório (docs/14 §14.8.3): nome, formato das horas, modelo inicial e
+    os blocos (visual × agrupar por × medida). Adicionar, remover, mover e trocar o visual ou o
+    agrupamento refazem o formulário pelo HTMX (hx-select="#editor"), sem salvar; só o Salvar
+    envia de verdade. O período e os filtros não estão aqui: vêm da tela (Salvar filtros). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class, checkbox, field with context %}
+{% from "_fields.html" import dialog with context %}
+{% from "_icons.html" import icon %}
+
+{% set heading = t("relatorios.editor.editar") if model else t("relatorios.editor.novo") %}
+{% block title %}{{ heading }}{% endblock %}
+
+{#- Refaz o formulário com a ação de `acao` (ex.: "subir-2"), sem salvar. -#}
+{% macro refresh(acao, trigger="click") -%}
+hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select="#editor" hx-swap="outerHTML" hx-vals='{"acao": "{{ acao }}"}'
+{%- endmacro %}
+
+{% macro select(name, label, options, selected, attrs="") -%}
+<div class="flex flex-col gap-1">
+  <label for="campo-{{ name }}" class="font-medium">{{ label }}</label>
+  <select id="campo-{{ name }}" name="{{ name }}" {{ attrs }} class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+    {%- for value, text in options %}
+    <option value="{{ value }}"{% if value == selected %} selected{% endif %}>{{ text }}</option>
+    {%- endfor %}
+  </select>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="mx-auto flex max-w-4xl flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-xl font-semibold">{{ heading }}</h1>
+    {%- if model %}
+    <button type="button" data-abre-dialogo="confirmar-exclusao" class="{{ button_class('danger') }}">{{ icon("trash", "size-4") }} {{ t("relatorios.editor.excluir") }}</button>
+    {%- endif %}
+  </div>
+
+  <form id="editor" method="post" action="{{ action }}" class="flex flex-col gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="blocos" value="{{ form.blocks | length }}">
+    {%- for name, value in hidden %}
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {%- endfor %}
+    {%- if form.error %}
+    {{ alert(form.error) }}
+    {%- endif %}
+
+    <div class="grid gap-3 sm:grid-cols-2">
+      {{ field("nome", t("relatorios.editor.nome"), value=form.name, required=True, maxlength="80") }}
+      {{ select("horas", t("relatorios.editor.horas"), [("hm", t("relatorios.editor.formatoHm")), ("decimal", t("relatorios.editor.formatoDecimal"))], form.hours) }}
+    </div>
+    {{ checkbox("inicial", t("relatorios.editor.inicial"), checked=form.is_default) }}
+    <p class="text-muted">{{ t("relatorios.editor.filtrosEditar" if model else "relatorios.editor.filtrosNovo") }}</p>
+
+    <h2 class="text-lg font-semibold">{{ t("relatorios.editor.blocos") }}</h2>
+    {%- for b in form.blocks %}
+    {%- set i = loop.index0 %}
+    {%- set n = loop.index %}
+    <fieldset class="flex flex-col gap-3 rounded-lg border {{ 'border-danger' if i in form.errors else 'border-border' }} bg-surface p-4 shadow-md">
+      <div class="flex items-center justify-between gap-2">
+        <legend class="font-medium">{{ t("relatorios.editor.bloco", n=n) }}</legend>
+        <div class="flex gap-1">
+          <button type="button" {{ refresh("subir-" ~ i) }}{% if loop.first %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface-raised disabled:opacity-40" aria-label="{{ t('relatorios.editor.subir', n=n) }}">{{ icon("arrow-up", "size-4") }}</button>
+          <button type="button" {{ refresh("descer-" ~ i) }}{% if loop.last %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface-raised disabled:opacity-40" aria-label="{{ t('relatorios.editor.descer', n=n) }}">{{ icon("arrow-down", "size-4") }}</button>
+          <button type="button" {{ refresh("remover-" ~ i) }} class="rounded p-1 text-muted hover:bg-surface-raised" aria-label="{{ t('relatorios.editor.remover', n=n) }}">{{ icon("trash", "size-4") }}</button>
+        </div>
+      </div>
+      {%- if i in form.errors %}
+      <p class="text-danger" role="alert">{{ form.errors[i] }}</p>
+      {%- endif %}
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{ select("b" ~ i ~ "-visual", t("relatorios.editor.visual"), visual_options, b.visual, refresh("atualizar", "change")) }}
+        {{ field("b" ~ i ~ "-titulo", t("relatorios.editor.titulo"), value=b.title, placeholder=placeholders[i], maxlength="120") }}
+        {%- if b.visual in dimensions %}
+        {{ select("b" ~ i ~ "-agrupar", t("relatorios.editor.agrupar"), dimension_options[b.visual], b.dimension, refresh("atualizar", "change")) }}
+        {%- endif %}
+        {%- if b.visual in charts %}
+        {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medida"), measure_options, b.measures[0]) }}
+        {%- endif %}
+        {%- if b.visual in ("bars", "columns", "table") and b.dimension in categories %}
+        {{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}
+        {{ select("b" ~ i ~ "-ordem", t("relatorios.editor.ordem"), order_options, b.order) }}
+        {%- endif %}
+      </div>
+      {%- if b.visual in ("cards", "table") %}
+      <fieldset class="flex flex-col gap-2">
+        <legend class="font-medium">{{ t("relatorios.editor.medidas") }}</legend>
+        <div class="flex flex-wrap gap-x-4 gap-y-2">
+          {%- for value, text in measure_options %}
+          {{ checkbox("b" ~ i ~ "-medidas", text, checked=value in b.measures, value=value) }}
+          {%- endfor %}
+        </div>
+      </fieldset>
+      {%- elif b.visual == "tasks" %}
+      {{ checkbox("b" ~ i ~ "-extras", t("relatorios.editor.soExtras"), checked=b.only_overtime) }}
+      {%- endif %}
+    </fieldset>
+    {%- endfor %}
+
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <button type="button" {{ refresh("adicionar") }}{% if form.blocks | length >= 12 %} disabled{% endif %} class="{{ button_class('secondary') }}">{{ icon("plus", "size-4") }} {{ t("relatorios.editor.adicionar") }}</button>
+      <div class="flex gap-2">
+        <a href="{{ back }}" class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</a>
+        <button type="submit" name="acao" value="salvar" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
+      </div>
+    </div>
+  </form>
+
+  {%- if model %}
+  {% call dialog("confirmar-exclusao", t("relatorios.editor.excluir"), t("relatorios.editor.excluirAviso", nome=model.name)) %}
+  <form method="post" action="/relatorios/modelos/{{ model.public_id }}/excluir" class="mt-6 flex justify-end gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
+    <button type="submit" class="{{ button_class('danger') }}">{{ t("relatorios.editor.excluir") }}</button>
+  </form>
+  {% endcall %}
+  {%- endif %}
+</div>
+{% endblock %}

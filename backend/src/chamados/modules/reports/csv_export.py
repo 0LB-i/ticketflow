@@ -1,17 +1,18 @@
-"""Relatório em CSV (docs/14 §14.8.4): uma tabela da tela ou todas as tarefas do período, no
-idioma de quem pede. UTF-8 com BOM, para o Excel reconhecer a codificação; em português, `;` e
-vírgula decimal, como o Excel em português espera. O tempo sai em horas decimais (para somar na
-planilha) e em minutos.
+"""Relatório em CSV (docs/14 §14.8.4): uma tabela da tela, um bloco de um modelo ou todas as
+tarefas do período, no idioma de quem pede. UTF-8 com BOM, para o Excel reconhecer a
+codificação; em português, `;` e vírgula decimal, como o Excel em português espera. O tempo sai
+em horas decimais (para somar na planilha) e em minutos.
 """
 
 import csv
 import io
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from chamados.core.i18n import Locale
+from chamados.modules.reports.builder import DURATIONS, OTHERS, Measure, Result
 from chamados.modules.reports.schemas import Report
-from chamados.modules.reports.service import TZ
+from chamados.modules.reports.service import TZ, Facts
 
 Table = Literal["people", "clients", "overtime", "tasks"]
 
@@ -39,6 +40,13 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "outside": "Fora do expediente",
         "minutes": "{column} (min)",
         "no_client": "Sem cliente",
+        "others": "Outros",
+        "total": "Total",
+        "team": "Grupo",
+        "status": "Status",
+        "day": "Dia",
+        "week": "Semana",
+        "month": "Mês",
     },
     "en": {
         "person": "Person",
@@ -55,6 +63,13 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "outside": "Outside working hours",
         "minutes": "{column} (min)",
         "no_client": "No client",
+        "others": "Others",
+        "total": "Total",
+        "team": "Team",
+        "status": "Status",
+        "day": "Day",
+        "week": "Week",
+        "month": "Month",
     },
 }
 
@@ -117,8 +132,72 @@ def render(report: Report, table: Table, locale: Locale) -> bytes:
             for r in (report.tasks if table == "tasks" else report.overtime_tasks)
         ]
 
+    return _write(head, rows, pt)
+
+
+def _write(head: list[str], rows: list[list[str | int]], pt: bool) -> bytes:
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";" if pt else ",", lineterminator="\r\n")
     writer.writerow(head)
     writer.writerows(rows)
-    return ("﻿" + buffer.getvalue()).encode()
+    return ("\ufeff" + buffer.getvalue()).encode()
+
+
+def render_block(data: Facts, result: Result, locale: Locale) -> bytes:
+    """Um bloco de um modelo: as linhas agrupadas, como na tela, com o total no fim (a coluna da
+    medida tem o nome da do CSV das tabelas); a lista de tarefas, com as colunas do de tarefas."""
+    t = TEXTS[locale]
+    pt = locale == "pt-BR"
+
+    def hours(minutes: int) -> list[str | int]:
+        decimal = f"{minutes / 60:.2f}"
+        return [decimal.replace(".", ",") if pt else decimal, minutes]
+
+    rows: list[list[str | int]] = []
+    if result.is_list:
+        head = [t["when"], t["person"], t["ticket"], t["title"], t["client"]]
+        head += [t["time"], t["minutes"].format(column=t["time"])]
+        head += [t["outside"], t["minutes"].format(column=t["outside"])]
+        for task in result.tasks:
+            client = data.clients.get(task.client_id) if task.client_id else None
+            rows.append(
+                [
+                    task.done_at.astimezone(TZ).strftime(
+                        "%d/%m/%Y %H:%M" if pt else "%Y-%m-%d %H:%M"
+                    ),
+                    _text(data.users[task.author_id].display_name),
+                    task.ticket_number,
+                    _text(task.ticket_title),
+                    _text(client.label if client else t["no_client"]),
+                    *hours(task.minutes),
+                    *hours(task.overtime),
+                ]
+            )
+        return _write(head, rows, pt)
+
+    measures = list(result.total)
+    head = [t[result.dimension]] if result.dimension else []
+    for m in measures:
+        column = t[m]
+        head += [column, t["minutes"].format(column=column)] if m in DURATIONS else [column]
+
+    def values(v: dict[Measure, int]) -> list[str | int]:
+        cells: list[str | int] = []
+        for m in measures:
+            cells += hours(v[m]) if m in DURATIONS else [v[m]]
+        return cells
+
+    if result.dimension == "month":
+        day_format = "%m/%Y" if pt else "%Y-%m"
+    else:
+        day_format = "%d/%m/%Y" if pt else "%Y-%m-%d"
+    for row in result.rows:
+        if isinstance(row.key, date):
+            label = row.key.strftime(day_format)
+        elif row.key == OTHERS:
+            label = t["others"]
+        else:
+            label = _text(row.label or t["no_client"])
+        rows.append([label, *values(row.values)])
+    rows.append([*([t["total"]] if result.dimension else []), *values(result.total)])
+    return _write(head, rows, pt)

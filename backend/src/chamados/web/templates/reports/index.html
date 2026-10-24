@@ -1,10 +1,11 @@
-{#- Relatórios (docs/14 §14.7 e §14.8): totais, abas Produtividade, Clientes e Horas extras
-    (gráficos e tabelas) e o PDF e o CSV com os mesmos filtros. Quem vê o quê é decidido pela API. -#}
+{#- Relatórios (docs/14 §14.7 e §14.8): os modelos prontos e os da pessoa em abas, os filtros, os
+    blocos do modelo (cartões, gráficos, tabelas, lista de tarefas) e os downloads com os mesmos
+    filtros. Quem vê o quê é decidido pela API. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, button_class, field with context %}
 {% from "_fields.html" import chips with context %}
 {% from "_icons.html" import icon %}
-{% from "reports/_charts.html" import bar_chart, column_chart %}
+{% from "reports/_charts.html" import bar_chart, column_chart, line_chart %}
 
 {% block title %}{{ t("relatorios.titulo") }}{% endblock %}
 
@@ -13,9 +14,13 @@
 <script src="{{ static('js/chamado.js') }}" defer></script>
 {% endblock %}
 
-{#- Tabela no visual do DataTable da SPA: `columns` são (rótulo, alinhado à direita); as linhas
-    vêm do caller. #}
-{% macro table(caption, columns, empty, count) -%}
+{#- O link do CSV de um bloco. #}
+{% macro csv_link(url, title) -%}
+<a href="{{ url }}" download class="shrink-0 rounded p-1 text-muted hover:bg-surface-raised hover:text-fg" aria-label="{{ t('relatorios.baixarCsvBloco', bloco=title) }}" title="{{ t('relatorios.baixarCsvBloco', bloco=title) }}">{{ icon("download", "size-4") }}</a>
+{%- endmacro %}
+
+{#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total. #}
+{% macro table(caption, columns, empty, count, foot=None) -%}
 <div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
   <table class="w-full border-collapse text-left">
     <caption class="sr-only">{{ caption }}</caption>
@@ -34,6 +39,16 @@
       </tr>
       {%- endif %}
     </tbody>
+    {%- if foot and count %}
+    <tfoot class="border-t-2 border-border font-medium">
+      <tr>
+        <th scope="row" class="px-3 py-2 text-left">{{ t("relatorios.total") }}</th>
+        {%- for value in foot %}
+        <td class="px-3 py-2 tabular-nums">{{ value }}</td>
+        {%- endfor %}
+      </tr>
+    </tfoot>
+    {%- endif %}
   </table>
 </div>
 {%- endmacro %}
@@ -41,22 +56,37 @@
 {% block content %}
 <div class="mx-auto flex max-w-7xl flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
-    </div>
-    {#- O PDF, o CSV da tabela da aba e o de todas as tarefas, com os mesmos filtros. #}
-    {%- if downloads %}
-    <details data-menu class="relative">
-      <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden {{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }} {{ icon("chevron-down", "size-4") }}</summary>
-      <div role="menu" class="absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
-        {%- for key in ("pdf", "csv", "tarefas") %}
-        <a href="{{ downloads[key] }}" download role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("file-text", "size-4") }} {{ t("relatorios.baixar." ~ key) }}</a>
+    <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
+    <div class="flex flex-wrap items-center gap-2">
+      {%- if filters_changed %}
+      {#- Os filtros da tela entram no modelo da pessoa. #}
+      <form method="post" action="/relatorios/modelos/{{ model.public_id }}/filtros">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {%- for name, value in query_fields %}
+        <input type="hidden" name="{{ name }}" value="{{ value }}">
         {%- endfor %}
-      </div>
-    </details>
-    {%- else %}
-    <button type="button" disabled class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }}</button>
-    {%- endif %}
+        <button type="submit" class="{{ button_class() }}">{{ icon("check", "size-4") }} {{ t("relatorios.salvarFiltros") }}</button>
+      </form>
+      {%- endif %}
+      {%- if model %}
+      <a href="/relatorios/modelos/{{ model.public_id }}/editar" class="{{ button_class('secondary') }}">{{ icon("pencil", "size-4") }} {{ t("relatorios.editarModelo") }}</a>
+      {%- endif %}
+      <a href="{{ new_model_url }}" class="{{ button_class('secondary') }}">{{ icon("plus", "size-4") }} {{ t("relatorios.salvarComoModelo") }}</a>
+      {#- O PDF e o CSV da tabela (modelos prontos) e o CSV de todas as tarefas, com os mesmos
+          filtros. #}
+      {%- if downloads %}
+      <details data-menu class="relative">
+        <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden {{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }} {{ icon("chevron-down", "size-4") }}</summary>
+        <div role="menu" class="absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
+          {%- for key in ("pdf", "csv", "tarefas") if key in downloads %}
+          <a href="{{ downloads[key] }}" download role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("file-text", "size-4") }} {{ t("relatorios.baixar." ~ key) }}</a>
+          {%- endfor %}
+        </div>
+      </details>
+      {%- else %}
+      <button type="button" disabled class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }}</button>
+      {%- endif %}
+    </div>
   </div>
 
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
@@ -91,90 +121,95 @@
     {%- endfor %}
   </form>
 
-  {%- if error %}
-  {{ alert(error) }}
-  {%- elif report %}
-  <dl class="grid grid-cols-2 gap-3 md:grid-cols-5">
-    {%- for key, value in [("horas", duration(report.totals.minutes)), ("horasExtras", duration(report.totals.overtime_minutes)), ("tarefas", number(report.totals.tasks)), ("registrados", number(report.totals.tickets_opened)), ("concluidos", number(report.totals.tickets_closed))] %}
-    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-      <dt class="text-muted">{{ t("relatorios.cartoes." ~ key) }}</dt>
-      <dd class="mt-1 text-2xl font-semibold">{{ value }}</dd>
-    </div>
-    {%- endfor %}
-  </dl>
-
-  <nav aria-label="{{ t('relatorios.titulo') }}" class="flex flex-wrap gap-1 border-b border-border">
-    {%- for slug, key in tabs.items() %}
-    <a href="{{ tab_url(slug) }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ t("relatorios.abas." ~ key) }}</a>
+  {#- Os modelos prontos e os da pessoa. #}
+  <nav aria-label="{{ t('relatorios.modelos') }}" class="flex flex-wrap gap-1 border-b border-border">
+    {%- for slug, label, url in tabs %}
+    <a href="{{ url }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
     {%- endfor %}
   </nav>
 
-  {%- if tab == "produtividade" %}
-  <div class="grid gap-4 lg:grid-cols-2">
-    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-      {{ column_chart(t("relatorios.horasPorSemana" if weekly else "relatorios.horasPorDia"), by_day, duration) }}
-    </div>
-    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-      {{ bar_chart(t("relatorios.horasPorPessoa"), people_bars, duration) }}
-      {%- if not people_bars %}
-      <p class="text-muted">{{ t("relatorios.vazio") }}</p>
-      {%- endif %}
-    </div>
-  </div>
-  {% call table(t("relatorios.horasPorPessoa"), [t("relatorios.colunas.pessoa"), t("relatorios.colunas.horas"), t("relatorios.colunas.horasExtras"), t("relatorios.colunas.tarefas"), t("relatorios.colunas.concluidos")], t("relatorios.vazio"), report.people | length) %}
-    {%- for p in report.people %}
-    <tr class="border-t border-border">
-      <td class="px-3 py-2">{{ p.name }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ duration(p.minutes) }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ duration(p.overtime_minutes) }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ number(p.tasks) }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ number(p.tickets_closed) }}</td>
-    </tr>
-    {%- endfor %}
-  {% endcall %}
-
-  {%- elif tab == "clientes" %}
-  {%- if client_bars %}
-  <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-    {{ bar_chart(t("relatorios.horasPorCliente"), client_bars, duration) }}
-  </div>
+  {%- if warning %}
+  {{ alert(warning, "info") }}
   {%- endif %}
-  {% call table(t("relatorios.horasPorCliente"), [t("relatorios.colunas.cliente"), t("relatorios.colunas.horas"), t("relatorios.colunas.registrados"), t("relatorios.colunas.concluidos")], t("relatorios.vazio"), report.clients | length) %}
-    {%- for c in report.clients %}
-    <tr class="border-t border-border">
-      <td class="px-3 py-2">{{ client_names[loop.index0] }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ duration(c.minutes) }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ number(c.tickets_opened) }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ number(c.tickets_closed) }}</td>
-    </tr>
-    {%- endfor %}
-  {% endcall %}
-
-  {%- else %}
+  {%- if error %}
+  {{ alert(error) }}
+  {%- elif blocks %}
+  {%- if work_hours %}
   <p class="text-muted">{{ work_hours }}</p>
-  <div class="grid gap-4 lg:grid-cols-2">
-    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-      {{ column_chart(t("relatorios.horasExtrasPorSemana" if weekly else "relatorios.horasExtrasPorDia"), overtime_by_day, duration) }}
-    </div>
-    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-      {{ bar_chart(t("relatorios.horasExtrasPorPessoa"), overtime_bars, duration) }}
-      {%- if not overtime_bars %}
-      <p class="text-muted">{{ t("relatorios.semExtras") }}</p>
-      {%- endif %}
-    </div>
-  </div>
-  {% call table(t("relatorios.tarefasForaDoExpediente"), [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], t("relatorios.semExtras"), report.overtime_tasks | length) %}
-    {%- for o in report.overtime_tasks %}
-    <tr class="border-t border-border">
-      <td class="px-3 py-2 tabular-nums">{{ datetime(o.done_at) }}</td>
-      <td class="px-3 py-2">{{ o.person }}</td>
-      <td class="px-3 py-2"><a href="/chamados/{{ o.ticket_number }}" class="text-primary underline tabular-nums">#{{ o.ticket_number }}</a> {{ o.ticket_title }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ duration(o.minutes) }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ duration(o.overtime_minutes) }}</td>
-    </tr>
-    {%- endfor %}
-  {% endcall %}
   {%- endif %}
+  <div class="grid gap-4 lg:grid-cols-2">
+    {%- for b in blocks %}
+    {%- if b.visual == "cards" %}
+    <section class="flex flex-col gap-2 lg:col-span-2">
+      {%- if b.title %}
+      <h2 class="font-medium">{{ b.title }}</h2>
+      {%- endif %}
+      <dl class="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
+        {%- for label, value in b.cards %}
+        <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
+          <dt class="text-muted">{{ label }}</dt>
+          <dd class="mt-1 text-2xl font-semibold">{{ value }}</dd>
+        </div>
+        {%- endfor %}
+      </dl>
+    </section>
+    {%- elif b.visual in ("bars", "columns", "line") %}
+    <div class="flex items-start gap-2 rounded-lg border border-border bg-surface p-4 shadow-md">
+      <div class="min-w-0 flex-1">
+        {%- if b.visual == "bars" %}
+        {{ bar_chart(b.title, b.points, b.fmt) }}
+        {%- if not b.points %}
+        <p class="text-muted">{{ b.empty }}</p>
+        {%- endif %}
+        {%- elif b.visual == "columns" %}
+        {{ column_chart(b.title, b.points, b.fmt, b.step) }}
+        {%- else %}
+        {{ line_chart(b.title, b.points, b.fmt, b.step) }}
+        {%- endif %}
+      </div>
+      {{ csv_link(b.csv, b.title) }}
+    </div>
+    {%- elif b.visual == "table" %}
+    <section class="flex flex-col gap-2 lg:col-span-2">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="font-medium">{{ b.title }}</h2>
+        {{ csv_link(b.csv, b.title) }}
+      </div>
+      {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total) %}
+        {%- for label, values in b.rows %}
+        <tr class="border-t border-border">
+          <td class="px-3 py-2">{{ label }}</td>
+          {%- for value in values %}
+          <td class="px-3 py-2 tabular-nums">{{ value }}</td>
+          {%- endfor %}
+        </tr>
+        {%- endfor %}
+      {% endcall %}
+    </section>
+    {%- else %}
+    <section class="flex flex-col gap-2 lg:col-span-2">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="font-medium">{{ b.title }}</h2>
+        {{ csv_link(b.csv, b.title) }}
+      </div>
+      {% call table(b.title, [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], b.empty, b.tasks | length) %}
+        {%- for o in b.tasks %}
+        <tr class="border-t border-border">
+          <td class="px-3 py-2 tabular-nums">{{ datetime(o.done_at) }}</td>
+          <td class="px-3 py-2">{{ o.person }}</td>
+          <td class="px-3 py-2"><a href="/chamados/{{ o.number }}" class="text-primary underline tabular-nums">#{{ o.number }}</a> {{ o.title }}</td>
+          <td class="px-3 py-2 tabular-nums">{{ o.minutes }}</td>
+          <td class="px-3 py-2 tabular-nums">{{ o.overtime }}</td>
+        </tr>
+        {%- endfor %}
+      {% endcall %}
+      {%- if b.count > b.tasks | length %}
+      <p class="text-sm text-muted">{{ t("relatorios.listaCortada", n=b.tasks | length, total=b.count) }}</p>
+      {%- endif %}
+    </section>
+    {%- endif %}
+    {%- endfor %}
+  </div>
   {%- endif %}
 </div>
 {% endblock %}

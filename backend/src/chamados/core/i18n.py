@@ -167,6 +167,26 @@ EN: dict[str, str] = {
     "O período precisa terminar depois de começar.": "The period must end after it starts.",
     "Data inválida.": "Invalid date.",
     "O período pode ter no máximo 366 dias.": "The period can have at most 366 days.",
+    "Escolha o que agrupar.": "Choose what to group by.",
+    "Escolha ao menos uma medida.": "Choose at least one measure.",
+    "Um gráfico mostra uma medida só.": "A chart shows a single measure.",
+    "A linha agrupa por dia, semana ou mês.": "A line groups by day, week or month.",
+    "As barras agrupam por pessoa, cliente, grupo ou status.": (
+        "Bars group by person, client, team or status."
+    ),
+    "Modelo não encontrado.": "Report template not found.",
+    "Este modelo foi salvo num formato que não vale mais.": (
+        "This template was saved in a format that is no longer valid."
+    ),
+    "Informe o nome do modelo.": "Enter the template name.",
+    "O nome do modelo pode ter no máximo 80 caracteres.": (
+        "The template name can have at most 80 characters."
+    ),
+    "Você já tem um modelo com este nome.": "You already have a template with this name.",
+    "Você chegou ao limite de 50 modelos.": "You have reached the limit of 50 templates.",
+    "Não foi possível gerar o CSV com estes filtros.": (
+        "The CSV could not be generated with these filters."
+    ),
     "Você só pode ver os seus próprios números.": "You can only see your own numbers.",
     "Informe o nome do status.": "Enter the status name.",
     "Já existe um status com este nome.": "A status with this name already exists.",

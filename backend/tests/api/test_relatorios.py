@@ -302,7 +302,9 @@ def test_csv(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
         in (r.headers["content-disposition"])
     )
     # Cada download vai para a auditoria, com o formato e a tabela.
-    registros = db.scalars(select(AuditLog).where(AuditLog.action == "report.exported")).all()
+    registros = db.scalars(
+        select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
+    ).all()
     assert len(registros) == 5
     ultimo = registros[-1].after or {}
     assert ultimo["format"] == "csv" and ultimo["table"] == "tasks"

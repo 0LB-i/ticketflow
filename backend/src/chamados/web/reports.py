@@ -1,50 +1,85 @@
-"""Relatórios (docs/14 §14.7 e §14.8): horas por pessoa, por cliente e por dia, horas extras e o
-PDF e o CSV com os mesmos filtros. Cada um vê o próprio trabalho; o supervisor, o dos grupos que
-supervisiona; admin e auditor, tudo. Quem decide é o service (`reports/service.resolve`), como na
-API: a tela não precisa de requires().
+"""Relatórios (docs/14 §14.7 e §14.8): os modelos prontos (Produtividade, Clientes, Horas extras)
+e os modelos pessoais, cada um uma lista de blocos do construtor guiado (`reports/builder.py`),
+com o PDF e o CSV. Cada um vê o próprio trabalho; o supervisor, o dos grupos que supervisiona;
+admin e auditor, tudo. Quem decide é o service (`reports/service.resolve`), como na API: a tela
+não precisa de requires().
 
-O período, os filtros e a aba ficam na URL, como na lista de chamados. Grupo, pessoa, cliente e
-status aceitam vários valores (o parâmetro repetido).
+O modelo (`aba`), o período e os filtros ficam na URL, como na lista de chamados. Grupo, pessoa,
+cliente e status aceitam vários valores (o parâmetro repetido). Sem nenhum filtro na URL, valem
+os salvos no modelo; o formulário sempre manda o período, então mexer num filtro passa a valer o
+da URL, e "Salvar filtros" o guarda no modelo.
 """
 
 import uuid
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from functools import partial
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from starlette.datastructures import FormData
 
+from chamados.core.i18n import Locale
 from chamados.db.session import DB
+from chamados.modules.reports import builder, csv_export, saved, service
 from chamados.modules.reports import router as reports_api
-from chamados.modules.reports import service
-from chamados.modules.reports.schemas import DayRow, Report
-from chamados.web.formatting import TIMEZONE, format_day, format_month, format_number
-from chamados.web.page import LoggedPage, LoggedPageDep
+from chamados.modules.reports.builder import (
+    BUILTINS,
+    CATEGORIES,
+    CHARTS,
+    CUSTOM,
+    DURATIONS,
+    OTHERS,
+    RELATIVE,
+    TIMES,
+    Block,
+    FilterSpec,
+    PeriodSpec,
+    ReportConfig,
+)
+from chamados.modules.reports.models import ReportModel
+from chamados.modules.reports.schemas import ReportOptions
+from chamados.web.formatting import (
+    TIMEZONE,
+    format_day,
+    format_duration,
+    format_hours,
+    format_month,
+    format_number,
+)
+from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
 
 router = APIRouter()
 
-# Slug da aba na URL → chave do catálogo (relatorios.abas.*).
+# Modelo pronto (slug da aba na URL) → chave do catálogo (relatorios.abas.*).
 TABS = {"produtividade": "produtividade", "clientes": "clientes", "horas-extras": "horasExtras"}
-# A tabela de cada aba no CSV (`reports/csv_export.Table`).
+# A tabela de cada modelo pronto no CSV da API (`reports/csv_export.Table`).
 CSV_TABLES = {"produtividade": "people", "clientes": "clients", "horas-extras": "overtime"}
-CUSTOM = "personalizado"
 NO_CLIENT = "sem-cliente"
-# Períodos que andam com o calendário: slug → chave do catálogo (relatorios.periodos.*).
-RELATIVE = {
-    "mes-atual": "mesAtual",
-    "mes-anterior": "mesAnterior",
-    "ultimos-7-dias": "ultimos7",
-    "ultimos-30-dias": "ultimos30",
-    "ultimos-90-dias": "ultimos90",
-    "trimestre-atual": "trimestreAtual",
-    "trimestre-anterior": "trimestreAnterior",
-    "ano-ate-hoje": "anoAteHoje",
-}
-Values = Annotated[list[str] | None, Query()]
+# Período relativo (slug) → chave do catálogo (relatorios.periodos.*).
+RELATIVE_KEYS = dict(
+    zip(
+        RELATIVE,
+        (
+            "mesAtual",
+            "mesAnterior",
+            "ultimos7",
+            "ultimos30",
+            "ultimos90",
+            "trimestreAtual",
+            "trimestreAnterior",
+            "anoAteHoje",
+        ),
+        strict=True,
+    )
+)
 WEEKDAYS = ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
+DAILY_LIMIT = 62  # um gráfico por dia de um período mais longo agrupa por semana
+LISTED = 200  # tarefas mostradas na lista; o CSV traz todas
+Values = Annotated[list[str] | None, Query()]
 
 
 @dataclass
@@ -57,7 +92,7 @@ class Month:
 
 @dataclass
 class Point:
-    """Uma coluna ou barra dos gráficos (templates/reports/_charts.html)."""
+    """Uma coluna, barra ou ponto dos gráficos (templates/reports/_charts.html)."""
 
     key: str
     label: str
@@ -75,32 +110,9 @@ def _months(locale: str, today: date) -> list[Month]:
     return months
 
 
-def _quarter(day: date) -> tuple[date, date]:
-    first = date(day.year, (day.month - 1) // 3 * 3 + 1, 1)
-    after = date(first.year + (first.month == 10), (first.month + 2) % 12 + 1, 1)
-    return first, after - timedelta(days=1)
-
-
-def _relative(slug: str, today: date, months: list[Month]) -> tuple[date, date]:
-    """O início e o fim (incluído) de um período de RELATIVE. O mês e o trimestre vão até o
-    último dia, como os meses da lista; os demais terminam hoje."""
-    if slug == "mes-atual":
-        return months[0].start, months[0].end
-    if slug == "mes-anterior":
-        return months[1].start, months[1].end
-    if slug == "trimestre-atual":
-        return _quarter(today)
-    if slug == "trimestre-anterior":
-        return _quarter(_quarter(today)[0] - timedelta(days=1))
-    if slug == "ano-ate-hoje":
-        return today.replace(month=1, day=1), today
-    days = {"ultimos-7-dias": 7, "ultimos-30-dias": 30, "ultimos-90-dias": 90}[slug]
-    return today - timedelta(days=days - 1), today
-
-
-def _date(value: str) -> date | None:
+def _date(value: str | None) -> date | None:
     try:
-        return date.fromisoformat(value)
+        return date.fromisoformat(value) if value else None
     except ValueError:
         return None
 
@@ -118,47 +130,311 @@ def _uuids(values: list[str] | None) -> list[uuid.UUID]:
     return result
 
 
-def _series(locale: str, days: list[DayRow], field: str) -> list[Point]:
-    """Até dois meses, uma coluna por dia; mais que isso, por semana (a partir do primeiro dia)."""
-    size = 7 if len(days) > 62 else 1
-    return [
-        Point(
-            days[i].date.isoformat(),
-            format_day(locale, days[i].date),
-            sum(getattr(d, field) for d in days[i : i + size]),
+# --- estado da tela --------------------------------------------------------------------------
+
+
+@dataclass
+class Choice:
+    """O modelo aberto: um pronto (`model` None) ou um da pessoa."""
+
+    slug: str  # a aba na URL
+    name: str
+    config: ReportConfig | None  # None: o modelo salvo não vale mais (error)
+    model: ReportModel | None = None
+
+
+@dataclass
+class State:
+    """O que a tela e o CSV de um bloco tiram da URL: o modelo, o período e os filtros."""
+
+    choice: Choice
+    models: list[ReportModel]
+    options: ReportOptions
+    period: str
+    start_text: str
+    end_text: str
+    start: date | None
+    end: date | None
+    teams: list[uuid.UUID]
+    people: list[uuid.UUID]
+    clients: list[uuid.UUID]
+    no_client: bool
+    statuses: list[int]
+    filters: service.Filters | None = None
+    error: str | None = None
+    warning: str | None = None
+    query: dict[str, str | list[str] | None] = field(default_factory=dict)
+
+    def specs(self) -> tuple[PeriodSpec, FilterSpec]:
+        """O período e os filtros como o modelo os guarda. Um mês da lista vira as datas dele."""
+        if self.period in RELATIVE:
+            period = PeriodSpec(kind=self.period)
+        else:
+            period = PeriodSpec(kind=CUSTOM, start=self.start, end=self.end)
+        filters = FilterSpec(
+            teams=self.teams,
+            people=self.people,
+            clients=self.clients,
+            no_client=self.no_client,
+            statuses=self.statuses,
         )
-        for i in range(0, len(days), size)
-    ]
+        return period, filters
 
 
-def _charts(page: LoggedPage, report: Report) -> dict[str, Any]:
-    """Os números dos gráficos e das tabelas, como o ReportsView.vue os montava."""
-    locale = page.locale
-    no_client = page.t("relatorios.semCliente")
-    clients = [
-        Point(str(c.id) if c.id else "sem-cliente", c.name or no_client, c.minutes)
-        for c in report.clients
-    ]
-    wh = report.work_hours
-    return {
-        "by_day": _series(locale, report.days, "minutes"),
-        "overtime_by_day": _series(locale, report.days, "overtime_minutes"),
-        "weekly": len(report.days) > 62,
-        "people_bars": [Point(str(p.id), p.name, p.minutes) for p in report.people],
-        "overtime_bars": [
-            Point(str(p.id), p.name, p.overtime_minutes)
-            for p in sorted(report.people, key=lambda p: -p.overtime_minutes)
-            if p.overtime_minutes > 0
-        ],
-        "client_bars": [c for c in clients if c.value > 0][:10],
-        "client_names": [c.label for c in clients],
-        "work_hours": page.t(
-            "relatorios.expedienteUsado",
-            dias=", ".join(page.t(f"expediente.diasCurtos.{WEEKDAYS[d]}") for d in wh.weekdays),
-            inicio=f"{wh.start:%H:%M}",
-            fim=f"{wh.end:%H:%M}",
-        ),
+def _choice(page: LoggedPage, aba: str | None, models: list[ReportModel]) -> Choice:
+    def builtin(slug: str) -> Choice:
+        return Choice(slug, page.t(f"relatorios.abas.{TABS[slug]}"), BUILTINS[slug])
+
+    if aba in BUILTINS:
+        return builtin(aba)
+    model = next((m for m in models if str(m.public_id) == aba), None)
+    if model is None and aba is None:
+        model = next((m for m in models if m.is_default), None)
+    if model is None:
+        return builtin("produtividade")
+    try:
+        config: ReportConfig | None = saved.config_of(model)
+    except HTTPException:
+        config = None
+    return Choice(str(model.public_id), model.name, config, model)
+
+
+async def _state(
+    page: LoggedPage,
+    db: DB,
+    *,
+    aba: str | None,
+    periodo: str | None,
+    de: str | None,
+    ate: str | None,
+    grupo: list[str] | None,
+    pessoa: list[str] | None,
+    cliente: list[str] | None,
+    status: list[str] | None,
+) -> State:
+    auth = page.auth
+    today = datetime.now(TIMEZONE).date()
+    months = _months(page.locale, today)
+    models = await saved.list_mine(db, auth)
+    choice = _choice(page, aba, models)
+    options = await reports_api.report_options(auth, db)
+
+    # Sem filtro na URL, valem os do modelo. Os salvos que deixaram de valer para a pessoa
+    # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
+    warning = None
+    url = (periodo, de, ate, grupo, pessoa, cliente, status)
+    if all(v is None for v in url) and choice.config is not None:
+        spec, saved_filters = choice.config.period, choice.config.filters
+        periodo = spec.kind
+        de = spec.start.isoformat() if spec.start else None
+        ate = spec.end.isoformat() if spec.end else None
+        lost = []
+        teams = [t for t in saved_filters.teams if t in {o.id for o in options.teams}]
+        if len(teams) < len(saved_filters.teams):
+            lost.append(page.t("relatorios.grupo"))
+        people = [p for p in saved_filters.people if p in {o.id for o in options.people}]
+        if len(people) < len(saved_filters.people):
+            lost.append(page.t("relatorios.pessoa"))
+        clients = [c for c in saved_filters.clients if c in {o.id for o in options.clients}]
+        if len(clients) < len(saved_filters.clients):
+            lost.append(page.t("relatorios.cliente"))
+        statuses = [s for s in saved_filters.statuses if s in {o.id for o in options.statuses}]
+        if len(statuses) < len(saved_filters.statuses):
+            lost.append(page.t("relatorios.status"))
+        no_client = saved_filters.no_client
+        if lost:
+            warning = page.t("relatorios.filtrosSalvosInvalidos", filtros=", ".join(lost))
+    else:
+        teams, people, clients = _uuids(grupo), _uuids(pessoa), _uuids(cliente)
+        no_client = NO_CLIENT in (cliente or [])
+        statuses = [int(v) for v in status or [] if v.isdigit()]
+
+    # Um período relativo, um mês da lista ou o personalizado; sem período (ou um desconhecido),
+    # o mês atual. Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em
+    # hoje; uma data apagada é um período inválido.
+    month = next((m for m in months if m.value == periodo), None)
+    period = (
+        periodo if periodo and (periodo in RELATIVE or periodo == CUSTOM or month) else "mes-atual"
+    )
+    if period in RELATIVE:
+        first, last = builder.relative_period(period, today)
+        start_text, end_text = first.isoformat(), last.isoformat()
+    elif month:
+        start_text, end_text = month.start.isoformat(), month.end.isoformat()
+    else:
+        start_text = months[0].start.isoformat() if de is None else de
+        end_text = today.isoformat() if ate is None else ate
+    start, end = _date(start_text), _date(end_text)
+
+    state = State(
+        choice=choice,
+        models=models,
+        options=options,
+        period=period,
+        start_text=start_text,
+        end_text=end_text,
+        start=start,
+        end=end,
+        teams=teams,
+        people=people,
+        clients=clients,
+        no_client=no_client,
+        statuses=statuses,
+        warning=warning,
+    )
+    if choice.config is None:
+        state.error = page.t("relatorios.modeloInvalido")
+    elif start and end and start <= end:
+        try:
+            state.filters = await service.resolve(
+                db,
+                auth,
+                start=start,
+                end=end,
+                teams=teams,
+                people=people,
+                clients=clients,
+                no_client=no_client,
+                statuses=statuses,
+            )
+        except HTTPException as exc:
+            state.error = page.api_message(exc)
+    state.query = {
+        "periodo": period,
+        "de": start_text if period == CUSTOM else None,
+        "ate": end_text if period == CUSTOM else None,
+        "grupo": [str(t) for t in teams],
+        "pessoa": [str(p) for p in people],
+        "cliente": ([NO_CLIENT] if no_client else []) + [str(c) for c in clients],
+        "status": [str(s) for s in statuses],
     }
+    return state
+
+
+def _url(path: str, query: dict[str, Any]) -> str:
+    params = {k: v for k, v in query.items() if v}
+    return f"{path}?{urlencode(params, doseq=True)}" if params else path
+
+
+# --- blocos ----------------------------------------------------------------------------------
+
+
+def _formatter(page: LoggedPage, config: ReportConfig, measure: str) -> Callable[[int], str]:
+    if measure not in DURATIONS:
+        return partial(format_number, page.locale)
+    return format_duration if config.hours == "hm" else partial(format_hours, page.locale)
+
+
+def _row_label(page: LoggedPage, dimension: str | None, row: builder.Row, *, short: bool) -> str:
+    if row.key == OTHERS:
+        return page.t("relatorios.outros")
+    if isinstance(row.key, date):
+        if dimension == "month":
+            return format_month(page.locale, row.key)
+        day = format_day(page.locale, row.key)
+        return page.t("relatorios.semanaDe", dia=day) if dimension == "week" and not short else day
+    return row.label or page.t("relatorios.semCliente")
+
+
+def _title(page: LoggedPage, block: Block, dimension: str | None) -> str:
+    """O título digitado ou o automático (ex.: "Horas por pessoa")."""
+    if block.title:
+        return block.title
+    if block.visual == "tasks":
+        return page.t(
+            "relatorios.tarefasForaDoExpediente" if block.only_overtime else "relatorios.tarefas"
+        )
+    if block.visual == "cards" or dimension is None:
+        return ""
+    what = page.t(f"relatorios.dimensoes.{dimension}")
+    if block.visual == "table":
+        title = page.t("relatorios.tituloTabela", dimensao=what)
+    else:
+        measure = page.t(f"relatorios.medidas.{block.measures[0]}")
+        title = page.t("relatorios.tituloAuto", medida=measure, dimensao=what)
+    if block.top and dimension in CATEGORIES:
+        title = page.t("relatorios.osMaiores", titulo=title, n=block.top)
+    return title
+
+
+def _view(
+    page: LoggedPage,
+    config: ReportConfig,
+    data: service.Facts,
+    f: service.Filters,
+    block: Block,
+    csv: str,
+) -> dict[str, Any]:
+    """Um bloco pronto para o template: os números já formatados."""
+    weekly = (
+        block.visual in ("columns", "line")
+        and block.dimension == "day"
+        and (f.end - f.start).days >= DAILY_LIMIT
+    )
+    result = builder.run(data, block, f.start, f.end, dimension="week" if weekly else None)
+    dimension = result.dimension
+    view: dict[str, Any] = {
+        "visual": block.visual,
+        "title": _title(page, block, dimension),
+        "csv": csv,
+    }
+    if block.visual == "cards":
+        view["cards"] = [
+            (page.t(f"relatorios.medidas.{m}"), _formatter(page, config, m)(result.total[m]))
+            for m in block.measures
+        ]
+    elif block.visual in CHARTS:
+        m = block.measures[0]
+        points = [
+            Point(str(r.key), _row_label(page, dimension, r, short=True), r.values[m])
+            for r in result.rows
+        ]
+        empty = "relatorios.semExtras" if m == "overtime" else "relatorios.nada"
+        view.update(
+            points=[p for p in points if p.value] if block.visual == "bars" else points,
+            fmt=_formatter(page, config, m),
+            step=120 if m in DURATIONS else 2,
+            empty=page.t(empty),
+        )
+    elif block.visual == "table":
+        formats = [_formatter(page, config, m) for m in block.measures]
+        view.update(
+            columns=[page.t(f"relatorios.dimensoes.{dimension}").capitalize()]
+            + [page.t(f"relatorios.medidas.{m}") for m in block.measures],
+            rows=[
+                (
+                    _row_label(page, dimension, r, short=False),
+                    [fmt(r.values[m]) for fmt, m in zip(formats, block.measures, strict=True)],
+                )
+                for r in result.rows
+            ],
+            total=[fmt(result.total[m]) for fmt, m in zip(formats, block.measures, strict=True)],
+        )
+    else:
+        fmt = _formatter(page, config, "hours")
+        view.update(
+            tasks=[
+                {
+                    "done_at": t.done_at,
+                    "person": data.users[t.author_id].display_name,
+                    "number": t.ticket_number,
+                    "title": t.ticket_title,
+                    "minutes": fmt(t.minutes),
+                    "overtime": fmt(t.overtime),
+                }
+                for t in result.tasks[:LISTED]
+            ],
+            count=len(result.tasks),
+            empty=page.t("relatorios.semExtras" if block.only_overtime else "relatorios.vazio"),
+        )
+    return view
+
+
+def _uses_overtime(config: ReportConfig) -> bool:
+    return any("overtime" in b.measures or b.only_overtime for b in config.blocks)
+
+
+# --- tela ------------------------------------------------------------------------------------
 
 
 @router.get("/relatorios")
@@ -174,89 +450,76 @@ async def reports_page(
     cliente: Values = None,
     status: Values = None,
 ) -> HTMLResponse:
-    auth = page.auth
-    today = datetime.now(TIMEZONE).date()
-    months = _months(page.locale, today)
-    tab = aba if aba in TABS else "produtividade"
+    state = await _state(
+        page,
+        db,
+        aba=aba,
+        periodo=periodo,
+        de=de,
+        ate=ate,
+        grupo=grupo,
+        pessoa=pessoa,
+        cliente=cliente,
+        status=status,
+    )
+    choice, query, options = state.choice, state.query, state.options
+    slug = choice.slug
 
-    # Um período relativo, um mês da lista ou o personalizado; sem período (ou um desconhecido),
-    # o mês atual. Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em
-    # hoje; uma data apagada é um período inválido.
-    month = next((m for m in months if m.value == periodo), None)
-    period = periodo if periodo in RELATIVE or periodo == CUSTOM or month else "mes-atual"
-    if period in RELATIVE:
-        first, last = _relative(period, today, months)
-        start_text, end_text = first.isoformat(), last.isoformat()
-    elif month:
-        start_text, end_text = month.start.isoformat(), month.end.isoformat()
-    else:
-        start_text = months[0].start.isoformat() if de is None else de
-        end_text = today.isoformat() if ate is None else ate
-    start, end = _date(start_text), _date(end_text)
+    # Os modelos prontos levam os filtros da tela; o da pessoa abre com os que ele guarda.
+    tabs = [
+        (s, page.t(f"relatorios.abas.{key}"), _url("/relatorios", {**query, "aba": s}))
+        for s, key in TABS.items()
+    ] + [
+        (str(m.public_id), m.name, _url("/relatorios", {"aba": str(m.public_id)}))
+        for m in state.models
+    ]
 
-    teams = _uuids(grupo)
-    people = _uuids(pessoa)
-    clients = _uuids(cliente)
-    no_client = NO_CLIENT in (cliente or [])
-    statuses = [int(v) for v in status or [] if v.isdigit()]
-    options = await reports_api.report_options(auth, db)
-    report: Report | None = None
-    error = None
-    if start and end and start <= end:
-        try:
-            f = await service.resolve(
-                db,
-                auth,
-                start=start,
-                end=end,
-                teams=teams,
-                people=people,
-                clients=clients,
-                no_client=no_client,
-                statuses=statuses,
-            )
-            report = await reports_api.report(f, auth, db)
-        except HTTPException as exc:
-            error = page.api_message(exc)
-
-    query: dict[str, str | list[str] | None] = {
-        "periodo": period,
-        "de": start_text if period == CUSTOM else None,
-        "ate": end_text if period == CUSTOM else None,
-        "grupo": [str(t) for t in teams],
-        "pessoa": [str(p) for p in people],
-        "cliente": ([NO_CLIENT] if no_client else []) + [str(c) for c in clients],
-        "status": [str(s) for s in statuses],
-    }
-
-    def tab_url(slug: str) -> str:
-        params = {k: v for k, v in {**query, "aba": slug}.items() if v}
-        return f"/relatorios?{urlencode(params, doseq=True)}"
-
-    # Os downloads levam os mesmos filtros à API, com o idioma da pessoa (um link não escolhe o
-    # Accept-Language).
+    blocks: list[dict[str, Any]] = []
     downloads = None
-    if report is not None:
+    work_hours = None
+    f, config = state.filters, choice.config
+    if f is not None and config is not None:
+        data = await service.facts(db, page.auth, f)
+        blocks = [
+            _view(
+                page,
+                config,
+                data,
+                f,
+                block,
+                _url("/relatorios/csv", {**query, "aba": slug, "bloco": str(i)}),
+            )
+            for i, block in enumerate(config.blocks)
+        ]
+        if _uses_overtime(config):
+            wh = data.work_hours
+            work_hours = page.t(
+                "relatorios.expedienteUsado",
+                dias=", ".join(page.t(f"expediente.diasCurtos.{WEEKDAYS[d]}") for d in wh.weekdays),
+                inicio=f"{wh.start:%H:%M}",
+                fim=f"{wh.end:%H:%M}",
+            )
+        # Os downloads da API levam os mesmos filtros, com o idioma da pessoa (um link não
+        # escolhe o Accept-Language). O PDF e a tabela da aba, só nos modelos prontos.
         api = {
-            "start": report.start.isoformat(),
-            "end": report.end.isoformat(),
+            "start": f.start.isoformat(),
+            "end": f.end.isoformat(),
             "team": query["grupo"],
             "person": query["pessoa"],
-            "client": [str(c) for c in clients],
-            "no_client": "true" if no_client else None,
+            "client": [str(c) for c in state.clients],
+            "no_client": "true" if state.no_client else None,
             "status": query["status"],
             "locale": page.locale,
         }
+        downloads = {"tarefas": _url("/api/v1/reports/csv", {**api, "table": "tasks"})}
+        if choice.model is None:
+            downloads["pdf"] = _url("/api/v1/reports/pdf", api)
+            downloads["csv"] = _url("/api/v1/reports/csv", {**api, "table": CSV_TABLES[slug]})
 
-        def api_url(path: str, **extra: str) -> str:
-            params = {k: v for k, v in {**api, **extra}.items() if v}
-            return f"/api/v1/reports/{path}?{urlencode(params, doseq=True)}"
-
-        downloads = {
-            "pdf": api_url("pdf"),
-            "csv": api_url("csv", table=CSV_TABLES[tab]),
-            "tarefas": api_url("csv", table="tasks"),
-        }
+    # "Salvar filtros": num modelo da pessoa, quando os da tela não são os guardados.
+    filters_changed = False
+    if choice.model is not None and config is not None and state.start and state.end:
+        filters_changed = state.specs() != (config.period, config.filters)
 
     # Os filtros de vários valores (etiquetas): nome, rótulo, opções, escolhidos e o texto de
     # "todos". Grupo só com o que escolher; pessoa, só para quem vê mais que o próprio trabalho.
@@ -273,21 +536,26 @@ async def reports_page(
     status_options = [(str(s.id), s.name) for s in options.statuses]
     filters.append(("status", "status", status_options, query["status"], "todosOsStatus"))
 
+    today = datetime.now(TIMEZONE).date()
+    start, end = state.start, state.end
     return page.render(
         "reports/index.html",
-        tabs=TABS,
-        tab=tab,
-        tab_url=tab_url,
-        period=period,
+        tabs=tabs,
+        tab=slug,
+        model=choice.model,
+        period=state.period,
         period_groups=[
             (
                 page.t("relatorios.periodosRelativos"),
-                [(slug, page.t(f"relatorios.periodos.{key}")) for slug, key in RELATIVE.items()],
+                [(s, page.t(f"relatorios.periodos.{key}")) for s, key in RELATIVE_KEYS.items()],
             ),
-            (page.t("relatorios.meses"), [(m.value, m.label) for m in months]),
+            (
+                page.t("relatorios.meses"),
+                [(m.value, m.label) for m in _months(page.locale, today)],
+            ),
         ],
-        start=start_text,
-        end=end_text,
+        start=state.start_text,
+        end=state.end_text,
         period_ok=bool(start and end and start <= end),
         # O intervalo de um período relativo ou de um mês, que não aparece nos campos de data.
         interval=page.t(
@@ -295,12 +563,371 @@ async def reports_page(
             de=format_day(page.locale, start),
             ate=format_day(page.locale, end),
         )
-        if start and end and period != CUSTOM
+        if start and end and state.period != CUSTOM
         else None,
         filters=filters,
-        report=report,
-        error=error,
+        query_fields=[
+            (name, value)
+            for name, values in query.items()
+            if values
+            for value in ([values] if isinstance(values, str) else values)
+        ],
+        filters_changed=filters_changed,
+        new_model_url=_url("/relatorios/modelos/novo", {**query, "base": slug}),
+        blocks=blocks,
+        work_hours=work_hours,
+        error=state.error,
+        warning=state.warning,
         downloads=downloads,
-        number=partial(format_number, page.locale),
-        **(_charts(page, report) if report else {}),
     )
+
+
+@router.get("/relatorios/csv")
+async def block_csv(
+    page: LoggedPageDep,
+    db: DB,
+    bloco: int,
+    aba: str | None = None,
+    periodo: str | None = None,
+    de: str | None = None,
+    ate: str | None = None,
+    grupo: Values = None,
+    pessoa: Values = None,
+    cliente: Values = None,
+    status: Values = None,
+) -> Response:
+    """O CSV de um bloco (docs/14 §14.8.4), com os filtros da tela; vai para a auditoria."""
+    state = await _state(
+        page,
+        db,
+        aba=aba,
+        periodo=periodo,
+        de=de,
+        ate=ate,
+        grupo=grupo,
+        pessoa=pessoa,
+        cliente=cliente,
+        status=status,
+    )
+    f, config = state.filters, state.choice.config
+    if state.error or f is None or config is None:
+        raise HTTPException(422, "Não foi possível gerar o CSV com estes filtros.")
+    if not 0 <= bloco < len(config.blocks):
+        raise HTTPException(404)
+    block = config.blocks[bloco]
+    data = await service.facts(db, page.auth, f)
+    result = builder.run(data, block, f.start, f.end)
+    content = csv_export.render_block(data, result, cast(Locale, page.locale))
+    reports_api.record_export(
+        db, page.request, page.auth, f, format="csv", table="block", model=state.choice.name
+    )
+    await db.commit()
+    name = f"relatorio-bloco-{bloco + 1}-{f.start:%Y-%m-%d}-a-{f.end:%Y-%m-%d}.csv"
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+@router.post("/relatorios/modelos/{model_id}/filtros")
+async def save_filters(
+    page: LoggedPageDep,
+    db: DB,
+    model_id: uuid.UUID,
+) -> Response:
+    """Guarda no modelo o período e os filtros da tela."""
+    form = await page.request.form()
+    check_csrf(page, str(form.get("csrf_token", "")))
+    model = await saved.get(db, page.auth, model_id)
+    state = await _state(page, db, aba=str(model_id), **_filter_params(form))
+    response = RedirectResponse(_url("/relatorios", {"aba": str(model_id)}), status_code=303)
+    if state.error or state.choice.config is None:
+        page.flash(response, ("error", state.error or page.t("comum.erroInesperado")))
+        return response
+    period, filters = state.specs()
+    await saved.save_filters(
+        db, model, state.choice.config.model_copy(update={"period": period, "filters": filters})
+    )
+    await db.commit()
+    page.flash(response, ("success", page.t("relatorios.filtrosSalvos")))
+    return response
+
+
+def _filter_params(form: FormData) -> dict[str, Any]:
+    """Os filtros vindos num formulário (os mesmos nomes da URL); um ausente fica None."""
+
+    def one(name: str) -> str | None:
+        value = form.get(name)
+        return value if isinstance(value, str) else None
+
+    def many(name: str) -> list[str] | None:
+        values = [v for v in form.getlist(name) if isinstance(v, str)]
+        return values or None
+
+    return {
+        "periodo": one("periodo"),
+        "de": one("de"),
+        "ate": one("ate"),
+        "grupo": many("grupo"),
+        "pessoa": many("pessoa"),
+        "cliente": many("cliente"),
+        "status": many("status"),
+    }
+
+
+# --- editor ----------------------------------------------------------------------------------
+
+FILTER_FIELDS = ("periodo", "de", "ate", "grupo", "pessoa", "cliente", "status")
+NEW_BLOCK = Block(visual="table", dimension="person", measures=["hours"])
+
+
+@dataclass
+class EditorForm:
+    name: str = ""
+    hours: str = "hm"
+    is_default: bool = False
+    blocks: list[Block] = field(default_factory=list)
+    errors: dict[int, str] = field(default_factory=dict)  # bloco → erro
+    error: str | None = None
+
+
+def _read_block(form: FormData, i: int) -> Block:
+    """Um bloco do formulário. As escolhas que não cabem no visual (ex.: depois de trocá-lo) se
+    ajustam: o agrupamento vai para um que ele aceita e a medida passa de uma para várias."""
+
+    def one(name: str) -> str:
+        value = form.get(f"b{i}-{name}")
+        return value.strip() if isinstance(value, str) else ""
+
+    visual = one("visual") if one("visual") in builder.VISUALS else "table"
+    dimension = one("agrupar") if one("agrupar") in builder.DIMENSIONS else None
+    if visual in ("cards", "tasks"):
+        dimension = None
+    elif visual == "bars" and dimension not in CATEGORIES:
+        dimension = "person"
+    elif visual == "line" and dimension not in TIMES:
+        dimension = "day"
+    elif dimension is None:
+        dimension = "day" if visual == "columns" else "person"
+    single = one("medida")
+    checked = [v for v in form.getlist(f"b{i}-medidas") if isinstance(v, str)]
+    measures = [m for m in builder.MEASURES if m in checked]
+    if visual in CHARTS:
+        chosen = single if single in builder.MEASURES else (measures or ["hours"])[0]
+        measures = [chosen]
+    elif not measures and single in builder.MEASURES:
+        measures = [single]
+    top = one("maiores")
+    order = one("ordem")
+    return Block(
+        visual=visual,
+        title=one("titulo")[:120],
+        dimension=dimension,
+        measures=measures,
+        top=min(int(top), 100) if top.isdigit() and int(top) > 0 else None,
+        order=order if order in ("desc", "asc", "name") else "desc",
+        only_overtime=one("extras") == "1",
+    )
+
+
+def _read_editor(form: FormData) -> tuple[EditorForm, str]:
+    count = form.get("blocos")
+    total = min(int(count), 12) if isinstance(count, str) and count.isdigit() else 0
+    hours = form.get("horas")
+    editor = EditorForm(
+        name=str(form.get("nome", "")),
+        hours=hours if hours in ("hm", "decimal") else "hm",
+        is_default=form.get("inicial") == "1",
+        blocks=[_read_block(form, i) for i in range(total)],
+    )
+    return editor, str(form.get("acao", "salvar"))
+
+
+def _apply(editor: EditorForm, action: str) -> None:
+    """Adicionar, remover e mover blocos (o formulário volta sem salvar)."""
+    blocks = editor.blocks
+    if action == "adicionar" and len(blocks) < 12:
+        blocks.append(NEW_BLOCK.model_copy())
+        return
+    verb, _, number = action.partition("-")
+    if not number.isdigit() or int(number) >= len(blocks):
+        return
+    i = int(number)
+    if verb == "remover":
+        del blocks[i]
+    elif verb == "subir" and i > 0:
+        blocks[i - 1], blocks[i] = blocks[i], blocks[i - 1]
+    elif verb == "descer" and i < len(blocks) - 1:
+        blocks[i + 1], blocks[i] = blocks[i], blocks[i + 1]
+
+
+def _editor_page(
+    page: LoggedPage,
+    editor: EditorForm,
+    *,
+    model: ReportModel | None,
+    hidden: list[tuple[str, str]],
+    back: str,
+    status_code: int = 200,
+) -> HTMLResponse:
+    action = f"/relatorios/modelos/{model.public_id}" if model else "/relatorios/modelos"
+    # O que cada visual agrupa: as barras, só cadastros; a linha, só períodos.
+    dimensions = {
+        "bars": CATEGORIES,
+        "columns": builder.DIMENSIONS,
+        "line": TIMES,
+        "table": builder.DIMENSIONS,
+    }
+    return page.render(
+        "reports/editor.html",
+        status_code=status_code,
+        form=editor,
+        model=model,
+        action=action,
+        hidden=hidden,
+        back=back,
+        dimensions=dimensions,
+        categories=CATEGORIES,
+        charts=CHARTS,
+        visual_options=[(v, page.t(f"relatorios.visuais.{v}")) for v in builder.VISUALS],
+        dimension_options={
+            visual: [(d, page.t(f"relatorios.dimensoes.{d}").capitalize()) for d in options]
+            for visual, options in dimensions.items()
+        },
+        measure_options=[(m, page.t(f"relatorios.medidas.{m}")) for m in builder.MEASURES],
+        order_options=[(o, page.t(f"relatorios.ordens.{o}")) for o in ("desc", "asc", "name")],
+        placeholders=[
+            _title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")
+            for b in editor.blocks
+        ],
+    )
+
+
+def _base(page: LoggedPage, base: str | None, models: list[ReportModel]) -> EditorForm:
+    """O formulário de um modelo novo: os blocos do modelo de onde ele saiu."""
+    source = next((m for m in models if str(m.public_id) == base), None)
+    if source is not None:
+        config = saved.config_of(source)
+        name = page.t("relatorios.editor.copiaDe", nome=source.name)[: saved.MAX_NAME]
+    else:
+        config = BUILTINS.get(base or "", BUILTINS["produtividade"])
+        name = ""
+    return EditorForm(name=name, hours=config.hours, blocks=list(config.blocks))
+
+
+@router.get("/relatorios/modelos/novo")
+async def new_model(
+    page: LoggedPageDep,
+    db: DB,
+    base: str | None = None,
+    periodo: str | None = None,
+    de: str | None = None,
+    ate: str | None = None,
+    grupo: Values = None,
+    pessoa: Values = None,
+    cliente: Values = None,
+    status: Values = None,
+) -> HTMLResponse:
+    """Salvar como modelo: os blocos do modelo aberto e os filtros da tela."""
+    models = await saved.list_mine(db, page.auth)
+    try:
+        editor = _base(page, base, models)
+    except HTTPException as exc:
+        editor = EditorForm(blocks=[NEW_BLOCK], error=page.api_message(exc))
+    params = {"periodo": periodo, "de": de, "ate": ate}
+    hidden = [(k, v) for k, v in params.items() if v]
+    for name, values in (("grupo", grupo), ("pessoa", pessoa), ("cliente", cliente)):
+        hidden += [(name, v) for v in values or []]
+    hidden += [("status", v) for v in status or []]
+    return _editor_page(
+        page, editor, model=None, hidden=hidden, back=_url("/relatorios", {"aba": base})
+    )
+
+
+@router.get("/relatorios/modelos/{model_id}/editar")
+async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLResponse:
+    model = await saved.get(db, page.auth, model_id)
+    back = _url("/relatorios", {"aba": str(model_id)})
+    try:
+        config = saved.config_of(model)
+    except HTTPException as exc:
+        editor = EditorForm(name=model.name, blocks=[NEW_BLOCK], error=page.api_message(exc))
+    else:
+        editor = EditorForm(
+            name=model.name,
+            hours=config.hours,
+            is_default=model.is_default,
+            blocks=list(config.blocks),
+        )
+    return _editor_page(page, editor, model=model, hidden=[], back=back)
+
+
+@router.post("/relatorios/modelos")
+async def create_model(page: LoggedPageDep, db: DB) -> Response:
+    return await _submit(page, db, None)
+
+
+@router.post("/relatorios/modelos/{model_id}")
+async def update_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> Response:
+    return await _submit(page, db, await saved.get(db, page.auth, model_id))
+
+
+async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Response:
+    """Salvar, ou só refazer o formulário (adicionar, remover, mover, trocar o visual)."""
+    form = await page.request.form()
+    check_csrf(page, str(form.get("csrf_token", "")))
+    editor, action = _read_editor(form)
+    hidden = [(k, v) for k in FILTER_FIELDS for v in form.getlist(k) if isinstance(v, str) and v]
+    back = _url("/relatorios", {"aba": str(model.public_id) if model else None})
+    if action != "salvar":
+        _apply(editor, action)
+        return _editor_page(page, editor, model=model, hidden=hidden, back=back)
+
+    for i, block in enumerate(editor.blocks):
+        try:
+            builder.check_block(block)
+        except HTTPException as exc:
+            editor.errors[i] = page.api_message(exc)
+    if not editor.blocks:
+        editor.error = page.t("relatorios.editor.semBlocos")
+    if editor.errors or editor.error:
+        return _editor_page(page, editor, model=model, hidden=hidden, back=back, status_code=422)
+
+    try:
+        if model is None:
+            # O período e os filtros vêm da tela de onde o modelo saiu.
+            state = await _state(page, db, aba=None, **_filter_params(form))
+            period, filters = state.specs() if state.start and state.end else (None, None)
+            config = ReportConfig(
+                period=period or PeriodSpec(),
+                filters=filters or FilterSpec(),
+                hours=editor.hours,
+                blocks=editor.blocks,
+            )
+        else:
+            config = saved.config_of(model).model_copy(
+                update={"hours": editor.hours, "blocks": editor.blocks}
+            )
+        model = await saved.save(
+            db, page.auth, model, name=editor.name, config=config, is_default=editor.is_default
+        )
+    except HTTPException as exc:
+        editor.error = page.api_message(exc)
+        return _editor_page(page, editor, model=model, hidden=hidden, back=back, status_code=422)
+    await db.commit()
+    response = RedirectResponse(_url("/relatorios", {"aba": str(model.public_id)}), 303)
+    page.flash(response, ("success", page.t("relatorios.editor.salvo")))
+    return response
+
+
+@router.post("/relatorios/modelos/{model_id}/excluir")
+async def delete_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> Response:
+    form = await page.request.form()
+    check_csrf(page, str(form.get("csrf_token", "")))
+    model = await saved.get(db, page.auth, model_id)
+    await saved.delete(db, model)
+    await db.commit()
+    response = RedirectResponse("/relatorios", status_code=303)
+    page.flash(response, ("success", page.t("relatorios.editor.excluido")))
+    return response

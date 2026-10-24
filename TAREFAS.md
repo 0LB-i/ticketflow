@@ -105,7 +105,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F2-S8-02 | Implantação nas outras equipes ([16.10](docs/16-implantacao.md#1610-expansão-para-outras-equipes-fase-2-m2)) | a fazer | |
 | F2-S8-03 | Preparação da v1.0: testes ponta a ponta completos, revisão de segurança, guia do administrador | a fazer | |
 | F2-S8-04 | Relatórios, fase 1 ([14.8](docs/14-relatorios-e-indicadores.md#148-relatórios-personalizados-pedido-do-usuário-2026-10-24)): CSV das telas atuais, períodos relativos, filtros com vários valores | feito | |
-| F2-S8-05 | Relatórios, fase 2: construtor guiado (medidas de tarefas), modelos pessoais salvos, modelos prontos, modelo inicial | a fazer | |
+| F2-S8-05 | Relatórios, fase 2: construtor guiado (medidas de tarefas, registrados e concluídos), modelos pessoais salvos, modelos prontos, modelo inicial, CSV de cada bloco | feito | |
 | F2-S8-06 | Relatórios, fase 3: medidas de chamados (§14.3, `ticket_metrics`), comparação com o período anterior, detalhar ao clicar | a fazer | |
 | F2-S8-07 | Relatórios, fase 4: PDF do modelo com gráficos e relatório para o cliente | a fazer | |
 

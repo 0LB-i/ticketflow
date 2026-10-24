@@ -58,10 +58,11 @@ ExportLocale = Annotated[
 ]
 
 
-def _record_export(
+def record_export(
     db: DB, request: Request, auth: CurrentAuth, f: service.Filters, **details: str
 ) -> None:
-    """Cada download vai para a auditoria, com o período e os filtros."""
+    """Cada download vai para a auditoria, com o período e os filtros (também o CSV de um bloco,
+    que sai da tela: web/reports.py)."""
     record(
         db,
         "report.exported",
@@ -103,7 +104,7 @@ async def report_pdf(
     content = await run_in_threadpool(
         pdf.render, data, f, auth.user.display_name, locale or request_locale(request)
     )
-    _record_export(db, request, auth, f, format="pdf")
+    record_export(db, request, auth, f, format="pdf")
     await db.commit()
     name = f"relatorio-{f.start:%Y-%m-%d}-a-{f.end:%Y-%m-%d}.pdf"
     return Response(
@@ -127,7 +128,7 @@ async def report_csv(
 ) -> Response:
     data = await service.build(db, auth, f, all_tasks=table == "tasks")
     content = csv_export.render(data, table, locale or request_locale(request))
-    _record_export(db, request, auth, f, format="csv", table=table)
+    record_export(db, request, auth, f, format="csv", table=table)
     await db.commit()
     name = f"relatorio-{csv_export.FILE_NAMES[table]}-{f.start:%Y-%m-%d}-a-{f.end:%Y-%m-%d}.csv"
     return Response(
