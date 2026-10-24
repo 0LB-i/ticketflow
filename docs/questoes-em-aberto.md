@@ -7,7 +7,7 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 | # | Questão | Opções | Recomendação | Bloqueia |
 |---|---------|--------|--------------|----------|
 | 1 | **Servidor de e-mail para envio (SMTP)** das notificações e convites | Conta SMTP do provedor de e-mail da empresa, serviço transacional (ex.: Amazon SES, Brevo) | Usar a conta SMTP do provedor atual; precisamos saber qual é. Até lá, o admin copia os links de convite e redefinição na tela de usuários ([9.4](09-login-e-autenticacao.md#94-convite-esqueci-a-senha-e-troca-de-senha)) | Sprint 4 (notificações de chamados) |
-| 2 | **Servidor de produção**: domínio e certificado HTTPS (o sistema operacional já foi decidido) | Let's Encrypt, Let's Encrypt por DNS ou certificado da empresa ([18.2](18-manual-do-servidor.md#182-requisitos)) | 2 vCPU, 4 GB RAM, 50 GB de disco; nome `ticketflow.example.com` | Sprint 5 |
+| 2 | **Servidor de produção**: domínio e certificado HTTPS (o sistema operacional já foi decidido) | Let's Encrypt, Let's Encrypt por DNS ou certificado da empresa ([18.2](18-manual-do-servidor.md#182-requisitos)) | 8 vCPU, 4 GB RAM, 50 GB de disco; nome `ticketflow.example.com` | Sprint 5 |
 
 ## De negócio (dependem de quem vai usar)
 

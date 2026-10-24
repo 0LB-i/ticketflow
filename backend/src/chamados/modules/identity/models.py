@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Identity,
+    Index,
     SmallInteger,
     Text,
     UniqueConstraint,
@@ -140,3 +141,16 @@ class IdempotencyKey(Base):
     headers: Mapped[list[list[str]] | None] = mapped_column(JSONB)
     body: Mapped[bytes | None] = mapped_column(BYTEA)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LoginIpFailure(Base):
+    """Uma tentativa de login de um IP, que conta como falha até dar certo (`ratelimit.py`).
+    UNLOGGED: dado passageiro, mais rápido de gravar; se o PostgreSQL cair, some, como sumia da
+    memória quando a API reiniciava."""
+
+    __tablename__ = "login_ip_failures"
+    __table_args__ = (Index("login_ip_failures_ip_idx", "ip", "at"), {"prefixes": ["UNLOGGED"]})
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    ip: Mapped[str] = mapped_column(Text)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -9,8 +9,10 @@ User=ticketflow
 Group=ticketflow
 EnvironmentFile=/etc/ticketflow/env
 WorkingDirectory=/opt/ticketflow/backend
+# 4 workers para 8 núcleos: o PostgreSQL, o worker de e-mails e o nginx usam os mesmos (docs/18
+# §18.3). Com outro número de núcleos, cerca da metade deles.
 ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
-          --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
+          --host 127.0.0.1 --port 8000 --workers 4 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

@@ -28,7 +28,7 @@ navegador ── HTTPS ──► nginx ──► uvicorn (ticketflow.service) �
 chamados worker (ticketflow-worker.service) ──► PostgreSQL: outbox → fila de tarefas, rotinas diárias
 ```
 
-- **Um processo**, um **monólito modular** em Python (FastAPI). Ele serve a API e também a interface web, **na mesma origem**: sem CORS e com o cookie de sessão funcionando sem configuração extra ([ADR 0010](docs/adr/0010-producao-systemd.md)). As telas são renderizadas pelo próprio FastAPI (3.11); não há build de interface nem Node.
+- **Um programa**, um **monólito modular** em Python (FastAPI), que na produção roda em vários workers do uvicorn. Por isso nada fica na memória de um processo: sessões, presença no chamado e limite de login ficam no banco. Ele serve a API e também a interface web, **na mesma origem**: sem CORS e com o cookie de sessão funcionando sem configuração extra ([ADR 0010](docs/adr/0010-producao-systemd.md)). As telas são renderizadas pelo próprio FastAPI (3.11); não há build de interface nem Node.
 - **Um banco**, o PostgreSQL, que guarda tudo: dados, sessões, auditoria, histórico, configurações, o logotipo, o outbox e a fila de tarefas. Não há Redis, fila externa nem armazenamento de objetos.
 - **Regras só no backend:** as telas chamam as funções da API ou os services e só montam o HTML; toda regra de negócio e toda decisão de permissão ficam nos módulos.
 - **Uma instalação por empresa** ([ADR 0005](docs/adr/0005-instalacao-por-empresa.md)): não existe `tenant_id`.
@@ -47,7 +47,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0037
+│   ├── migrations/        Alembic: env.py e versions/0001…0038
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   ├── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
 │   └── bench/             benchmark: tempo e precisão com 50 mil chamados (seção 7.1)
@@ -182,7 +182,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - **Novidade:** comentário de outra pessoa depois da minha última visita (`has_news` em cada item da lista, mostrado como ícone ao lado do título; a aba Com novidades saiu em 2026-10-15). A visita fica em `ticket_reads` e é gravada pelo `GET /tickets/{id}` (`service.mark_read`). A reabertura exige comentário, por isso também vira novidade.
 - **Busca (`q`):** `search_vector` (colunas geradas, índice GIN) em `tickets` (título peso A, descrição peso B) e em `ticket_comments`, na configuração `pt_br` (português sem acentos). Cada palavra vira prefixo (`impress:*`) e todas precisam aparecer. Também acha pelo número (`1234` ou `#1234`), pelo nome do cliente e pelo contato (`unaccent` + `ILIKE`). Passa pelo filtro de visibilidade como qualquer leitura.
 - **`ETag` (concorrência):** `service.etag()` é um hash dos campos que o `PATCH` altera (`EDIT_FIELDS` + `status_id`): tarefas, responsáveis e observadores não o mudam. Sai no header `ETag` do `GET /tickets/{id}` e do `PATCH`, e no campo `etag` do detalhe. O `PATCH` com `If-Match` relê esses campos com a linha travada (`FOR UPDATE`) e responde **412** se mudaram; sem `If-Match`, grava como antes (opcional, para não quebrar integrações). `If-Match: *` passa.
-- **Quem mais está vendo:** `presence.Presence` (`app.state.presence`), **em memória** no processo da API, como o `ratelimit.py`: quem abriu ou perguntou nos últimos 45 s. Vale enquanto a API roda num processo só; com mais de um, a presença e o limite de tentativas teriam de ir para o banco. Tarefas novas desde a última que a tela mostrava: `service.comments_since()` (de outras pessoas, não removidas).
+- **Quem mais está vendo:** `presence.touch()`, na tabela `ticket_presence` (UNLOGGED: dado passageiro): quem abriu ou perguntou nos últimos 45 s. No banco, e não na memória, porque a API roda com vários workers (seção 8); as linhas vencidas saem a cada pergunta. Tarefas novas desde a última que a tela mostrava: `service.comments_since()` (de outras pessoas, não removidas).
 
 ### 3.5.1 Anexos (`modules/attachments/`)
 
@@ -280,6 +280,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0035` | `tickets.canceled_at` (data do cancelamento; os já cancelados ficam com o `updated_at`) |
 | `0036` | `report_models` (modelos de relatório pessoais: a configuração em JSONB, nome único por pessoa sem diferenciar maiúsculas, no máximo um inicial) |
 | `0037` | Índice `tickets_created_idx` (`created_at`, `id`): a ordem da lista de chamados e do cursor |
+| `0038` | `ticket_presence` e `login_ip_failures` (UNLOGGED): a presença no chamado e o limite de login por IP saem da memória, para valerem com vários workers |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -460,7 +461,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 | Sessão | Cookie `tf_sessao` (HttpOnly, SameSite=Lax, Secure em produção); só o hash fica no banco; expira por inatividade e por prazo máximo; desativar o usuário encerra as sessões |
 | Tokens de API | `Authorization: Bearer`; só o hash no banco; escopo `read`/`write`; fora da administração; validade de 30, 90 (padrão) ou 365 dias na tela (365 no `chamados token create`); revogação pela própria pessoa (`/meus-tokens`), pela administração (`/admin/tokens`), pelo `chamados token revoke` e ao desativar ou excluir a pessoa |
 | CSRF | Token sincronizado: cookie `tf_csrf` (legível pelo JavaScript da página) conferido com o hash da sessão; nas telas, num campo escondido (`csrf_token`) ou no header `X-CSRF-Token` (HTMX e envio de anexos) |
-| Força bruta | Limite por IP em memória (a API roda num processo só; a presença do chamado também, 3.5) + espera progressiva e bloqueio da conta (`ratelimit.py`) |
+| Força bruta | Limite por IP na tabela `login_ip_failures` (UNLOGGED; vale para todos os workers, com uma trava por IP para as tentativas simultâneas) + espera progressiva e bloqueio da conta (`ratelimit.py`) |
 | Permissões | Sempre no backend (3.4); a interface só esconde botões |
 | Conteúdo | Markdown sem HTML bruto; logotipo sem SVG e conferido pelos bytes; `X-Content-Type-Options: nosniff` |
 | Cabeçalhos | CSP, HSTS, X-Frame-Options e Referrer-Policy no nginx (`deploy/nginx.conf`) |
@@ -500,12 +501,14 @@ cd backend
 uv run python -m bench                  # todos os cenários
 uv run python -m bench --filtro busca   # só os que têm "busca" no nome
 uv run python -m bench --refazer        # gera a massa de novo
+uv run python -m bench.carga            # 5 pessoas ao mesmo tempo, com 1 e com 4 workers
 ```
 
 | Arquivo | O que faz |
 |---------|-----------|
 | `massa.py` | Gera a massa em SQL, no banco `chamados_bench` (`BENCH_DATABASE_URL`): 50 mil chamados em 3 anos, ~200 mil tarefas, 60 pessoas em 8 grupos, 3 mil clientes, categorias em 3 níveis (com uma confidencial), observadores, transferências e um chamado com 150 tarefas. É a mesma a cada vez (`setseed`) e só é refeita quando as migrações, a `VERSAO` dela ou o `--chamados` mudam (a marca fica no comentário da `alembic_version`, como no banco de teste). Planta palavras e um cliente que a busca precisa achar |
 | `cenarios.py` | Cada cenário: a pessoa (admin, supervisora, agente), a requisição, a meta (300 ms nas leituras, nas telas e nas escritas; 2 s no PDF e no CSV) e a **conferência**: a resposta contra um oráculo em SQL escrito à parte, inclusive a visibilidade do docs/08 §8.4. Mudou uma regra de visibilidade, de fila ou de busca: o oráculo muda junto |
+| `carga.py` | Teste de carga: 5 pessoas ao mesmo tempo, sem pausa entre os cliques (a admin no relatório de 12 meses, as outras em listas, busca, quadro, chamado e tarefas), num **uvicorn de verdade** que ele sobe num socket Unix (sem porta, sem colidir com o serviço) e derruba no fim; compara números de workers (`--workers 1,4`). Mostra quanto as ações leves esperam pela pesada. Cada requisição numa conexão nova, como o nginx faz com o uvicorn |
 | `__main__.py` | Sobe o app no próprio processo (`TestClient`, sem uvicorn), entra com cada pessoa, aquece, mede até 30 vezes (no máximo ~10 s por cenário), conta as consultas SQL por requisição e confere. Imprime p50, p95, máximo, a meta e a diferença do p95 para a execução anterior (guardada em `bench/resultados/`, fora do git). Sai com erro se algum cenário passar da meta ou responder errado |
 
 As escritas usam uma pessoa e um grupo só delas ("Escritas"): não mudam as filas que os outros cenários medem. Os tempos dependem da máquina; compare execuções na mesma máquina, sem os testes rodando ao mesmo tempo.
@@ -518,7 +521,7 @@ As escritas usam uma pessoa e um grupo só delas ("Escritas"): não mudam as fil
 | **Desenvolvimento, e-mails** | O `instalar-servico-dev.sh` instala o Mailpit (`mailpit.service`): SMTP em `127.0.0.1:1025`, tela em `http://IP:8025`, e `SMTP_HOST=localhost` no `/etc/ticketflow/env`. Por terminais, sem `SMTP_HOST`, os e-mails vão para o log |
 | **Desenvolvimento, worker** | Com o serviço: o `instalar-servico-dev.sh` instala o `ticketflow-worker.service` (o da produção, que acompanha o `ticketflow`) com um drop-in que o roda pelo `watchfiles`, reiniciando o worker quando um `.py` de `backend/src` muda. Por terminais: `uv run chamados worker` (com o `backend/.env`), em primeiro plano; Ctrl+C encerra |
 | **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento, sem build, atrás do nginx em `https://IP` (80 redireciona para 443; certificado autoassinado em `/etc/ticketflow/tls`). O nginx manda tudo para o `ticketflow.service` (a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`). O `ticketflow-css.service` gera o CSS das telas (`scripts/css.sh --watch`) e o `ticketflow-worker.service`, o worker (com o `watchfiles`). Aplica as migrações e, de instalações antigas, desativa e apaga o `ticketflow-frontend.service` (Vite) |
-| **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`. O backup não faz parte do programa: fica com quem administra o servidor. Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
+| **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), uvicorn com 4 workers (para 8 núcleos), nginx com HTTPS, PostgreSQL 17. Atualização por `scripts/deploy.sh`. O backup não faz parte do programa: fica com quem administra o servidor. Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 
 Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o Claude Code ([CLAUDE.md](CLAUDE.md)). Na máquina de desenvolvimento não é preciso: o `--reload`, o `watchfiles` do worker e o `ticketflow-css.service` pegam as mudanças, que aparecem ao recarregar a página. Na produção, templates e CSS mudam assim que o `deploy.sh` termina; o código Python, só depois do `systemctl restart`.
 

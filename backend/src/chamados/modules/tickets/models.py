@@ -198,6 +198,23 @@ class TicketRead(Base):
     read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class TicketPresence(Base):
+    """Quem está com o chamado aberto agora (`presence.py`, docs/10 §10.6, "Colisão"). UNLOGGED:
+    dado passageiro, mais rápido de gravar; se o PostgreSQL cair, some, como sumia da memória
+    quando a API reiniciava."""
+
+    __tablename__ = "ticket_presence"
+    __table_args__ = ({"prefixes": ["UNLOGGED"]},)
+
+    ticket_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tickets.public_id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class TicketEvent(Base):
     """Histórico do chamado. Só aceita inserção (trigger na migração 0004)."""
 

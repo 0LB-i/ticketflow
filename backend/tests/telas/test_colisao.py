@@ -1,15 +1,17 @@
 """Colisão (F1-S4-08, docs/10 §10.6): ETag nos campos, quem mais está vendo e tarefa nova."""
 
 import re
-import uuid
+from datetime import timedelta
 from html import unescape
 from typing import Any
 
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from chamados.modules.tickets.presence import TTL_SECONDS, Presence
+from chamados.modules.identity.models import User
+from chamados.modules.tickets.models import TicketPresence
+from chamados.modules.tickets.presence import TTL_SECONDS
 from tests.apoio import API, aviso, formulario, registrar, status_id
 from tests.conftest import criar_usuario, entrar
 
@@ -118,14 +120,19 @@ def _pergunta(html: str) -> str:
     return unescape(achado.group(1))
 
 
+def _envelhecer(db: Session, segundos: float) -> None:
+    """Passa o tempo para a presença: quem abriu ou perguntou fica `segundos` mais antigo."""
+    db.execute(
+        update(TicketPresence).values(seen_at=TicketPresence.seen_at - timedelta(seconds=segundos))
+    )
+    db.commit()
+
+
 def test_quem_mais_esta_vendo(
     client: TestClient,
     cenario: dict[str, Any],
     db: Session,
-    app: FastAPI,
 ) -> None:
-    agora = [1000.0]
-    app.state.presence = Presence(clock=lambda: agora[0])
     criar_usuario(db, "edu@x.com", nome="Edu", grupos={"TI": "member"})
     numero = registrar(client, cenario)["number"]
     tela = f"/chamados/{numero}"
@@ -142,10 +149,10 @@ def test_quem_mais_esta_vendo(
     assert "Ana e Edu também estão vendo" in r.text
 
     # Quem não pergunta há mais de 45 s sai da lista; quem pergunta continua.
-    agora[0] += 30
+    _envelhecer(db, 30)
     entrar(client, "edu@x.com")
     client.get(_pergunta(html))
-    agora[0] += 20
+    _envelhecer(db, 20)
     entrar(client, "bia@x.com")
     r = client.get(_pergunta(html))
     assert "Edu também está vendo" in r.text and "Ana" not in r.text
@@ -209,13 +216,17 @@ def test_aviso_de_tarefa_nova(
     assert "tarefa nova" not in client.get(_pergunta(client.get(tela).text)).text
 
 
-def test_presenca_esquece_os_chamados_fechados() -> None:
-    """Quem passou do prazo sai de todos os chamados, e o chamado sem ninguém sai da memória."""
-    agora = [0.0]
-    presenca = Presence(clock=lambda: agora[0])
-    for _ in range(50):
-        presenca.touch(uuid.uuid4(), 1, "Ana")
-    aberto = uuid.uuid4()
-    agora[0] += TTL_SECONDS + 1
-    assert presenca.touch(aberto, 2, "Bia") == []
-    assert list(presenca._seen) == [aberto]
+def test_presenca_esquece_os_chamados_fechados(
+    client: TestClient,
+    cenario: dict[str, Any],
+    db: Session,
+) -> None:
+    """Quem passou do prazo sai da tabela, de todos os chamados (senão ela só cresceria)."""
+    numeros = [registrar(client, cenario)["number"] for _ in range(3)]
+    for numero in numeros[:2]:
+        client.get(f"/chamados/{numero}")
+    _envelhecer(db, TTL_SECONDS + 1)
+    entrar(client, "bia@x.com")
+    assert "também está vendo" not in client.get(f"/chamados/{numeros[2]}").text
+    bia = db.scalar(select(User.id).where(User.email == "bia@x.com"))
+    assert db.execute(select(TicketPresence.user_id)).scalars().all() == [bia]

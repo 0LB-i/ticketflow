@@ -246,14 +246,9 @@ def outra_sessao(client: "TestClient") -> "TestClient":
 def client(
     app: "FastAPI", _no_ar: "TestClient", settings: Settings, mailer: FakeMailer, db: Session
 ) -> "TestClient":
-    from chamados.modules.identity.ratelimit import IpLimiter
-    from chamados.modules.tickets.presence import Presence
-
     # O estado que as rotas leem de app.state começa do zero em cada teste.
     app.state.settings = settings
     app.state.mailer = mailer
-    app.state.ip_limiter = IpLimiter()
-    app.state.presence = Presence()
     return outra_sessao(_no_ar)
 
 

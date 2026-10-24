@@ -55,13 +55,11 @@ INVALID = "E-mail ou senha inválidos."
 async def login(
     data: LoginIn, request: Request, response: Response, db: DB, settings: SettingsDep
 ) -> None:
-    limiter: ratelimit.IpLimiter = request.app.state.ip_limiter
-    ip = client_ip(request) or "desconhecido"
-    if wait := limiter.blocked(ip):
+    wait, attempt = await ratelimit.ip_attempt(db, client_ip(request) or "desconhecido")
+    if attempt is None:
         raise HTTPException(
             429, "Muitas tentativas. Tente de novo mais tarde.", {"Retry-After": str(wait)}
         )
-    attempt = limiter.begin(ip)
 
     login_id = data.login.strip()
     # A linha fica travada até o commit: tentativas simultâneas na mesma conta esperam a anterior
@@ -126,8 +124,8 @@ async def login(
         user.password_hash = await run_in_threadpool(hash_password, data.password)
     await create_session(db, user, request, response, settings)
     record(db, "auth.login", request=request, actor_user_id=user.id)
+    await ratelimit.ip_succeeded(db, attempt)
     await db.commit()
-    limiter.succeeded(ip, attempt)
 
 
 @router.post("/auth/logout", status_code=204)

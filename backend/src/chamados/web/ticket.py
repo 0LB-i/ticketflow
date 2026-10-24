@@ -23,6 +23,7 @@ from chamados.modules.catalog import router as catalog_api
 from chamados.modules.clients import router as clients_api
 from chamados.modules.organization import router as organization_api
 from chamados.modules.organization.router import TeamOut
+from chamados.modules.tickets import presence as ticket_presence
 from chamados.modules.tickets import queries
 from chamados.modules.tickets import router as tickets_api
 from chamados.modules.tickets import service as tickets_service
@@ -440,16 +441,9 @@ async def _ticket_page(
         removing=removing,
         suggested_times=SUGGESTED_TIMES,
         visto_ate=seen_until,
-        viewers=_viewers(page, request, ticket.id),
+        viewers=await ticket_presence.touch(db, ticket.id, page.auth.user.id),
         new_comments=0,
     )
-
-
-def _viewers(page: LoggedPage, request: Request, ticket_id: uuid.UUID) -> list[str]:
-    """Registra que a pessoa está com o chamado aberto e devolve quem mais está."""
-    user = page.auth.user
-    names: list[str] = request.app.state.presence.touch(ticket_id, user.id, user.display_name)
-    return names
 
 
 def _since(value: str) -> datetime | None:
@@ -460,9 +454,7 @@ def _since(value: str) -> datetime | None:
 
 
 @router.get("/chamados/{number:int}/presenca")
-async def presence(
-    number: int, page: PageDep, db: DB, request: Request, desde: str = ""
-) -> Response:
+async def presence(number: int, page: PageDep, db: DB, desde: str = "") -> Response:
     """O trecho que a tela pergunta a cada 20 s: quem mais está vendo e as tarefas novas. Passa
     pela visibilidade, mas não conta como visita (novidades) nem vai para a auditoria.
 
@@ -478,7 +470,7 @@ async def presence(
         "tickets/_presence.html",
         base=f"/chamados/{number}",
         visto_ate=desde,
-        viewers=_viewers(page, request, ticket.public_id),
+        viewers=await ticket_presence.touch(db, ticket.public_id, page.auth.user.id),
         new_comments=await tickets_service.comments_since(db, ticket, since, page.auth.user)
         if since
         else 0,

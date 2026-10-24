@@ -26,7 +26,7 @@ navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (tick
 
 ## 18.2 Requisitos
 
-- **Servidor:** Ubuntu 24.04 LTS, 2 vCPU, 4 GB de RAM, 50 GB de disco ([questão 2](questoes-em-aberto.md)).
+- **Servidor:** Ubuntu 24.04 LTS, 8 vCPU, 4 GB de RAM, 50 GB de disco ([questão 2](questoes-em-aberto.md)). Os núcleos definem quantos workers o uvicorn usa (18.3, passo 8).
 - **Endereço:** um nome no DNS da empresa (ex.: `ticketflow.example.com`) apontando para o servidor.
 - **Certificado HTTPS**, uma das opções:
   - **Let's Encrypt** com `certbot`, se o servidor for acessível pela internet na porta 80;
@@ -142,13 +142,15 @@ User=ticketflow
 EnvironmentFile=/etc/ticketflow/env
 WorkingDirectory=/opt/ticketflow/backend
 ExecStart=/opt/ticketflow/backend/.venv/bin/uvicorn chamados.main:create_app --factory \
-          --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
+          --host 127.0.0.1 --port 8000 --workers 4 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/var/lib/ticketflow
 ```
+
+**Workers:** `--workers 4` sobe 4 processos da API, que atendem ao mesmo tempo: uma pessoa gerando um relatório pesado não faz as outras esperarem. O número vale para 8 núcleos; com outro servidor, use cerca da metade dos núcleos, porque o PostgreSQL, o worker de e-mails e o nginx usam os mesmos. Cada worker abre até 15 conexões com o banco: 4 workers ficam bem abaixo do limite padrão de 100 do PostgreSQL. Mudar o número pede `sudo systemctl daemon-reload && sudo systemctl restart ticketflow`.
 
 O `ticketflow-worker.service` é igual, com `ExecStart=.../.venv/bin/chamados worker`: ele consome a fila de tarefas (e-mails dos chamados) e roda as rotinas diárias, como a limpeza dos anexos não vinculados, às 03:00. Não precisa de cron. Ele **acompanha o `ticketflow`** (`PartOf` e `WantedBy=ticketflow.service`): sobe, para e reinicia junto com ele, mas continua um processo à parte, com o próprio log (`journalctl -u ticketflow-worker`). Os arquivos completos estão em [`deploy/`](../deploy/).
 

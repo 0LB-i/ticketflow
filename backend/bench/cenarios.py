@@ -7,13 +7,13 @@ regra mudar no código, o oráculo daqui muda junto.
 """
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from fastapi.testclient import TestClient
-from httpx2 import Response
+from httpx2 import Client, Response
 from sqlalchemy import Engine, text
 
 from chamados.core.timezone import LOCAL_TZ
@@ -84,7 +84,7 @@ def numeros_na_tela(r: Response) -> list[int]:
 class Contexto:
     """O banco do benchmark e o que os cenários precisam saber dele."""
 
-    def __init__(self, engine: Engine, clientes: dict[str, TestClient]) -> None:
+    def __init__(self, engine: Engine, clientes: Mapping[str, Client]) -> None:
         self.engine = engine
         self.id = {
             persona: self.valor("SELECT id FROM users WHERE email = :e", e=email)
