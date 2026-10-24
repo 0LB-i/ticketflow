@@ -21,6 +21,7 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "team": "Grupo",
         "person": "Pessoa",
         "client": "Cliente",
+        "status": "Status",
         "all": "Todos",
         "work_hours": "Expediente",
         "holidays": "{n} feriado(s) cadastrado(s)",
@@ -47,6 +48,7 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "team": "Team",
         "person": "Person",
         "client": "Client",
+        "status": "Status",
         "all": "All",
         "work_hours": "Working hours",
         "holidays": "{n} holiday(s) registered",
@@ -123,11 +125,12 @@ def render(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
     if wh.holidays:
         work += f" · {t['holidays'].format(n=len(wh.holidays))}"
     filters = " · ".join(
-        f"{t[k]}: {v or t['all']}"
+        f"{t[k]}: {', '.join(v) or t['all']}"
         for k, v in (
-            ("team", f.team.name if f.team else None),
-            ("person", f.person.display_name if f.person else None),
-            ("client", f.client.label if f.client else None),
+            ("team", [x.name for x in f.teams]),
+            ("person", [x.display_name for x in f.people]),
+            ("client", [x.label for x in f.clients] + ([t["no_client"]] if f.no_client else [])),
+            ("status", [x.name for x in f.statuses]),
         )
     )
     tot = report.totals

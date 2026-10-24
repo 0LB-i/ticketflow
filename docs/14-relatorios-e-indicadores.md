@@ -54,13 +54,14 @@ A exportação respeita os mesmos filtros e a visibilidade, e fica registrada na
 | 1 | Lista de chamados com filtros (já serve de relatório básico) |
 | 2026-10-15 | Relatórios de horas, clientes e horas extras, com PDF (§14.7) |
 | 2 (Sprint 8) | Painéis desta página, view `ticket_metrics`, exportação CSV |
-| Futuro | Painel de IA ([6](06-integracao-ia.md#métricas-de-qualidade)) |
+| 2026-10-24 (Sprint 8) | Relatórios personalizados: modelos salvos, construtor guiado, filtros avançados, CSV e relatório para o cliente (§14.8) |
+| Futuro | Painel de IA ([6](06-integracao-ia.md#métricas-de-qualidade)) · envio agendado de relatórios por e-mail (§14.8.7) |
 
-Os gráficos da §14.7 são componentes próprios (barras e colunas de uma série, com os tokens de cor do tema, sem biblioteca). Uma biblioteca (ex.: ECharts ou Chart.js) só entra se os painéis da Sprint 8 pedirem gráficos que eles não cobrem.
+Os gráficos da §14.7 são componentes próprios (barras e colunas de uma série, com os tokens de cor do tema, sem biblioteca). A §14.8 acrescenta linha e colunas empilhadas no mesmo estilo. Uma biblioteca (ex.: ECharts ou Chart.js) só entra se forem pedidos gráficos com interação que eles não cobrem (ex.: zoom).
 
 ## 14.7 Relatórios de horas (pedido do usuário, 2026-10-15)
 
-Tela `/relatorios` no menu lateral (não é a tela inicial). Decisões do usuário: painéis prontos com filtros (sem montador de gráficos), hora extra = tempo **fora do expediente**, cada um vê o seu e o supervisor vê o grupo, PDF gerado na hora pelo botão.
+Tela `/relatorios` no menu lateral (não é a tela inicial). Decisões do usuário: painéis prontos com filtros (sem montador de gráficos; revista em 2026-10-24, §14.8), hora extra = tempo **fora do expediente**, cada um vê o seu e o supervisor vê o grupo, PDF gerado na hora pelo botão.
 
 | Item | Definição |
 |------|-----------|
@@ -77,3 +78,92 @@ Tela `/relatorios` no menu lateral (não é a tela inicial). Decisões do usuár
 **Quem vê o quê:** admin e auditor (`report.view_all`), tudo; quem supervisiona um grupo (`report.view_team`), as tarefas e os chamados dos grupos supervisionados e o próprio trabalho, e pode filtrar pelos membros desses grupos; os demais, só as próprias tarefas e os chamados em que são responsáveis. Sempre em cima do filtro de visibilidade dos chamados. Pedir grupo ou pessoa fora disso responde 403.
 
 **PDF:** A4, no idioma da interface: totais, por pessoa, por cliente e a lista das tarefas fora do expediente. Cada download vai para a auditoria (`report.exported`, com o período e os filtros).
+
+## 14.8 Relatórios personalizados (pedido do usuário, 2026-10-24)
+
+Evolução da §14.7: modelos de relatório salvos, construtor guiado de gráficos, filtros avançados e exportação CSV. Decisões do usuário:
+
+- **Construtor guiado:** a pessoa escolhe em listas fechadas o que agrupar, o que medir e como mostrar, sem SQL nem fórmulas. Substitui o "sem montador de gráficos" da §14.7.
+- **Modelos pessoais:** cada pessoa vê e edita só os seus, sem compartilhamento.
+- **Uso interno e para o cliente:** o mesmo construtor serve aos dois (§14.8.5).
+- **Envio agendado por e-mail:** fica para depois.
+
+### 14.8.1 Modelo de relatório
+
+O modelo guarda a **configuração**, nunca os números. Ao abrir, tudo é calculado de novo com a permissão de quem está vendo ("Quem vê o quê", §14.7).
+
+| Parte | Conteúdo |
+|-------|----------|
+| **Nome** | Livre |
+| **Período** | Relativo (mês atual, mês anterior, últimos 7, 30 ou 90 dias, trimestre atual, trimestre anterior, ano até hoje) ou duas datas fixas. Até 366 dias, como hoje |
+| **Filtros** | §14.8.2 |
+| **Blocos** | Lista ordenada de cartões, gráficos e tabelas (§14.8.3) |
+| **Público** | Interno ou cliente (§14.8.5) |
+
+- **Período relativo:** é o que torna um modelo salvo útil. "Horas por cliente, mês anterior" serve todo mês.
+- **Modelos prontos:** Produtividade, Clientes e Horas extras (os painéis da §14.7) e, quando existirem, os painéis da §14.4. Não podem ser apagados, mas dá para duplicar e ajustar.
+- **Modelo inicial:** cada pessoa escolhe qual modelo abre ao entrar em Relatórios.
+- **Versão da configuração:** a configuração guarda o número da versão do formato. Assim o formato pode mudar sem quebrar os modelos salvos.
+
+### 14.8.2 Filtros
+
+| Filtro | Valores |
+|--------|---------|
+| **Grupo, pessoa, cliente** | Vários de cada; "Sem cliente" é uma das opções |
+| **Status** | Vários (o status atual do chamado) |
+| **Categoria, tipo** | Vários de cada; entram quando a tela de chamado deixar escolhê-los (hoje não deixa, e todo chamado é "incidente" sem categoria) |
+| **Situação do chamado** | Aberto, concluído, cancelado |
+| **Papel da pessoa** | Quem fez a tarefa ou quem é responsável pelo chamado |
+| **Só hora extra** | Só as tarefas com tempo fora do expediente |
+| **Comparar** | Com o período anterior de mesmo tamanho: os cartões mostram a variação (ex.: "+12% vs. mês anterior") |
+
+- **Limite de permissão:** grupo e pessoa continuam limitados ao que a pessoa pode ver (403 fora disso).
+- **Filtro que deixou de valer:** se um modelo salvo traz um grupo ou uma pessoa que saiu do alcance de quem o abre (ex.: deixou de ser supervisor), a tela avisa qual filtro não vale mais e não mostra só um erro.
+
+### 14.8.3 Construtor guiado
+
+Cada bloco combina **agrupar por × medida × visual**. A medida define de onde vêm os dados: das tarefas (como na §14.7) ou dos chamados (os indicadores da §14.3).
+
+| Escolha | Opções |
+|---------|--------|
+| **Agrupar por** | Pessoa, cliente, grupo, categoria, tipo, status, dia, semana, mês (ou nada, num cartão) |
+| **Medidas de tarefas** | Horas, horas extras, tarefas |
+| **Medidas de chamados** | Registrados, concluídos, cancelados, em aberto, mediana até a conclusão (bruta e líquida), tempo na fila, % de reabertura |
+| **Visual** | Cartão (KPI), barras, colunas, linha, colunas empilhadas (ex.: horas no expediente + extras), tabela (várias medidas, uma por coluna) |
+| **Ajustes** | Título do bloco · só os N maiores, com o resto em "Outros" · ordem · horas em `hh:mm` ou em decimal (`7,5 h`) · valor escrito em cada barra |
+
+- **Sem linha de meta:** a §14.1 não tem metas.
+- **Tempos pela mediana:** a média aparece só como informação secundária (§14.1).
+- **Detalhar ao clicar:** clicar numa barra ou numa linha da tabela aplica aquele valor como filtro. Clicar num número de chamados abre a lista de chamados com os mesmos filtros.
+- **Catálogo fechado:** as medidas e os agrupamentos são uma lista fixa no código, e cada item tem a sua consulta. Nada do que a pessoa escolhe vira SQL.
+
+### 14.8.4 Exportação CSV
+
+- **Dois tipos:** o CSV de um bloco (a tabela agrupada, como na tela) e o dos dados brutos (a lista de tarefas ou de chamados, com as colunas da §14.5 mais as horas).
+- **Formato:** UTF-8 com BOM, para abrir certo no Excel. Os separadores seguem o idioma: em português, `;` e vírgula decimal. As horas saem em minutos e em horas decimais, para somar na planilha.
+- **Injeção de fórmula:** uma célula que começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro ganha um apóstrofo na frente. Títulos e nomes são texto livre.
+- **Visibilidade e auditoria:** valem a mesma visibilidade e o mesmo escopo da tela, e cada download vai para a auditoria (`report.exported`, com o formato).
+
+### 14.8.5 Relatório para o cliente
+
+O modelo de público "cliente" é feito para enviar ao cliente, em PDF.
+
+- **Um cliente:** o filtro precisa ter exatamente um cliente.
+- **Cabeçalho:** o logotipo da instalação (Configurações), o nome do cliente e o período.
+- **Conteúdo:** totais (horas, chamados registrados e concluídos) e a lista dos chamados do período, com número, título, registrado em, concluído em, status e horas.
+- **Quem atendeu:** opcional no modelo, desligado por padrão.
+- **Fica de fora:** o texto das tarefas (do chamado aparece só o título, porque as tarefas podem ter anotações internas), o valor por hora, as horas extras, os grupos e qualquer outra informação de organização interna.
+
+### 14.8.6 PDF do modelo
+
+O PDF segue o modelo: título, filtros usados e os blocos na ordem. Os gráficos são desenhados no próprio ReportLab, em vetor. Os modelos prontos da §14.7 continuam com o PDF de hoje.
+
+### 14.8.7 Fases
+
+| Fase | Entrega | Tarefa |
+|------|---------|--------|
+| 1 | CSV das telas atuais (cada tabela e as tarefas brutas), períodos relativos, grupo, pessoa, cliente (com "Sem cliente") e status com vários valores. Sem tabela nova | F2-S8-04 |
+| 2 | Construtor guiado com as medidas de tarefas, modelos pessoais (tabela `report_models`), modelos prontos, modelo inicial | F2-S8-05 |
+| 3 | Medidas de chamados (§14.3, view `ticket_metrics`), comparação com o período anterior, detalhar ao clicar | F2-S8-06 |
+| 4 | PDF do modelo com gráficos e relatório para o cliente | F2-S8-07 |
+| Depois | Envio agendado por e-mail, usando o worker e o outbox ([ARCHITECTURE 3.12](../ARCHITECTURE.md)) | — |

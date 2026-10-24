@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from chamados.modules.system.work_hours import WorkHours
 
@@ -11,11 +11,18 @@ class Ref(BaseModel):
     name: str
 
 
+class StatusRef(BaseModel):
+    id: int
+    name: str
+
+
 class ReportOptions(BaseModel):
-    """O que a pessoa pode escolher nos filtros: só o que ela tem direito de ver."""
+    """O que a pessoa pode escolher nos filtros: grupo e pessoa, só o que ela tem direito de ver."""
 
     teams: list[Ref]
     people: list[Ref]
+    clients: list[Ref]  # ativos e inativos: um chamado antigo pode ser de um cliente inativado
+    statuses: list[StatusRef]
 
 
 class Totals(BaseModel):
@@ -49,9 +56,10 @@ class DayRow(BaseModel):
     overtime_minutes: int
 
 
-class OvertimeTask(BaseModel):
+class TaskRow(BaseModel):
     ticket_number: int
     ticket_title: str
+    client: str | None  # nulo: chamado sem cliente
     person: str
     done_at: datetime
     minutes: int
@@ -66,4 +74,6 @@ class Report(BaseModel):
     people: list[PersonRow]
     clients: list[ClientRow]
     days: list[DayRow]
-    overtime_tasks: list[OvertimeTask]
+    overtime_tasks: list[TaskRow]
+    # Todas as tarefas do período, só para o CSV (`build(..., all_tasks=True)`); fora da API.
+    tasks: list[TaskRow] = Field(default=[], exclude=True)

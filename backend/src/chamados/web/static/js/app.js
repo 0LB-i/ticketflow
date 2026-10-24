@@ -123,10 +123,12 @@ addEventListener('pageshow', () => {
 })
 
 // Formulários de filtro: aplicam ao escolher uma opção. Datas não: o Chrome dispara o change a
-// cada parte digitada (vão com o botão Aplicar ou o Enter).
+// cada parte digitada (vão com o botão Aplicar ou o Enter). As etiquetas aplicam no chamado.js,
+// depois de entrar no formulário.
 document.addEventListener('change', (e) => {
   const form = e.target.form
-  if (form?.matches('[data-envia-ao-mudar]') && e.target.type !== 'date') form.requestSubmit()
+  if (!form?.matches('[data-envia-ao-mudar]') || e.target.type === 'date') return
+  if (!e.target.matches('[data-chips-adiciona]')) form.requestSubmit()
 })
 
 // Status em massa (lista de chamados): a janela do pé da tela aparece com a primeira seleção.

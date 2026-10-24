@@ -444,6 +444,12 @@ function atualizarTodos(select) {
   if (todos) todos.hidden = todos.disabled = opcoesLivres(select).length === 0
 }
 
+// Num formulário de filtro (relatórios), pôr ou tirar uma etiqueta aplica na hora.
+function aplicarFiltro(caixa) {
+  const form = caixa.closest('form[data-envia-ao-mudar]')
+  if (form) form.requestSubmit()
+}
+
 function adicionarEtiqueta(caixa, opcao) {
   const modelo = caixa.querySelector('template[data-modelo]')
   const etiqueta = modelo.content.firstElementChild.cloneNode(true)
@@ -465,16 +471,19 @@ document.addEventListener('change', (e) => {
   for (const opcao of escolhidas) adicionarEtiqueta(caixa, opcao)
   select.value = ''
   atualizarTodos(select)
+  aplicarFiltro(caixa)
 })
 document.addEventListener('click', (e) => {
   const remover = e.target.closest('[data-chips-remove]')
   if (!remover) return
   const etiqueta = remover.closest('[data-valor]')
-  const select = remover.closest('[data-chips]').querySelector('[data-chips-adiciona]')
+  const caixa = remover.closest('[data-chips]')
+  const select = caixa.querySelector('[data-chips-adiciona]')
   const opcao = [...select.options].find((o) => o.value === etiqueta.dataset.valor)
   if (opcao) opcao.hidden = opcao.disabled = false
   etiqueta.remove()
   atualizarTodos(select)
+  aplicarFiltro(caixa)
 })
 htmx.onLoad((raiz) => raiz.querySelectorAll('[data-chips-adiciona]').forEach(atualizarTodos))
 
@@ -498,20 +507,12 @@ function fecharOpcoes(caixa, restaurar = true) {
 }
 
 function escolherCliente(caixa, opcao) {
-  caixa.querySelector('[name=client_id]').value = opcao ? opcao.dataset.id : ''
-  caixa.querySelector('[name=cliente_nome]').value = opcao ? opcao.dataset.nome : ''
-  caixa.querySelector('[role=combobox]').value = opcao ? opcao.dataset.nome : ''
-  const limpa = caixa.querySelector('[data-limpa-cliente]')
-  if (limpa) limpa.hidden = !opcao
+  caixa.querySelector('[name=client_id]').value = opcao.dataset.id
+  caixa.querySelector('[name=cliente_nome]').value = opcao.dataset.nome
+  caixa.querySelector('[role=combobox]').value = opcao.dataset.nome
   fecharOpcoes(caixa, false)
   if ('enviaAoEscolher' in caixa.dataset) caixa.closest('form').requestSubmit()
 }
-
-// Campo sem obrigação (filtro dos relatórios): o X tira o cliente.
-document.addEventListener('click', (e) => {
-  const limpa = e.target.closest('[data-limpa-cliente]')
-  if (limpa) escolherCliente(limpa.closest('[data-cliente]'), null)
-})
 
 document.addEventListener('htmx:afterSwap', (e) => {
   const lista = e.detail.target

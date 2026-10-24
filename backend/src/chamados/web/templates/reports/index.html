@@ -1,15 +1,15 @@
-{#- Relatórios (docs/14 §14.7): totais, abas Produtividade, Clientes e Horas extras (gráficos e
-    tabelas) e o PDF com os mesmos filtros. Quem vê o quê é decidido pela API. -#}
+{#- Relatórios (docs/14 §14.7 e §14.8): totais, abas Produtividade, Clientes e Horas extras
+    (gráficos e tabelas) e o PDF e o CSV com os mesmos filtros. Quem vê o quê é decidido pela API. -#}
 {% extends "app.html" %}
-{% from "_ui.html" import alert, button_class, field, select_field with context %}
-{% from "_fields.html" import client_picker with context %}
+{% from "_ui.html" import alert, button_class, field with context %}
+{% from "_fields.html" import chips with context %}
 {% from "_icons.html" import icon %}
 {% from "reports/_charts.html" import bar_chart, column_chart %}
 
 {% block title %}{{ t("relatorios.titulo") }}{% endblock %}
 
 {% block head %}
-{#- O campo de cliente (busca, escolha, X) está no chamado.js; sem editor, o Tiptap não vem. #}
+{#- As etiquetas dos filtros estão no chamado.js; sem editor, o Tiptap não vem. #}
 <script src="{{ static('js/chamado.js') }}" defer></script>
 {% endblock %}
 
@@ -44,30 +44,51 @@
     <div>
       <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
     </div>
-    {%- if pdf_url %}
-    <a href="{{ pdf_url }}" download class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixarPdf") }}</a>
+    {#- O PDF, o CSV da tabela da aba e o de todas as tarefas, com os mesmos filtros. #}
+    {%- if downloads %}
+    <details data-menu class="relative">
+      <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden {{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }} {{ icon("chevron-down", "size-4") }}</summary>
+      <div role="menu" class="absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
+        {%- for key in ("pdf", "csv", "tarefas") %}
+        <a href="{{ downloads[key] }}" download role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("file-text", "size-4") }} {{ t("relatorios.baixar." ~ key) }}</a>
+        {%- endfor %}
+      </div>
+    </details>
     {%- else %}
-    <button type="button" disabled class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixarPdf") }}</button>
+    <button type="button" disabled class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }}</button>
     {%- endif %}
   </div>
 
-  {#- Os filtros são aplicados ao mudar (static/js/app.js); a aba continua. #}
+  {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
+      continua. #}
   <form method="get" action="/relatorios" data-envia-ao-mudar class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     <input type="hidden" name="aba" value="{{ tab }}">
-    {{ select_field("periodo", t("relatorios.periodo"), period_options, period) }}
+    <div class="flex flex-col gap-1">
+      <label for="campo-periodo" class="font-medium">{{ t("relatorios.periodo") }}</label>
+      <select id="campo-periodo" name="periodo" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+        {%- for group, options in period_groups %}
+        <optgroup label="{{ group }}">
+          {%- for value, text in options %}
+          <option value="{{ value }}"{% if value == period %} selected{% endif %}>{{ text }}</option>
+          {%- endfor %}
+        </optgroup>
+        {%- endfor %}
+        <option value="personalizado"{% if period == "personalizado" %} selected{% endif %}>{{ t("relatorios.personalizado") }}</option>
+      </select>
+      {%- if interval %}
+      <p class="text-sm text-muted">{{ interval }}</p>
+      {%- endif %}
+    </div>
     {%- if period == "personalizado" %}
     {{ field("de", t("relatorios.de"), type="date", value=start) }}
     {{ field("ate", t("relatorios.ate"), type="date", value=end, error=None if period_ok else t("relatorios.periodoInvalido")) }}
     {#- As datas não aplicam ao mudar (app.js): o botão ou o Enter. mt-7: na linha dos campos. #}
     <div><button type="submit" class="mt-7 {{ button_class('secondary') }}">{{ t("relatorios.aplicar") }}</button></div>
     {%- endif %}
-    {%- if team_options %}
-    {{ select_field("grupo", t("relatorios.grupo"), [("", t("relatorios.todosOsGrupos"))] + team_options, team) }}
-    {%- endif %}
-    {%- if person_options %}
-    {{ select_field("pessoa", t("relatorios.pessoa"), [("", t("relatorios.todasAsPessoas"))] + person_options, person) }}
-    {%- endif %}
-    {{ client_picker(t("relatorios.cliente"), client, client_name, submit_on_pick=True, required=False) }}
+    {#- Vários valores em etiquetas; nenhuma é "todos". #}
+    {%- for name, label, options, selected, all_key in filters %}
+    {{ chips(name, t("relatorios." ~ label), options, selected, dict(options), t("relatorios.adicionar") if selected else t("relatorios." ~ all_key), "relatorios.tirarFiltro") }}
+    {%- endfor %}
   </form>
 
   {%- if error %}

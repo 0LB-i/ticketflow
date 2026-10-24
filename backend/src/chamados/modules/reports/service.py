@@ -8,7 +8,7 @@ filtro de visibilidade dos chamados (regra 1 da arquitetura).
 
 import uuid
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import HTTPException
@@ -25,11 +25,12 @@ from chamados.modules.organization.models import Team, TeamMember
 from chamados.modules.reports.schemas import (
     ClientRow,
     DayRow,
-    OvertimeTask,
     PersonRow,
     Ref,
     Report,
     ReportOptions,
+    StatusRef,
+    TaskRow,
     Totals,
 )
 from chamados.modules.system.work_hours import WorkHours, get_work_hours
@@ -42,11 +43,15 @@ MAX_DAYS = 366
 
 @dataclass
 class Filters:
+    """Cada lista vazia é "todos"; com valores, vale qualquer um deles."""
+
     start: date
     end: date  # inclusive
-    team: Team | None = None
-    person: User | None = None
-    client: Client | None = None
+    teams: list[Team] = field(default_factory=list)
+    people: list[User] = field(default_factory=list)
+    clients: list[Client] = field(default_factory=list)
+    no_client: bool = False  # os chamados sem cliente (junto com os de `clients`)
+    statuses: list[TicketStatus] = field(default_factory=list)  # o status atual do chamado
 
 
 def outside_minutes(end: datetime, minutes: int, wh: WorkHours) -> int:
@@ -82,6 +87,7 @@ async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
                 ),
             )
         )
+    clients = sorted(await db.scalars(select(Client)), key=lambda c: c.label.casefold())
     return ReportOptions(
         teams=[
             Ref(id=t.public_id, name=t.name) for t in await db.scalars(teams.order_by(Team.name))
@@ -90,7 +96,23 @@ async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
             Ref(id=u.public_id, name=u.display_name)
             for u in await db.scalars(people.order_by(User.display_name))
         ],
+        clients=[Ref(id=c.public_id, name=c.label) for c in clients],
+        statuses=[
+            StatusRef(id=s.id, name=s.name)
+            for s in await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order))
+        ],
     )
+
+
+async def _find[M: (Team, User, Client)](
+    db: AsyncSession, model: type[M], ids: list[uuid.UUID], message: str
+) -> list[M]:
+    if not ids:
+        return []
+    found = list(await db.scalars(select(model).where(model.public_id.in_(ids))))
+    if len(found) != len(set(ids)):
+        raise HTTPException(404, message)
+    return found
 
 
 async def resolve(
@@ -99,9 +121,11 @@ async def resolve(
     *,
     start: date,
     end: date,
-    team: uuid.UUID | None,
-    person: uuid.UUID | None,
-    client: uuid.UUID | None,
+    teams: list[uuid.UUID],
+    people: list[uuid.UUID],
+    clients: list[uuid.UUID],
+    no_client: bool,
+    statuses: list[int],
 ) -> Filters:
     """Confere o período e as escolhas dos filtros contra o que a pessoa pode ver."""
     if end < start:
@@ -110,31 +134,35 @@ async def resolve(
         raise HTTPException(422, "O período pode ter no máximo 366 dias.")
     if end == date.max:  # o fim do período é o começo do dia seguinte (_bounds)
         raise HTTPException(422, "Data inválida.")
-    f = Filters(start=start, end=end)
-    if team:
-        f.team = await db.scalar(select(Team).where(Team.public_id == team))
-        if f.team is None:
-            raise HTTPException(404, "Grupo não encontrado.")
-    if person:
-        f.person = await db.scalar(select(User).where(User.public_id == person))
-        if f.person is None:
-            raise HTTPException(404, "Usuário não encontrado.")
-    if client:
-        f.client = await db.scalar(select(Client).where(Client.public_id == client))
-        if f.client is None:
-            raise HTTPException(404, "Cliente não encontrado.")
+    f = Filters(
+        start=start,
+        end=end,
+        teams=await _find(db, Team, teams, "Grupo não encontrado."),
+        people=await _find(db, User, people, "Usuário não encontrado."),
+        clients=await _find(db, Client, clients, "Cliente não encontrado."),
+        no_client=no_client,
+    )
+    if statuses:
+        # O id é smallint: um número fora da faixa não existe (e quebraria a consulta).
+        valid = [i for i in statuses if 0 < i < 2**15]
+        f.statuses = list(await db.scalars(select(TicketStatus).where(TicketStatus.id.in_(valid))))
+        if len(f.statuses) != len(set(statuses)):
+            raise HTTPException(404, "Status não encontrado.")
 
     actor = auth.actor
     if not can(actor, P.REPORT_VIEW_ALL):
-        if f.team and f.team.id not in actor.supervises:
+        if any(t.id not in actor.supervises for t in f.teams):
             raise HTTPException(403, "Você não tem permissão para esta ação.")
-        if f.person and f.person.id != actor.user_id:
-            supervised = await db.scalar(
-                select(TeamMember.user_id).where(
-                    TeamMember.user_id == f.person.id, TeamMember.team_id.in_(actor.supervises)
+        others = {p.id for p in f.people} - {actor.user_id}
+        if others:
+            supervised = set(
+                await db.scalars(
+                    select(TeamMember.user_id).where(
+                        TeamMember.user_id.in_(others), TeamMember.team_id.in_(actor.supervises)
+                    )
                 )
             )
-            if supervised is None:
+            if others - supervised:
                 raise HTTPException(403, "Você só pode ver os seus próprios números.")
     return f
 
@@ -148,10 +176,17 @@ def _bounds(f: Filters) -> tuple[datetime, datetime]:
 
 def _ticket_filters(auth: Auth, f: Filters) -> list[ColumnElement[bool]]:
     conds = [ticket_visibility_filter(auth.actor)]
-    if f.team:
-        conds.append(Ticket.team_id == f.team.id)
-    if f.client:
-        conds.append(Ticket.client_id == f.client.id)
+    if f.teams:
+        conds.append(Ticket.team_id.in_([t.id for t in f.teams]))
+    client_conds = []
+    if f.clients:
+        client_conds.append(Ticket.client_id.in_([c.id for c in f.clients]))
+    if f.no_client:
+        client_conds.append(Ticket.client_id.is_(None))
+    if client_conds:
+        conds.append(or_(*client_conds))
+    if f.statuses:
+        conds.append(Ticket.status_id.in_([s.id for s in f.statuses]))
     return conds
 
 
@@ -162,10 +197,12 @@ def _own_or_supervised(auth: Auth, own: ColumnElement[bool]) -> ColumnElement[bo
     return or_(own, Ticket.team_id.in_(actor.supervises))
 
 
-async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
+async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = False) -> Report:
+    """`all_tasks`: também a lista de todas as tarefas (`Report.tasks`, para o CSV)."""
     wh = await get_work_hours(db)
     since, until = _bounds(f)
     me = auth.user.id
+    people_ids = {p.id for p in f.people}
 
     # --- tarefas do período (horas, horas extras) ---
     task_conds = [
@@ -175,8 +212,8 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
         TicketComment.done_at >= since,
         TicketComment.done_at < until,
     ]
-    if f.person:
-        task_conds.append(TicketComment.author_id == f.person.id)
+    if people_ids:
+        task_conds.append(TicketComment.author_id.in_(people_ids))
     # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o autor
     # de cada linha; os autores vêm depois, uma vez cada.
     tasks = (
@@ -208,7 +245,9 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
         )
         for i in range((f.end - f.start).days + 1)
     }
-    overtime_tasks: list[OvertimeTask] = []
+    overtime_tasks: list[TaskRow] = []
+    task_rows: list[TaskRow] = []
+    row_clients: list[tuple[TaskRow, int | None]] = []  # o nome do cliente vem no fim
 
     def person_row(user: User) -> PersonRow:
         if user.id not in people:
@@ -243,22 +282,26 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
         day = days[done_at.astimezone(TZ).date()]
         day.minutes += minutes
         day.overtime_minutes += extra
-        if extra:
-            overtime_tasks.append(
-                OvertimeTask(
-                    ticket_number=number,
-                    ticket_title=title,
-                    person=author.display_name,
-                    done_at=done_at,
-                    minutes=minutes,
-                    overtime_minutes=extra,
-                )
+        if extra or all_tasks:
+            row = TaskRow(
+                ticket_number=number,
+                ticket_title=title,
+                client=None,
+                person=author.display_name,
+                done_at=done_at,
+                minutes=minutes,
+                overtime_minutes=extra,
             )
+            row_clients.append((row, client_id))
+            if extra:
+                overtime_tasks.append(row)
+            if all_tasks:
+                task_rows.append(row)
 
     # --- chamados registrados e concluídos no período ---
     ticket_conds = [*_ticket_filters(auth, f), _own_or_supervised(auth, assigned_to(me))]
-    if f.person:
-        ticket_conds.append(assigned_to(f.person.id))
+    if people_ids:
+        ticket_conds.append(or_(*(assigned_to(i) for i in people_ids)))
     opened = await db.execute(
         select(Ticket.client_id, func.count())
         .where(*ticket_conds, Ticket.created_at >= since, Ticket.created_at < until)
@@ -300,8 +343,8 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
     for users in assignees.values():
         for user_id in users:
             closers[user_id] += 1
-    if f.person:
-        closers = {u: n for u, n in closers.items() if u == f.person.id}
+    if people_ids:
+        closers = {u: n for u, n in closers.items() if u in people_ids}
     elif not can(auth.actor, P.REPORT_VIEW_ALL):
         # Um colega de outro grupo pode ser corresponsável: só entra quem a pessoa pode ver.
         allowed = {me} | set(
@@ -317,6 +360,8 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
     for c in await db.scalars(select(Client).where(Client.id.in_(client_ids))):
         clients[c.id].id = c.public_id
         clients[c.id].name = c.label
+    for row, client_id in row_clients:
+        row.client = clients[client_id].name
 
     return Report(
         start=f.start,
@@ -336,4 +381,5 @@ async def build(db: AsyncSession, auth: Auth, f: Filters) -> Report:
         ),
         days=list(days.values()),
         overtime_tasks=overtime_tasks,
+        tasks=task_rows,
     )
