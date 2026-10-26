@@ -14,7 +14,7 @@
 {%- set tip = tip or p.before_tip %}
 <{{ tag }}{% if p.href %} href="{{ p.href }}" hx-boost="true"{% else %} tabindex="0"{% endif %} aria-label="{{ p.label }}: {{ fmt(p.value) }}{% if p.before_tip %} · {{ tip }}{% endif %}" class="group relative flex size-full items-end justify-center gap-0.5">
   {{- caller() }}
-  <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus-visible:block">
+  <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus-visible:block print:hidden">
     <strong class="tabular-nums">{{ fmt(p.value) }}</strong>
     <span class="text-muted"> · {{ p.label }}</span>
     {%- if tip %}

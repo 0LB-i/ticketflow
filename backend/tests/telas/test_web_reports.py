@@ -54,6 +54,11 @@ def test_relatorio_do_mes(client: TestClient, cenario: dict[str, Any]) -> None:
     assert '<option value="personalizado">Personalizado</option>' in r.text
     inicio, fim = relative_period("mes-atual", hoje)
     assert f"De {format_day('pt-BR', inicio)} a {format_day('pt-BR', fim)}" in r.text
+    # Na impressão, no lugar das abas e dos filtros: o modelo e o período.
+    periodo = f"De {format_day('pt-BR', inicio)} a {format_day('pt-BR', fim)}"
+    assert (
+        f'<p class="hidden w-full text-muted print:block">Produtividade · {periodo}</p>' in r.text
+    )
     assert "Chamados registrados" in r.text
     assert 'aria-current="page">Produtividade</a>' in r.text
     pdf = _pdf(r.text)

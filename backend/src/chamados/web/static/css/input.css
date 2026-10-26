@@ -27,8 +27,15 @@
     U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Modo escuro pela classe .dark no <html> (tema escolhido pelo usuário, docs/17 §17.4). */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Modo escuro pela classe .dark no <html> (tema escolhido pelo usuário, docs/17 §17.4), só na
+   tela: a impressão sai sempre no tema claro. */
+@custom-variant dark {
+  @media screen {
+    &:where(.dark, .dark *) {
+      @slot;
+    }
+  }
+}
 
 /*
  * Tokens da identidade visual (docs/17 §17.2). Os componentes usam só estes nomes
@@ -86,36 +93,39 @@
   --tf-red-bg: #fef2f2;
 }
 
-.dark {
-  --tf-primary: #fb923c;
-  --tf-primary-hover: #fdba74;
-  --tf-on-primary: #0a0a0a;
-  --tf-primary-subtle: #262626;
-  --tf-focus: #fb923c;
-  --tf-bg: #0a0a0a;
-  --tf-surface: #171717;
-  --tf-surface-raised: #262626;
-  --tf-fg: #f5f5f5;
-  --tf-muted: #a3a3a3;
-  --tf-border: #404040;
-  --tf-border-input: #737373;
-  --tf-danger: #dc2626;
-  --tf-chart-2: #3b82f6;
-  --tf-chart-before: #be7844;
+/* Na impressão, sempre o tema claro. */
+@media screen {
+  .dark {
+    --tf-primary: #fb923c;
+    --tf-primary-hover: #fdba74;
+    --tf-on-primary: #0a0a0a;
+    --tf-primary-subtle: #262626;
+    --tf-focus: #fb923c;
+    --tf-bg: #0a0a0a;
+    --tf-surface: #171717;
+    --tf-surface-raised: #262626;
+    --tf-fg: #f5f5f5;
+    --tf-muted: #a3a3a3;
+    --tf-border: #404040;
+    --tf-border-input: #737373;
+    --tf-danger: #dc2626;
+    --tf-chart-2: #3b82f6;
+    --tf-chart-before: #be7844;
 
-  --tf-blue-fg: #93c5fd;
-  --tf-violet-fg: #c4b5fd;
-  --tf-teal-fg: #5eead4;
-  --tf-green-fg: #86efac;
-  --tf-gray-fg: #d4d4d4;
-  --tf-red-fg: #fca5a5;
-  /* Fundos tingidos (o tom 950 de cada cor): a etiqueta se distingue também pelo fundo */
-  --tf-blue-bg: #172554;
-  --tf-violet-bg: #2e1065;
-  --tf-teal-bg: #042f2e;
-  --tf-green-bg: #052e16;
-  --tf-gray-bg: #262626;
-  --tf-red-bg: #450a0a;
+    --tf-blue-fg: #93c5fd;
+    --tf-violet-fg: #c4b5fd;
+    --tf-teal-fg: #5eead4;
+    --tf-green-fg: #86efac;
+    --tf-gray-fg: #d4d4d4;
+    --tf-red-fg: #fca5a5;
+    /* Fundos tingidos (o tom 950 de cada cor): a etiqueta se distingue também pelo fundo */
+    --tf-blue-bg: #172554;
+    --tf-violet-bg: #2e1065;
+    --tf-teal-bg: #042f2e;
+    --tf-green-bg: #052e16;
+    --tf-gray-bg: #262626;
+    --tf-red-bg: #450a0a;
+  }
 }
 
 @theme inline {
@@ -168,8 +178,10 @@
   html {
     color-scheme: light;
   }
-  html.dark {
-    color-scheme: dark;
+  @media screen {
+    html.dark {
+      color-scheme: dark;
+    }
   }
   body {
     @apply bg-bg font-sans text-sm text-fg antialiased;
@@ -266,5 +278,21 @@
   }
   .texto-formatado p.is-editor-empty:first-child::before {
     @apply pointer-events-none float-left h-0 text-muted content-[attr(data-placeholder)];
+  }
+}
+
+/* Relatórios impressos pelo navegador: sem o menu lateral, a barra do topo e o espaço em volta do
+   conteúdo (só nesta tela, pelo #relatorio), e com as cores dos gráficos; o que mais some ou
+   aparece está nas classes print: da própria tela (templates/reports). */
+@media print {
+  html:has(#relatorio) {
+    print-color-adjust: exact;
+  }
+  body:has(#relatorio) aside:has(~ div #conteudo),
+  body:has(#relatorio) header:has(+ #conteudo) {
+    display: none;
+  }
+  body:has(#relatorio) #conteudo {
+    padding: 0;
   }
 }

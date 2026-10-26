@@ -36,9 +36,13 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3">
       <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
-      <span class="hidden items-center gap-2 text-sm text-muted in-[.htmx-request]:inline-flex">{{ icon("loader-circle", "size-4 animate-spin") }} {{ t("relatorios.carregando") }}</span>
+      <span class="hidden items-center gap-2 text-sm text-muted in-[.htmx-request]:inline-flex print:hidden">{{ icon("loader-circle", "size-4 animate-spin") }} {{ t("relatorios.carregando") }}</span>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
+    {#- Na impressão, no lugar das abas e dos filtros: o modelo e o período. #}
+    {%- if printed %}
+    <p class="hidden w-full text-muted print:block">{{ printed }}</p>
+    {%- endif %}
+    <div class="flex flex-wrap items-center gap-2 print:hidden">
       {%- if filters_changed %}
       {#- Os filtros da tela entram no modelo da pessoa. #}
       <form method="post" action="/relatorios/modelos/{{ model.public_id }}/filtros">
@@ -78,7 +82,7 @@
   </div>
 
   {#- Os modelos prontos e os da pessoa. #}
-  <nav aria-label="{{ t('relatorios.modelos') }}" hx-boost="true" class="flex flex-wrap gap-1 border-b border-border">
+  <nav aria-label="{{ t('relatorios.modelos') }}" hx-boost="true" class="flex flex-wrap gap-1 border-b border-border print:hidden">
     {%- for slug, label, url in tabs %}
     <a href="{{ url }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
     {%- endfor %}
@@ -87,7 +91,7 @@
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
       continua. Pelo HTMX, esperando as escolhas seguidas (600 ms), com o endereço na barra (o
       link continua valendo e o Voltar, também); um pedido novo cancela o anterior. #}
-  <form method="get" action="/relatorios" data-envia-ao-mudar hx-get="/relatorios" hx-trigger="submit delay:600ms" hx-push-url="true" hx-sync="this:replace" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  <form method="get" action="/relatorios" data-envia-ao-mudar hx-get="/relatorios" hx-trigger="submit delay:600ms" hx-push-url="true" hx-sync="this:replace" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
     <input type="hidden" name="aba" value="{{ tab }}">
     {%- if origin %}
     {#- Mexer nos outros filtros mantém a trilha do detalhar. #}
@@ -149,17 +153,17 @@
   <div hx-boost="true" class="flex flex-col gap-2 text-sm">
     {%- if drilled %}
     {%- set text, back_label, back_url = drilled %}
-    <p class="flex flex-wrap items-center gap-2"><span>{{ text }}</span> <a href="{{ back_url }}" class="inline-flex items-center gap-1 text-primary underline">{{ icon("arrow-left", "size-4") }} {{ back_label }}</a></p>
+    <p class="flex flex-wrap items-center gap-2"><span>{{ text }}</span> <a href="{{ back_url }}" class="inline-flex items-center gap-1 text-primary underline print:hidden">{{ icon("arrow-left", "size-4") }} {{ back_label }}</a></p>
     {%- endif %}
     {%- if chosen %}
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-muted">{{ t("relatorios.filtradoPor") }}</span>
       <ul class="flex flex-wrap items-center gap-2">
         {%- for name, url in chosen %}
-        <li class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">{{ name }} <a href="{{ url }}" class="rounded-full p-0.5 text-muted hover:bg-border" aria-label="{{ t('relatorios.tirarFiltro', nome=name) }}" title="{{ t('relatorios.tirarFiltro', nome=name) }}">{{ icon("x", "size-4") }}</a></li>
+        <li class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">{{ name }} <a href="{{ url }}" class="rounded-full p-0.5 text-muted hover:bg-border print:hidden" aria-label="{{ t('relatorios.tirarFiltro', nome=name) }}" title="{{ t('relatorios.tirarFiltro', nome=name) }}">{{ icon("x", "size-4") }}</a></li>
         {%- endfor %}
       </ul>
-      <a href="{{ clear_url }}" class="text-primary underline">{{ t("relatorios.limparFiltros") }}</a>
+      <a href="{{ clear_url }}" class="text-primary underline print:hidden">{{ t("relatorios.limparFiltros") }}</a>
     </div>
     {%- endif %}
   </div>

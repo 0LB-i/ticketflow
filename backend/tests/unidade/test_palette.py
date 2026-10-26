@@ -121,7 +121,7 @@ def test_cor_ja_legivel_fica_como_foi_escolhida() -> None:
 def test_folha_de_estilo_sobrepoe_os_dois_modos() -> None:
     css = stylesheet(PRESETS["azul"])
     assert css.startswith("html:root{--tf-brand:#2563EB;")
-    assert "}html.dark{--tf-brand:#2563EB;" in css
+    assert "}@media screen{html.dark{--tf-brand:#2563EB;" in css  # a impressão sai no claro
 
 
 def test_folha_de_estilo_calculada_uma_vez_por_combinacao() -> None:

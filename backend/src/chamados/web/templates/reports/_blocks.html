@@ -9,7 +9,7 @@
     o app.js fecha ao clicar fora e com o Esc). #}
 {% macro block_menu(b) -%}
 {%- set name = b.title or t("relatorios.editor.bloco", n=b.index + 1) %}
-<details data-menu class="relative shrink-0">
+<details data-menu class="relative shrink-0 print:hidden">
   <summary class="inline-flex size-8 cursor-pointer list-none items-center justify-center rounded-md text-muted hover:bg-surface-raised hover:text-fg [&::-webkit-details-marker]:hidden" aria-label="{{ t('relatorios.acoesBloco', bloco=name) }}" title="{{ t('relatorios.acoesBloco', bloco=name) }}">{{ icon("ellipsis", "size-4") }}</summary>
   <div role="menu" class="absolute right-0 z-50 mt-1 min-w-40 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
     <a href="{{ b.csv }}" download role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("download", "size-4") }} {{ t("relatorios.baixarCsv") }}</a>
@@ -38,7 +38,7 @@
     `b.wide` (reports_blocks.wide). O id e o scroll-mt: a paginação da lista rola até ele. #}
 {% macro frame(b, preview, figure=False, menu=True) -%}
 {%- set tag = "figure" if figure else "section" %}
-<{{ tag }} id="bloco-{{ b.index }}" class="flex min-w-0 scroll-mt-4 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md{% if b.wide %} lg:col-span-2{% endif %}">
+<{{ tag }} id="bloco-{{ b.index }}" class="flex min-w-0 scroll-mt-4 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md print:break-inside-avoid print:shadow-none{% if b.wide %} lg:col-span-2{% endif %}">
   {%- if figure %}
   <figcaption>{{ block_head(b, preview, menu) }}</figcaption>
   {%- else %}
@@ -61,7 +61,7 @@
     com o cabeçalho fixo: o `sticky` fica preso ao contêiner que rola, e o overflow-x-auto já
     era um. #}
 {% macro table(caption, columns, empty, count, foot=None, titles=None, numeric=()) -%}
-<div class="max-h-[70vh] overflow-auto rounded-md border border-border">
+<div class="max-h-[70vh] overflow-auto rounded-md border border-border print:max-h-none print:overflow-visible">
   <table class="w-full border-collapse text-left">
     <caption class="sr-only">{{ caption }}</caption>
     <thead class="sticky top-0 z-10 bg-surface-raised text-muted">
@@ -226,7 +226,7 @@
   {%- if b.pages > 1 %}
   <nav aria-label="{{ t('relatorios.paginas', titulo=b.title) }}" class="flex flex-wrap items-center justify-between gap-2 text-sm">
     <p class="text-muted">{{ b.showing }}</p>
-    <div class="flex gap-2" hx-boost="true" hx-swap="outerHTML show:#bloco-{{ b.index }}:top">
+    <div class="flex gap-2 print:hidden" hx-boost="true" hx-swap="outerHTML show:#bloco-{{ b.index }}:top">
       {%- for key, url, name in (("paginaAnterior", b.previous, "chevron-left"), ("proximaPagina", b.next, "chevron-right")) %}
       {%- if url %}
       <a href="{{ url }}" class="{{ button_class('secondary') }}">{% if loop.first %}{{ icon(name, "size-4") }} {% endif %}{{ t("relatorios." ~ key) }}{% if loop.last %} {{ icon(name, "size-4") }}{% endif %}</a>

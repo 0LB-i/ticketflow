@@ -338,7 +338,8 @@ def stylesheet(colors: Colors | None) -> str:
     """Folha que sobrepõe os tokens do input.css; vazia com as cores padrão.
 
     `html:root` e `html.dark` têm especificidade maior que `:root` e `.dark`, então valem em
-    qualquer ordem no <head>.
+    qualquer ordem no <head>. O escuro, só na tela, como no input.css: a impressão sai sempre no
+    tema claro.
     """
     if not colors:
         return ""
@@ -357,4 +358,4 @@ def _stylesheet(brand: str, neutral: str, background: str) -> str:
     def rules(tokens: Tokens) -> str:
         return ";".join(f"--tf-{t}:{tokens[t]}" for t in TOKENS)
 
-    return f"html:root{{{rules(p['light'])}}}html.dark{{{rules(p['dark'])}}}"
+    return f"html:root{{{rules(p['light'])}}}@media screen{{html.dark{{{rules(p['dark'])}}}}}"

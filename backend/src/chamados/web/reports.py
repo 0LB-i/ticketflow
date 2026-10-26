@@ -260,6 +260,17 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     months = last_months(page.locale, today)
     start, end = state.start, state.end
 
+    # Na impressão, no lugar das abas e dos filtros: o nome do modelo e o período.
+    printed = None
+    if start and end and start <= end:
+        model_name = next(label for s, label, _ in tabs if s == slug)
+        period_text = page.t(
+            "relatorios.intervalo",
+            de=format_day(page.locale, start),
+            ate=format_day(page.locale, end),
+        )
+        printed = f"{model_name} · {period_text}"
+
     def period_url(first: date, last: date) -> str:
         """O endereço de um período: um mês da lista ou o personalizado."""
         month = next((m for m in months if (m.start, m.end) == (first, last)), None)
@@ -328,6 +339,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         period_ok=bool(start and end and start <= end),
         steps=steps,
         shortcuts=shortcuts,
+        printed=printed,
         # O intervalo de um período relativo ou de um mês (que não aparece nos campos de data)
         # e o de comparação.
         interval=interval_text(page, state),
