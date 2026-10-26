@@ -46,7 +46,9 @@ class Cards:
 @dataclass
 class Chart:
     """Um gráfico: `kind` é bars, columns, stacked ou line. Cada ponto é (rótulo, valor, parte de
-    cima nas empilhadas, valor escrito); `ticks`, as marcas do eixo (valor, texto)."""
+    cima nas empilhadas, valor escrito); `ticks`, as marcas do eixo (valor, texto); `before`, o
+    valor do período anterior na posição de cada ponto (comparar; None onde não há), desenhado
+    mais claro."""
 
     title: str
     kind: str
@@ -54,6 +56,7 @@ class Chart:
     ticks: list[tuple[int, str]] = field(default_factory=list)
     legend: tuple[str, str] | None = None
     empty: str = ""
+    before: list[int | None] = field(default_factory=list)
 
 
 @dataclass
@@ -181,6 +184,11 @@ def _bars(block: Chart, primary: colors.Color) -> Drawing:
     return drawing
 
 
+def _faded(color: colors.Color) -> colors.Color:
+    """A cor da série de antes: a da instalação, clareada."""
+    return colors.linearlyInterpolatedColor(colors.white, color, 0, 1, 0.35)
+
+
 def _columns(block: Chart, primary: colors.Color) -> Drawing:
     axis = 16 * mm
     bottom = 10
@@ -196,22 +204,35 @@ def _columns(block: Chart, primary: colors.Color) -> Drawing:
     slot = area / count
     every = max(1, -(-count // 6))  # uns seis rótulos embaixo
     line: list[float] = []
+    old: list[float] = []  # a linha de antes
     for i, (label, value, extra, _) in enumerate(block.points):
         x = axis + i * slot
         if i % every == 0:
             drawing.add(_text(x + slot / 2, 0, _short(label, 14), anchor="middle"))
         h = value / top * height
+        before = block.before[i] if i < len(block.before) else None
         if block.kind == "line":
             line += [x + slot / 2, bottom + h]
+            if before is not None:
+                old += [x + slot / 2, bottom + before / top * height]
             continue
         width = min(slot * 0.8, 18)
         left = x + (slot - width) / 2
+        if before is not None:  # a de antes à esquerda; as duas na metade da largura
+            width /= 2
+            if before:
+                drawing.add(_rect(left, bottom, width, before / top * height, _faded(primary)))
+            left += width
         if block.kind == "stacked" and value:
             lower = (value - extra) / top * height
             drawing.add(_rect(left, bottom, width, lower, primary))
             drawing.add(_rect(left, bottom + lower, width, h - lower, EXTRA))
         elif value:
             drawing.add(_rect(left, bottom, width, h, primary))
+    if len(old) >= 4:
+        drawing.add(
+            PolyLine(old, strokeColor=_faded(primary), strokeWidth=1.5, strokeDashArray=[3, 2])
+        )
     if line:
         drawing.add(PolyLine(line, strokeColor=primary, strokeWidth=1.5))
         for j in range(0, len(line), 2):
@@ -227,7 +248,8 @@ def _chart(block: Chart, st: dict[str, ParagraphStyle], primary: colors.Color) -
     if block.legend:
         legend = Drawing(WIDTH, 12)
         x = 0.0
-        for color, label in zip((primary, EXTRA), block.legend, strict=True):
+        second = EXTRA if block.kind == "stacked" else _faded(primary)
+        for color, label in zip((primary, second), block.legend, strict=True):
             legend.add(_rect(x, 2, 7, 7, color))
             legend.add(_text(x + 10, 3, label, size=8))
             x += 10 + len(label) * 4.5 + 12

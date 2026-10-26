@@ -21,7 +21,7 @@ from chamados.modules.reports import builder, service
 from chamados.modules.reports.builder import CUSTOM
 from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPageDep
-from chamados.web.reports_blocks import block_view, client_preview, uses_overtime
+from chamados.web.reports_blocks import block_view, client_preview, compares, uses_overtime
 from chamados.web.reports_state import (
     NO_CLIENT,
     RELATIVE_KEYS,
@@ -76,7 +76,7 @@ async def reports_page(
     elif f is not None and config is not None:
         data = await service.facts(db, page.auth, f)
         before = None
-        if state.compare and any(b.visual == "cards" for b in config.blocks):
+        if state.compare and compares(config):
             first, last = builder.previous_period(
                 f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
             )

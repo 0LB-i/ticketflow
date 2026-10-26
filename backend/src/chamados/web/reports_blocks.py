@@ -21,6 +21,7 @@ from chamados.modules.reports.builder import (
     OTHERS,
     PERCENT,
     TICKET_SETS,
+    TIMES,
     Block,
     ReportConfig,
 )
@@ -47,13 +48,26 @@ LISTED = 200  # tarefas mostradas na lista; o CSV traz todas
 class Point:
     """Uma coluna, barra ou ponto dos gráficos (templates/reports/_charts.html). `extra`: nas
     colunas empilhadas, a parte de cima (as horas extras, dentro de `value`); `href`: aplicar
-    como filtro."""
+    como filtro; `before`, `before_tip`: o valor do período anterior na mesma posição e a dica
+    dele (comparar, nas colunas e na linha por período)."""
 
     key: str
     label: str
     value: int
     extra: int = 0
     href: str | None = None
+    before: int | None = None
+    before_tip: str = ""
+
+
+# Os visuais que mostram o período anterior (comparar): os cartões, as tabelas (a coluna Δ) e,
+# agrupados por período, as colunas e a linha.
+COMPARED = ("cards", "table", "columns", "line")
+
+
+def compares(config: ReportConfig) -> bool:
+    """Se algum bloco precisa dos dados do período anterior."""
+    return any(b.visual in COMPARED for b in config.blocks)
 
 
 Format = Callable[[builder.Value], str]
@@ -120,7 +134,8 @@ def block_title(page: LoggedPage, block: Block, dimension: str | None) -> str:
 
 
 def _change(page: LoggedPage, measure: str, now: builder.Value, before: builder.Value) -> str:
-    """A variação de um cartão sobre o período anterior: em % (na reabertura, em pontos)."""
+    """A variação sobre o período anterior (cartões e a coluna Δ das tabelas): em % (na
+    reabertura, em pontos); sem base, vazia."""
     if now is None or before is None or (before == 0 and measure not in PERCENT):
         return ""
     if measure in PERCENT:
@@ -185,7 +200,8 @@ def block_view(
     before: service.Facts | None = None,
 ) -> dict[str, Any]:
     """Um bloco pronto para o template: os números já formatados e os links de detalhar.
-    `before`: os dados do período anterior, para a variação dos cartões."""
+    `before`: os dados do período anterior, para a variação (cartões e tabelas) e a série de
+    antes (colunas e linha por período)."""
     base = {**state.query, "aba": state.choice.slug}
     weekly = (
         block.visual in ("columns", "stacked", "line")
@@ -194,6 +210,23 @@ def block_view(
     )
     result = builder.run(data, block, f.start, f.end, dimension="week" if weekly else None)
     dimension = result.dimension
+
+    # O mesmo bloco no período anterior, agrupado do mesmo jeito.
+    previous = None
+    if before is not None and block.visual in COMPARED:
+        first, last = builder.previous_period(
+            f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
+        )
+        previous = builder.run(before, block, first, last, dimension=dimension)
+
+    def matching(index: int, row: builder.Row) -> builder.Row | None:
+        """A linha de antes que corresponde: no tempo, a da mesma posição (1º dia com o 1º
+        dia); nos cadastros, a do mesmo valor. "Outros" não tem (os maiores mudam)."""
+        if previous is None or row.key == OTHERS:
+            return None
+        if dimension in TIMES:
+            return previous.rows[index] if index < len(previous.rows) else None
+        return next((r for r in previous.rows if r.key == row.key), None)
 
     def tickets(measure: str, drill: dict[str, Any] | None = None) -> str | None:
         """A lista dos chamados por trás de um número (medidas de chamado)."""
@@ -217,12 +250,6 @@ def block_view(
         "csv": with_query("/relatorios/csv", {**base, "bloco": str(index)}),
     }
     if block.visual == "cards":
-        previous = None
-        if before is not None:
-            start, end = builder.previous_period(
-                f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
-            )
-            previous = builder.run(before, block, start, end).total
         cards = []
         for m in block.measures:
             fmt = formatter(page, config, m)
@@ -232,8 +259,8 @@ def block_view(
             }
             card["href"] = tickets(m)
             if previous is not None:
-                card["change"] = _change(page, m, result.total[m], previous[m])
-                card["before"] = fmt(previous[m])
+                card["change"] = _change(page, m, result.total[m], previous.total[m])
+                card["before"] = fmt(previous.total[m])
             cards.append(card)
         view["cards"] = cards
     elif block.visual == "stacked":
@@ -255,41 +282,69 @@ def block_view(
         )
     elif block.visual in CHARTS:
         m = block.measures[0]
-        points = [
-            Point(
+        # A série de antes, só agrupada por período: nos cadastros, a mesma posição não é o
+        # mesmo valor.
+        series = previous is not None and dimension in TIMES
+        fmt = formatter(page, config, m)
+        points = []
+        for i, r in enumerate(result.rows):
+            point = Point(
                 str(r.key),
                 _row_label(page, dimension, r, short=True),
                 r.values[m] or 0,
                 href=apply(r),
             )
-            for r in result.rows
-        ]
+            old = matching(i, r) if series else None
+            if old is not None:
+                point.before = old.values[m] or 0
+                point.before_tip = page.t(
+                    "relatorios.comparacao.dica",
+                    rotulo=_row_label(page, dimension, old, short=True),
+                    valor=fmt(point.before),
+                )
+            points.append(point)
         empty = "relatorios.semExtras" if m == "overtime" else "relatorios.nada"
+        highest = max((max(p.value, p.before or 0) for p in points), default=0)
         view.update(
             points=[p for p in points if p.value] if block.visual == "bars" else points,
-            fmt=formatter(page, config, m),
-            step=_step(m, max((p.value for p in points), default=0)),
+            fmt=fmt,
+            step=_step(m, highest),
             empty=page.t(empty),
         )
+        if series:
+            view["legend"] = (
+                page.t("relatorios.comparacao.atual"),
+                page.t("relatorios.comparacao.anterior"),
+            )
     elif block.visual == "table":
         formats = [formatter(page, config, m) for m in block.measures]
+        names = [page.t(f"relatorios.medidas.{m}") for m in block.measures]
         rows = []
-        for r in result.rows:
+        for i, r in enumerate(result.rows):
             drill = drill_of(r)
-            cells = [
-                (fmt(r.values[m]), tickets(m, drill) if drill else None)
-                for fmt, m in zip(formats, block.measures, strict=True)
-            ]
+            old = matching(i, r)
+            cells: list[tuple[str, str | None]] = []
+            for fmt, m in zip(formats, block.measures, strict=True):
+                cells.append((fmt(r.values[m]), tickets(m, drill) if drill else None))
+                if previous is not None:  # Δ: a variação sobre a linha de antes
+                    change = _change(page, m, r.values[m], old.values[m]) if old else ""
+                    cells.append((change, None))
             rows.append((_row_label(page, dimension, r, short=False), apply(r), cells))
-        view.update(
-            columns=[page.t(f"relatorios.dimensoes.{dimension}").capitalize()]
-            + [page.t(f"relatorios.medidas.{m}") for m in block.measures],
-            rows=rows,
-            total=[
-                (fmt(result.total[m]), tickets(m))
-                for fmt, m in zip(formats, block.measures, strict=True)
-            ],
-        )
+        total: list[tuple[str, str | None]] = []
+        for fmt, m in zip(formats, block.measures, strict=True):
+            total.append((fmt(result.total[m]), tickets(m)))
+            if previous is not None:
+                total.append((_change(page, m, result.total[m], previous.total[m]), None))
+        columns = [page.t(f"relatorios.dimensoes.{dimension}").capitalize()]
+        # O nome de cada coluna para o leitor de tela (o Δ diz de qual medida é).
+        titles: list[str | None] = [None]
+        for name in names:
+            columns.append(name)
+            titles.append(None)
+            if previous is not None:
+                columns.append("Δ")
+                titles.append(page.t("relatorios.comparacao.variacaoDe", medida=name))
+        view.update(columns=columns, titles=titles, rows=rows, total=total)
     else:
         fmt = formatter(page, config, "hours")
         view.update(

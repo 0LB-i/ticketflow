@@ -37,15 +37,17 @@
 {%- endmacro %}
 
 {#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total
-    ((texto, link) de cada coluna). #}
-{% macro table(caption, columns, empty, count, foot=None) -%}
+    ((texto, link) de cada coluna); `titles`, o nome por extenso de uma coluna (o Δ da
+    comparação), que também a deixa em cinza. #}
+{% macro table(caption, columns, empty, count, foot=None, titles=None) -%}
 <div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
   <table class="w-full border-collapse text-left">
     <caption class="sr-only">{{ caption }}</caption>
     <thead class="bg-surface-raised text-muted">
       <tr>
         {%- for label in columns %}
-        <th scope="col" class="px-3 py-2 font-medium">{{ label }}</th>
+        {%- set title = titles[loop.index0] if titles else None %}
+        <th scope="col" class="px-3 py-2 font-medium"{% if title %} title="{{ title }}" aria-label="{{ title }}"{% endif %}>{{ label }}</th>
         {%- endfor %}
       </tr>
     </thead>
@@ -62,7 +64,7 @@
       <tr>
         <th scope="row" class="px-3 py-2 text-left">{{ t("relatorios.total") }}</th>
         {%- for value, href in foot %}
-        <td class="px-3 py-2 tabular-nums">{{ linked(value, href) }}</td>
+        <td class="px-3 py-2 tabular-nums{% if titles and titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, href) }}</td>
         {%- endfor %}
       </tr>
     </tfoot>
@@ -262,11 +264,11 @@
         <p class="text-muted">{{ b.empty }}</p>
         {%- endif %}
         {%- elif b.visual == "columns" %}
-        {{ column_chart(b.title, b.points, b.fmt, b.step) }}
+        {{ column_chart(b.title, b.points, b.fmt, b.step, b.legend) }}
         {%- elif b.visual == "stacked" %}
         {{ stacked_chart(b.title, b.points, b.fmt, b.step, b.labels) }}
         {%- else %}
-        {{ line_chart(b.title, b.points, b.fmt, b.step) }}
+        {{ line_chart(b.title, b.points, b.fmt, b.step, b.legend) }}
         {%- endif %}
       </div>
       {{ csv_link(b.csv, b.title) }}
@@ -277,12 +279,12 @@
         <h2 class="font-medium">{{ b.title }}</h2>
         {{ csv_link(b.csv, b.title) }}
       </div>
-      {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total) %}
+      {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles) %}
         {%- for label, href, cells in b.rows %}
         <tr class="border-t border-border">
           <td class="px-3 py-2">{{ linked(label, href, boost=True) }}</td>
           {%- for value, link in cells %}
-          <td class="px-3 py-2 tabular-nums">{{ linked(value, link) }}</td>
+          <td class="px-3 py-2 tabular-nums{% if b.titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, link) }}</td>
           {%- endfor %}
         </tr>
         {%- endfor %}

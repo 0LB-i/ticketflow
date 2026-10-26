@@ -541,7 +541,12 @@
       "com": "compared with {de} to {ate}",
       "antes": "{variacao} · before: {anterior}",
       "soAntes": "Before: {anterior}",
-      "pontos": "{n} pp"
+      "pontos": "{n} pp",
+      "variacaoDe": "Change in {medida}",
+      "atual": "Current period",
+      "anterior": "Previous period",
+      "dica": "Before ({rotulo}): {valor}",
+      "colunaPdf": "Chg."
     },
     "chamados": {
       "voltar": "Back to the report",

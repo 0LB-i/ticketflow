@@ -22,7 +22,14 @@ from chamados.modules.system.service import get_value
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_elapsed
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.palette import palette
-from chamados.web.reports_blocks import LISTED, Format, Point, block_view, client_preview
+from chamados.web.reports_blocks import (
+    LISTED,
+    Format,
+    Point,
+    block_view,
+    client_preview,
+    compares,
+)
 from chamados.web.reports_state import ParamsDep, State, interval_text, load_state, with_query
 
 router = APIRouter()
@@ -30,7 +37,7 @@ router = APIRouter()
 
 def _ticks(points: list[Point], step: int, fmt: Format) -> list[tuple[int, str]]:
     """As marcas do eixo, como as do _charts.html: o topo, a metade e o zero."""
-    highest = max((p.value for p in points), default=0)
+    highest = max((max(p.value, p.before or 0) for p in points), default=0)
     top = max(step, -(-highest // step) * step)
     return [(top, fmt(top)), (top // 2, fmt(top // 2)), (0, fmt(0))]
 
@@ -64,15 +71,21 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     visual,
                     [(p.label, p.value, p.extra, fmt(p.value)) for p in v["points"]],
                     ticks=_ticks(v["points"], v["step"], fmt),
-                    legend=v.get("labels"),
+                    legend=v.get("labels") or v.get("legend"),
                     empty=v.get("empty", ""),
+                    before=[p.before for p in v["points"]] if "legend" in v else [],
                 )
             )
         elif visual == "table":
+            # As fontes padrão do PDF não têm o Δ: a coluna da variação vira uma abreviatura.
+            delta = page.t("relatorios.comparacao.colunaPdf")
+            columns = [
+                delta if title else c for c, title in zip(v["columns"], v["titles"], strict=True)
+            ]
             blocks.append(
                 model_pdf.Grid(
                     v["title"],
-                    v["columns"],
+                    columns,
                     [[label, *(text for text, _ in cells)] for label, _, cells in v["rows"]],
                     total=[text for text, _ in v["total"]],
                     total_label=page.t("relatorios.total"),
@@ -155,7 +168,7 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
     else:
         data = await service.facts(db, page.auth, f)
         before = None
-        if state.compare and any(b.visual == "cards" for b in config.blocks):
+        if state.compare and compares(config):
             first, last = builder.previous_period(
                 f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
             )

@@ -656,7 +656,9 @@ def test_pdf_do_modelo(
     assert [type(b).__name__ for b in blocos] == ["Cards", "Chart", "Grid"]
     assert blocos[0].items[0][:2] == ("Horas", "1h30")
     assert blocos[1].kind == "stacked" and blocos[1].points[0][1:3] == (90, 60)
-    assert blocos[2].rows == [["Ana", "1h30"]] and blocos[2].total == ["1h30"]
+    # Comparando, a tabela tem a variação (sem base: vazia), com uma abreviatura no lugar do Δ.
+    assert blocos[2].columns == ["Pessoa", "Horas", "Var."]
+    assert blocos[2].rows == [["Ana", "1h30", ""]] and blocos[2].total == ["1h30", ""]
     assert rodape.endswith("por Ana")
     registro = db.scalars(
         select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
@@ -910,3 +912,52 @@ def test_atalhos_do_personalizado(client: TestClient, cenario: dict[str, Any]) -
     (anterior,) = _links(r.text, "Mês passado")
     um_antes = hoje.replace(day=1) - timedelta(days=1)
     assert parse_qs(urlsplit(anterior).query)["periodo"] == [f"{um_antes:%Y-%m}"]
+
+
+def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[str, Any]) -> None:
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(dia, 10))
+    tarefa(client, numero, 30, em(dia - timedelta(days=1), 10))
+    delta = '<td class="px-3 py-2 tabular-nums text-sm text-muted">'
+
+    # Sem comparar, nada muda.
+    r = client.get("/relatorios", params=_um_dia(dia))
+    assert ">Δ</th>" not in r.text and "Período anterior</li>" not in r.text
+
+    r = client.get("/relatorios", params=_um_dia(dia, comparar="1"))
+    # A tabela ganha um Δ por medida (o nome por extenso para o leitor de tela), na linha e no
+    # total, em %.
+    assert 'title="Variação de Horas" aria-label="Variação de Horas">Δ</th>' in r.text
+    assert 'aria-label="Variação de Horas extras">Δ</th>' in r.text
+    linha = re.search(r">Ana</a></td>(.*?)</tr>", r.text, re.S)
+    assert linha
+    celulas = re.findall(r"<td [^>]*>(.*?)</td>", linha.group(1), re.S)
+    assert celulas[:2] == ["1h", "+100%"]
+    total = re.search(r"<tfoot.*?</tfoot>", r.text, re.S)
+    assert total and f"{delta}+100%</td>" in total.group(0)
+    # As colunas por dia ganham a série de antes, alinhada pela posição, com a legenda.
+    anterior = format_day("pt-BR", dia - timedelta(days=1))
+    assert f'aria-label="{format_day("pt-BR", dia)}: 1h · Antes ({anterior}): 30min"' in r.text
+    assert "Período anterior</li>" in r.text
+    assert 'class="max-w-3 fill-primary opacity-35"' in r.text
+    # As barras por pessoa, não.
+    assert "Antes (Ana)" not in r.text
+
+    # Sem nada no período de antes (sem base), o Δ fica vazio.
+    r = client.get("/relatorios", params=_um_dia(dia - timedelta(days=1), comparar="1"))
+    linha = re.search(r">Ana</a></td>(.*?)</tr>", r.text, re.S)
+    assert linha
+    assert re.findall(r"<td [^>]*>(.*?)</td>", linha.group(1), re.S)[:2] == ["30min", ""]
+
+    # A linha por semana (aba Chamados): a de antes, tracejada; e o PDF a desenha.
+    filtros = {
+        "aba": "chamados",
+        "periodo": "personalizado",
+        "de": (dia - timedelta(days=20)).isoformat(),
+        "ate": dia.isoformat(),
+        "comparar": "1",
+    }
+    r = client.get("/relatorios", params=filtros)
+    assert 'stroke-dasharray="4 3"' in r.text
+    assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")

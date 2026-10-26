@@ -541,7 +541,12 @@
       "com": "comparado com {de} a {ate}",
       "antes": "{variacao} · antes: {anterior}",
       "soAntes": "Antes: {anterior}",
-      "pontos": "{n} p.p."
+      "pontos": "{n} p.p.",
+      "variacaoDe": "Variação de {medida}",
+      "atual": "Período atual",
+      "anterior": "Período anterior",
+      "dica": "Antes ({rotulo}): {valor}",
+      "colunaPdf": "Var."
     },
     "chamados": {
       "voltar": "Voltar ao relatório",
