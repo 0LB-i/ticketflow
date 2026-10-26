@@ -21,6 +21,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from chamados.modules.reports.service import (
+    MAX_DAYS,
     Facts,
     Group,
     Part,
@@ -123,7 +124,6 @@ Relative = Literal[
 RELATIVE: tuple[Relative, ...] = get_args(Relative)
 LAST_DAYS = "ultimos-n-dias"
 DEFAULT_DAYS = 30  # o padrão da §14.2
-MAX_DAYS = 366  # o limite de um período (service.resolve)
 CUSTOM = "personalizado"
 OTHERS = "outros"  # a chave da linha que junta o que passou dos N maiores
 MAX_MODELS = 50
@@ -354,12 +354,15 @@ def _year_before(day: date) -> date:
 def year_before(start: date, end: date) -> tuple[date, date]:
     """O mesmo período do ano anterior: meses inteiros, os mesmos meses (fevereiro inteiro com
     fevereiro inteiro, de 28 ou 29 dias); semanas inteiras (de segunda a domingo), as 52 semanas
-    antes, para cada dia cair no mesmo dia da semana; as demais, as mesmas datas."""
+    antes, para cada dia cair no mesmo dia da semana; as demais, as mesmas datas. Com um 29 de
+    fevereiro no ano anterior, as mesmas datas de um período de 366 dias dariam 367: o fim é
+    cortado no limite de um período (MAX_DAYS)."""
     if start.day == 1 and (end + timedelta(days=1)).day == 1:
         return start.replace(year=start.year - 1), _month(date(end.year - 1, end.month, 1))[1]
     if start.weekday() == 0 and ((end - start).days + 1) % 7 == 0:
         return start - timedelta(weeks=52), end - timedelta(weeks=52)
-    return _year_before(start), _year_before(end)
+    first = _year_before(start)
+    return first, min(_year_before(end), first + timedelta(days=MAX_DAYS - 1))
 
 
 def comparison_period(

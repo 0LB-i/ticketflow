@@ -280,7 +280,7 @@ def test_ultimos_n_dias(client: TestClient, cenario: dict[str, Any]) -> None:
     (aba,) = _links(r.text, "Produtividade")
     assert "periodo=ultimos-n-dias" in aba and "dias=45" in aba
     # Fora de 1 a 366 (ou sem número), o padrão: 30.
-    for dias in ("0", "367", "x", ""):
+    for dias in ("0", "367", "x", "", "²", "9" * 5000):
         r = client.get("/relatorios/blocos", params={"periodo": "ultimos-n-dias", "dias": dias})
         assert 'name="dias" type="number" value="30"' in r.text
     # O modelo guarda os N e os usa ao abrir.
@@ -294,6 +294,10 @@ def test_ultimos_n_dias(client: TestClient, cenario: dict[str, Any]) -> None:
     ).text
     (voltar,) = _links(html, "Voltar para Últimos 15 dias")
     assert "periodo=ultimos-n-dias" in voltar and "dias=15" in voltar
+    html = client.get("/relatorios/blocos", params=_um_dia(agora, origem="ultimos-n-dias:1")).text
+    assert _links(html, "Voltar para Último dia")
+    html = client.get("/relatorios/blocos", params=_um_dia(agora, origem="ultimos-n-dias:²")).text
+    assert "Voltar para" not in html
 
 
 # --- modelos (docs/14 §14.8) -----------------------------------------------------------------
@@ -1178,7 +1182,7 @@ def test_comparar_com_o_ano_anterior(client: TestClient, cenario: dict[str, Any]
     antes = format_day("pt-BR", ano)
     assert f"comparado com {antes} a {antes}" in r.text
     assert "+100% · antes: 30min" in r.text
-    assert "Ano anterior</li>" in r.text  # a legenda da série de antes
+    assert "Mesmo período do ano anterior</li>" in r.text  # a legenda da série de antes
     (aba,) = _links(r.text, "Clientes")
     assert "comparar=ano" in aba
 
@@ -1187,6 +1191,18 @@ def test_comparar_com_o_ano_anterior(client: TestClient, cenario: dict[str, Any]
     segunda = dia - timedelta(weeks=52)
     texto = f"comparado com {format_day('pt-BR', segunda)} a "
     assert texto + format_day("pt-BR", segunda + timedelta(days=6)) in r.text
+
+    # Antes do ano 1 não há com que comparar: a tela abre sem a comparação.
+    r = client.get(
+        "/relatorios/blocos",
+        params={
+            "periodo": "personalizado",
+            "de": "0001-03-01",
+            "ate": "0001-03-10",
+            "comparar": "ano",
+        },
+    )
+    assert r.status_code == 200 and "comparado com" not in r.text
 
     # O CSV do bloco leva o valor de antes e a variação de cada medida, também no total.
     filtros = _um_dia(dia, aba="produtividade", comparar="ano", bloco="3")

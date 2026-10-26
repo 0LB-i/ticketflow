@@ -582,6 +582,11 @@ def test_mesmo_periodo_do_ano_anterior() -> None:
         date(2023, 2, 28),
         date(2023, 3, 10),
     )
+    # 366 dias que no ano anterior dariam 367 (o 29 de fevereiro): o fim é cortado.
+    assert year_before(date(2028, 3, 1), date(2029, 3, 1)) == (
+        date(2027, 3, 1),
+        date(2028, 2, 29),
+    )
     # A escolha da comparação.
     outubro = (date(2026, 10, 1), date(2026, 10, 31))
     assert comparison_period(*outubro, "none") is None

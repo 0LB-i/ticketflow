@@ -350,7 +350,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         # O intervalo de um período relativo ou de um mês (que não aparece nos campos de data)
         # e o de comparação.
         interval=interval_text(page, state),
-        compare=state.compare,
+        query_compare=query["comparar"] or "",
         filters=filters,
         query_fields=[
             (name, value)

@@ -46,7 +46,7 @@ class Cards:
 class Chart:
     """Um gráfico: `kind` é bars, columns, stacked ou line. Cada ponto é (rótulo, valor, parte de
     cima nas empilhadas, valor escrito); `ticks`, as marcas do eixo (valor, texto); `before`, o
-    valor do período anterior na posição de cada ponto (comparar; None onde não há), desenhado
+    valor do período comparado na posição de cada ponto (comparar; None onde não há), desenhado
     mais claro."""
 
     title: str
@@ -77,7 +77,7 @@ Block = Cards | Chart | Grid
 @dataclass
 class Series:
     """As cores dos gráficos: a série (`chart-1`, a primary), as horas extras das colunas
-    empilhadas (`chart-2`) e o período anterior (`chart-before`)."""
+    empilhadas (`chart-2`) e o período comparado (`chart-before`)."""
 
     first: colors.Color
     second: colors.Color

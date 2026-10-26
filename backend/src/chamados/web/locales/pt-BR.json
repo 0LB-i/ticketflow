@@ -383,6 +383,7 @@
       "ultimos30": "Últimos 30 dias",
       "ultimos90": "Últimos 90 dias",
       "ultimosN": "Últimos N dias",
+      "ultimoDia": "Último dia",
       "ultimosNDias": "Últimos {n} dias",
       "trimestreAtual": "Trimestre atual",
       "trimestreAnterior": "Trimestre anterior",
@@ -569,7 +570,7 @@
       "atual": "Período atual",
       "legenda": {
         "previous": "Período anterior",
-        "year": "Ano anterior"
+        "year": "Mesmo período do ano anterior"
       },
       "dica": "Antes ({rotulo}): {valor}",
       "colunaPdf": "Var."

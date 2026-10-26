@@ -383,6 +383,7 @@
       "ultimos30": "Last 30 days",
       "ultimos90": "Last 90 days",
       "ultimosN": "Last N days",
+      "ultimoDia": "Last day",
       "ultimosNDias": "Last {n} days",
       "trimestreAtual": "This quarter",
       "trimestreAnterior": "Last quarter",
@@ -569,7 +570,7 @@
       "atual": "Current period",
       "legenda": {
         "previous": "Previous period",
-        "year": "Last year"
+        "year": "Same period last year"
       },
       "dica": "Before ({rotulo}): {valor}",
       "colunaPdf": "Chg."

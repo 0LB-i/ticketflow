@@ -20,7 +20,6 @@ from chamados.modules.reports.builder import (
     BUILTINS,
     CUSTOM,
     LAST_DAYS,
-    MAX_DAYS,
     RELATIVE,
     Compare,
     FilterSpec,
@@ -28,6 +27,7 @@ from chamados.modules.reports.builder import (
     ReportConfig,
 )
 from chamados.modules.reports.models import ReportModel
+from chamados.modules.reports.service import MAX_DAYS
 from chamados.web.formatting import TIMEZONE, format_day, format_month
 from chamados.web.page import LoggedPage
 
@@ -137,7 +137,9 @@ def _date(value: str | None) -> date | None:
 
 def _days(value: str | None) -> int | None:
     """Os N dias do "ultimos-n-dias", de 1 a MAX_DAYS; fora disso (ou sem número), None."""
-    return int(value) if value and value.isdigit() and 1 <= int(value) <= MAX_DAYS else None
+    if not (value and value.isascii() and value.isdigit() and len(value) <= 3):
+        return None  # "²" é dígito para o isdigit, mas não para o int
+    return int(value) if 1 <= int(value) <= MAX_DAYS else None
 
 
 def parse_uuids(values: list[str] | None) -> list[uuid.UUID]:
@@ -194,9 +196,12 @@ class State:
         """O período com que se compara; sem comparar (ou sem um período válido), None."""
         if not (self.start and self.end and self.start <= self.end):
             return None
-        return builder.comparison_period(
-            self.start, self.end, self.compare, year_to_date=self.period == "ano-ate-hoje"
-        )
+        try:
+            return builder.comparison_period(
+                self.start, self.end, self.compare, year_to_date=self.period == "ano-ate-hoje"
+            )
+        except ValueError:  # antes do ano 1: não há com que comparar
+            return None
 
     def specs(self) -> tuple[PeriodSpec, FilterSpec]:
         """O período e os filtros como o modelo os guarda. Um mês da lista vira as datas dele."""
@@ -397,7 +402,8 @@ def origin_view(page: LoggedPage, state: State) -> tuple[str, dict[str, str]] | 
         return label, {"periodo": CUSTOM, "de": span[0].isoformat(), "ate": span[1].isoformat()}
     days = _last_days(state.origin)
     if days:
-        label = page.t("relatorios.periodos.ultimosNDias", n=days)
+        key = "ultimoDia" if days == 1 else "ultimosNDias"
+        label = page.t(f"relatorios.periodos.{key}", n=days)
         return label, {"periodo": LAST_DAYS, "dias": str(days)}
     if state.origin in RELATIVE_KEYS:
         label = page.t(f"relatorios.periodos.{RELATIVE_KEYS[state.origin]}")

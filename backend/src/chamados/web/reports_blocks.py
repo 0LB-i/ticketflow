@@ -1,6 +1,6 @@
 """Relatórios: cada bloco de um modelo pronto para o template e para o PDF (docs/14 §14.8.3):
 os números calculados (`reports/builder.run`) e já formatados, os títulos automáticos, a
-variação sobre o período anterior e os links de detalhar; e a prévia do relatório para o
+variação sobre o período comparado e os links de detalhar; e a prévia do relatório para o
 cliente (§14.8.5).
 """
 
@@ -51,7 +51,7 @@ LISTED = 200  # tarefas por página na lista (e no PDF, só a primeira); o CSV t
 class Point:
     """Uma coluna, barra ou ponto dos gráficos (templates/reports/_charts.html). `extra`: nas
     colunas empilhadas, a parte de cima (as horas extras, dentro de `value`); `href`: aplicar
-    como filtro; `before`, `before_tip`: o valor do período anterior na mesma posição e a dica
+    como filtro; `before`, `before_tip`: o valor do período comparado na mesma posição e a dica
     dele (comparar, nas colunas e na linha por período)."""
 
     key: str
@@ -63,18 +63,18 @@ class Point:
     before_tip: str = ""
 
 
-# Os visuais que mostram o período anterior (comparar): os cartões, as tabelas (a coluna Δ) e,
+# Os visuais que mostram o período comparado (comparar): os cartões, as tabelas (a coluna Δ) e,
 # agrupados por período, as colunas e a linha.
 COMPARED = ("cards", "table", "columns", "line")
 
 
 def compared(config: ReportConfig) -> list[Block]:
-    """Os blocos que precisam dos dados do período anterior (e só as partes deles vêm)."""
+    """Os blocos que precisam dos dados do período comparado (e só as partes deles vêm)."""
     return [b for b in config.blocks if b.visual in COMPARED]
 
 
 def compares(config: ReportConfig) -> bool:
-    """Se algum bloco precisa dos dados do período anterior."""
+    """Se algum bloco precisa dos dados do período comparado."""
     return bool(compared(config))
 
 
@@ -159,7 +159,7 @@ def block_title(page: LoggedPage, block: Block, dimension: str | None) -> str:
 
 
 def _change(page: LoggedPage, measure: str, now: builder.Value, before: builder.Value) -> str:
-    """A variação sobre o período anterior (cartões e a coluna Δ das tabelas): em % (na
+    """A variação sobre o período comparado (cartões e a coluna Δ das tabelas): em % (na
     reabertura, em pontos); sem base, vazia."""
     if now is None or before is None or (before == 0 and measure not in PERCENT):
         return ""
