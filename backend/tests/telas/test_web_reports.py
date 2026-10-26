@@ -1217,3 +1217,37 @@ def test_menu_modelo(client: TestClient, cenario: dict[str, Any]) -> None:
         (f"/relatorios/modelos/{modelo}/editar", []),
         ("/relatorios/modelos/novo", [modelo]),
     ]
+
+
+def _variacao(html: str, medida: str) -> str:
+    """A linha da variação de um cartão (o <dd> depois do valor)."""
+    achado = re.search(rf"<dt[^>]*>{medida}</dt>\s*<dd.*?</dd>\s*(<dd.*?</dd>)", html, re.S)
+    assert achado, medida
+    return achado.group(1)
+
+
+def test_variacao_dos_cartoes(client: TestClient, cenario: dict[str, Any]) -> None:
+    """A cor segue a direção boa da medida (hora extra: subir é ruim; horas: neutra); a seta e o
+    texto dizem o mesmo sem a cor, e o leitor de tela ouve "Subiu" ou "Caiu"."""
+    segunda = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    for dia, minutos in ((segunda, 60), (segunda + timedelta(days=1), 30)):
+        tarefa(client, numero, minutos, em(dia, 20))  # fora do expediente
+    tarefa(client, numero, 60, em(segunda + timedelta(days=2), 20))
+
+    # Terça contra segunda: as horas extras caíram (bom).
+    r = client.get("/relatorios/blocos", params=_um_dia(segunda + timedelta(days=1), comparar="1"))
+    extras = _variacao(r.text, "Horas extras")
+    assert 'class="mt-1 text-sm tabular-nums text-green-fg"' in extras
+    assert '<span aria-hidden="true">▼</span> <span class="sr-only">Caiu</span>' in extras
+    assert "−50% · antes: 1h" in extras
+    # As horas também caíram, mas são neutras.
+    horas = _variacao(r.text, "Horas")
+    assert "text-muted" in horas and '<span class="sr-only">Caiu</span>' in horas
+    # Quarta contra terça: subiram (ruim).
+    r = client.get("/relatorios/blocos", params=_um_dia(segunda + timedelta(days=2), comparar="1"))
+    extras = _variacao(r.text, "Horas extras")
+    assert "text-red-fg" in extras and '<span class="sr-only">Subiu</span>' in extras
+    # Sem variação (as tarefas: uma e uma), nem seta nem cor.
+    tarefas = _variacao(r.text, "Tarefas")
+    assert "text-muted" in tarefas and "sr-only" not in tarefas

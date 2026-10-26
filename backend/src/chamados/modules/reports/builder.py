@@ -76,6 +76,16 @@ MEASURES: tuple[Measure, ...] = (
 DURATIONS: tuple[Measure, ...] = ("hours", "overtime")  # minutos somados
 ELAPSED: tuple[Measure, ...] = ("lead_time", "net_lead_time")  # minutos, pela mediana
 PERCENT: tuple[Measure, ...] = ("reopen_rate",)  # em centésimos de ponto (1250 = 12,5%)
+# A direção boa de cada medida, para a cor da variação dos cartões: 1, subir é bom; -1, subir é
+# ruim. As que não estão aqui são neutras (horas, tarefas, registrados e cancelados).
+GOOD_DIRECTION: dict[Measure, int] = {
+    "closed": 1,
+    "overtime": -1,
+    "backlog": -1,
+    "lead_time": -1,
+    "net_lead_time": -1,
+    "reopen_rate": -1,
+}
 # Os chamados por trás de cada medida de chamado (a lista do "detalhar").
 TICKET_SETS: dict[Measure, Part] = {
     "opened": "opened",

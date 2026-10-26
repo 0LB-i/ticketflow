@@ -550,6 +550,8 @@
       "com": "compared with {de} to {ate}",
       "antes": "{variacao} · before: {anterior}",
       "soAntes": "Before: {anterior}",
+      "subiu": "Up",
+      "caiu": "Down",
       "pontos": "{n} pp",
       "variacaoDe": "Change in {medida}",
       "atual": "Current period",

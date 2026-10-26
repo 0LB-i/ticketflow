@@ -107,7 +107,11 @@
         <dt class="text-muted">{{ card.label }}</dt>
         <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
         {%- if card.before is defined %}
-        <dd class="mt-1 text-sm text-muted tabular-nums">{{ t("relatorios.comparacao.antes", variacao=card.change, anterior=card.before) if card.change else t("relatorios.comparacao.soAntes", anterior=card.before) }}</dd>
+        {#- A variação: verde na direção boa da medida, vermelho na ruim, cinza nas neutras; a seta
+            e o texto dizem o mesmo sem a cor, e o leitor de tela ouve "subiu" ou "caiu". #}
+        <dd class="mt-1 text-sm tabular-nums {{ {'good': 'text-green-fg', 'bad': 'text-red-fg'}.get(card.tone, 'text-muted') }}">
+          {%- if card.trend %}<span aria-hidden="true">{{ "▲" if card.trend == "up" else "▼" }}</span> <span class="sr-only">{{ t("relatorios.comparacao." ~ ("subiu" if card.trend == "up" else "caiu")) }}</span> {% endif -%}
+          {{ t("relatorios.comparacao.antes", variacao=card.change, anterior=card.before) if card.change else t("relatorios.comparacao.soAntes", anterior=card.before) }}</dd>
         {%- endif %}
       </div>
       {%- endfor %}

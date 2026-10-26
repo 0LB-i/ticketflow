@@ -550,6 +550,8 @@
       "com": "comparado com {de} a {ate}",
       "antes": "{variacao} · antes: {anterior}",
       "soAntes": "Antes: {anterior}",
+      "subiu": "Subiu",
+      "caiu": "Caiu",
       "pontos": "{n} p.p.",
       "variacaoDe": "Variação de {medida}",
       "atual": "Período atual",

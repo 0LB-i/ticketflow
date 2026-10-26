@@ -18,6 +18,7 @@ from chamados.modules.reports.builder import (
     CUSTOM,
     DURATIONS,
     ELAPSED,
+    GOOD_DIRECTION,
     OTHERS,
     PERCENT,
     TICKET_SETS,
@@ -168,6 +169,17 @@ def _change(page: LoggedPage, measure: str, now: builder.Value, before: builder.
     return text
 
 
+def _trend(measure: builder.Measure, now: builder.Value, before: builder.Value) -> dict[str, str]:
+    """A seta da variação de um cartão (`trend`: up ou down) e o tom (`tone`: good ou bad, pela
+    GOOD_DIRECTION da medida; vazio nas neutras). Sem variação ou sem base, nada."""
+    if now is None or before is None or now == before:
+        return {}
+    up = now > before
+    good = GOOD_DIRECTION.get(measure)
+    tone = "" if good is None else "good" if up == (good > 0) else "bad"
+    return {"trend": "up" if up else "down", "tone": tone}
+
+
 def _signed(page: LoggedPage, number: float, *, decimals: int = 1) -> str:
     text = f"{abs(number):.{decimals}f}"
     if decimals:
@@ -297,6 +309,8 @@ def block_view(
             if previous is not None:
                 card["change"] = _change(page, m, result.total[m], previous.total[m])
                 card["before"] = fmt(previous.total[m])
+                if card["change"]:
+                    card.update(_trend(m, result.total[m], previous.total[m]))
             cards.append(card)
         view["cards"] = cards
     elif block.visual == "stacked":
