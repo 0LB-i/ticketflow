@@ -385,7 +385,32 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters, parts: Collection[Part
     if people_ids:
         ticket_conds.append(or_(*(assigned_to(i) for i in people_ids)))
 
-    async def tickets(*conds: ColumnElement[bool]) -> Sequence[Any]:
+    # Os quatro conjuntos numa varredura só: as condições num OR e cada chamado separado depois,
+    # pelas mesmas datas. Cada consulta à parte passava por todos os chamados com o filtro de
+    # visibilidade (os concluídos e os cancelados não têm índice pela data).
+    #
+    # Em aberto no fim: registrados até lá e não concluídos nem cancelados antes dele (pelas
+    # datas de conclusão e cancelamento, as mesmas das medidas). O status de então é o "de" da
+    # primeira mudança depois do fim; sem mudança, o atual.
+    sets: dict[Part, ColumnElement[bool]] = {
+        "opened": and_(Ticket.created_at >= since, Ticket.created_at < until),
+        "closed": and_(
+            TicketStatus.kind == "closed", Ticket.closed_at >= since, Ticket.closed_at < until
+        ),
+        "canceled": and_(
+            TicketStatus.kind == "canceled",
+            Ticket.canceled_at >= since,
+            Ticket.canceled_at < until,
+        ),
+        "backlog": and_(
+            Ticket.created_at < until,
+            not_(and_(TicketStatus.kind == "closed", Ticket.closed_at < until)),
+            not_(and_(TicketStatus.kind == "canceled", Ticket.canceled_at < until)),
+        ),
+    }
+    wanted = [cond for part, cond in sets.items() if part in parts]
+    found: Sequence[Any] = ()
+    if wanted:
         query = (
             select(
                 Ticket.id,
@@ -399,39 +424,34 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters, parts: Collection[Part
                 Ticket.closed_at,
                 Ticket.canceled_at,
                 Ticket.reopened_count,
+                TicketStatus.kind,
             )
             .join(TicketStatus, TicketStatus.id == Ticket.status_id)
-            .where(*ticket_conds, *conds)
+            .where(*ticket_conds, or_(*wanted))
             .order_by(Ticket.number)
         )
-        return (await db.execute(query)).all()
+        found = (await db.execute(query)).all()
 
-    none: Sequence[Any] = ()
-    opened = none
-    if "opened" in parts:
-        opened = await tickets(Ticket.created_at >= since, Ticket.created_at < until)
-    closed = none
-    if "closed" in parts:
-        closed = await tickets(
-            TicketStatus.kind == "closed", Ticket.closed_at >= since, Ticket.closed_at < until
-        )
-    canceled = none
-    if "canceled" in parts:
-        canceled = await tickets(
-            TicketStatus.kind == "canceled",
-            Ticket.canceled_at >= since,
-            Ticket.canceled_at < until,
-        )
-    # Em aberto no fim: registrados até lá e não concluídos nem cancelados antes dele (pelas
-    # datas de conclusão e cancelamento, as mesmas das medidas). O status de então é o "de" da
-    # primeira mudança depois do fim; sem mudança, o atual.
-    candidates = none
-    if "backlog" in parts:
-        candidates = await tickets(
-            Ticket.created_at < until,
-            not_(and_(TicketStatus.kind == "closed", Ticket.closed_at < until)),
-            not_(and_(TicketStatus.kind == "canceled", Ticket.canceled_at < until)),
-        )
+    def within(moment: datetime | None) -> bool:
+        return moment is not None and since <= moment < until
+
+    def open_at_end(r: Any) -> bool:
+        """O `not_` de "backlog": sem a data, o concluído (ou cancelado) também fica de fora,
+        como no SQL (NOT de NULL não é verdadeiro)."""
+        finished = {"closed": r.closed_at, "canceled": r.canceled_at}
+        if r.kind not in finished:
+            return True
+        moment = finished[r.kind]
+        return moment is not None and moment >= until
+
+    opened = [r for r in found if "opened" in parts and within(r.created_at)]
+    closed = [r for r in found if "closed" in parts and r.kind == "closed" and within(r.closed_at)]
+    canceled = [
+        r for r in found if "canceled" in parts and r.kind == "canceled" and within(r.canceled_at)
+    ]
+    candidates = [
+        r for r in found if "backlog" in parts and r.created_at < until and open_at_end(r)
+    ]
     statuses = {s.id: s for s in await db.scalars(select(TicketStatus))}
     kinds = {i: s.kind for i, s in statuses.items()}
     status_at_end: dict[int, int] = {}
