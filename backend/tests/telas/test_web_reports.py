@@ -632,7 +632,7 @@ def test_colunas_empilhadas_e_idade_no_editor(client: TestClient, cenario: dict[
     r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
     assert "Horas por dia: no expediente e extras" in r.text
     assert "No expediente: 30min · Horas extras: 1h" in r.text
-    assert "fill-blue-fg" in r.text
+    assert "fill-chart-2" in r.text
 
 
 # --- PDF do modelo e relatório para o cliente (docs/14 §14.8, fase 4) ------------------------
@@ -685,8 +685,8 @@ def test_pdf_do_modelo(
     r = client.get(_link_pdf(r.text))
     assert r.status_code == 200 and r.content == b"%PDF-teste"
     assert r.headers["content-type"] == "application/pdf"
-    titulo, linhas, blocos, rodape, cor = chamadas[0]
-    assert titulo == "Mensal" and cor == "#C2410C"
+    titulo, linhas, blocos, rodape, cores = chamadas[0]
+    assert titulo == "Mensal" and cores == ("#C2410C", "#1D4ED8", "#D3785C")
     anterior = (dia - timedelta(days=1)).strftime("%d/%m/%Y")
     assert linhas[0] == f"Período: {dia:%d/%m/%Y} a {dia:%d/%m/%Y}"
     assert linhas[1] == f"Comparado com {anterior} a {anterior}"
@@ -1050,7 +1050,7 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
     anterior = format_day("pt-BR", dia - timedelta(days=1))
     assert f'aria-label="{format_day("pt-BR", dia)}: 1h · Antes ({anterior}): 30min"' in r.text
     assert "Período anterior</li>" in r.text
-    assert 'class="max-w-3 fill-primary opacity-35"' in r.text
+    assert 'class="max-w-3 fill-chart-before"' in r.text
     # As barras por pessoa, não.
     assert "Antes (Ana)" not in r.text
 

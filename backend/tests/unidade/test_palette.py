@@ -13,6 +13,7 @@ from chamados.web.palette import (
     Colors,
     Tokens,
     contrast,
+    distinct,
     palette,
     stylesheet,
 )
@@ -28,6 +29,12 @@ def _conferir(t: Tokens) -> None:
     assert contrast(t["primary"], t["primary-subtle"]) >= 4.5, "item de menu ativo"
     assert contrast(t["border-input"], t["surface"]) >= 3, "borda de campo"
     assert contrast(t["focus"], t["surface"]) >= 3, "contorno de foco"
+    # Séries dos gráficos: marcas, 3:1; a das horas extras se distingue da primeira (chart-1, a
+    # primary) também para quem não enxerga vermelho ou verde.
+    for fundo in (t["bg"], t["surface"]):
+        assert contrast(t["chart-2"], fundo) >= 3, f"horas extras sobre {fundo}"
+        assert contrast(t["chart-before"], fundo) >= 3, f"período anterior sobre {fundo}"
+    assert distinct(t["chart-2"], t["primary"]), "horas extras × série"
 
 
 COMBINACOES: dict[str, Colors] = {
@@ -87,6 +94,24 @@ def test_etiquetas_cumprem_os_contrastes() -> None:
     for modo in (claro, escuro):
         for cor in ("blue", "violet", "teal", "green", "gray", "red"):
             assert contrast(modo[f"{cor}-fg"], modo[f"{cor}-bg"]) >= 4.5, cor
+
+
+def test_series_dos_graficos_no_css_sao_as_da_paleta_original() -> None:
+    css = (Path(chamados.web.__file__).parent / "static/css/input.css").read_text()
+    for seletor, tokens in (
+        (":root", DEFAULT_PALETTE["light"]),
+        (".dark", DEFAULT_PALETTE["dark"]),
+    ):
+        do_css = _tokens_do_css(css, seletor)
+        for token in ("chart-2", "chart-before"):
+            assert do_css[token].upper() == tokens[token], (seletor, token)
+
+
+def test_horas_extras_mudam_de_matiz_quando_a_marca_e_azul() -> None:
+    """A 2ª série começa no azul; com a marca azul, vai para o candidato seguinte."""
+    azul, verde = palette(PRESETS["azul"]), palette(PRESETS["verde"])
+    for modo in ("light", "dark"):
+        assert azul[modo]["chart-2"] != verde[modo]["chart-2"]
 
 
 def test_cor_ja_legivel_fica_como_foi_escolhida() -> None:

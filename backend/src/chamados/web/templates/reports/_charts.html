@@ -1,8 +1,10 @@
-{#- Gráficos dos relatórios em SVG, de uma série só e só com tokens de cor (como o BarChart.vue e
-    o ColumnChart.vue da SPA), mais a linha; ao comparar, as colunas e a linha por período ganham
-    a série de antes, mais apagada (`p.before`), com a legenda (`legend`). O CSV de cada bloco traz os mesmos números. Cada
-    barra é um <svg> com a ponta arredondada (4px) e o lado da base reto: o retângulo
-    arredondado inteiro mais um reto cobrindo a metade da base. `fmt`: formata o valor. -#}
+{#- Gráficos dos relatórios em SVG, de uma série só (como o BarChart.vue e o ColumnChart.vue da
+    SPA), mais a linha, só com os tokens de série (`chart-1`, `chart-2`, `chart-before`); ao
+    comparar, as colunas e a linha por período ganham a série de antes, mais clara
+    (`chart-before`, `p.before`), com a legenda (`legend`). O CSV de cada bloco traz os mesmos
+    números. Cada barra é um <svg> com a ponta arredondada (4px) e o lado da base reto: o
+    retângulo arredondado inteiro mais um reto cobrindo a metade da base. `fmt`: formata o
+    valor. -#}
 
 {#- Uma coluna ou um ponto: um link quando clicar aplica o valor como filtro (`p.href`, trocando o
     #relatorio pelo HTMX, como os filtros da tela); sem ele, um elemento que recebe o foco, para
@@ -22,11 +24,11 @@
 </{{ tag }}>
 {%- endmacro %}
 
-{#- A legenda da comparação: a série de agora e a de antes, mais apagada. -#}
+{#- A legenda da comparação: a série de agora e a de antes, mais clara. -#}
 {% macro compare_legend(legend) -%}
 <ul class="flex flex-wrap gap-4 text-sm text-muted">
-  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-primary" aria-hidden="true"></span>{{ legend[0] }}</li>
-  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-primary opacity-35" aria-hidden="true"></span>{{ legend[1] }}</li>
+  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-1" aria-hidden="true"></span>{{ legend[0] }}</li>
+  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-before" aria-hidden="true"></span>{{ legend[1] }}</li>
 </ul>
 {%- endmacro %}
 
@@ -45,7 +47,7 @@
       {%- endif %}
       <span class="flex items-center gap-2">
         {%- if item.value %}
-        <svg width="{{ '%.2f' | format(item.value / top * 85) }}%" height="16" class="shrink-0 fill-primary" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
+        <svg width="{{ '%.2f' | format(item.value / top * 85) }}%" height="16" class="shrink-0 fill-chart-1" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
         {%- endif %}
         <span class="text-sm whitespace-nowrap tabular-nums">{{ fmt(item.value) }}</span>
       </span>
@@ -84,15 +86,15 @@
         <li class="flex h-full flex-1">
           {%- call point(p, fmt) %}
           {%- if p.before is not none %}
-          {#- A de antes à esquerda, mais apagada; as duas na metade da largura. #}
+          {#- A de antes à esquerda, mais clara; as duas na metade da largura. #}
           {%- if p.before %}
-          <svg width="50%" height="{{ '%.2f' | format(p.before / top * 100) }}%" class="max-w-3 fill-primary opacity-35" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          <svg width="50%" height="{{ '%.2f' | format(p.before / top * 100) }}%" class="max-w-3 fill-chart-before" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- else %}
           <span class="w-1/2 max-w-3"></span>
           {%- endif %}
           {%- endif %}
           {%- if p.value %}
-          <svg width="{{ '50%' if p.before is not none else '100%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-3' if p.before is not none else 'max-w-6' }} fill-primary group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          <svg width="{{ '50%' if p.before is not none else '100%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-3' if p.before is not none else 'max-w-6' }} fill-chart-1 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- elif p.before is not none %}
           <span class="w-1/2 max-w-3"></span>
           {%- endif %}
@@ -140,18 +142,18 @@
       </svg>
       <svg class="absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {%- if legend %}
-        {#- A de antes, tracejada e mais apagada, na posição de cada ponto. #}
-        <polyline fill="none" class="stroke-primary opacity-35" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="
+        {#- A de antes, tracejada e mais clara, na posição de cada ponto. #}
+        <polyline fill="none" class="stroke-chart-before" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="
           {%- for p in points if p.before is not none %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.before / top * 100) }} {% endfor %}"/>
         {%- endif %}
-        <polyline fill="none" class="stroke-primary" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
+        <polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
           {%- for p in points %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.value / top * 100) }} {% endfor %}"/>
       </svg>
       <ul class="absolute inset-0 flex">
         {%- for p in points %}
         <li class="flex h-full flex-1">
           {%- call point(p, fmt) %}
-          <svg class="absolute inset-0 size-full overflow-visible fill-primary" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.value / top * 100) }}%" r="3" class="group-hover:[r:5px] group-focus-visible:[r:5px]"/></svg>
+          <svg class="absolute inset-0 size-full overflow-visible fill-chart-1" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.value / top * 100) }}%" r="3" class="group-hover:[r:5px] group-focus-visible:[r:5px]"/></svg>
           {%- endcall %}
         </li>
         {%- endfor %}
@@ -171,7 +173,7 @@
 {%- endmacro %}
 
 
-{#- Colunas empilhadas: as horas no expediente embaixo (primary) e as extras em cima (blue-fg),
+{#- Colunas empilhadas: as horas no expediente embaixo (chart-1) e as extras em cima (chart-2),
     com a legenda; os eixos e as dicas das colunas. `labels`: os nomes das duas partes. -#}
 {% macro stacked_chart(title, points, fmt, step, labels) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list) | max %}
@@ -199,7 +201,7 @@
           {%- call point(p, fmt, labels[0] ~ ": " ~ fmt(p.value - p.extra) ~ " · " ~ labels[1] ~ ": " ~ fmt(p.extra)) %}
           {%- if p.value %}
           {%- set upper = "%.2f" | format(p.extra / p.value * 100) %}
-          <svg width="100%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-6 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="{{ upper }}%" class="fill-blue-fg"/><rect y="{{ upper }}%" width="100%" height="{{ '%.2f' | format(100 - p.extra / p.value * 100) }}%" class="fill-primary"/></svg>
+          <svg width="100%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-6 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="{{ upper }}%" class="fill-chart-2"/><rect y="{{ upper }}%" width="100%" height="{{ '%.2f' | format(100 - p.extra / p.value * 100) }}%" class="fill-chart-1"/></svg>
           {%- endif %}
           {%- endcall %}
         </li>
@@ -214,8 +216,8 @@
     </div>
   </div>
   <ul class="flex flex-wrap gap-4 text-sm text-muted">
-    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-primary" aria-hidden="true"></span>{{ labels[0] }}</li>
-    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-blue-fg" aria-hidden="true"></span>{{ labels[1] }}</li>
+    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-1" aria-hidden="true"></span>{{ labels[0] }}</li>
+    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-2" aria-hidden="true"></span>{{ labels[1] }}</li>
   </ul>
 </figure>
 {%- endmacro %}

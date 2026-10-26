@@ -2,8 +2,8 @@
 
 Este módulo só desenha: os textos chegam prontos, já traduzidos e formatados por quem chama (a
 tela, web/reports.py, que é quem sabe o idioma e o formato das horas). Os gráficos são desenhados
-no próprio ReportLab, em vetor, como os da tela: uma série na cor da instalação (as horas extras
-em azul nas colunas empilhadas). Fontes padrão do PDF, sem pacotes do sistema.
+no próprio ReportLab, em vetor, como os da tela e com as mesmas cores de série do modo claro
+(`Series`, web/palette.py). Fontes padrão do PDF, sem pacotes do sistema.
 """
 
 import io
@@ -32,7 +32,6 @@ INK = colors.HexColor("#171717")
 MUTED = colors.HexColor("#525252")
 RULE = colors.HexColor("#E5E5E5")
 HEAD = colors.HexColor("#F5F5F5")
-EXTRA = colors.HexColor("#1D4ED8")  # as horas extras das colunas empilhadas
 WIDTH = A4[0] - 30 * mm
 CHART_HEIGHT = 48 * mm
 
@@ -73,6 +72,16 @@ class Grid:
 
 
 Block = Cards | Chart | Grid
+
+
+@dataclass
+class Series:
+    """As cores dos gráficos: a série (`chart-1`, a primary), as horas extras das colunas
+    empilhadas (`chart-2`) e o período anterior (`chart-before`)."""
+
+    first: colors.Color
+    second: colors.Color
+    before: colors.Color
 
 
 def _sanitize(text: str) -> str:
@@ -184,12 +193,8 @@ def _bars(block: Chart, primary: colors.Color) -> Drawing:
     return drawing
 
 
-def _faded(color: colors.Color) -> colors.Color:
-    """A cor da série de antes: a da instalação, clareada."""
-    return colors.linearlyInterpolatedColor(colors.white, color, 0, 1, 0.35)
-
-
-def _columns(block: Chart, primary: colors.Color) -> Drawing:
+def _columns(block: Chart, series: Series) -> Drawing:
+    primary = series.first
     axis = 16 * mm
     bottom = 10
     height = CHART_HEIGHT - bottom
@@ -221,17 +226,17 @@ def _columns(block: Chart, primary: colors.Color) -> Drawing:
         if before is not None:  # a de antes à esquerda; as duas na metade da largura
             width /= 2
             if before:
-                drawing.add(_rect(left, bottom, width, before / top * height, _faded(primary)))
+                drawing.add(_rect(left, bottom, width, before / top * height, series.before))
             left += width
         if block.kind == "stacked" and value:
             lower = (value - extra) / top * height
             drawing.add(_rect(left, bottom, width, lower, primary))
-            drawing.add(_rect(left, bottom + lower, width, h - lower, EXTRA))
+            drawing.add(_rect(left, bottom + lower, width, h - lower, series.second))
         elif value:
             drawing.add(_rect(left, bottom, width, h, primary))
     if len(old) >= 4:
         drawing.add(
-            PolyLine(old, strokeColor=_faded(primary), strokeWidth=1.5, strokeDashArray=[3, 2])
+            PolyLine(old, strokeColor=series.before, strokeWidth=1.5, strokeDashArray=[3, 2])
         )
     if line:
         drawing.add(PolyLine(line, strokeColor=primary, strokeWidth=1.5))
@@ -240,16 +245,16 @@ def _columns(block: Chart, primary: colors.Color) -> Drawing:
     return drawing
 
 
-def _chart(block: Chart, st: dict[str, ParagraphStyle], primary: colors.Color) -> list[Flowable]:
+def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[Flowable]:
     flow: list[Flowable] = [_p(block.title, st["h2"])]
     if not block.points:
         return [*flow, _p(block.empty, st["muted"])]
-    flow.append(_bars(block, primary) if block.kind == "bars" else _columns(block, primary))
+    flow.append(_bars(block, series.first) if block.kind == "bars" else _columns(block, series))
     if block.legend:
         legend = Drawing(WIDTH, 12)
         x = 0.0
-        second = EXTRA if block.kind == "stacked" else _faded(primary)
-        for color, label in zip((primary, second), block.legend, strict=True):
+        second = series.second if block.kind == "stacked" else series.before
+        for color, label in zip((series.first, second), block.legend, strict=True):
             legend.add(_rect(x, 2, 7, 7, color))
             legend.add(_text(x + 10, 3, label, size=8))
             x += 10 + len(label) * 4.5 + 12
@@ -273,19 +278,20 @@ def _document(story: list[Flowable], title: str) -> bytes:
 
 
 def render_model(
-    title: str, lines: list[str], blocks: list[Block], footer: str, primary: str
+    title: str, lines: list[str], blocks: list[Block], footer: str, series: tuple[str, str, str]
 ) -> bytes:
     """O PDF de um modelo: o título, as linhas de cabeçalho (período, filtros), os blocos na
-    ordem e o rodapé (quando e quem gerou)."""
+    ordem e o rodapé (quando e quem gerou). `series`: as cores `chart-1`, `chart-2` e
+    `chart-before` da paleta."""
     st = _styles()
-    color = colors.HexColor(primary)
+    palette = Series(*(colors.HexColor(c) for c in series))
     story: list[Flowable] = [_p(title, st["h1"])]
     story += [_p(line, st["muted"]) for line in lines]
     for block in blocks:
         if isinstance(block, Cards):
             story += _cards(block, st)
         elif isinstance(block, Chart):
-            story += _chart(block, st, color)
+            story += _chart(block, st, palette)
         else:
             story += _grid(block, st)
     story += [Spacer(1, 10), _p(footer, st["muted"])]

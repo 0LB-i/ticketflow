@@ -25,7 +25,11 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
         model_pdf.Grid("Tarefas", ["Quando"], [], empty="Nenhuma tarefa no período."),
     ]
     conteudo = model_pdf.render_model(
-        "Mensal & <cia>", ["Período: 01/10/2026 a 03/10/2026"], blocos, "Gerado", "#C2410C"
+        "Mensal & <cia>",
+        ["Período: 01/10/2026 a 03/10/2026"],
+        blocos,
+        "Gerado",
+        ("#C2410C", "#1D4ED8", "#D3785C"),
     )
     assert conteudo.startswith(b"%PDF")
 

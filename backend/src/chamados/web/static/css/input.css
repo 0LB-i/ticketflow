@@ -56,6 +56,13 @@
   --tf-gold-hover: #eab308;
   --tf-on-gold: #171717;
 
+  /* Séries dos gráficos (relatórios): 3:1 sobre o fundo; a 1ª é a primary, a 2ª se distingue
+     dela também para quem não enxerga vermelho ou verde, e a do período anterior é a primary mais
+     clara (web/palette.py deriva as duas com outras cores) */
+  --tf-chart-1: var(--tf-primary);
+  --tf-chart-2: #1d4ed8;
+  --tf-chart-before: #d3785c;
+
   /* Status e prioridade: texto / fundo (docs/17, tabela de badges) */
   --tf-blue-fg: #1d4ed8;
   --tf-blue-bg: #eff6ff;
@@ -85,6 +92,8 @@
   --tf-border: #404040;
   --tf-border-input: #737373;
   --tf-danger: #dc2626;
+  --tf-chart-2: #3b82f6;
+  --tf-chart-before: #be7844;
 
   --tf-blue-fg: #93c5fd;
   --tf-violet-fg: #c4b5fd;
@@ -122,6 +131,9 @@
   --color-gold: var(--tf-gold);
   --color-gold-hover: var(--tf-gold-hover);
   --color-on-gold: var(--tf-on-gold);
+  --color-chart-1: var(--tf-chart-1);
+  --color-chart-2: var(--tf-chart-2);
+  --color-chart-before: var(--tf-chart-before);
 
   --color-blue-fg: var(--tf-blue-fg);
   --color-blue-bg: var(--tf-blue-bg);

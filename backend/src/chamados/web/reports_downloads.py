@@ -201,14 +201,15 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             )
         lines.append(_filters_line(page, state))
         colors = page.branding.colors
-        primary = palette(colors.model_dump() if colors else None)["light"]["primary"]
+        light = palette(colors.model_dump() if colors else None)["light"]
+        series = (light["primary"], light["chart-2"], light["chart-before"])
         content = await run_in_threadpool(
             model_pdf.render_model,
             state.choice.name,
             [line for line in lines if line],
             _pdf_blocks(page, views),
             page.t("relatorios.pdf.gerado", quando=now, quem=page.auth.user.display_name),
-            primary,
+            series,
         )
         table = "model"
     reports_api.record_export(

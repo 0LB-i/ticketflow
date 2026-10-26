@@ -28,6 +28,8 @@ TOKENS = (
     "muted",
     "border",
     "border-input",
+    "chart-2",
+    "chart-before",
 )
 
 DEFAULT_COLORS: Colors = {"brand": "#F97316", "neutral": "#737373", "background": "#FFFFFF"}
@@ -60,6 +62,8 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "muted": "#525252",
         "border": "#E5E5E5",
         "border-input": "#737373",
+        "chart-2": "#1D4ED8",
+        "chart-before": "#D3785C",
     },
     "dark": {
         "brand": "#F97316",
@@ -75,6 +79,8 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "muted": "#A3A3A3",
         "border": "#404040",
         "border-input": "#737373",
+        "chart-2": "#3B82F6",
+        "chart-before": "#BE7844",
     },
 }
 
@@ -193,6 +199,78 @@ def _shift(hex_color: str, delta: float) -> str:
     return _oklch_to_hex((min(1, max(0, base_l + delta)), c, h))
 
 
+# --- séries dos gráficos ----------------------------------------------------------------------
+# A `chart-1` é a `primary` (o input.css a repete). A `chart-2` (as horas extras das colunas
+# empilhadas) precisa se distinguir dela também para quem não enxerga vermelho ou verde: a
+# distância em OKLab (×100) com a visão simulada pelo Machado, Oliveira e Fernandes (2009, em
+# RGB linear), como o validador da skill `dataviz`.
+
+DISTINCT = 15  # visão normal
+DISTINCT_CVD = 8  # protanopia e deuteranopia
+
+_CVD = (
+    (
+        (0.152286, 1.052583, -0.204868),
+        (0.114503, 0.786281, 0.099216),
+        (-0.003882, -0.048116, 1.051998),
+    ),
+    (
+        (0.367322, 0.860646, -0.227968),
+        (0.280085, 0.672501, 0.047413),
+        (-0.011820, 0.042940, 0.968881),
+    ),
+)
+
+# Os matizes candidatos da `chart-2`, na ordem de preferência (graus OKLCH): azul, verde-azulado,
+# violeta e âmbar; vale o primeiro que se distingue da `chart-1`. O tom de partida de cada modo.
+_SECOND_HUES = (264, 185, 300, 75)
+_SECOND_TONE: dict[Mode, tuple[float, float]] = {"light": (0.49, 0.2), "dark": (0.62, 0.18)}
+
+
+def _oklab(linear: Rgb) -> Rgb:
+    # O _rgb_to_oklch parte do sRGB: volta do linear (a simulação é feita nele).
+    big_l, c, h = _rgb_to_oklch(tuple(_gamma(v) for v in linear))  # type: ignore[arg-type]
+    return big_l, c * math.cos(h), c * math.sin(h)
+
+
+def distance(a: str, b: str, cvd: int | None = None) -> float:
+    """A diferença entre duas cores (OKLab ×100); `cvd`: 0 protanopia, 1 deuteranopia."""
+
+    def lab(hex_color: str) -> Rgb:
+        rgb = tuple(_linear(v) for v in _hex_to_rgb(hex_color))
+        if cvd is not None:
+            rgb = tuple(min(1, max(0, sum(m * v for m, v in zip(row, rgb, strict=True))))
+                        for row in _CVD[cvd])  # fmt: skip
+        return _oklab(rgb)  # type: ignore[arg-type]
+
+    return 100 * math.dist(lab(a), lab(b))
+
+
+def distinct(a: str, b: str) -> bool:
+    return distance(a, b) >= DISTINCT and all(distance(a, b, k) >= DISTINCT_CVD for k in (0, 1))
+
+
+def _second_series(primary: str, backgrounds: list[str], mode: Mode) -> str:
+    """A `chart-2`: 3:1 sobre os fundos e distinta da `primary`; se nenhum candidato for, o mais
+    distante dela para quem não enxerga vermelho ou verde."""
+    big_l, c = _SECOND_TONE[mode]
+    candidates = [
+        _readable(_oklch_to_hex((big_l, c, math.radians(h))), backgrounds, 3) for h in _SECOND_HUES
+    ]
+    return next(
+        (x for x in candidates if distinct(x, primary)),
+        max(candidates, key=lambda x: min(distance(x, primary, k) for k in (0, 1))),
+    )
+
+
+def _before_series(primary: str, backgrounds: list[str], light: bool) -> str:
+    """A série do período anterior: a `primary` mais perto do fundo e menos saturada, mas ainda
+    com 3:1 sobre ele."""
+    big_l, c, h = _rgb_to_oklch(_hex_to_rgb(primary))
+    faded = _oklch_to_hex((big_l + (0.12 if light else -0.12), c * 0.7, h))
+    return _readable(faded, backgrounds, 3)
+
+
 DARK_TEXT = "#0A0A0A"
 WHITE = "#FFFFFF"
 
@@ -245,6 +323,8 @@ def _derive(colors: Colors, mode: Mode) -> Tokens:
         "muted": muted,
         "border": border,
         "border-input": border_input,
+        "chart-2": _second_series(primary, [surface, bg], mode),
+        "chart-before": _before_series(primary, [surface, bg], light_bgs),
     }
 
 
