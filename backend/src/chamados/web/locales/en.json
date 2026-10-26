@@ -447,6 +447,7 @@
       "mesPassado": "Last month"
     },
     "carregando": "Loading…",
+    "verNumeros": "See the numbers (without JavaScript they don't load on their own)",
     "atualizado": "Report updated.",
     "detalhe": {
       "periodo": "Drilled down to {de} – {ate}.",

@@ -10,7 +10,7 @@ import re
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -41,7 +41,7 @@ def _pdf(html: str, arquivo: str = "pdf") -> dict[str, list[str]]:
 
 
 def test_relatorio_do_mes(client: TestClient, cenario: dict[str, Any]) -> None:
-    r = client.get("/relatorios")
+    r = client.get("/relatorios/blocos")
     assert r.status_code == 200
     assert "<title>Relatórios · TicketFlow</title>" in r.text
     hoje = datetime.now(TIMEZONE).date()
@@ -82,7 +82,7 @@ def test_numeros_graficos_e_abas(client: TestClient, cenario: dict[str, Any], db
     tarefa(client, numero, 90, em(dia, 19))  # 60 min fora do expediente
     tarefa(client, numero, 45, em(dia, 10))
 
-    r = client.get("/relatorios", params=_um_dia(dia))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia))
     assert '<dd class="mt-1 text-2xl font-semibold">2h15</dd>' in r.text
     assert '<dd class="mt-1 text-2xl font-semibold">1h</dd>' in r.text
     # Colunas por dia (com a dica da data e do valor) e barras por pessoa.
@@ -97,7 +97,7 @@ def test_numeros_graficos_e_abas(client: TestClient, cenario: dict[str, Any], db
     assert achado and f"pessoa={cenario['ana']}" in achado.group(1)
 
     filtros = _um_dia(dia)
-    r = client.get("/relatorios", params={**filtros, "aba": "clientes"})
+    r = client.get("/relatorios/blocos", params={**filtros, "aba": "clientes"})
     assert 'aria-current="page">Clientes</a>' in r.text
     assert _pdf(r.text, "csv")["table"] == ["clients"]
     assert "Horas por cliente (os 10 maiores)" in r.text
@@ -106,7 +106,7 @@ def test_numeros_graficos_e_abas(client: TestClient, cenario: dict[str, Any], db
     # As abas levam os filtros junto.
     assert f"de={dia.isoformat()}" in r.text
 
-    r = client.get("/relatorios", params={**filtros, "aba": "horas-extras"})
+    r = client.get("/relatorios/blocos", params={**filtros, "aba": "horas-extras"})
     assert "Hora extra é o tempo de tarefa fora do expediente: Seg, Ter, Qua, Qui, Sex" in r.text
     assert f'<a href="/chamados/{numero}" class="text-primary underline tabular-nums">' in r.text
     assert "Tarefas fora do expediente" in r.text
@@ -122,16 +122,18 @@ def test_supervisor_escolhe_pessoa(
     tarefa(client, numero, 30, em(dia, 10))
 
     # A Ana não escolhe pessoa, e forçar a da Bia mostra o erro da API, sem o PDF.
-    r = client.get("/relatorios", params=_um_dia(dia, pessoa=cenario["bia"]))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, pessoa=cenario["bia"]))
     assert "Você só pode ver os seus próprios números." in r.text
     assert '<button type="button" disabled' in r.text
 
     entrar(client, "bia@x.com")
-    r = client.get("/relatorios", params=_um_dia(dia))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia))
     assert '<option value="">Todas as pessoas</option>' in r.text
     assert f'<option value="{cenario["ana"]}">Ana</option>' in r.text
     assert "Todos os grupos" in r.text  # supervisiona o TI
-    r = client.get("/relatorios", params=_um_dia(dia, pessoa=cenario["ana"], grupo=cenario["ti"]))
+    r = client.get(
+        "/relatorios/blocos", params=_um_dia(dia, pessoa=cenario["ana"], grupo=cenario["ti"])
+    )
     # A escolhida vira etiqueta e sai da lista; a lista passa a acrescentar.
     assert f'<input type="hidden" name="pessoa" value="{cenario["ana"]}">' in r.text
     assert f'<option value="{cenario["ana"]}" hidden disabled>Ana</option>' in r.text
@@ -146,7 +148,9 @@ def test_supervisor_escolhe_pessoa(
     assert resposta.content.startswith(b"%PDF")
 
     # Várias pessoas de uma vez.
-    r = client.get("/relatorios", params=_um_dia(dia, pessoa=[cenario["ana"], cenario["bia"]]))
+    r = client.get(
+        "/relatorios/blocos", params=_um_dia(dia, pessoa=[cenario["ana"], cenario["bia"]])
+    )
     assert '<dd class="mt-1 text-2xl font-semibold">30min</dd>' in r.text
     assert _pdf(r.text)["person"] == [cenario["ana"], cenario["bia"]]
 
@@ -154,7 +158,7 @@ def test_supervisor_escolhe_pessoa(
 def test_filtro_de_cliente(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
     padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     # Vários clientes e "Sem cliente"; um valor que não é cliente fica de fora.
-    r = client.get("/relatorios", params={"cliente": [padaria, "sem-cliente", "xyz"]})
+    r = client.get("/relatorios/blocos", params={"cliente": [padaria, "sem-cliente", "xyz"]})
     assert f'<input type="hidden" name="cliente" value="{padaria}">' in r.text
     assert "<span data-rotulo>Padaria Pão Quente</span>" in r.text
     assert '<input type="hidden" name="cliente" value="sem-cliente">' in r.text
@@ -173,7 +177,7 @@ def test_busca_de_cliente_no_filtro(
     desativados (o relatório olha o passado), sem os já escolhidos."""
     padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     antiga = criar_cliente(db, "Padaria Antiga", "11444777000161", ativo=False)
-    r = client.get("/relatorios")
+    r = client.get("/relatorios/blocos")
     assert "Padaria Pão Quente" not in r.text and "Cliente Padrão" not in r.text
 
     r = client.get("/relatorios/clientes")
@@ -192,7 +196,7 @@ def test_busca_de_cliente_no_filtro(
     assert "Nenhum cliente encontrado" in r.text
 
     # O escolhido aparece com o nome, na etiqueta e no resumo.
-    r = client.get("/relatorios", params={"cliente": antiga})
+    r = client.get("/relatorios/blocos", params={"cliente": antiga})
     assert "<span data-rotulo>Padaria Antiga</span>" in r.text
     assert 'aria-label="Tirar Padaria Antiga"' in r.text
 
@@ -200,7 +204,7 @@ def test_busca_de_cliente_no_filtro(
 def test_periodo_personalizado(client: TestClient, cenario: dict[str, Any]) -> None:
     # Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em hoje.
     hoje = datetime.now(TIMEZONE).date()
-    r = client.get("/relatorios", params={"periodo": "personalizado"})
+    r = client.get("/relatorios/blocos", params={"periodo": "personalizado"})
     assert (
         f'id="campo-de" name="de" type="date" value="{hoje.replace(day=1).isoformat()}"' in r.text
     )
@@ -208,27 +212,29 @@ def test_periodo_personalizado(client: TestClient, cenario: dict[str, Any]) -> N
     assert _pdf(r.text)["end"] == [hoje.isoformat()]
     # As datas não aplicam ao mudar: o botão Aplicar envia.
     assert '<button type="submit"' in r.text and ">Aplicar</button>" in r.text
-    assert ">Aplicar</button>" not in client.get("/relatorios").text
+    assert ">Aplicar</button>" not in client.get("/relatorios/blocos").text
 
     r = client.get(
-        "/relatorios", params={"periodo": "personalizado", "de": "2026-10-10", "ate": "2026-10-01"}
+        "/relatorios/blocos",
+        params={"periodo": "personalizado", "de": "2026-10-10", "ate": "2026-10-01"},
     )
     assert "A data final precisa ser igual ou depois da inicial." in r.text
     assert "Chamados registrados" not in r.text
     assert '<button type="button" disabled' in r.text
     r = client.get(
-        "/relatorios", params={"periodo": "personalizado", "de": "", "ate": "2026-10-01"}
+        "/relatorios/blocos", params={"periodo": "personalizado", "de": "", "ate": "2026-10-01"}
     )
     assert "A data final precisa ser igual ou depois da inicial." in r.text
 
     # Mais de 366 dias: o erro vem da API.
     r = client.get(
-        "/relatorios", params={"periodo": "personalizado", "de": "2024-01-01", "ate": "2026-01-01"}
+        "/relatorios/blocos",
+        params={"periodo": "personalizado", "de": "2024-01-01", "ate": "2026-01-01"},
     )
     assert "O período pode ter no máximo 366 dias." in r.text
 
     # Período e aba desconhecidos: o mês atual, na primeira aba.
-    r = client.get("/relatorios", params={"periodo": "1999-01", "aba": "xyz"})
+    r = client.get("/relatorios/blocos", params={"periodo": "1999-01", "aba": "xyz"})
     assert '<option value="mes-atual" selected>' in r.text
     assert 'aria-current="page">Produtividade</a>' in r.text
 
@@ -244,7 +250,7 @@ def test_periodos_relativos(client: TestClient, cenario: dict[str, Any]) -> None
     # O cálculo está em tests/unidade/test_relatorios_construtor.py. Na tela: o período
     # escolhido, o intervalo e os downloads com as datas de hoje.
     agora = datetime.now(TIMEZONE).date()
-    r = client.get("/relatorios", params={"periodo": "ultimos-7-dias", "aba": "clientes"})
+    r = client.get("/relatorios/blocos", params={"periodo": "ultimos-7-dias", "aba": "clientes"})
     assert '<option value="ultimos-7-dias" selected>Últimos 7 dias</option>' in r.text
     inicio = agora - timedelta(days=6)
     assert f"De {format_day('pt-BR', inicio)} a {format_day('pt-BR', agora)}" in r.text
@@ -292,7 +298,7 @@ def test_salvar_como_modelo_e_os_filtros_salvos(
     assert '<input type="hidden" name="cliente" value="sem-cliente">' in r.text
 
     modelo = _criar(client, "Sem cliente", periodo="ultimos-7-dias", cliente="sem-cliente")
-    r = client.get("/relatorios", params={"aba": modelo})
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
     assert "Modelo salvo." in r.text
     assert 'aria-current="page">Sem cliente</a>' in r.text
     # Sem filtro na URL, valem os do modelo.
@@ -303,10 +309,10 @@ def test_salvar_como_modelo_e_os_filtros_salvos(
     # Modelo da pessoa: sem o PDF e o CSV da aba (fase 4), com o CSV de todas as tarefas.
     assert "/api/v1/reports/pdf" not in r.text and "table=tasks" in r.text
     # Nas outras abas, o modelo abre com os filtros dele.
-    assert f'href="/relatorios?aba={modelo}"' in client.get("/relatorios").text
+    assert f'href="/relatorios?aba={modelo}"' in client.get("/relatorios/blocos").text
 
     # Mexer num filtro mostra "Salvar filtros", que os guarda no modelo.
-    r = client.get("/relatorios", params={"aba": modelo, "periodo": "mes-anterior"})
+    r = client.get("/relatorios/blocos", params={"aba": modelo, "periodo": "mes-anterior"})
     assert "Salvar filtros" in r.text
     r = client.post(
         f"/relatorios/modelos/{modelo}/filtros",
@@ -314,7 +320,7 @@ def test_salvar_como_modelo_e_os_filtros_salvos(
         follow_redirects=False,
     )
     assert r.status_code == 303 and r.headers["location"] == f"/relatorios?aba={modelo}"
-    r = client.get("/relatorios", params={"aba": modelo})
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
     assert "Filtros salvos no modelo." in r.text
     assert '<option value="mes-anterior" selected>Mês anterior</option>' in r.text
     assert 'name="cliente" value="sem-cliente"' not in r.text
@@ -365,15 +371,15 @@ def test_modelo_inicial_e_o_de_outra_pessoa(
     client: TestClient, cenario: dict[str, Any], db: Session
 ) -> None:
     primeiro = _criar(client, "Primeiro", inicial="1")
-    assert 'aria-current="page">Primeiro</a>' in client.get("/relatorios").text
+    assert 'aria-current="page">Primeiro</a>' in client.get("/relatorios/blocos").text
     segundo = _criar(client, "Segundo", inicial="1")
-    assert 'aria-current="page">Segundo</a>' in client.get("/relatorios").text
+    assert 'aria-current="page">Segundo</a>' in client.get("/relatorios/blocos").text
     iniciais = db.scalars(select(ReportModel.name).where(ReportModel.is_default)).all()
     assert iniciais == ["Segundo"]
 
     # A Bia não vê nem mexe nos modelos da Ana.
     entrar(client, "bia@x.com")
-    r = client.get("/relatorios", params={"aba": primeiro})
+    r = client.get("/relatorios/blocos", params={"aba": primeiro})
     assert "Primeiro" not in r.text and 'aria-current="page">Produtividade</a>' in r.text
     assert client.get(f"/relatorios/modelos/{primeiro}/editar").status_code == 404
     r = client.post(f"/relatorios/modelos/{primeiro}/excluir", data=formulario(client))
@@ -387,7 +393,7 @@ def test_modelo_inicial_e_o_de_outra_pessoa(
         f"/relatorios/modelos/{segundo}/excluir", data=formulario(client), follow_redirects=False
     )
     assert r.status_code == 303
-    r = client.get("/relatorios")
+    r = client.get("/relatorios/blocos")
     assert "Modelo excluído." in r.text and "Segundo" not in r.text
     assert 'aria-current="page">Produtividade</a>' in r.text
 
@@ -398,7 +404,7 @@ def test_csv_de_um_bloco(client: TestClient, cenario: dict[str, Any], db: Sessio
     tarefa(client, numero, 90, em(dia, 19))  # 60 min fora do expediente
     tarefa(client, numero, 30, em(dia, 10))
     filtros = _um_dia(dia, aba="horas-extras")
-    r = client.get("/relatorios", params=filtros)
+    r = client.get("/relatorios/blocos", params=filtros)
     assert "/relatorios/csv?" in r.text and "bloco=3" in r.text
 
     r = client.get("/relatorios/csv", params={**filtros, "bloco": "3"})
@@ -444,7 +450,7 @@ def test_linha_e_horas_em_decimal(client: TestClient, cenario: dict[str, Any]) -
     dados = formulario(client, nome="Linha", horas="decimal", acao="salvar", **campos)
     r = client.post("/relatorios/modelos", data=dados, follow_redirects=False)
     modelo = parse_qs(urlsplit(r.headers["location"]).query)["aba"][0]
-    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
     assert '<dd class="mt-1 text-2xl font-semibold">1,5 h</dd>' in r.text
     assert "<polyline" in r.text and "Meu gráfico" in r.text
     assert f'aria-label="{format_day("pt-BR", dia)}: 1,5 h"' in r.text
@@ -460,14 +466,14 @@ def test_filtro_salvo_que_nao_vale_mais(
     config["filters"]["people"] = [alguem]
     db.execute(update(ReportModel).where(ReportModel.name == "Antigo").values(config=config))
     db.commit()
-    r = client.get("/relatorios", params={"aba": modelo})
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
     assert "não valem mais para você e ficaram de fora: Pessoa." in r.text
     assert "Por pessoa" in r.text  # o relatório aparece, sem o filtro
 
     # Um formato que não vale mais: a tela avisa e o editor deixa refazer.
     db.execute(update(ReportModel).where(ReportModel.name == "Antigo").values(config={"x": 1}))
     db.commit()
-    r = client.get("/relatorios", params={"aba": modelo})
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
     assert "Este modelo foi salvo num formato que não vale mais." in r.text
     r = client.get(f"/relatorios/modelos/{modelo}/editar")
     assert r.status_code == 200 and "Este modelo foi salvo num formato" in r.text
@@ -497,7 +503,7 @@ def test_chamados_em_aberto_e_detalhar(
     db.commit()
 
     filtros = _um_dia(dia, aba="chamados")
-    r = client.get("/relatorios", params=filtros)
+    r = client.get("/relatorios/blocos", params=filtros)
     assert 'aria-current="page">Chamados</a>' in r.text
     assert "Em aberto no fim" in r.text and "Mediana até a conclusão" in r.text
     assert ">3d</a></dd>" in r.text  # o tempo até a conclusão, em dias
@@ -585,7 +591,7 @@ def test_em_aberto_no_fim_num_status_removido(
     r = client.get("/relatorios/chamados", params=_um_dia(ontem, medida="backlog"))
     assert r.status_code == 200
     assert '<td class="px-3 py-2">Esperando peças</td>' in r.text
-    r = client.get("/relatorios", params=_um_dia(ontem, aba="chamados"))
+    r = client.get("/relatorios/blocos", params=_um_dia(ontem, aba="chamados"))
     assert r.status_code == 200
 
 
@@ -595,7 +601,7 @@ def test_comparar_e_detalhar_por_linha(client: TestClient, cenario: dict[str, An
     tarefa(client, numero, 60, em(dia, 10))
     tarefa(client, numero, 30, em(dia - timedelta(days=1), 10))
 
-    r = client.get("/relatorios", params=_um_dia(dia, comparar="1"))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, comparar="1"))
     anterior = format_day("pt-BR", dia - timedelta(days=1))
     assert f"comparado com {anterior} a {anterior}" in r.text
     assert "+100% · antes: 30min" in r.text  # 1h contra 30min
@@ -623,7 +629,7 @@ def test_colunas_empilhadas_e_idade_no_editor(client: TestClient, cenario: dict[
     tarefa(client, numero, 90, em(dia, 19))  # 60 min fora do expediente
     campos = {"b0-visual": "stacked", "b0-agrupar": "day"}
     modelo = _criar(client, "Empilhadas", **{**campos, "b0-medidas": []})
-    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
     assert "Horas por dia: no expediente e extras" in r.text
     assert "No expediente: 30min · Horas extras: 1h" in r.text
     assert "fill-blue-fg" in r.text
@@ -671,9 +677,9 @@ def test_pdf_do_modelo(
     modelo = parse_qs(urlsplit(r.headers["location"]).query)["aba"][0]
 
     # As abas de horas continuam com o PDF da API; a Chamados e os modelos, com o do modelo.
-    assert "/relatorios/pdf?" not in client.get("/relatorios").text
-    assert "/relatorios/pdf?" in client.get("/relatorios", params={"aba": "chamados"}).text
-    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo, comparar="1"))
+    assert "/relatorios/pdf?" not in client.get("/relatorios/blocos").text
+    assert "/relatorios/pdf?" in client.get("/relatorios/blocos", params={"aba": "chamados"}).text
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo, comparar="1"))
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
     chamadas = _capturar(monkeypatch, "render_model")
     r = client.get(_link_pdf(r.text))
@@ -714,13 +720,15 @@ def test_relatorio_para_o_cliente(
     modelo = _criar(client, "Para a padaria", publico="client", atendeu="1")
 
     # Sem um cliente (só um) no filtro, a tela avisa e não há PDF.
-    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
     assert "precisa de um cliente, e só um" in r.text and "/relatorios/pdf?" not in r.text
-    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo, cliente=[padaria, "sem-cliente"]))
+    r = client.get(
+        "/relatorios/blocos", params=_um_dia(dia, aba=modelo, cliente=[padaria, "sem-cliente"])
+    )
     assert "precisa de um cliente, e só um" in r.text
 
     filtros = _um_dia(dia, aba=modelo, cliente=padaria)
-    r = client.get("/relatorios", params=filtros)
+    r = client.get("/relatorios/blocos", params=filtros)
     assert "Prévia do relatório para Padaria Pão Quente." in r.text
     assert '<td class="px-3 py-2">#' + str(numero) + "</td>" in r.text
     assert "De outro cliente" not in r.text
@@ -749,6 +757,14 @@ def test_relatorio_para_o_cliente(
     assert sem_cliente.status_code == 422
 
 
+def _com_blocos(client: TestClient, url: str) -> Any:
+    """Um link da tela, como o navegador o segue: a página e, nela, o pedido dos números."""
+    pagina = client.get(url)
+    achado = re.search(r'<div id="blocos" hx-get="([^"]+)" hx-trigger="load"', pagina.text)
+    assert achado, "sem o pedido dos números"
+    return client.get(achado.group(1).replace("&amp;", "&"))
+
+
 def _links(html: str, texto: str) -> list[str]:
     """Os endereços dos links cujo texto ou aria-label tem `texto`, já sem o &amp;."""
     achados = re.findall(rf'<a href="([^"]+)"[^>]*>(?:(?!</a>).)*{re.escape(texto)}', html, re.S)
@@ -757,13 +773,15 @@ def _links(html: str, texto: str) -> list[str]:
 
 
 def test_abas_logo_abaixo_do_titulo(client: TestClient, cenario: dict[str, Any]) -> None:
-    r = client.get("/relatorios")
+    r = client.get("/relatorios/blocos")
     assert r.text.index('<nav aria-label="Modelos') < r.text.index('<form method="get"')
 
 
 def test_resumo_dos_filtros_e_limpar(client: TestClient, cenario: dict[str, Any]) -> None:
     entrar(client, "bia@x.com")
-    r = client.get("/relatorios", params={"pessoa": cenario["ana"], "cliente": "sem-cliente"})
+    r = client.get(
+        "/relatorios/blocos", params={"pessoa": cenario["ana"], "cliente": "sem-cliente"}
+    )
     assert "Filtrado por:" in r.text
     # Cada × tira só aquele valor; o período continua.
     (tira_ana,) = _links(r.text, "Tirar Ana")
@@ -777,7 +795,7 @@ def test_resumo_dos_filtros_e_limpar(client: TestClient, cenario: dict[str, Any]
 
     # Num modelo com filtro salvo, "Limpar" fica no modelo e não traz o salvo de volta.
     modelo = _criar(client, "Sem cliente", periodo="ultimos-7-dias", cliente="sem-cliente")
-    r = client.get("/relatorios", params={"aba": modelo})
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
     (limpar,) = _links(r.text, "Limpar filtros")
     r = client.get(limpar)
     assert '<option value="ultimos-7-dias" selected>' in r.text
@@ -788,20 +806,20 @@ def test_resumo_dos_filtros_e_limpar(client: TestClient, cenario: dict[str, Any]
 def test_restaurar_filtros_salvos(client: TestClient, cenario: dict[str, Any]) -> None:
     modelo = _criar(client, "Semana", periodo="ultimos-7-dias")
     # Com os filtros salvos, nada a restaurar.
-    r = client.get("/relatorios", params={"aba": modelo})
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
     assert "Restaurar filtros salvos" not in r.text
     # Mexer num filtro mostra "Salvar filtros" e o link que volta aos salvos.
-    r = client.get("/relatorios", params={"aba": modelo, "periodo": "mes-anterior"})
+    r = client.get("/relatorios/blocos", params={"aba": modelo, "periodo": "mes-anterior"})
     assert "Salvar filtros" in r.text
     assert _links(r.text, "Restaurar filtros salvos") == [f"/relatorios?aba={modelo}"]
     # Nos modelos prontos não há o que restaurar.
-    r = client.get("/relatorios", params={"periodo": "mes-anterior"})
+    r = client.get("/relatorios/blocos", params={"periodo": "mes-anterior"})
     assert "Restaurar filtros salvos" not in r.text
 
 
 def test_trilha_do_detalhar(client: TestClient, cenario: dict[str, Any]) -> None:
     hoje = datetime.now(TIMEZONE).date()
-    r = client.get("/relatorios", params={"periodo": "mes-atual"})
+    r = client.get("/relatorios/blocos", params={"periodo": "mes-atual"})
     # A coluna de um dia aplica o dia como período e leva o de antes como origem.
     dia = hoje.isoformat()
     coluna = next(u for u in _links(r.text, format_day("pt-BR", hoje)) if f"de={dia}" in u)
@@ -823,7 +841,7 @@ def test_trilha_do_detalhar(client: TestClient, cenario: dict[str, Any]) -> None
     assert (query["de"], query["ate"]) == (["2026-01-01"], ["2026-01-31"])
     # Origem desconhecida, ou fora do personalizado: sem trilha.
     assert "Detalhando" not in client.get(coluna.replace("mes-atual", "xyz")).text
-    r = client.get("/relatorios", params={"periodo": "mes-atual", "origem": "mes-anterior"})
+    r = client.get("/relatorios/blocos", params={"periodo": "mes-atual", "origem": "mes-anterior"})
     assert "Detalhando" not in r.text
 
 
@@ -831,7 +849,7 @@ def test_filtros_pelo_htmx(client: TestClient, cenario: dict[str, Any], db: Sess
     padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     numero = registrar(client, cenario, client_id=padaria)["number"]
     tarefa(client, numero, 30, em(dia_util_passado(), 10))
-    r = client.get("/relatorios", params={"aba": "clientes"})
+    r = client.get("/relatorios/blocos", params={"aba": "clientes"})
     # O formulário troca o #relatorio (cabeçalho, filtros, abas e blocos) esperando as escolhas
     # seguidas, com o endereço na barra; um pedido novo cancela o anterior.
     assert (
@@ -854,12 +872,73 @@ def test_filtros_pelo_htmx(client: TestClient, cenario: dict[str, Any], db: Sess
     assert not re.search(r'<a href="/api/[^"]*" hx-boost', r.text)
     # O pedido do HTMX recebe a página inteira (o hx-select escolhe o trecho).
     r = client.get(
-        "/relatorios",
+        "/relatorios/blocos",
         params={"aba": "clientes", "cliente": padaria},
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200 and '<div id="relatorio"' in r.text
     assert "Filtrado por:" in r.text
+
+
+def test_numeros_em_segundo_plano(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A página sai sem os números (o título, as abas, os filtros e os downloads) e um esqueleto
+    do tamanho dos blocos os pede em /relatorios/blocos, com a mesma consulta."""
+    from chamados.modules.reports import service
+
+    dia = dia_util_passado()
+    padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
+    numero = registrar(client, cenario, client_id=padaria)["number"]
+    tarefa(client, numero, 90, em(dia, 19))
+    calculos: list[Any] = []
+    facts = service.facts
+
+    async def contar(*args: Any, **kwargs: Any) -> Any:
+        calculos.append(args)
+        return await facts(*args, **kwargs)
+
+    monkeypatch.setattr(service, "facts", contar)
+    filtros = _um_dia(dia, aba="horas-extras", pagina3="2")
+    r = client.get("/relatorios", params=filtros)
+    assert r.status_code == 200 and not calculos
+    query = urlencode(filtros).replace("&", "&amp;")  # a mesma consulta, na mesma ordem
+    url = f"/relatorios/blocos?{query}"
+    assert (
+        f'<div id="blocos" hx-get="{url}" hx-trigger="load" hx-target="this"'
+        ' hx-select="#blocos" hx-swap="outerHTML" aria-busy="true"' in r.text
+    )
+    # Um esqueleto por bloco, com o id para onde a paginação da lista rola; sem JavaScript, o
+    # link dos números.
+    assert r.text.count('class="h-24 animate-pulse') == 5  # os cartões
+    assert all(f'id="bloco-{i}"' in r.text for i in range(4))
+    assert f'<noscript><p><a href="{url}" class="text-primary underline">' in r.text
+    # O cabeçalho não depende dos números: os downloads e os filtros já vêm.
+    assert _pdf(r.text)["start"] == [dia.isoformat()]
+    assert "Tarefas fora do expediente" not in r.text
+
+    r = client.get(url.replace("&amp;", "&"))
+    assert len(calculos) == 1
+    assert '<div id="blocos" class="flex flex-col gap-4">' in r.text
+    assert "Tarefas fora do expediente" in r.text and "animate-pulse" not in r.text
+    assert f'href="/chamados/{numero}"' in r.text
+
+    # Com erro (outra pessoa, para a Ana), nem esqueleto nem pedido.
+    r = client.get("/relatorios", params=_um_dia(dia, pessoa=cenario["bia"]))
+    assert "Você só pode ver os seus próprios números." in r.text
+    assert 'id="blocos"' not in r.text
+
+    # O modelo para o cliente: sem um cliente, o aviso vem na hora; com um, o esqueleto.
+    modelo = _criar(client, "Para a padaria", publico="client")
+    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo))
+    assert "precisa de um cliente, e só um" in r.text and 'hx-trigger="load"' not in r.text
+    r = client.get("/relatorios", params=_um_dia(dia, aba=modelo, cliente=padaria))
+    assert 'hx-trigger="load"' in r.text and "/relatorios/pdf?" in r.text
+    r = _com_blocos(
+        client,
+        f"/relatorios?aba={modelo}&cliente={padaria}&periodo=personalizado&de={dia}&ate={dia}",
+    )
+    assert "Prévia do relatório para Padaria Pão Quente." in r.text
 
 
 def _seta(html: str, qual: str) -> dict[str, list[str]] | None:
@@ -879,7 +958,7 @@ def test_setas_do_periodo(client: TestClient, cenario: dict[str, Any]) -> None:
     hoje = datetime.now(TIMEZONE).date()
 
     def setas(**params: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-        html = client.get("/relatorios", params=params).text
+        html = client.get("/relatorios/blocos", params=params).text
         um, outro = _seta(html, "Período anterior"), _seta(html, "Próximo período")
         sem_aba = [{k: v for k, v in q.items() if k != "aba"} if q else None for q in (um, outro)]
         return sem_aba[0], sem_aba[1]
@@ -917,21 +996,21 @@ def test_setas_do_periodo(client: TestClient, cenario: dict[str, Any]) -> None:
 
     # Os filtros continuam; a trilha do detalhar, não.
     html = client.get(
-        "/relatorios",
+        "/relatorios/blocos",
         params=_um_dia(date(2025, 3, 10), cliente="sem-cliente", origem="mes-atual"),
     ).text
     seta = _seta(html, "Próximo período")
     assert seta and seta["cliente"] == ["sem-cliente"] and "origem" not in seta
     assert seta["de"] == ["2025-03-11"]
     # Período inválido: sem setas.
-    html = client.get("/relatorios", params={"periodo": "personalizado", "de": "x"}).text
+    html = client.get("/relatorios/blocos", params={"periodo": "personalizado", "de": "x"}).text
     assert "Período anterior" not in html
 
 
 def test_atalhos_do_personalizado(client: TestClient, cenario: dict[str, Any]) -> None:
     hoje = datetime.now(TIMEZONE).date()
-    assert "Atalhos:" not in client.get("/relatorios").text
-    r = client.get("/relatorios", params={"periodo": "personalizado"})
+    assert "Atalhos:" not in client.get("/relatorios/blocos").text
+    r = client.get("/relatorios/blocos", params={"periodo": "personalizado"})
     segunda = hoje - timedelta(days=hoje.weekday())
     (semana,) = _links(r.text, "Esta semana")
     assert parse_qs(urlsplit(semana).query)["de"] == [segunda.isoformat()]
@@ -953,10 +1032,10 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
     delta = '<td class="px-3 py-2 text-right tabular-nums text-sm text-muted">'
 
     # Sem comparar, nada muda.
-    r = client.get("/relatorios", params=_um_dia(dia))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia))
     assert ">Δ</th>" not in r.text and "Período anterior</li>" not in r.text
 
-    r = client.get("/relatorios", params=_um_dia(dia, comparar="1"))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, comparar="1"))
     # A tabela ganha um Δ por medida (o nome por extenso para o leitor de tela), na linha e no
     # total, em %.
     assert 'title="Variação de Horas" aria-label="Variação de Horas">Δ</th>' in r.text
@@ -976,7 +1055,7 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
     assert "Antes (Ana)" not in r.text
 
     # Sem nada no período de antes (sem base), o Δ fica vazio.
-    r = client.get("/relatorios", params=_um_dia(dia - timedelta(days=1), comparar="1"))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia - timedelta(days=1), comparar="1"))
     linha = re.search(r">Ana</a></td>(.*?)</tr>", r.text, re.S)
     assert linha
     assert re.findall(r"<td [^>]*>(.*?)</td>", linha.group(1), re.S)[:2] == ["30min", ""]
@@ -989,7 +1068,7 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
         "ate": dia.isoformat(),
         "comparar": "1",
     }
-    r = client.get("/relatorios", params=filtros)
+    r = client.get("/relatorios/blocos", params=filtros)
     assert 'stroke-dasharray="4 3"' in r.text
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")
 
@@ -1066,7 +1145,7 @@ def test_lista_de_tarefas_em_paginas(
     filtros = _um_dia(dia, aba="horas-extras")
     linhas = re.compile(rf'<a href="/chamados/{numero}" class="text-primary')
 
-    r = client.get("/relatorios", params=filtros)
+    r = client.get("/relatorios/blocos", params=filtros)
     assert len(linhas.findall(r.text)) == 2
     assert "Tarefas 1 a 2 de 5. O CSV do bloco traz todas." in r.text
     # A lista de tarefas é o 4º bloco da aba (pagina3); a página leva os filtros.
@@ -1077,10 +1156,10 @@ def test_lista_de_tarefas_em_paginas(
     assert '<button type="button" disabled' in r.text and "Anterior</button>" in r.text
     assert 'hx-swap="outerHTML show:#bloco-3:top"' in r.text
 
-    r = client.get(proxima)
+    r = _com_blocos(client, proxima)
     assert len(linhas.findall(r.text)) == 2 and "Tarefas 3 a 4 de 5." in r.text
     # Depois da última, a última; o CSV traz todas.
-    r = client.get("/relatorios", params={**filtros, "pagina3": "99"})
+    r = client.get("/relatorios/blocos", params={**filtros, "pagina3": "99"})
     assert len(linhas.findall(r.text)) == 1 and "Tarefas 5 a 5 de 5." in r.text
     assert ">Próxima" in r.text and not _links(r.text, "Próxima")
     csv_ = client.get("/relatorios/csv", params={**filtros, "bloco": "3"})
@@ -1090,6 +1169,6 @@ def test_lista_de_tarefas_em_paginas(
     assert '<thead class="sticky top-0 z-10' in r.text
     assert 'class="max-h-[70vh] overflow-auto' in r.text and "overflow-x-auto" not in r.text
     assert '<th scope="col" class="px-3 py-2 font-medium text-right">Tempo</th>' in r.text
-    r = client.get("/relatorios", params=_um_dia(dia))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia))
     assert '<th scope="col" class="px-3 py-2 font-medium text-right">Horas</th>' in r.text
     assert '<th scope="col" class="px-3 py-2 font-medium">Pessoa</th>' in r.text

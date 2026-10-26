@@ -21,18 +21,20 @@ from chamados.db.session import DB
 from chamados.modules.reports import builder, service
 from chamados.modules.reports.builder import CUSTOM
 from chamados.web.formatting import TIMEZONE, format_day
-from chamados.web.page import LoggedPageDep
+from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.reports_blocks import (
     block_view,
     client_preview,
     compared,
     compares,
+    single_client,
     uses_overtime,
 )
 from chamados.web.reports_state import (
     NO_CLIENT,
     RELATIVE_KEYS,
     TABS,
+    Params,
     ParamsDep,
     Values,
     interval_text,
@@ -78,11 +80,20 @@ async def client_choices(
 
 
 @router.get("/relatorios")
-async def reports_page(
-    page: LoggedPageDep,
-    db: DB,
-    params: ParamsDep,
-) -> HTMLResponse:
+async def reports_page(page: LoggedPageDep, db: DB, params: ParamsDep) -> HTMLResponse:
+    """A página sem os números: o título, as abas, os filtros e os downloads saem na hora, e um
+    esqueleto do tamanho dos blocos pede `/relatorios/blocos` (hx-trigger="load")."""
+    return await _report(page, db, params, lazy=True)
+
+
+@router.get("/relatorios/blocos")
+async def report_blocks(page: LoggedPageDep, db: DB, params: ParamsDep) -> HTMLResponse:
+    """A mesma página, com os blocos calculados: o HTMX tira dela o #blocos (e quem está sem
+    JavaScript chega aqui pelo link do <noscript>)."""
+    return await _report(page, db, params, lazy=False)
+
+
+async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HTMLResponse:
     state = await load_state(page, db, params)
     choice, query, options = state.choice, state.query, state.options
     slug = choice.slug
@@ -100,11 +111,20 @@ async def reports_page(
     downloads = None
     work_hours = None
     client_view = None
+    # Na página sem os números: os blocos que o esqueleto imita (o índice, que é o id para onde
+    # a paginação da lista rola, o visual e quantos cartões).
+    skeleton: list[tuple[int, str, int]] | None = None
     f, config = state.filters, choice.config
     if f is not None and config is not None and config.audience == "client":
-        client_view = await client_preview(page, db, state, f, config)
-        if client_view["ready"]:
+        # Sem um cliente (só um) no filtro, o aviso não depende dos números.
+        if lazy and single_client(state) is not None:
+            skeleton = [(0, "table", 0)]
+        else:
+            client_view = await client_preview(page, db, state, f, config)
+        if single_client(state) is not None:
             downloads = {"pdf": with_query("/relatorios/pdf", {**query, "aba": slug})}
+    elif f is not None and config is not None and lazy:
+        skeleton = [(i, b.visual, len(b.measures)) for i, b in enumerate(config.blocks)]
     elif f is not None and config is not None:
         data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
         before = None
@@ -135,8 +155,9 @@ async def reports_page(
             )
             for i, block in enumerate(config.blocks)
         ]
+    if f is not None and config is not None and config.audience != "client":
         if uses_overtime(config):
-            wh = data.work_hours
+            wh = state.lookups.work_hours
             work_hours = page.t(
                 "relatorios.expedienteUsado",
                 dias=", ".join(page.t(f"expediente.diasCurtos.{WEEKDAYS[d]}") for d in wh.weekdays),
@@ -323,6 +344,9 @@ async def reports_page(
         origin=state.origin,
         new_model_url=with_query("/relatorios/modelos/novo", {**query, "base": slug}),
         blocks=blocks,
+        skeleton=skeleton,
+        # A mesma consulta, inclusive a falta de filtros (que vale os salvos) e as páginas.
+        blocks_url=f"/relatorios/blocos?{page.request.url.query}".rstrip("?"),
         client_view=client_view,
         work_hours=work_hours,
         error=state.error,

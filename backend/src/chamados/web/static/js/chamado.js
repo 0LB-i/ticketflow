@@ -512,14 +512,29 @@ document.addEventListener('htmx:beforeSwap', (e) => {
   if (xhr.envios !== undefined && xhr.envios !== requestConfig.elt.dataset.envios) {
     e.detail.shouldSwap = false
   }
+  // Os números ainda a caminho são os dos filtros de antes: o pedido deles é cancelado (o
+  // #relatorio novo traz o esqueleto, que pede os novos).
+  if (e.detail.shouldSwap && e.detail.target?.id === 'relatorio') {
+    const pendentes = document.querySelector('#blocos[aria-busy]')
+    if (pendentes) htmx.trigger(pendentes, 'htmx:abort')
+  }
 })
 document.addEventListener('htmx:afterRequest', (e) => {
   if (e.detail.target?.id === 'relatorio') e.detail.target.removeAttribute('aria-busy')
 })
 // Avisa o leitor de tela que o relatório mudou (o aviso some e volta, para ser lido de novo).
+// Com os números ainda a caminho (o esqueleto, #blocos com aria-busy), o aviso espera por eles;
+// os da primeira abertura da página não avisam.
 document.addEventListener('htmx:afterSettle', (e) => {
   const aviso = document.getElementById('relatorio-aviso')
-  if (!aviso || e.detail.target?.id !== 'relatorio') return
+  const id = e.detail.target?.id
+  if (!aviso || (id !== 'relatorio' && id !== 'blocos')) return
+  if (id === 'relatorio' && document.querySelector('#blocos[aria-busy]')) {
+    aviso.dataset.pendente = ''
+    return
+  }
+  if (id === 'blocos' && !('pendente' in aviso.dataset)) return
+  delete aviso.dataset.pendente
   aviso.textContent = ''
   setTimeout(() => { aviso.textContent = aviso.dataset.texto }, 100)
 })

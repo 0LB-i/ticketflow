@@ -166,7 +166,31 @@
   {%- endif %}
   {%- if error %}
   {{ alert(error) }}
-  {%- elif client_view %}
+  {%- elif skeleton %}
+  {#- Os números vêm num segundo pedido: /relatorios/blocos é a mesma página com os blocos, e o
+      hx-select tira dela o #blocos (o mesmo depois dos filtros, que trocam o #relatorio e trazem
+      o esqueleto de novo). Até lá, um esqueleto do tamanho dos blocos, com os ids para onde a
+      paginação da lista rola. O indicador é o do #relatorio (herdado): "Carregando…". #}
+  <div id="blocos" hx-get="{{ blocks_url }}" hx-trigger="load" hx-target="this" hx-select="#blocos" hx-swap="outerHTML" aria-busy="true" class="flex flex-col gap-4">
+    <p class="sr-only">{{ t("relatorios.carregando") }}</p>
+    <noscript><p><a href="{{ blocks_url }}" class="text-primary underline">{{ t("relatorios.verNumeros") }}</a></p></noscript>
+    <div class="grid gap-4 lg:grid-cols-2" aria-hidden="true">
+      {%- for index, visual, count in skeleton %}
+      {%- if visual == "cards" %}
+      <div id="bloco-{{ index }}" class="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] lg:col-span-2">
+        {%- for _ in range(count) %}
+        <div class="h-24 animate-pulse rounded-lg bg-surface-raised"></div>
+        {%- endfor %}
+      </div>
+      {%- else %}
+      <div id="bloco-{{ index }}" class="scroll-mt-4 animate-pulse rounded-lg bg-surface-raised {{ 'h-60' if visual in ('bars', 'columns', 'stacked', 'line') else 'h-96 lg:col-span-2' }}"></div>
+      {%- endif %}
+      {%- endfor %}
+    </div>
+  </div>
+  {%- else %}
+  <div id="blocos" class="flex flex-col gap-4">
+  {%- if client_view %}
   {#- Modelo para o cliente: a prévia do que vai no PDF (totais e chamados), sem os blocos. #}
   {%- if not client_view.ready %}
   {{ alert(client_view.message, "info") }}
@@ -199,6 +223,8 @@
     {%- for b in blocks %}
     {{ block(b) }}
     {%- endfor %}
+  </div>
+  {%- endif %}
   </div>
   {%- endif %}
   </div>

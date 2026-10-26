@@ -177,7 +177,7 @@ def _blocos(
     monkeypatch.setattr(reports, "block_view", guardar)
     fim = inicio + timedelta(days=6)
     r = client.get(
-        "/relatorios",
+        "/relatorios/blocos",
         params={
             "periodo": "personalizado",
             "de": inicio.isoformat(),

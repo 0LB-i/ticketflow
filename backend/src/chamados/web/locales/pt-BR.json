@@ -447,6 +447,7 @@
       "mesPassado": "Mês passado"
     },
     "carregando": "Carregando…",
+    "verNumeros": "Ver os números (sem JavaScript, eles não carregam sozinhos)",
     "atualizado": "Relatório atualizado.",
     "detalhe": {
       "periodo": "Detalhando de {de} a {ate}.",

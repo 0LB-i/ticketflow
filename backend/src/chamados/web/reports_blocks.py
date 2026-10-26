@@ -399,7 +399,7 @@ def uses_overtime(config: ReportConfig) -> bool:
     return any("overtime" in b.measures or b.only_overtime for b in config.blocks)
 
 
-def _single_client(state: State) -> str | None:
+def single_client(state: State) -> str | None:
     """O nome do cliente do relatório para o cliente: o filtro precisa ter um, e só um."""
     if len(state.clients) != 1 or state.no_client:
         return None
@@ -410,7 +410,7 @@ async def client_preview(
     page: LoggedPage, db: DB, state: State, f: service.Filters, config: ReportConfig
 ) -> dict[str, Any]:
     """O relatório para o cliente (§14.8.5), na tela e no PDF: os totais e os chamados."""
-    client = _single_client(state)
+    client = single_client(state)
     if client is None:
         return {"ready": False, "message": page.t("relatorios.paraCliente.umCliente")}
     # Os totais e a lista: as tarefas, os registrados e os concluídos.

@@ -538,16 +538,23 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             conferir_quadro,
         ),
         Cenario(
+            # A página sem os números (os blocos vêm em /relatorios/blocos, pedidos por ela).
             "tela · Relatórios (admin)",
             "admin",
             lambda c: c.get("/relatorios"),
-            lambda r: igual(r.status_code, 200, "status"),
+            lambda r: igual('hx-get="/relatorios/blocos' in r.text, True, "o pedido dos números"),
+        ),
+        Cenario(
+            "tela · Relatórios, blocos (admin)",
+            "admin",
+            lambda c: c.get("/relatorios/blocos"),
+            conferir_registrados,
         ),
         Cenario(
             # Todos os conjuntos de chamados (o em aberto no fim é o mais largo), duas vezes.
             "tela · Relatórios, Chamados com Comparar (admin)",
             "admin",
-            lambda c: c.get("/relatorios", params={"aba": "chamados", "comparar": "1"}),
+            lambda c: c.get("/relatorios/blocos", params={"aba": "chamados", "comparar": "1"}),
             conferir_registrados,
         ),
         Cenario(
