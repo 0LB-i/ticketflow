@@ -290,7 +290,7 @@ async def ticket_list(
     parts: set[service.Part] = {kind}
     if kind == "closed":
         parts.add("net_lead")
-    data = await service.facts(db, page.auth, f, parts, state.lookups)
+    data = await service.facts(db, page.auth, f, service.Want(rows=parts), state.lookups)
     tickets = builder.tickets_of(data, measure)
     # Os mais recentes primeiro; no em aberto, os mais antigos (os que esperam há mais tempo).
     if kind == "backlog":

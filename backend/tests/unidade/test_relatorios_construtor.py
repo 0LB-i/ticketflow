@@ -27,14 +27,18 @@ from chamados.modules.reports.builder import (
     run,
 )
 from chamados.modules.reports.service import (
+    GROUPS,
     TZ,
     ClientName,
     Facts,
     Part,
+    Summed,
+    Sums,
     TaskFact,
     TeamName,
     TicketFact,
     UserName,
+    add_up,
     net_minutes,
 )
 from chamados.modules.system.work_hours import DEFAULT
@@ -85,14 +89,31 @@ def _dados(
     cancelados: list[TicketFact] | None = None,
     em_aberto: list[TicketFact] | None = None,
 ) -> Facts:
+    chamados = {
+        "opened": registrados or [],
+        "closed": concluidos or [],
+        "canceled": cancelados or [],
+        "backlog": em_aberto or [],
+    }
+    # As somas pelo mesmo caminho do `facts` quando as linhas vieram (`add_up`), em todos os
+    # agrupamentos.
+    somas: dict[Summed, Sums] = {
+        "hours": add_up(((t, t.minutes) for t in tarefas), GROUPS),
+        "overtime": add_up(((t, t.overtime) for t in tarefas), GROUPS),
+        "tasks": add_up(((t, 1) for t in tarefas), GROUPS),
+    }
+    for parte, linhas in chamados.items():
+        somas[parte] = add_up(((t, 1) for t in linhas), GROUPS)  # type: ignore[index]
     return Facts(
         parts=frozenset(get_args(Part)),
         work_hours=DEFAULT,
         tasks=tarefas,
-        opened=registrados or [],
-        closed=concluidos or [],
-        canceled=cancelados or [],
-        backlog=em_aberto or [],
+        overtime_tasks=tarefas,
+        opened=chamados["opened"],
+        closed=chamados["closed"],
+        canceled=chamados["canceled"],
+        backlog=chamados["backlog"],
+        sums=somas,
         users={ANA: UserName(uuid.uuid4(), "Ana"), BIA: UserName(uuid.uuid4(), "Bia")},
         clients={
             PADARIA: ClientName(uuid.uuid4(), "Padaria"),
@@ -125,21 +146,37 @@ def test_por_pessoa_com_tarefas_e_chamados() -> None:
 
 
 def test_cada_bloco_pede_so_o_que_usa() -> None:
-    """`service.facts` só consulta as partes que os blocos usam; uma que não veio é erro (não
-    um zero)."""
-    assert needs(BUILTINS["produtividade"].blocks) == {"tasks", "opened", "closed"}
-    assert needs(BUILTINS["chamados"].blocks) == {
-        "opened",
-        "closed",
-        "canceled",
-        "backlog",
-        "net_lead",
+    """`service.facts` só consulta o que os blocos usam: as somas das medidas que somam, por
+    agrupamento (o dia serve à semana e ao mês), e as linhas da lista, dos concluídos (a mediana)
+    e do em aberto. Uma parte ou uma soma que não veio é erro (não um zero)."""
+    produtividade = needs(BUILTINS["produtividade"].blocks)
+    assert produtividade.rows == set()
+    assert produtividade.sums == {
+        "hours": {"day", "person"},
+        "overtime": {"person"},
+        "tasks": {"person"},
+        "opened": set(),
+        "closed": {"person"},
     }
-    assert needs([Block(visual="tasks", only_overtime=True)]) == {"tasks"}
-    assert needs([Block(visual="cards", measures=["lead_time"])]) == {"closed"}
-    dados = replace(_dados([]), parts=frozenset({"tasks"}))
+    chamados = needs(BUILTINS["chamados"].blocks)
+    assert chamados.rows == {"closed", "net_lead"}
+    assert chamados.sums == {
+        "opened": {"day", "team"},
+        "closed": {"day", "team"},
+        "canceled": {"team"},
+        "backlog": {"status", "team"},
+    }
+    assert needs([Block(visual="tasks", only_overtime=True)]).rows == {"overtime"}
+    assert needs([Block(visual="tasks")]).rows == {"tasks"}
+    assert needs([Block(visual="cards", measures=["lead_time"])]).rows == {"closed"}
+    dados = replace(_dados([]), sums={})
     with pytest.raises(ValueError, match="closed"):
         run(dados, Block(visual="cards", measures=["closed"]), INICIO, INICIO)
+    somente_total: dict[Summed, Sums] = {"hours": Sums(total=0)}
+    dados = replace(_dados([]), sums=somente_total)
+    with pytest.raises(ValueError, match="'hours' por 'person'"):
+        bloco = Block(visual="table", dimension="person", measures=["hours"])
+        run(dados, bloco, INICIO, INICIO)
     dados = replace(_dados([]), parts=frozenset({"closed"}))
     with pytest.raises(ValueError, match="net_lead"):
         run(dados, Block(visual="cards", measures=["net_lead_time"]), INICIO, INICIO)

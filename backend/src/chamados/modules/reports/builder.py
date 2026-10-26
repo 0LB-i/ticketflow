@@ -12,7 +12,7 @@ tempos até a conclusão são a mediana (§14.1) e a reabertura, a porcentagem d
 import statistics
 import uuid
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Literal
@@ -20,7 +20,17 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from chamados.modules.reports.service import Facts, Part, TaskFact, TicketFact
+from chamados.modules.reports.service import (
+    Facts,
+    Group,
+    Part,
+    Summed,
+    Sums,
+    TaskFact,
+    TicketFact,
+    Want,
+    group_keys,
+)
 
 Visual = Literal["cards", "bars", "columns", "stacked", "line", "table", "tasks"]
 Dimension = Literal["person", "client", "team", "status", "age", "day", "week", "month"]
@@ -323,19 +333,43 @@ class Result:
     tasks: list[TaskFact] = field(default_factory=list)
 
 
-def needs(blocks: Iterable[Block]) -> set[Part]:
-    """As partes de `service.facts` que os blocos usam: as tarefas (nas medidas de tarefa e na
-    lista), o conjunto de chamados de cada medida de chamado (TICKET_SETS) e, no tempo líquido,
-    o histórico dos concluídos."""
-    parts: set[Part] = set()
+# As medidas que somam: vêm somadas pelo `service.facts` (`Sums`), no banco ou das linhas.
+SUMS: dict[Measure, Summed] = {
+    "hours": "hours",
+    "overtime": "overtime",
+    "tasks": "tasks",
+    "opened": "opened",
+    "closed": "closed",
+    "canceled": "canceled",
+    "backlog": "backlog",
+}
+
+
+def _group(dimension: Dimension) -> Group:
+    """O agrupamento das somas de uma dimensão (menos a idade, que sai das linhas do em aberto):
+    o dia serve à semana e ao mês."""
+    return "day" if dimension in TIMES else dimension  # type: ignore[return-value]
+
+
+def needs(blocks: Iterable[Block]) -> Want:
+    """O que os blocos pedem ao `service.facts`: as somas das medidas que somam, com os
+    agrupamentos; e as linhas da lista de tarefas (todas, ou só as que podem ter hora extra), dos
+    concluídos (a mediana e a reabertura; o histórico, no tempo líquido) e do em aberto."""
+    want = Want()
     for block in blocks:
         if block.visual == "tasks":
-            parts.add("tasks")
+            want.rows.add("overtime" if block.only_overtime else "tasks")
+        group = _group(block.dimension) if block.dimension not in (None, "age") else None
         for m in block.measures:
-            parts.add(TICKET_SETS.get(m, "tasks"))
-            if m == "net_lead_time":
-                parts.add("net_lead")
-    return parts
+            if m in SUMS:
+                groups = want.sums.setdefault(SUMS[m], set())
+                if group is not None:
+                    groups.add(group)
+            else:
+                want.rows.add("closed")
+                if m == "net_lead_time":
+                    want.rows.add("net_lead")
+    return want
 
 
 def _part(data: Facts, part: Part) -> None:
@@ -344,28 +378,56 @@ def _part(data: Facts, part: Part) -> None:
         raise ValueError(f"service.facts sem a parte {part!r}: peça com builder.needs")
 
 
+def _sums(data: Facts, measure: Measure, group: Group | None) -> Sums:
+    """As somas de uma medida, com o agrupamento pedido (o mesmo aviso do `_part`)."""
+    sums = data.sums.get(SUMS[measure])
+    if sums is None or (group is not None and group not in sums.by):
+        raise ValueError(
+            f"service.facts sem a soma {measure!r} por {group!r}: peça com builder.needs"
+        )
+    return sums
+
+
 def tickets_of(data: Facts, measure: Measure) -> list[TicketFact]:
     """Os chamados por trás de uma medida de chamado."""
     _part(data, TICKET_SETS[measure])
     return list(getattr(data, TICKET_SETS[measure]))
 
 
-def _contributions(data: Facts, measure: Measure) -> list[tuple[TaskFact | TicketFact, int]]:
-    _part(data, TICKET_SETS.get(measure, "tasks"))
-    if measure == "hours":
-        return [(t, t.minutes) for t in data.tasks]
-    if measure == "overtime":
-        return [(t, t.overtime) for t in data.tasks]
-    if measure == "tasks":
-        return [(t, 1) for t in data.tasks]
+def _contributions(data: Facts, measure: Measure) -> list[tuple[TicketFact, int]]:
+    """As medidas que não somam (a mediana e a porcentagem), das linhas dos concluídos."""
+    _part(data, "closed")
     if measure == "lead_time":
         return [(t, t.lead) for t in data.closed if t.lead is not None]
     if measure == "net_lead_time":
         _part(data, "net_lead")
         return [(t, t.net_lead) for t in data.closed if t.net_lead is not None]
-    if measure == "reopen_rate":
-        return [(t, 10000 if t.reopened else 0) for t in data.closed]
-    return [(t, 1) for t in tickets_of(data, measure)]
+    return [(t, 10000 if t.reopened else 0) for t in data.closed]
+
+
+def _total(data: Facts, measure: Measure) -> Value:
+    if measure in SUMS:
+        return _sums(data, measure, None).total
+    return _reduce(measure, [amount for _, amount in _contributions(data, measure)])
+
+
+def _amounts(data: Facts, measure: Measure, dimension: Dimension) -> Iterator[tuple[Key, int]]:
+    """As parcelas de uma medida por chave da dimensão: as somas de cada chave (o dia, já no
+    período da semana ou do mês) ou, na mediana e na porcentagem, o valor de cada concluído."""
+    if dimension == "age":  # só o em aberto (check_block)
+        _part(data, "backlog")
+        for t in data.backlog:
+            if t.age is not None:
+                yield sum(t.age > limit for limit in AGE_LIMITS), 1
+        return
+    group = _group(dimension)
+    if measure in SUMS:
+        for key, amount in _sums(data, measure, group).by[group].items():
+            yield (_bucket(key, dimension) if dimension in TIMES else key), amount
+        return
+    for fact, amount in _contributions(data, measure):
+        for key in group_keys(fact, group):
+            yield (_bucket(key, dimension) if dimension in TIMES else key), amount
 
 
 def _reduce(measure: Measure, amounts: list[int]) -> Value:
@@ -374,21 +436,6 @@ def _reduce(measure: Measure, amounts: list[int]) -> Value:
     if measure in PERCENT:
         return round(statistics.fmean(amounts)) if amounts else None
     return sum(amounts)
-
-
-def _keys(fact: TaskFact | TicketFact, dimension: Dimension) -> Iterable[Key]:
-    if dimension == "person":
-        return [fact.author_id] if isinstance(fact, TaskFact) else fact.people
-    if dimension == "client":
-        return [fact.client_id]
-    if dimension == "team":
-        return [fact.team_id]
-    if dimension == "status":
-        return [fact.status_id]
-    if dimension == "age":
-        age = fact.age if isinstance(fact, TicketFact) else None
-        return [] if age is None else [sum(age > limit for limit in AGE_LIMITS)]
-    return [_bucket(fact.day, dimension)]
 
 
 def _bucket(day: date, dimension: Dimension) -> date:
@@ -426,16 +473,16 @@ def run(
     """Calcula um bloco. `dimension` troca a do bloco (a tela agrupa por semana um gráfico por
     dia de um período longo)."""
     if block.visual == "tasks":
-        _part(data, "tasks")
-        return Result(
-            dimension=None,
-            is_list=True,
-            tasks=[t for t in data.tasks if t.overtime or not block.only_overtime],
-        )
+        if block.only_overtime:
+            _part(data, "overtime")
+            tasks = [t for t in data.overtime_tasks if t.overtime]
+        else:
+            _part(data, "tasks")
+            tasks = list(data.tasks)
+        return Result(dimension=None, is_list=True, tasks=tasks)
     dim = dimension or block.dimension
     measures = block.measures
-    contributions = {m: _contributions(data, m) for m in measures}
-    total = {m: _reduce(m, [amount for _, amount in contributions[m]]) for m in measures}
+    total = {m: _total(data, m) for m in measures}
     if dim is None:
         return Result(dimension=None, total=total)
 
@@ -449,9 +496,8 @@ def run(
         for band in range(len(AGE_LIMITS) + 1):
             amounts[band] = {m: [] for m in measures}
     for m in measures:
-        for fact, amount in contributions[m]:
-            for key in _keys(fact, dim):
-                amounts[key][m].append(amount)
+        for key, amount in _amounts(data, m, dim):
+            amounts[key][m].append(amount)
 
     def reduced(lists: dict[Measure, list[int]]) -> dict[Measure, Value]:
         return {m: _reduce(m, lists[m]) for m in measures}
@@ -460,8 +506,9 @@ def run(
     if dim in TIMES or dim == "age":
         return Result(dimension=dim, rows=rows, total=total)
 
-    def by_name(r: Row) -> tuple[bool, str]:
-        return r.label is None, (r.label or "").casefold()
+    def by_name(r: Row) -> tuple[bool, str, int]:
+        # O id desempata dois nomes iguais (as somas vêm do banco sem uma ordem própria).
+        return r.label is None, (r.label or "").casefold(), r.key if isinstance(r.key, int) else 0
 
     first = measures[0]
     if block.order == "name":

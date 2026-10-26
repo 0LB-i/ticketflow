@@ -15,10 +15,25 @@ from functools import lru_cache
 from typing import Any, Literal, NamedTuple
 
 from fastapi import HTTPException
-from sqlalchemy import ColumnElement, and_, any_, bindparam, func, not_, or_, select, true
+from sqlalchemy import (
+    ColumnElement,
+    Date,
+    DateTime,
+    and_,
+    any_,
+    bindparam,
+    cast,
+    func,
+    not_,
+    or_,
+    select,
+    true,
+    tuple_,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import load_only
+from sqlalchemy.orm import aliased, load_only
+from sqlalchemy.sql.elements import Grouping
 
 from chamados.core.permissions import P, can
 from chamados.core.text import LIKE_ESCAPE, contains_pattern
@@ -381,28 +396,86 @@ class TeamName(NamedTuple):
     name: str
 
 
-# As partes de `facts`: as tarefas, cada conjunto de chamados e o tempo líquido dos concluídos
-# (que lê o histórico deles). Cada uma custa consultas próprias (o em aberto no fim é a mais
-# larga), então quem chama pede só as que usa (`builder.needs`); as outras ficam vazias.
-Part = Literal["tasks", "opened", "closed", "canceled", "backlog", "net_lead"]
+# As partes de `facts` que vêm em linhas: todas as tarefas (a lista), as que podem ter hora extra,
+# cada conjunto de chamados e o tempo líquido dos concluídos (que lê o histórico deles). Cada uma
+# custa consultas próprias (o em aberto no fim é a mais larga), então quem chama pede só as que
+# usa (`builder.needs`); as outras ficam vazias.
+Part = Literal["tasks", "overtime", "opened", "closed", "canceled", "backlog", "net_lead"]
+# As medidas que somam, e por isso vêm somadas (`Sums`) em vez de linha a linha: a mediana e a
+# porcentagem precisam das linhas dos concluídos.
+Summed = Literal["hours", "overtime", "tasks", "opened", "closed", "canceled", "backlog"]
+# Os conjuntos de chamados (linhas ou contagens).
+Counted = Literal["opened", "closed", "canceled", "backlog"]
+COUNTED: tuple[Counted, ...] = ("opened", "closed", "canceled", "backlog")
+# Os agrupamentos das somas; a semana e o mês saem do dia.
+Group = Literal["person", "client", "team", "status", "day"]
+GROUPS: tuple[Group, ...] = ("person", "client", "team", "status", "day")
+
+
+@dataclass
+class Want:
+    """O que pedir ao `facts`: as linhas de cada parte e as somas de cada medida, com os
+    agrupamentos (o total sempre vem)."""
+
+    rows: set[Part] = field(default_factory=set)
+    sums: dict[Summed, set[Group]] = field(default_factory=dict)
+
+
+@dataclass
+class Sums:
+    """Uma medida somada: o total do período e, em cada agrupamento pedido, a soma de cada chave
+    que aparece (um chamado conta para cada responsável, e no total uma vez só)."""
+
+    total: int = 0
+    by: dict[Group, dict[Any, int]] = field(default_factory=dict)
 
 
 @dataclass
 class Facts:
     """Os dados de um período, já com o escopo e os filtros, e os nomes do que aparece neles.
-    `parts`: as partes pedidas; as listas das outras ficam vazias (e o `net_lead`, None)."""
+    `parts`: as linhas que vieram; as listas das outras ficam vazias (e o `net_lead`, None).
+    `overtime_tasks`: as tarefas que podem ter hora extra (as que não cabem inteiras numa janela
+    do expediente; todas, quando vieram todas); as outras têm zero. `sums`: as medidas pedidas."""
 
     parts: frozenset[Part]
     work_hours: WorkHours
     tasks: list[TaskFact]
+    overtime_tasks: list[TaskFact]
     opened: list[TicketFact]
     closed: list[TicketFact]
     canceled: list[TicketFact]
     backlog: list[TicketFact]
+    sums: dict[Summed, Sums]
     users: dict[int, UserName]
     clients: dict[int, ClientName]
     teams: dict[int, TeamName]
     statuses: dict[int, TicketStatus]
+
+
+def group_keys(fact: TaskFact | TicketFact, group: Group) -> Iterable[Any]:
+    """As chaves de uma tarefa ou de um chamado num agrupamento: a pessoa da tarefa é quem a fez;
+    a do chamado, cada responsável que conta."""
+    if group == "person":
+        return (fact.author_id,) if isinstance(fact, TaskFact) else fact.people
+    if group == "client":
+        return (fact.client_id,)
+    if group == "team":
+        return (fact.team_id,)
+    if group == "status":
+        return (fact.status_id,)
+    return (fact.day,)
+
+
+def add_up(amounts: Iterable[tuple[TaskFact | TicketFact, int]], groups: Iterable[Group]) -> Sums:
+    """As somas a partir das linhas, quando elas já vieram ou só elas dão o número (a hora extra
+    de cada tarefa, o status do em aberto no fim)."""
+    sums = Sums(by={g: {} for g in groups})
+    for fact, amount in amounts:
+        sums.total += amount
+        for group, by in sums.by.items():
+            for key in group_keys(fact, group):
+                by[key] = by.get(key, 0) + amount
+    return sums
 
 
 def net_minutes(
@@ -428,64 +501,275 @@ def net_minutes(
     return max(0, round((closed_at - created_at - paused).total_seconds() / 60))
 
 
+def _local_day(moment: Any) -> ColumnElement[date]:
+    """O dia de um instante no fuso da máquina: o `day` das linhas, no banco."""
+    return cast(func.timezone(TZ.key, moment), Date)
+
+
+def _task_group(group: Group) -> Any:
+    if group == "person":
+        return TicketComment.author_id
+    if group == "client":
+        return Ticket.client_id
+    if group == "team":
+        return Ticket.team_id
+    if group == "status":
+        return Ticket.status_id
+    return _local_day(TicketComment.done_at)
+
+
+def _may_have_overtime(f: Filters, wh: WorkHours) -> ColumnElement[bool]:
+    """As tarefas que podem ter hora extra: com tempo e que não cabem inteiras na janela do
+    expediente do dia em que terminam (as outras têm zero). As janelas são as do mesmo
+    `_work_window` do `outside_minutes`, uma por dia do período (nenhuma nos dias de folga e nos
+    feriados), e cada tarefa pega a do seu dia pelo índice; a hora extra das que passam continua
+    sendo calculada em Python."""
+    starts: list[datetime | None] = []
+    ends: list[datetime | None] = []
+    day = f.start
+    while day <= f.end:
+        window = (
+            _work_window(day, wh.start, wh.end)
+            if day.weekday() in wh.weekdays and day not in wh.holidays
+            else (None, None)
+        )
+        starts.append(window[0])
+        ends.append(window[1])
+        day += timedelta(days=1)
+    windows = ARRAY(DateTime(timezone=True))
+    index = _local_day(TicketComment.done_at) - bindparam(None, f.start, type_=Date) + 1
+    # Entre parênteses: o PostgreSQL não aceita o índice logo depois do `::timestamptz[]`.
+    w_start = Grouping(bindparam(None, starts, type_=windows))[index]
+    w_end = Grouping(bindparam(None, ends, type_=windows))[index]
+    spent = func.make_interval(0, 0, 0, 0, 0, TicketComment.time_spent_minutes)
+    inside = and_(
+        w_start.is_not(None),
+        TicketComment.done_at - spent >= w_start,
+        TicketComment.done_at <= w_end,
+    )
+    return and_(TicketComment.time_spent_minutes > 0, not_(inside))
+
+
+async def _task_rows(
+    db: AsyncSession, conds: list[ColumnElement[bool]], wh: WorkHours
+) -> list[TaskFact]:
+    # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o autor de
+    # cada linha; os nomes vêm depois, uma vez cada.
+    rows = await db.execute(
+        select(
+            TicketComment.author_id,
+            TicketComment.time_spent_minutes,
+            TicketComment.done_at,
+            Ticket.number,
+            Ticket.title,
+            Ticket.client_id,
+            Ticket.team_id,
+            Ticket.status_id,
+        )
+        .join(Ticket, Ticket.id == TicketComment.ticket_id)
+        .where(*conds)
+        .order_by(TicketComment.done_at)
+    )
+    return [
+        TaskFact(
+            author_id=author_id,
+            minutes=spent or 0,
+            overtime=outside_minutes(done_at, spent, wh) if spent else 0,
+            done_at=done_at,
+            ticket_number=number,
+            ticket_title=title,
+            client_id=client_id,
+            team_id=team_id,
+            status_id=status_id,
+        )
+        for author_id, spent, done_at, number, title, client_id, team_id, status_id in rows
+    ]
+
+
+def _grouping_sets(exprs: Sequence[ColumnElement[Any]]) -> Any:
+    """Cada expressão num conjunto, mais o total: uma consulta só para todos os agrupamentos."""
+    return func.grouping_sets(*(tuple_(e) for e in exprs), tuple_())
+
+
+async def _task_sums(
+    db: AsyncSession, conds: list[ColumnElement[bool]], groups: Collection[Group]
+) -> tuple[Sums, Sums]:
+    """As horas e as tarefas somadas no banco (sem trazer as linhas): os agrupamentos pedidos e
+    o total num GROUPING SETS. Cada agrupamento é uma expressão fixa (`_task_group`)."""
+    names = list(groups)
+    exprs = [_task_group(g) for g in names]
+    minutes = func.coalesce(func.sum(TicketComment.time_spent_minutes), 0)
+    query = (
+        select(*exprs, *(func.grouping(e) for e in exprs), func.count(), minutes)
+        .select_from(TicketComment)
+        .join(Ticket, Ticket.id == TicketComment.ticket_id)
+        .where(*conds)
+        .group_by(_grouping_sets(exprs))
+    )
+    hours, tasks = Sums(by={g: {} for g in names}), Sums(by={g: {} for g in names})
+    n = len(names)
+    for row in await db.execute(query):
+        keys, flags, count, total = row[:n], row[n : 2 * n], row[2 * n], row[2 * n + 1]
+        # A linha de um agrupamento tem o GROUPING() dele em 0; a do total, todos em 1.
+        i = next((i for i, flag in enumerate(flags) if flag == 0), None)
+        if i is None:
+            tasks.total, hours.total = count, total
+        else:
+            tasks.by[names[i]][keys[i]] = count
+            hours.by[names[i]][keys[i]] = total
+    return hours, tasks
+
+
+TICKET_DAY = {
+    "opened": Ticket.created_at,
+    "closed": Ticket.closed_at,
+    "canceled": Ticket.canceled_at,
+}
+
+
+async def _ticket_sums(
+    db: AsyncSession,
+    conds: list[ColumnElement[bool]],
+    sets: dict[Counted, ColumnElement[bool]],
+    groups: Collection[Group],
+    allowed: set[int] | None,
+) -> dict[Summed, Sums]:
+    """Os registrados, concluídos e cancelados contados no banco, quando as linhas deles não são
+    precisas: os agrupamentos e o total num GROUPING SETS, cada conjunto com o seu `count(*)
+    FILTER`. O dia é o do registro, da conclusão ou do cancelamento; a pessoa, cada responsável
+    que a pessoa pode ver (o principal aqui, os outros numa segunda consulta), e o total conta o
+    chamado uma vez."""
+    parts = list(sets)
+    columns: dict[Group, Any] = {
+        "client": Ticket.client_id,
+        "team": Ticket.team_id,
+        "status": Ticket.status_id,
+    }
+    targets: list[tuple[Group, Counted | None]] = [(g, None) for g in columns if g in groups]
+    exprs: list[Any] = [columns[g] for g, _ in targets]
+    if "person" in groups:
+        targets.append(("person", None))
+        exprs.append(Ticket.assignee_id)
+    if "day" in groups:
+        for part in parts:
+            targets.append(("day", part))
+            exprs.append(_local_day(TICKET_DAY[part]))
+    counts = [func.count().filter(sets[p]) for p in parts]
+    query = (
+        select(*exprs, *(func.grouping(e) for e in exprs), *counts)
+        .select_from(Ticket)
+        .join(TicketStatus, TicketStatus.id == Ticket.status_id)
+        .where(*conds, or_(*sets.values()))
+        .group_by(_grouping_sets(exprs))
+    )
+    sums: dict[Summed, Sums] = {p: Sums(by={g: {} for g in groups}) for p in parts}
+
+    def count(group: Group, key: Any, part: Counted, amount: int) -> None:
+        if amount and (group != "person" or allowed is None or key in allowed):
+            by = sums[part].by[group]
+            by[key] = by.get(key, 0) + amount
+
+    n = len(exprs)
+    for row in await db.execute(query):
+        keys, flags, amounts = row[:n], row[n : 2 * n], row[2 * n :]
+        i = next((i for i, flag in enumerate(flags) if flag == 0), None)
+        if i is None:
+            for part, amount in zip(parts, amounts, strict=True):
+                sums[part].total = amount
+            continue
+        group, only = targets[i]
+        for part, amount in zip(parts, amounts, strict=True):
+            if only is None or only == part:
+                count(group, keys[i], part, amount)
+    if "person" in groups:
+        # Um alias: o filtro de visibilidade tem um EXISTS nos corresponsáveis, que se
+        # correlacionaria com esta tabela e ficaria sem FROM.
+        co = aliased(TicketCoAssignee)
+        others = await db.execute(
+            select(co.user_id, *counts)
+            .select_from(co)
+            .join(Ticket, Ticket.id == co.ticket_id)
+            .join(TicketStatus, TicketStatus.id == Ticket.status_id)
+            .where(*conds, or_(*sets.values()), co.user_id != Ticket.assignee_id)
+            .group_by(co.user_id)
+        )
+        for user_id, *co_amounts in others:
+            for part, amount in zip(parts, co_amounts, strict=True):
+                count("person", user_id, part, amount)
+    return sums
+
+
 async def facts(
     db: AsyncSession,
     auth: Auth,
     f: Filters,
-    parts: Collection[Part],
+    want: Want,
     known: Lookups | None = None,
 ) -> Facts:
-    """Os dados do período: só as `parts` pedidas (as outras listas ficam vazias). `known`: o
-    expediente e os status já lidos na requisição; sem eles, lê."""
+    """Os dados do período: as linhas e as somas pedidas em `want` (as outras listas ficam
+    vazias). `known`: o expediente e os status já lidos na requisição; sem eles, lê."""
     known = known or await lookups(db)
     wh = known.work_hours
     since, until = _bounds(f)
     me = auth.user.id
     people_ids = {p.id for p in f.people}
+    parts: set[Part] = set(want.rows)
+    if "backlog" in want.sums:  # o status do fim do período só sai das linhas
+        parts.add("backlog")
+    sums: dict[Summed, Sums] = {}
+
+    allowed_cache: list[set[int] | None] = []
+
+    async def allowed() -> set[int] | None:
+        """Os responsáveis que contam: os do filtro de pessoa; sem ele, quem não vê tudo só conta
+        a si e as pessoas dos grupos que supervisiona (um colega de outro grupo pode ser
+        corresponsável)."""
+        if not allowed_cache:
+            if people_ids:
+                allowed_cache.append(people_ids)
+            elif can(auth.actor, P.REPORT_VIEW_ALL):
+                allowed_cache.append(None)
+            else:
+                supervised = await db.scalars(
+                    select(TeamMember.user_id).where(TeamMember.team_id.in_(auth.actor.supervises))
+                )
+                allowed_cache.append({me} | set(supervised))
+        return allowed_cache[0]
 
     # --- tarefas do período (horas, horas extras) ---
+    task_conds = [
+        *_ticket_filters(auth, f),
+        _own_or_supervised(auth, TicketComment.author_id == me),
+        TicketComment.deleted_at.is_(None),
+        TicketComment.done_at >= since,
+        TicketComment.done_at < until,
+    ]
+    if people_ids:
+        task_conds.append(TicketComment.author_id.in_(people_ids))
     tasks: list[TaskFact] = []
+    overtime_tasks: list[TaskFact] = []
     if "tasks" in parts:
-        task_conds = [
-            *_ticket_filters(auth, f),
-            _own_or_supervised(auth, TicketComment.author_id == me),
-            TicketComment.deleted_at.is_(None),
-            TicketComment.done_at >= since,
-            TicketComment.done_at < until,
-        ]
-        if people_ids:
-            task_conds.append(TicketComment.author_id.in_(people_ids))
-        # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o
-        # autor de cada linha; os nomes vêm depois, uma vez cada.
-        rows = await db.execute(
-            select(
-                TicketComment.author_id,
-                TicketComment.time_spent_minutes,
-                TicketComment.done_at,
-                Ticket.number,
-                Ticket.title,
-                Ticket.client_id,
-                Ticket.team_id,
-                Ticket.status_id,
-            )
-            .join(Ticket, Ticket.id == TicketComment.ticket_id)
-            .where(*task_conds)
-            .order_by(TicketComment.done_at)
-        )
-        tasks = [
-            TaskFact(
-                author_id=author_id,
-                minutes=spent or 0,
-                overtime=outside_minutes(done_at, spent, wh) if spent else 0,
-                done_at=done_at,
-                ticket_number=number,
-                ticket_title=title,
-                client_id=client_id,
-                team_id=team_id,
-                status_id=status_id,
-            )
-            for author_id, spent, done_at, number, title, client_id, team_id, status_id in rows
-        ]
+        tasks = overtime_tasks = await _task_rows(db, task_conds, wh)
+        parts.add("overtime")
+    elif "overtime" in parts or "overtime" in want.sums:
+        overtime_tasks = await _task_rows(db, [*task_conds, _may_have_overtime(f, wh)], wh)
+        parts.add("overtime")
+    task_measures: tuple[Summed, ...] = ("hours", "tasks", "overtime")
+    task_groups: set[Group] = set().union(*(want.sums.get(m, set()) for m in task_measures))
+    if any(m in want.sums for m in task_measures):
+        if "tasks" in parts:  # as linhas já vieram
+            sums["hours"] = add_up(((t, t.minutes) for t in tasks), task_groups)
+            sums["tasks"] = add_up(((t, 1) for t in tasks), task_groups)
+        else:
+            sums["hours"], sums["tasks"] = await _task_sums(db, task_conds, task_groups)
+    if "overtime" in want.sums:
+        # Só as que podem ter hora extra somam; as chaves das outras (com zero) vêm das tarefas,
+        # para o bloco mostrar as mesmas linhas de quando todas passavam pelo Python.
+        overtime = add_up(((t, t.overtime) for t in overtime_tasks), task_groups)
+        for group, by in overtime.by.items():
+            for key in sums["tasks"].by[group]:
+                by.setdefault(key, 0)
+        sums["overtime"] = overtime
 
     # --- chamados: registrados, concluídos e cancelados no período, em aberto no fim ---
     ticket_conds = [*_ticket_filters(auth, f), _own_or_supervised(auth, assigned_to(me))]
@@ -499,7 +783,7 @@ async def facts(
     # Em aberto no fim: registrados até lá e não concluídos nem cancelados antes dele (pelas
     # datas de conclusão e cancelamento, as mesmas das medidas). O status de então é o "de" da
     # primeira mudança depois do fim; sem mudança, o atual.
-    sets: dict[Part, ColumnElement[bool]] = {
+    sets: dict[Counted, ColumnElement[bool]] = {
         "opened": and_(Ticket.created_at >= since, Ticket.created_at < until),
         "closed": and_(
             TicketStatus.kind == "closed", Ticket.closed_at >= since, Ticket.closed_at < until
@@ -617,16 +901,7 @@ async def facts(
         )
         for ticket_id, user_id in co:
             assignees[ticket_id].add(user_id)
-    allowed: set[int] | None = None
-    if people_ids:
-        allowed = people_ids
-    elif assignees and not can(auth.actor, P.REPORT_VIEW_ALL):
-        # Um colega de outro grupo pode ser corresponsável: só entra quem a pessoa pode ver.
-        allowed = {me} | set(
-            await db.scalars(
-                select(TeamMember.user_id).where(TeamMember.team_id.in_(auth.actor.supervises))
-            )
-        )
+    seen = await allowed() if assignees else None
 
     def fact(r: Any, moment: datetime, status_id: int | None = None, **extra: Any) -> TicketFact:
         people = assignees[r.id]
@@ -637,49 +912,76 @@ async def facts(
             team_id=r.team_id,
             status_id=status_id or r.status_id,
             day=moment.astimezone(TZ).date(),
-            people=people if allowed is None else people & allowed,
+            people=people if seen is None else people & seen,
             created_at=r.created_at,
             **extra,
         )
 
     end_moment = until - timedelta(microseconds=1)  # o último dia do período
-    opened_facts = [fact(r, r.created_at) for r in opened]
-    closed_facts = [
-        fact(
-            r,
-            r.closed_at,
-            finished_at=r.closed_at,
-            lead=round((r.closed_at - r.created_at).total_seconds() / 60),
-            net_lead=net_minutes(r.created_at, r.closed_at, changes[r.id], kinds) if net else None,
-            reopened=r.reopened_count > 0,
-        )
-        for r in closed
-    ]
-    canceled_facts = [fact(r, r.canceled_at, finished_at=r.canceled_at) for r in canceled]
-    backlog_facts = [
-        fact(
-            r,
-            end_moment,
-            status_id=status_at_end.get(r.id, r.status_id),
-            age=round((until - r.created_at).total_seconds() / 60),
-        )
-        for r in backlog
-    ]
+    ticket_facts: dict[Counted, list[TicketFact]] = {
+        "opened": [fact(r, r.created_at) for r in opened],
+        "closed": [
+            fact(
+                r,
+                r.closed_at,
+                finished_at=r.closed_at,
+                lead=round((r.closed_at - r.created_at).total_seconds() / 60),
+                net_lead=net_minutes(r.created_at, r.closed_at, changes[r.id], kinds)
+                if net
+                else None,
+                reopened=r.reopened_count > 0,
+            )
+            for r in closed
+        ],
+        "canceled": [fact(r, r.canceled_at, finished_at=r.canceled_at) for r in canceled],
+        "backlog": [
+            fact(
+                r,
+                end_moment,
+                status_id=status_at_end.get(r.id, r.status_id),
+                age=round((until - r.created_at).total_seconds() / 60),
+            )
+            for r in backlog
+        ],
+    }
+    # As contagens: das linhas, quando vieram; as outras, no banco.
+    in_sql: dict[Counted, ColumnElement[bool]] = {}
+    for part in COUNTED:
+        if part not in want.sums:
+            continue
+        if part in parts:
+            sums[part] = add_up(((t, 1) for t in ticket_facts[part]), want.sums[part])
+        else:
+            in_sql[part] = sets[part]
+    if in_sql:
+        groups: set[Group] = set().union(*(want.sums[p] for p in in_sql))
+        seen_sql = await allowed() if "person" in groups else None
+        sums.update(await _ticket_sums(db, ticket_conds, in_sql, groups, seen_sql))
 
-    # --- nomes ---
-    ticket_facts = [*opened_facts, *closed_facts, *canceled_facts, *backlog_facts]
-    every: list[TaskFact | TicketFact] = [*tasks, *ticket_facts]
-    user_ids = {t.author_id for t in tasks} | {u for t in ticket_facts for u in t.people}
+    # --- nomes: dos que aparecem nas linhas e nas somas ---
+    every: list[TaskFact | TicketFact] = [
+        *overtime_tasks,
+        *(t for v in ticket_facts.values() for t in v),
+    ]
+    user_ids = {t.author_id for t in overtime_tasks} | {
+        u for v in ticket_facts.values() for t in v for u in t.people
+    }
     client_ids = {t.client_id for t in every if t.client_id is not None}
     team_ids = {t.team_id for t in every}
+    for measure in sums.values():
+        user_ids |= set(measure.by.get("person", {}))
+        client_ids |= {c for c in measure.by.get("client", {}) if c is not None}
+        team_ids |= set(measure.by.get("team", {}))
     return Facts(
         parts=frozenset(parts),
         work_hours=wh,
         tasks=tasks,
-        opened=opened_facts,
-        closed=closed_facts,
-        canceled=canceled_facts,
-        backlog=backlog_facts,
+        overtime_tasks=overtime_tasks,
+        opened=ticket_facts["opened"],
+        closed=ticket_facts["closed"],
+        canceled=ticket_facts["canceled"],
+        backlog=ticket_facts["backlog"],
+        sums=sums,
         users={
             i: UserName(public_id, name)
             for i, public_id, name in await db.execute(
@@ -762,54 +1064,69 @@ async def client_tickets(db: AsyncSession, auth: Auth, data: Facts) -> list[Clie
     ]
 
 
-# O que `build` soma: as tarefas, os registrados e os concluídos (com os responsáveis).
-BUILD_PARTS: frozenset[Part] = frozenset({"tasks", "opened", "closed"})
+# O que `build` soma (as telas prontas da §14.7): horas, tarefas e hora extra por pessoa, cliente
+# e dia, os registrados por cliente e os concluídos por cliente e por responsável.
+BUILD_SUMS: dict[Summed, set[Group]] = {
+    "hours": {"person", "client", "day"},
+    "tasks": {"person", "client"},
+    "overtime": {"person", "day"},
+    "opened": {"client"},
+    "closed": {"person", "client"},
+}
 
 
 async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = False) -> Report:
     """Os números das telas prontas, da API e do PDF. `all_tasks`: também a lista de todas as
     tarefas (`Report.tasks`, para o CSV)."""
-    data = await facts(db, auth, f, BUILD_PARTS)
-    # As somas em Counter, e os modelos só no fim: num ano são dezenas de milhares de tarefas, e
-    # cada `+=` num modelo do pydantic passa pela validação da atribuição.
+    want = Want(rows={"tasks"} if all_tasks else set(), sums=dict(BUILD_SUMS))
+    data = await facts(db, auth, f, want)
+    s = data.sums
+
+    # As somas em Counter, e os modelos só no fim: num ano são milhares de linhas, e cada `+=`
+    # num modelo do pydantic passa pela validação da atribuição.
+    def add(rows: dict[Any, Counter[str]], group: Group, fields: dict[str, Summed]) -> None:
+        for name, measure in fields.items():
+            for key, amount in s[measure].by[group].items():
+                rows[key][name] += amount
+
     people: dict[int, Counter[str]] = defaultdict(Counter)
+    add(
+        people,
+        "person",
+        {
+            "minutes": "hours",
+            "tasks": "tasks",
+            "overtime_minutes": "overtime",
+            "tickets_closed": "closed",
+        },
+    )
     clients: dict[int | None, Counter[str]] = defaultdict(Counter)
+    for client_id in s["tasks"].by["client"]:  # quem tem tarefa aparece, mesmo sem tempo
+        clients[client_id]["minutes"] += 0
+    add(
+        clients,
+        "client",
+        {"minutes": "hours", "tickets_opened": "opened", "tickets_closed": "closed"},
+    )
     days = {f.start + timedelta(days=i): Counter[str]() for i in range((f.end - f.start).days + 1)}
-    overtime_tasks: list[TaskRow] = []
-    task_rows: list[TaskRow] = []
+    add(days, "day", {"minutes": "hours", "overtime_minutes": "overtime"})
 
     def client_name(client_id: int | None) -> str | None:
         return data.clients[client_id].label if client_id is not None else None
 
-    for t in data.tasks:
-        p = people[t.author_id]
-        p["tasks"] += 1
-        p["minutes"] += t.minutes
-        p["overtime_minutes"] += t.overtime
-        clients[t.client_id]["minutes"] += t.minutes
-        day = days[t.day]
-        day["minutes"] += t.minutes
-        day["overtime_minutes"] += t.overtime
-        if t.overtime or all_tasks:
-            row = TaskRow(
-                ticket_number=t.ticket_number,
-                ticket_title=t.ticket_title,
-                client=client_name(t.client_id),
-                person=data.users[t.author_id].display_name,
-                done_at=t.done_at,
-                minutes=t.minutes,
-                overtime_minutes=t.overtime,
-            )
-            if t.overtime:
-                overtime_tasks.append(row)
-            if all_tasks:
-                task_rows.append(row)
-    for ticket in data.opened:
-        clients[ticket.client_id]["tickets_opened"] += 1
-    for ticket in data.closed:
-        clients[ticket.client_id]["tickets_closed"] += 1
-        for user_id in ticket.people:
-            people[user_id]["tickets_closed"] += 1
+    def row(t: TaskFact) -> TaskRow:
+        return TaskRow(
+            ticket_number=t.ticket_number,
+            ticket_title=t.ticket_title,
+            client=client_name(t.client_id),
+            person=data.users[t.author_id].display_name,
+            done_at=t.done_at,
+            minutes=t.minutes,
+            overtime_minutes=t.overtime,
+        )
+
+    overtime_tasks = [row(t) for t in data.overtime_tasks if t.overtime]
+    task_rows = [row(t) for t in data.tasks]
 
     person_rows = [
         PersonRow(
@@ -820,7 +1137,7 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
             tasks=s["tasks"],
             tickets_closed=s["tickets_closed"],
         )
-        for user_id, s in people.items()
+        for user_id, s in sorted(people.items())
     ]
     client_rows = [
         ClientRow(
@@ -837,11 +1154,11 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
         end=f.end,
         work_hours=data.work_hours,
         totals=Totals(
-            minutes=sum(t.minutes for t in data.tasks),
-            overtime_minutes=sum(t.overtime for t in data.tasks),
-            tasks=len(data.tasks),
-            tickets_opened=len(data.opened),
-            tickets_closed=len(data.closed),
+            minutes=s["hours"].total,
+            overtime_minutes=s["overtime"].total,
+            tasks=s["tasks"].total,
+            tickets_opened=s["opened"].total,
+            tickets_closed=s["closed"].total,
         ),
         people=sorted(person_rows, key=lambda p: (-p.minutes, p.name)),
         clients=sorted(
