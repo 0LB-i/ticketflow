@@ -414,7 +414,7 @@ async def client_preview(
     if client is None:
         return {"ready": False, "message": page.t("relatorios.paraCliente.umCliente")}
     # Os totais e a lista: as tarefas, os registrados e os concluídos.
-    data = await service.facts(db, page.auth, f, {"tasks", "opened", "closed"})
+    data = await service.facts(db, page.auth, f, {"tasks", "opened", "closed"}, state.lookups)
     tickets = await service.client_tickets(db, page.auth, data)
     hours = formatter(page, config, "hours")
     columns = ["chamado", "titulo", "registrado", "concluido", "status", "horas"]

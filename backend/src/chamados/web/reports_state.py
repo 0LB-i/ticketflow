@@ -151,6 +151,7 @@ class State:
     choice: Choice
     models: list[ReportModel]
     options: service.Choices
+    lookups: service.Lookups  # o expediente e os status, lidos uma vez (`service.facts`)
     period: str
     start_text: str
     end_text: str
@@ -212,7 +213,8 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     periodo, de, ate = params.periodo, params.de, params.ate
     grupo, pessoa, cliente, status = params.grupo, params.pessoa, params.cliente, params.status
     comparar = params.comparar
-    options = await service.choices(db, auth)
+    lookups = await service.lookups(db)
+    options = await service.choices(db, auth, lookups.statuses)
 
     # Sem filtro na URL, valem os do modelo. Os salvos que deixaram de valer para a pessoa
     # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
@@ -275,6 +277,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         choice=choice,
         models=models,
         options=options,
+        lookups=lookups,
         period=period,
         start_text=start_text,
         end_text=end_text,

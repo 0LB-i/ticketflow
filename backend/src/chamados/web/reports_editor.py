@@ -170,7 +170,7 @@ async def _previews(page: LoggedPage, db: DB, editor: EditorForm, params: Params
     if f is None:
         message = state.error or page.t("relatorios.periodoInvalido")
         return Previews([message] * len(editor.blocks))
-    data = await service.facts(db, page.auth, f, builder.needs(editor.blocks))
+    data = await service.facts(db, page.auth, f, builder.needs(editor.blocks), state.lookups)
     # Só o formato das horas importa para formatar; os blocos podem ainda não valer.
     hours: Literal["hm", "decimal"] = "decimal" if editor.hours == "decimal" else "hm"
     config = ReportConfig.model_construct(hours=hours, blocks=editor.blocks)

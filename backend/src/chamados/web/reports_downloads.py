@@ -170,7 +170,7 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         )
         table = "client"
     else:
-        data = await service.facts(db, page.auth, f, builder.needs(config.blocks))
+        data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
         before = None
         if state.compare and compares(config):
             first, last = builder.previous_period(
@@ -181,6 +181,7 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
                 page.auth,
                 replace(f, start=first, end=last),
                 builder.needs(compared(config)),
+                state.lookups,
             )
         views = [
             block_view(page, state, f, config, data, block, i, before)
@@ -237,7 +238,7 @@ async def block_csv(
     if not 0 <= bloco < len(config.blocks):
         raise HTTPException(404)
     block = config.blocks[bloco]
-    data = await service.facts(db, page.auth, f, builder.needs([block]))
+    data = await service.facts(db, page.auth, f, builder.needs([block]), state.lookups)
     result = builder.run(data, block, f.start, f.end)
     content = csv_export.render_block(data, result, cast(Locale, page.locale))
     reports_api.record_export(
@@ -289,7 +290,7 @@ async def ticket_list(
     parts: set[service.Part] = {kind}
     if kind == "closed":
         parts.add("net_lead")
-    data = await service.facts(db, page.auth, f, parts)
+    data = await service.facts(db, page.auth, f, parts, state.lookups)
     tickets = builder.tickets_of(data, measure)
     # Os mais recentes primeiro; no em aberto, os mais antigos (os que esperam há mais tempo).
     if kind == "backlog":

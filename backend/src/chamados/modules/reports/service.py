@@ -95,6 +95,22 @@ def _work_window(day: date, start: time, end: time) -> tuple[datetime, datetime]
 
 
 @dataclass
+class Lookups:
+    """O que não muda numa requisição e mais de uma parte dela lê: o expediente e os status (na
+    tela, as opções do filtro e cada `facts`, duas vezes com o "Comparar")."""
+
+    work_hours: WorkHours
+    statuses: list[TicketStatus]  # na ordem da tela
+
+
+async def lookups(db: AsyncSession) -> Lookups:
+    return Lookups(
+        work_hours=await get_work_hours(db),
+        statuses=list(await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order))),
+    )
+
+
+@dataclass
 class Choices:
     """As opções dos filtros da tela, sem os clientes: são milhares, e a tela os busca aos
     poucos (`client_choices`), com os nomes só dos escolhidos (`client_labels`)."""
@@ -104,8 +120,13 @@ class Choices:
     statuses: list[StatusRef]
 
 
-async def choices(db: AsyncSession, auth: Auth) -> Choices:
+async def choices(
+    db: AsyncSession, auth: Auth, statuses: Sequence[TicketStatus] | None = None
+) -> Choices:
+    """`statuses`: os já lidos (`Lookups`); sem eles, lê."""
     actor = auth.actor
+    if statuses is None:
+        statuses = list(await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order)))
     people = select(User).where(User.deleted_at.is_(None))
     teams = select(Team).where(Team.is_active)
     if not can(actor, P.REPORT_VIEW_ALL):
@@ -126,10 +147,7 @@ async def choices(db: AsyncSession, auth: Auth) -> Choices:
             Ref(id=u.public_id, name=u.display_name)
             for u in await db.scalars(people.order_by(User.display_name))
         ],
-        statuses=[
-            StatusRef(id=s.id, name=s.name)
-            for s in await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order))
-        ],
+        statuses=[StatusRef(id=s.id, name=s.name) for s in statuses],
     )
 
 
@@ -393,9 +411,17 @@ def net_minutes(
     return max(0, round((closed_at - created_at - paused).total_seconds() / 60))
 
 
-async def facts(db: AsyncSession, auth: Auth, f: Filters, parts: Collection[Part]) -> Facts:
-    """Os dados do período: só as `parts` pedidas (as outras listas ficam vazias)."""
-    wh = await get_work_hours(db)
+async def facts(
+    db: AsyncSession,
+    auth: Auth,
+    f: Filters,
+    parts: Collection[Part],
+    known: Lookups | None = None,
+) -> Facts:
+    """Os dados do período: só as `parts` pedidas (as outras listas ficam vazias). `known`: o
+    expediente e os status já lidos na requisição; sem eles, lê."""
+    known = known or await lookups(db)
+    wh = known.work_hours
     since, until = _bounds(f)
     me = auth.user.id
     people_ids = {p.id for p in f.people}
@@ -516,7 +542,8 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters, parts: Collection[Part
     candidates = [
         r for r in found if "backlog" in parts and r.created_at < until and open_at_end(r)
     ]
-    statuses = {s.id: s for s in await db.scalars(select(TicketStatus))}
+    # Um dicionário novo: os removidos depois do período entram nele (abaixo).
+    statuses = {s.id: s for s in known.statuses}
     kinds = {i: s.kind for i, s in statuses.items()}
     status_at_end: dict[int, int] = {}
     if candidates:

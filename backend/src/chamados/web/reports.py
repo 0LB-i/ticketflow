@@ -106,7 +106,7 @@ async def reports_page(
         if client_view["ready"]:
             downloads = {"pdf": with_query("/relatorios/pdf", {**query, "aba": slug})}
     elif f is not None and config is not None:
-        data = await service.facts(db, page.auth, f, builder.needs(config.blocks))
+        data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
         before = None
         if state.compare and compares(config):
             first, last = builder.previous_period(
@@ -117,6 +117,7 @@ async def reports_page(
                 page.auth,
                 replace(f, start=first, end=last),
                 builder.needs(compared(config)),
+                state.lookups,
             )
         # A página de cada lista de tarefas (`pagina<i>`); sem ela, a primeira.
         numbers = page.request.query_params
