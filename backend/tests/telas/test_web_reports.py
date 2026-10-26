@@ -919,7 +919,7 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
     numero = registrar(client, cenario)["number"]
     tarefa(client, numero, 60, em(dia, 10))
     tarefa(client, numero, 30, em(dia - timedelta(days=1), 10))
-    delta = '<td class="px-3 py-2 tabular-nums text-sm text-muted">'
+    delta = '<td class="px-3 py-2 text-right tabular-nums text-sm text-muted">'
 
     # Sem comparar, nada muda.
     r = client.get("/relatorios", params=_um_dia(dia))
@@ -1020,3 +1020,45 @@ def test_previa_no_editor(
     chamadas.clear()
     r = client.post("/relatorios/modelos", data={**dados, "publico": "client"})
     assert "Prévia" not in r.text and not chamadas
+
+
+def test_lista_de_tarefas_em_paginas(
+    client: TestClient, cenario: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from chamados.web import reports_blocks
+
+    monkeypatch.setattr(reports_blocks, "LISTED", 2)
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    for minutos in (10, 20, 30, 40, 50):
+        tarefa(client, numero, minutos, em(dia, 19))  # fora do expediente
+    filtros = _um_dia(dia, aba="horas-extras")
+    linhas = re.compile(rf'<a href="/chamados/{numero}" class="text-primary')
+
+    r = client.get("/relatorios", params=filtros)
+    assert len(linhas.findall(r.text)) == 2
+    assert "Tarefas 1 a 2 de 5. O CSV do bloco traz todas." in r.text
+    # A lista de tarefas é o 4º bloco da aba (pagina3); a página leva os filtros.
+    (proxima,) = _links(r.text, "Próxima")
+    query = parse_qs(urlsplit(proxima).query)
+    assert query["pagina3"] == ["2"] and query["aba"] == ["horas-extras"]
+    assert query["de"] == [dia.isoformat()]
+    assert '<button type="button" disabled' in r.text and "Anterior</button>" in r.text
+    assert 'hx-swap="outerHTML show:#bloco-3:top"' in r.text
+
+    r = client.get(proxima)
+    assert len(linhas.findall(r.text)) == 2 and "Tarefas 3 a 4 de 5." in r.text
+    # Depois da última, a última; o CSV traz todas.
+    r = client.get("/relatorios", params={**filtros, "pagina3": "99"})
+    assert len(linhas.findall(r.text)) == 1 and "Tarefas 5 a 5 de 5." in r.text
+    assert ">Próxima" in r.text and not _links(r.text, "Próxima")
+    csv_ = client.get("/relatorios/csv", params={**filtros, "bloco": "3"})
+    assert len(csv_.text.strip().splitlines()) == 6  # o cabeçalho e as 5
+
+    # O cabeçalho das tabelas fica fixo ao rolar, e os números, à direita.
+    assert '<thead class="sticky top-0 z-10' in r.text
+    assert 'class="max-h-[70vh] overflow-auto' in r.text and "overflow-x-auto" not in r.text
+    assert '<th scope="col" class="px-3 py-2 font-medium text-right">Tempo</th>' in r.text
+    r = client.get("/relatorios", params=_um_dia(dia))
+    assert '<th scope="col" class="px-3 py-2 font-medium text-right">Horas</th>' in r.text
+    assert '<th scope="col" class="px-3 py-2 font-medium">Pessoa</th>' in r.text

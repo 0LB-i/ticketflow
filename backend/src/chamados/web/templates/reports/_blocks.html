@@ -2,6 +2,7 @@
     (index.html) e na prévia do editor (editor.html, `preview`: sem o CSV, e o editor a deixa
     `inert`, para um clique não sair dele). -#}
 {% from "_icons.html" import icon %}
+{% from "_ui.html" import button_class %}
 {% from "reports/_charts.html" import bar_chart, column_chart, line_chart, stacked_chart %}
 
 {#- O link do CSV de um bloco. #}
@@ -17,16 +18,19 @@
 
 {#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total
     ((texto, link) de cada coluna); `titles`, o nome por extenso de uma coluna (o Δ da
-    comparação), que também a deixa em cinza. #}
-{% macro table(caption, columns, empty, count, foot=None, titles=None) -%}
-<div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
+    comparação), que também a deixa em cinza; `numeric`, as colunas de números, à direita (o
+    caller alinha as células dele). Uma tabela mais alta que 70% da tela rola dentro da caixa,
+    com o cabeçalho fixo: o `sticky` fica preso ao contêiner que rola, e o overflow-x-auto já
+    era um. #}
+{% macro table(caption, columns, empty, count, foot=None, titles=None, numeric=()) -%}
+<div class="max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface shadow-md">
   <table class="w-full border-collapse text-left">
     <caption class="sr-only">{{ caption }}</caption>
-    <thead class="bg-surface-raised text-muted">
+    <thead class="sticky top-0 z-10 bg-surface-raised text-muted">
       <tr>
         {%- for label in columns %}
         {%- set title = titles[loop.index0] if titles else None %}
-        <th scope="col" class="px-3 py-2 font-medium"{% if title %} title="{{ title }}" aria-label="{{ title }}"{% endif %}>{{ label }}</th>
+        <th scope="col" class="px-3 py-2 font-medium{% if loop.index0 in numeric %} text-right{% endif %}"{% if title %} title="{{ title }}" aria-label="{{ title }}"{% endif %}>{{ label }}</th>
         {%- endfor %}
       </tr>
     </thead>
@@ -43,7 +47,7 @@
       <tr>
         <th scope="row" class="px-3 py-2 text-left">{{ t("relatorios.total") }}</th>
         {%- for value, href in foot %}
-        <td class="px-3 py-2 tabular-nums{% if titles and titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, href) }}</td>
+        <td class="px-3 py-2{% if loop.index in numeric %} text-right{% endif %} tabular-nums{% if titles and titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, href) }}</td>
         {%- endfor %}
       </tr>
     </tfoot>
@@ -99,38 +103,50 @@
     {{ csv_link(b.csv, b.title) }}
     {%- endif %}
   </div>
-  {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles) %}
+  {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles, range(1, b.columns | length)) %}
     {%- for label, href, cells in b.rows %}
     <tr class="border-t border-border">
       <td class="px-3 py-2">{{ linked(label, href, boost=True) }}</td>
       {%- for value, link in cells %}
-      <td class="px-3 py-2 tabular-nums{% if b.titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, link) }}</td>
+      <td class="px-3 py-2 text-right tabular-nums{% if b.titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, link) }}</td>
       {%- endfor %}
     </tr>
     {%- endfor %}
   {% endcall %}
 </section>
 {%- else %}
-<section class="flex flex-col gap-2 lg:col-span-2">
+<section id="bloco-{{ b.index }}" class="flex scroll-mt-4 flex-col gap-2 lg:col-span-2">
   <div class="flex items-center justify-between gap-2">
     <h2 class="font-medium">{{ b.title }}</h2>
     {%- if not preview %}
     {{ csv_link(b.csv, b.title) }}
     {%- endif %}
   </div>
-  {% call table(b.title, [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], b.empty, b.tasks | length) %}
+  {% call table(b.title, [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], b.empty, b.tasks | length, numeric=(3, 4)) %}
     {%- for o in b.tasks %}
     <tr class="border-t border-border">
       <td class="px-3 py-2 tabular-nums">{{ datetime(o.done_at) }}</td>
       <td class="px-3 py-2">{{ o.person }}</td>
       <td class="px-3 py-2"><a href="/chamados/{{ o.number }}" class="text-primary underline tabular-nums">#{{ o.number }}</a> {{ o.title }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ o.minutes }}</td>
-      <td class="px-3 py-2 tabular-nums">{{ o.overtime }}</td>
+      <td class="px-3 py-2 text-right tabular-nums">{{ o.minutes }}</td>
+      <td class="px-3 py-2 text-right tabular-nums">{{ o.overtime }}</td>
     </tr>
     {%- endfor %}
   {% endcall %}
-  {%- if b.count > b.tasks | length %}
-  <p class="text-sm text-muted">{{ t("relatorios.listaCortada", n=b.tasks | length, total=b.count) }}</p>
+  {#- As páginas trocam o #relatorio e rolam até o começo da lista. O CSV traz todas. #}
+  {%- if b.pages > 1 %}
+  <nav aria-label="{{ t('relatorios.paginas', titulo=b.title) }}" class="flex flex-wrap items-center justify-between gap-2 text-sm">
+    <p class="text-muted">{{ b.showing }}</p>
+    <div class="flex gap-2" hx-boost="true" hx-swap="outerHTML show:#bloco-{{ b.index }}:top">
+      {%- for key, url, name in (("paginaAnterior", b.previous, "chevron-left"), ("proximaPagina", b.next, "chevron-right")) %}
+      {%- if url %}
+      <a href="{{ url }}" class="{{ button_class('secondary') }}">{% if loop.first %}{{ icon(name, "size-4") }} {% endif %}{{ t("relatorios." ~ key) }}{% if loop.last %} {{ icon(name, "size-4") }}{% endif %}</a>
+      {%- else %}
+      <button type="button" disabled class="{{ button_class('secondary') }}">{% if loop.first %}{{ icon(name, "size-4") }} {% endif %}{{ t("relatorios." ~ key) }}{% if loop.last %} {{ icon(name, "size-4") }}{% endif %}</button>
+      {%- endif %}
+      {%- endfor %}
+    </div>
+  </nav>
   {%- endif %}
 </section>
 {%- endif %}

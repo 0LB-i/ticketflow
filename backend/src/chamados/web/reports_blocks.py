@@ -41,7 +41,7 @@ from chamados.web.reports_state import NO_CLIENT, State, origin_of, with_query
 DAILY_LIMIT = 62  # um gráfico por dia de um período mais longo agrupa por semana
 
 
-LISTED = 200  # tarefas mostradas na lista; o CSV traz todas
+LISTED = 200  # tarefas por página na lista (e no PDF, só a primeira); o CSV traz todas
 
 
 @dataclass
@@ -198,10 +198,11 @@ def block_view(
     block: Block,
     index: int,
     before: service.Facts | None = None,
+    page_number: int = 1,
 ) -> dict[str, Any]:
     """Um bloco pronto para o template: os números já formatados e os links de detalhar.
     `before`: os dados do período anterior, para a variação (cartões e tabelas) e a série de
-    antes (colunas e linha por período)."""
+    antes (colunas e linha por período); `page_number`: a página da lista de tarefas."""
     base = {**state.query, "aba": state.choice.slug}
     weekly = (
         block.visual in ("columns", "stacked", "line")
@@ -245,6 +246,7 @@ def block_view(
         return with_query("/relatorios", {**base, **drill}) if drill else None
 
     view: dict[str, Any] = {
+        "index": index,
         "visual": block.visual,
         "title": block_title(page, block, dimension),
         "csv": with_query("/relatorios/csv", {**base, "bloco": str(index)}),
@@ -347,6 +349,29 @@ def block_view(
         view.update(columns=columns, titles=titles, rows=rows, total=total)
     else:
         fmt = formatter(page, config, "hours")
+        # Em páginas de LISTED (`pagina<i>` na URL); uma fora da faixa vai para a mais perto.
+        count = len(result.tasks)
+        pages = max(1, -(-count // LISTED))
+        current = min(max(1, page_number), pages)
+        offset = (current - 1) * LISTED
+
+        def page_url(n: int) -> str | None:
+            if not 1 <= n <= pages:
+                return None
+            return with_query("/relatorios", {**base, f"pagina{index}": str(n)})
+
+        view.update(
+            page=current,
+            pages=pages,
+            previous=page_url(current - 1),
+            next=page_url(current + 1),
+            showing=page.t(
+                "relatorios.mostrando",
+                de=format_number(page.locale, offset + 1),
+                ate=format_number(page.locale, min(offset + LISTED, count)),
+                total=format_number(page.locale, count),
+            ),
+        )
         view.update(
             tasks=[
                 {
@@ -357,9 +382,9 @@ def block_view(
                     "minutes": fmt(t.minutes),
                     "overtime": fmt(t.overtime),
                 }
-                for t in result.tasks[:LISTED]
+                for t in result.tasks[offset : offset + LISTED]
             ],
-            count=len(result.tasks),
+            count=count,
             empty=page.t("relatorios.semExtras" if block.only_overtime else "relatorios.vazio"),
         )
     return view

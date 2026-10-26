@@ -81,8 +81,20 @@ async def reports_page(
                 f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
             )
             before = await service.facts(db, page.auth, replace(f, start=first, end=last))
+        # A página de cada lista de tarefas (`pagina<i>`); sem ela, a primeira.
+        numbers = page.request.query_params
         blocks = [
-            block_view(page, state, f, config, data, block, i, before)
+            block_view(
+                page,
+                state,
+                f,
+                config,
+                data,
+                block,
+                i,
+                before,
+                page_number=int(n) if (n := numbers.get(f"pagina{i}", "")).isdigit() else 1,
+            )
             for i, block in enumerate(config.blocks)
         ]
         if uses_overtime(config):

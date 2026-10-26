@@ -146,7 +146,7 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 ### 14.8.4 Exportação CSV
 
-- **Dois tipos:** o CSV de um bloco (a tabela agrupada, como na tela, com o total no fim; ou a lista de tarefas inteira) e o dos dados brutos (a lista de tarefas ou de chamados, com as colunas da §14.5 mais as horas). Todo bloco tem o seu botão de download; na lista de tarefas, a tela mostra as 200 primeiras e o CSV traz todas.
+- **Dois tipos:** o CSV de um bloco (a tabela agrupada, como na tela, com o total no fim; ou a lista de tarefas inteira) e o dos dados brutos (a lista de tarefas ou de chamados, com as colunas da §14.5 mais as horas). Todo bloco tem o seu botão de download; na lista de tarefas, a tela mostra 200 por página e o CSV traz todas.
 - **Formato:** UTF-8 com BOM, para abrir certo no Excel. Os separadores seguem o idioma: em português, `;` e vírgula decimal. As horas saem em minutos e em horas decimais, para somar na planilha.
 - **Injeção de fórmula:** uma célula que começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro ganha um apóstrofo na frente. Títulos e nomes são texto livre.
 - **Visibilidade e auditoria:** valem a mesma visibilidade e o mesmo escopo da tela, e cada download vai para a auditoria (`report.exported`, com o formato).
@@ -165,7 +165,7 @@ O modelo de público "cliente" é feito para enviar ao cliente, em PDF.
 
 ### 14.8.6 PDF do modelo
 
-O PDF segue o modelo: título, período (e o de comparação), filtros usados e os blocos na ordem, com os mesmos números e formatos da tela (as listas de tarefas, com as 200 primeiras, como na tela). Os gráficos são desenhados no próprio ReportLab, em vetor, na cor da instalação. Os modelos prontos de horas da §14.7 continuam com o PDF de hoje; o modelo pronto Chamados e os da pessoa usam este. O download vai para a auditoria (`report.exported`, com `format=pdf`).
+O PDF segue o modelo: título, período (e o de comparação), filtros usados e os blocos na ordem, com os mesmos números e formatos da tela (as listas de tarefas, com as 200 primeiras, a primeira página da tela). Os gráficos são desenhados no próprio ReportLab, em vetor, na cor da instalação. Os modelos prontos de horas da §14.7 continuam com o PDF de hoje; o modelo pronto Chamados e os da pessoa usam este. O download vai para a auditoria (`report.exported`, com `format=pdf`).
 
 ### 14.8.7 Fases
 

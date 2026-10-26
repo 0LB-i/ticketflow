@@ -174,11 +174,12 @@
     </div>
     {%- endfor %}
   </dl>
-  {% call table(t("relatorios.paraCliente.titulo"), client_view.columns, t("relatorios.nada"), client_view.rows | length) %}
+  {#- A 6ª coluna é a das horas. #}
+  {% call table(t("relatorios.paraCliente.titulo"), client_view.columns, t("relatorios.nada"), client_view.rows | length, numeric=(5,)) %}
     {%- for row in client_view.rows %}
     <tr class="border-t border-border">
       {%- for cell in row %}
-      <td class="px-3 py-2">{{ cell }}</td>
+      <td class="px-3 py-2{% if loop.index0 == 5 %} text-right tabular-nums{% endif %}">{{ cell }}</td>
       {%- endfor %}
     </tr>
     {%- endfor %}
