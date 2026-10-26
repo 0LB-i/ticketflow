@@ -1,18 +1,22 @@
 {#- Editor de um modelo de relatório (docs/14 §14.8.3): nome, formato das horas, modelo inicial e
-    os blocos (visual × agrupar por × medida). Adicionar, remover, mover e trocar o visual ou o
-    agrupamento refazem o formulário pelo HTMX (hx-select="#editor"), sem salvar; só o Salvar
-    envia de verdade. O período e os filtros não estão aqui: vêm da tela (Salvar filtros). -#}
+    os blocos (visual × agrupar por × medida), cada um com a prévia calculada como na tela.
+    Adicionar, remover, mover e mudar as escolhas (menos os textos: refazer o formulário apagaria
+    o que se digita no campo seguinte) refazem o formulário pelo HTMX (hx-select="#editor"), sem
+    salvar; só o Salvar envia de verdade. O período e os filtros não estão aqui: vêm da tela
+    (Salvar filtros). -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, button_class, checkbox, field with context %}
 {% from "_fields.html" import dialog with context %}
 {% from "_icons.html" import icon %}
+{% from "reports/_blocks.html" import block with context %}
 
 {% set heading = t("relatorios.editor.editar") if model else t("relatorios.editor.novo") %}
 {% block title %}{{ heading }}{% endblock %}
 
-{#- Refaz o formulário com a ação de `acao` (ex.: "subir-2"), sem salvar. -#}
+{#- Refaz o formulário com a ação de `acao` (ex.: "subir-2"), sem salvar; um pedido novo cancela
+    o que ainda não voltou. -#}
 {% macro refresh(acao, trigger="click") -%}
-hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select="#editor" hx-swap="outerHTML" hx-vals='{"acao": "{{ acao }}"}'
+hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select="#editor" hx-swap="outerHTML" hx-sync="#editor:replace" hx-vals='{"acao": "{{ acao }}"}'
 {%- endmacro %}
 
 {% macro select(name, label, options, selected, attrs="") -%}
@@ -47,7 +51,7 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
 
     <div class="grid gap-3 sm:grid-cols-2">
       {{ field("nome", t("relatorios.editor.nome"), value=form.name, required=True, maxlength="80") }}
-      {{ select("horas", t("relatorios.editor.horas"), [("hm", t("relatorios.editor.formatoHm")), ("decimal", t("relatorios.editor.formatoDecimal"))], form.hours) }}
+      {{ select("horas", t("relatorios.editor.horas"), [("hm", t("relatorios.editor.formatoHm")), ("decimal", t("relatorios.editor.formatoDecimal"))], form.hours, refresh("atualizar", "change")) }}
     </div>
     <div class="grid gap-3 sm:grid-cols-2">
       {{ select("publico", t("relatorios.editor.publico"), [("internal", t("relatorios.editor.publicos.internal")), ("client", t("relatorios.editor.publicos.client"))], form.audience, refresh("atualizar", "change")) }}
@@ -84,27 +88,40 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {{ select("b" ~ i ~ "-agrupar", t("relatorios.editor.agrupar"), dimension_options[b.visual], b.dimension, refresh("atualizar", "change")) }}
         {%- endif %}
         {%- if b.visual in charts and b.visual != "stacked" %}
-        {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medida"), measure_options, b.measures[0]) }}
+        {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medida"), measure_options, b.measures[0], refresh("atualizar", "change")) }}
         {%- endif %}
         {%- if b.visual in ("bars", "columns", "stacked", "table") and b.dimension in categories %}
-        {{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}
-        {{ select("b" ~ i ~ "-ordem", t("relatorios.editor.ordem"), order_options, b.order) }}
+        <div {{ refresh("atualizar", "change") }}>{{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}</div>
+        {{ select("b" ~ i ~ "-ordem", t("relatorios.editor.ordem"), order_options, b.order, refresh("atualizar", "change")) }}
         {%- endif %}
       </div>
       {%- if b.visual == "stacked" %}
       <p class="text-muted">{{ t("relatorios.editor.empilhadasAjuda") }}</p>
       {%- endif %}
       {%- if b.visual in ("cards", "table") %}
-      <fieldset class="flex flex-col gap-2">
+      {#- O id devolve o foco à caixa depois que o formulário volta. #}
+      <fieldset class="flex flex-col gap-2" {{ refresh("atualizar", "change") }}>
         <legend class="font-medium">{{ t("relatorios.editor.medidas") }}</legend>
         <div class="flex flex-wrap gap-x-4 gap-y-2">
           {%- for value, text in measure_options %}
-          {{ checkbox("b" ~ i ~ "-medidas", text, checked=value in b.measures, value=value) }}
+          {{ checkbox("b" ~ i ~ "-medidas", text, checked=value in b.measures, value=value, id="campo-b" ~ i ~ "-medidas-" ~ value) }}
           {%- endfor %}
         </div>
       </fieldset>
       {%- elif b.visual == "tasks" %}
-      {{ checkbox("b" ~ i ~ "-extras", t("relatorios.editor.soExtras"), checked=b.only_overtime) }}
+      <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-extras", t("relatorios.editor.soExtras"), checked=b.only_overtime, id="campo-b" ~ i ~ "-extras") }}</div>
+      {%- endif %}
+      {#- A prévia, com o mesmo bloco da tela; os links não saem do editor (inert). #}
+      {%- if previews.blocks %}
+      {%- set preview = previews.blocks[i] %}
+      <div class="flex flex-col gap-2 border-t border-border pt-3">
+        <p class="text-sm text-muted">{{ previews.label or t("relatorios.editor.previaSemPeriodo") }}</p>
+        {%- if preview is string %}
+        <p class="text-danger">{{ preview }}</p>
+        {%- else %}
+        <div inert class="flex flex-col gap-2">{{ block(preview, preview=True) }}</div>
+        {%- endif %}
+      </div>
       {%- endif %}
     </fieldset>
     {%- endfor %}

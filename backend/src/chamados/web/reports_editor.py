@@ -1,20 +1,21 @@
 """Relatórios: o editor de um modelo pessoal (docs/14 §14.8.1 e §14.8.3) e o "Salvar filtros".
 
 O formulário tem os campos de cada bloco (`b<i>-visual`, `b<i>-agrupar`, `b<i>-medida(s)`…), lidos
-de `request.form()`. Adicionar, remover, mover e trocar o visual refazem o formulário pelo HTMX,
-sem salvar; só `acao=salvar` grava. O modelo novo leva o período e os filtros da tela, em campos
-escondidos.
+de `request.form()`. Adicionar, remover, mover e mudar as escolhas de um bloco refazem o
+formulário pelo HTMX, sem salvar; só `acao=salvar` grava. O modelo novo leva o período e os
+filtros da tela, em campos escondidos. Cada bloco mostra a prévia, calculada como na tela.
 """
 
 import uuid
 from dataclasses import dataclass, field, replace
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from starlette.datastructures import FormData
 
 from chamados.db.session import DB
-from chamados.modules.reports import builder, saved
+from chamados.modules.reports import builder, saved, service
 from chamados.modules.reports.builder import (
     BUILTINS,
     CATEGORIES,
@@ -27,9 +28,10 @@ from chamados.modules.reports.builder import (
     ReportConfig,
 )
 from chamados.modules.reports.models import ReportModel
+from chamados.web.formatting import format_day
 from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
-from chamados.web.reports_blocks import block_title
-from chamados.web.reports_state import ParamsDep, form_params, load_state, with_query
+from chamados.web.reports_blocks import block_title, block_view
+from chamados.web.reports_state import Params, ParamsDep, form_params, load_state, with_query
 
 router = APIRouter()
 
@@ -149,6 +151,46 @@ def _apply(editor: EditorForm, action: str) -> None:
         blocks[i + 1], blocks[i] = blocks[i], blocks[i + 1]
 
 
+@dataclass
+class Previews:
+    """A prévia de cada bloco: o bloco pronto para o template (`reports_blocks.block_view`) ou,
+    num bloco inválido ou sem período, o erro; `label`, o título com o período usado."""
+
+    blocks: list[dict[str, Any] | str] = field(default_factory=list)
+    label: str = ""
+
+
+async def _previews(page: LoggedPage, db: DB, editor: EditorForm, params: Params) -> Previews:
+    """A prévia dos blocos com o período e os filtros da tela (modelo novo, pelos campos
+    escondidos) ou os salvos (ao editar). Os dados do período vêm uma vez, para todos."""
+    if editor.audience == "client" or not editor.blocks:
+        return Previews()
+    state = await load_state(page, db, params)
+    f = state.filters
+    if f is None:
+        message = state.error or page.t("relatorios.periodoInvalido")
+        return Previews([message] * len(editor.blocks))
+    data = await service.facts(db, page.auth, f)
+    # Só o formato das horas importa para formatar; os blocos podem ainda não valer.
+    hours: Literal["hm", "decimal"] = "decimal" if editor.hours == "decimal" else "hm"
+    config = ReportConfig.model_construct(hours=hours, blocks=editor.blocks)
+    previews = Previews(
+        label=page.t(
+            "relatorios.editor.previa",
+            de=format_day(page.locale, f.start),
+            ate=format_day(page.locale, f.end),
+        )
+    )
+    for i, block in enumerate(editor.blocks):
+        try:
+            builder.check_block(block)
+        except HTTPException as exc:
+            previews.blocks.append(page.api_message(exc))
+        else:
+            previews.blocks.append(block_view(page, state, f, config, data, block, i))
+    return previews
+
+
 def _editor_page(
     page: LoggedPage,
     editor: EditorForm,
@@ -156,6 +198,7 @@ def _editor_page(
     model: ReportModel | None,
     hidden: list[tuple[str, str]],
     back: str,
+    previews: Previews,
     status_code: int = 200,
 ) -> HTMLResponse:
     action = f"/relatorios/modelos/{model.public_id}" if model else "/relatorios/modelos"
@@ -190,6 +233,7 @@ def _editor_page(
             block_title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")
             for b in editor.blocks
         ],
+        previews=previews,
     )
 
 
@@ -230,6 +274,7 @@ async def new_model(
         model=None,
         hidden=params.hidden(),
         back=with_query("/relatorios", {"aba": base}),
+        previews=await _previews(page, db, editor, params),
     )
 
 
@@ -250,7 +295,8 @@ async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLRe
             show_people=config.show_people,
             blocks=list(config.blocks),
         )
-    return _editor_page(page, editor, model=model, hidden=[], back=back)
+    previews = await _previews(page, db, editor, Params(aba=str(model_id)))
+    return _editor_page(page, editor, model=model, hidden=[], back=back, previews=previews)
 
 
 @router.post("/relatorios/modelos")
@@ -270,9 +316,12 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
     editor, action = _read_editor(form)
     hidden = form_params(form).hidden()
     back = with_query("/relatorios", {"aba": str(model.public_id) if model else None})
+    # A prévia: o modelo novo com o período e os filtros da tela; o salvo, com os dele.
+    params = form_params(form) if model is None else Params(aba=str(model.public_id))
     if action != "salvar":
         _apply(editor, action)
-        return _editor_page(page, editor, model=model, hidden=hidden, back=back)
+        previews = await _previews(page, db, editor, params)
+        return _editor_page(page, editor, model=model, hidden=hidden, back=back, previews=previews)
 
     for i, block in enumerate(editor.blocks):
         try:
@@ -282,7 +331,10 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
     if not editor.blocks and editor.audience == "internal":
         editor.error = page.t("relatorios.editor.semBlocos")
     if editor.errors or editor.error:
-        return _editor_page(page, editor, model=model, hidden=hidden, back=back, status_code=422)
+        previews = await _previews(page, db, editor, params)
+        return _editor_page(
+            page, editor, model=model, hidden=hidden, back=back, previews=previews, status_code=422
+        )
 
     try:
         if model is None:
@@ -312,7 +364,10 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
         )
     except HTTPException as exc:
         editor.error = page.api_message(exc)
-        return _editor_page(page, editor, model=model, hidden=hidden, back=back, status_code=422)
+        previews = await _previews(page, db, editor, params)
+        return _editor_page(
+            page, editor, model=model, hidden=hidden, back=back, previews=previews, status_code=422
+        )
     await db.commit()
     response = RedirectResponse(with_query("/relatorios", {"aba": str(model.public_id)}), 303)
     page.flash(response, ("success", page.t("relatorios.editor.salvo")))

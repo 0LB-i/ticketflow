@@ -526,7 +526,9 @@
         "client": "Client (PDF to send)"
       },
       "atendeu": "Show who handled it (the assignees)",
-      "clienteAjuda": "The client report has a fixed format: the period's totals and tickets, without overtime, teams or task text. The blocks are kept for when the template is internal again."
+      "clienteAjuda": "The client report has a fixed format: the period's totals and tickets, without overtime, teams or task text. The blocks are kept for when the template is internal again.",
+      "previa": "Preview, {de} to {ate}:",
+      "previaSemPeriodo": "Preview:"
     },
     "idades": {
       "0": "up to 1 day",

@@ -961,3 +961,62 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
     r = client.get("/relatorios", params=filtros)
     assert 'stroke-dasharray="4 3"' in r.text
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")
+
+
+def test_previa_no_editor(
+    client: TestClient, cenario: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from chamados.modules.reports import service
+
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 90, em(dia, 10))
+    data = format_day("pt-BR", dia)
+
+    # Os dados do período vêm uma vez por requisição, para todos os blocos.
+    facts = service.facts
+    chamadas: list[Any] = []
+
+    async def contar(*args: Any, **kwargs: Any) -> Any:
+        chamadas.append(args)
+        return await facts(*args, **kwargs)
+
+    monkeypatch.setattr(service, "facts", contar)
+
+    # Modelo novo: com o período e os filtros da tela, no lugar de cada bloco.
+    r = client.get("/relatorios/modelos/novo", params=_um_dia(dia, base="produtividade"))
+    assert len(chamadas) == 1
+    assert r.text.count(f"Prévia, de {data} a {data}:") == 4
+    assert "<div inert" in r.text and '<dd class="mt-1 text-2xl font-semibold">1h30</dd>' in r.text
+    assert "Baixar o CSV de" not in r.text  # na prévia, sem o CSV
+    # Os campos do bloco refazem o formulário (e a prévia) ao mudar; os textos, não.
+    assert re.search(r'id="campo-b1-medida" name="b1-medida" hx-post="/relatorios/modelos"', r.text)
+    assert 'id="campo-b0-medidas-hours"' in r.text
+    assert not re.search(r'name="b\d-titulo"[^>]*hx-post', r.text)
+
+    # Um bloco inválido mostra o erro no lugar da prévia; o formato das horas vale na prévia.
+    chamadas.clear()
+    dados = formulario(
+        client,
+        nome="X",
+        horas="decimal",
+        acao="atualizar",
+        blocos="2",
+        **{"b0-visual": "table", "b0-agrupar": "person", "b1-visual": "cards"},
+        **{"b1-medidas": "hours"},
+        **{k: v[0] for k, v in _datas(dia, dia).items()},
+    )
+    r = client.post("/relatorios/modelos", data=dados)
+    assert len(chamadas) == 1
+    assert '<p class="text-danger">Escolha ao menos uma medida.</p>' in r.text
+    assert '<dd class="mt-1 text-2xl font-semibold">1,5 h</dd>' in r.text
+
+    # Ao editar, com os filtros salvos no modelo.
+    modelo = _criar(client, "Do dia", **{k: v[0] for k, v in _datas(dia, dia).items()})
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert f"Prévia, de {data} a {data}:" in r.text and ">1h30</td>" in r.text
+
+    # Para o cliente, os blocos ficam escondidos: sem prévia (nem os dados).
+    chamadas.clear()
+    r = client.post("/relatorios/modelos", data={**dados, "publico": "client"})
+    assert "Prévia" not in r.text and not chamadas

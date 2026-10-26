@@ -526,7 +526,9 @@
         "client": "Cliente (PDF para enviar)"
       },
       "atendeu": "Mostrar quem atendeu (os responsáveis)",
-      "clienteAjuda": "O relatório para o cliente tem um formato fixo: os totais e os chamados do período, sem horas extras, grupos nem o texto das tarefas. Os blocos ficam guardados, para quando o modelo voltar a ser interno."
+      "clienteAjuda": "O relatório para o cliente tem um formato fixo: os totais e os chamados do período, sem horas extras, grupos nem o texto das tarefas. Os blocos ficam guardados, para quando o modelo voltar a ser interno.",
+      "previa": "Prévia, de {de} a {ate}:",
+      "previaSemPeriodo": "Prévia:"
     },
     "idades": {
       "0": "até 1 dia",

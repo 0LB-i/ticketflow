@@ -1,0 +1,137 @@
+{#- Os blocos de um modelo de relatório já formatados (`reports_blocks.block_view`): na tela
+    (index.html) e na prévia do editor (editor.html, `preview`: sem o CSV, e o editor a deixa
+    `inert`, para um clique não sair dele). -#}
+{% from "_icons.html" import icon %}
+{% from "reports/_charts.html" import bar_chart, column_chart, line_chart, stacked_chart %}
+
+{#- O link do CSV de um bloco. #}
+{% macro csv_link(url, title) -%}
+<a href="{{ url }}" download class="shrink-0 rounded p-1 text-muted hover:bg-surface-raised hover:text-fg" aria-label="{{ t('relatorios.baixarCsvBloco', bloco=title) }}" title="{{ t('relatorios.baixarCsvBloco', bloco=title) }}">{{ icon("download", "size-4") }}</a>
+{%- endmacro %}
+
+{#- Um texto que, com `href`, é um link: `boost`, o detalhar (troca o #relatorio pelo HTMX); sem
+    ele, a lista de chamados, que é outra página. #}
+{% macro linked(text, href, boost=False) -%}
+{%- if href %}<a href="{{ href }}"{% if boost %} hx-boost="true"{% endif %} class="hover:underline">{{ text }}</a>{% else %}{{ text }}{% endif -%}
+{%- endmacro %}
+
+{#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total
+    ((texto, link) de cada coluna); `titles`, o nome por extenso de uma coluna (o Δ da
+    comparação), que também a deixa em cinza. #}
+{% macro table(caption, columns, empty, count, foot=None, titles=None) -%}
+<div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
+  <table class="w-full border-collapse text-left">
+    <caption class="sr-only">{{ caption }}</caption>
+    <thead class="bg-surface-raised text-muted">
+      <tr>
+        {%- for label in columns %}
+        {%- set title = titles[loop.index0] if titles else None %}
+        <th scope="col" class="px-3 py-2 font-medium"{% if title %} title="{{ title }}" aria-label="{{ title }}"{% endif %}>{{ label }}</th>
+        {%- endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {{ caller() }}
+      {%- if not count %}
+      <tr>
+        <td colspan="{{ columns | length }}" class="px-3 py-6 text-center text-muted">{{ empty }}</td>
+      </tr>
+      {%- endif %}
+    </tbody>
+    {%- if foot and count %}
+    <tfoot class="border-t-2 border-border font-medium">
+      <tr>
+        <th scope="row" class="px-3 py-2 text-left">{{ t("relatorios.total") }}</th>
+        {%- for value, href in foot %}
+        <td class="px-3 py-2 tabular-nums{% if titles and titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, href) }}</td>
+        {%- endfor %}
+      </tr>
+    </tfoot>
+    {%- endif %}
+  </table>
+</div>
+{%- endmacro %}
+
+{#- Um bloco: cartões, gráfico, tabela ou lista de tarefas. -#}
+{% macro block(b, preview=False) -%}
+{%- if b.visual == "cards" %}
+<section class="flex flex-col gap-2 lg:col-span-2">
+  {%- if b.title %}
+  <h2 class="font-medium">{{ b.title }}</h2>
+  {%- endif %}
+  <dl class="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
+    {%- for card in b.cards %}
+    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
+      <dt class="text-muted">{{ card.label }}</dt>
+      <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
+      {%- if card.before is defined %}
+      <dd class="mt-1 text-sm text-muted tabular-nums">{{ t("relatorios.comparacao.antes", variacao=card.change, anterior=card.before) if card.change else t("relatorios.comparacao.soAntes", anterior=card.before) }}</dd>
+      {%- endif %}
+    </div>
+    {%- endfor %}
+  </dl>
+</section>
+{%- elif b.visual in ("bars", "columns", "stacked", "line") %}
+<div class="flex items-start gap-2 rounded-lg border border-border bg-surface p-4 shadow-md">
+  <div class="min-w-0 flex-1">
+    {%- if b.visual == "bars" %}
+    {{ bar_chart(b.title, b.points, b.fmt) }}
+    {%- if not b.points %}
+    <p class="text-muted">{{ b.empty }}</p>
+    {%- endif %}
+    {%- elif b.visual == "columns" %}
+    {{ column_chart(b.title, b.points, b.fmt, b.step, b.legend) }}
+    {%- elif b.visual == "stacked" %}
+    {{ stacked_chart(b.title, b.points, b.fmt, b.step, b.labels) }}
+    {%- else %}
+    {{ line_chart(b.title, b.points, b.fmt, b.step, b.legend) }}
+    {%- endif %}
+  </div>
+  {%- if not preview %}
+  {{ csv_link(b.csv, b.title) }}
+  {%- endif %}
+</div>
+{%- elif b.visual == "table" %}
+<section class="flex flex-col gap-2 lg:col-span-2">
+  <div class="flex items-center justify-between gap-2">
+    <h2 class="font-medium">{{ b.title }}</h2>
+    {%- if not preview %}
+    {{ csv_link(b.csv, b.title) }}
+    {%- endif %}
+  </div>
+  {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles) %}
+    {%- for label, href, cells in b.rows %}
+    <tr class="border-t border-border">
+      <td class="px-3 py-2">{{ linked(label, href, boost=True) }}</td>
+      {%- for value, link in cells %}
+      <td class="px-3 py-2 tabular-nums{% if b.titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, link) }}</td>
+      {%- endfor %}
+    </tr>
+    {%- endfor %}
+  {% endcall %}
+</section>
+{%- else %}
+<section class="flex flex-col gap-2 lg:col-span-2">
+  <div class="flex items-center justify-between gap-2">
+    <h2 class="font-medium">{{ b.title }}</h2>
+    {%- if not preview %}
+    {{ csv_link(b.csv, b.title) }}
+    {%- endif %}
+  </div>
+  {% call table(b.title, [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], b.empty, b.tasks | length) %}
+    {%- for o in b.tasks %}
+    <tr class="border-t border-border">
+      <td class="px-3 py-2 tabular-nums">{{ datetime(o.done_at) }}</td>
+      <td class="px-3 py-2">{{ o.person }}</td>
+      <td class="px-3 py-2"><a href="/chamados/{{ o.number }}" class="text-primary underline tabular-nums">#{{ o.number }}</a> {{ o.title }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ o.minutes }}</td>
+      <td class="px-3 py-2 tabular-nums">{{ o.overtime }}</td>
+    </tr>
+    {%- endfor %}
+  {% endcall %}
+  {%- if b.count > b.tasks | length %}
+  <p class="text-sm text-muted">{{ t("relatorios.listaCortada", n=b.tasks | length, total=b.count) }}</p>
+  {%- endif %}
+</section>
+{%- endif %}
+{%- endmacro %}
