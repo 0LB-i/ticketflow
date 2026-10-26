@@ -1070,18 +1070,10 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
     # As menções só existem no comentário: sem ele, não há em quem avisar.
     mentions = data.mention_ids if text else []
     add_event(db, ticket, "ticket.status_changed", auth, mention_ids=mentions, **payload)
-
-    ticket.status_id = status.id
-    if data.action == "close":
-        ticket.resolution_code_id = code.id if code else None
-        ticket.closed_at = func.now()
-    elif data.action == "cancel":
-        ticket.canceled_at = func.now()
-    elif data.action == "reopen":
-        # Volta para o mesmo responsável (docs/10 §10.5).
-        ticket.reopened_count += 1
-        ticket.resolution_code_id = None
-        ticket.closed_at = None
+    # Reabrir volta para o mesmo responsável (docs/10 §10.5).
+    _apply_status(ticket, ticket.status, status)
+    if code is not None:
+        ticket.resolution_code_id = code.id
     await db.commit()
 
 

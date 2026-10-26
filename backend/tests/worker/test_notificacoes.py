@@ -12,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
 from chamados.config import Settings
+from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.jobs import service, worker
 from chamados.modules.jobs.models import Job
 from chamados.modules.notifications import messages, tasks
-from tests.apoio import API, registrar, rodar
+from tests.apoio import API, registrar, rodar, status_id
 from tests.conftest import FakeMailer, criar_usuario, entrar
 
 Enviados = Callable[[], dict[str, tuple[str, str]]]
@@ -130,6 +131,7 @@ def test_concluido_e_reaberto(
     client: TestClient,
     cenario: dict[str, Any],
     enviados: Enviados,
+    db: Session,
 ) -> None:
     entrar(client, "bia@x.com")
     numero = registrar(client, cenario, assignee=cenario["ana"], watcher_ids=[cenario["caio"]])[
@@ -177,6 +179,15 @@ def test_concluido_e_reaberto(
     assert emails["auditor@x.com"][0].endswith(": você foi mencionado")
     assert emails["caio@x.com"][0].endswith(": você foi mencionado")
     assert emails["bia@x.com"][0].endswith(": concluído")
+
+    # De um concluído para outro, ou para cancelado, não é conclusão nova nem reabertura.
+    entrar(client, "bia@x.com")
+    db.add(TicketStatus(name="Resolvido", kind="closed", sort_order=99))
+    db.commit()
+    for nome in ("Resolvido", "Cancelado"):
+        mudar = {"status_id": int(status_id(client, nome))}
+        assert client.patch(f"{API}/{numero}", json=mudar).status_code == 200
+        assert enviados() == {}
 
 
 def test_grupo_avisado_no_registro(

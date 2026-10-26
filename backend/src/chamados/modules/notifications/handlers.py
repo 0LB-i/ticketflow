@@ -140,8 +140,8 @@ async def ticket_transferred(db: AsyncSession, settings: Settings, event: Outbox
 
 
 async def status_changed(db: AsyncSession, settings: Settings, event: OutboxEvent) -> None:
-    """Concluído (para um status `closed`) e reaberto (saindo de um); os demais, só para quem foi
-    mencionado no comentário da mudança."""
+    """Concluído (entrando num status `closed`) e reaberto (saindo de um, menos para cancelado); os
+    demais, só para quem foi mencionado no comentário da mudança."""
     ticket = await _ticket(db, event)
     data = event.payload["data"]
     rows = await db.execute(
@@ -154,9 +154,9 @@ async def status_changed(db: AsyncSession, settings: Settings, event: OutboxEven
     recipients: list[tuple[str, Iterable[User]]] = [
         ("mentioned", await _users(db, event.payload.get("mention_ids", [])))
     ]
-    if after == "closed":
+    if after == "closed" and before != "closed":
         recipients.append(("closed", [*_watchers(ticket), ticket.created_by]))
-    elif before == "closed":
+    elif before == "closed" and after not in ("closed", "canceled"):
         recipients.append(("reopened", [*_assignees(ticket), *_watchers(ticket)]))
     await _send(db, settings, event, ticket, recipients)
 

@@ -386,7 +386,7 @@ Regras em [docs/10 §10.10](docs/10-chamados.md#1010-notificações). Os handler
 | `ticket.created` | `mentioned` (mencionados), `assigned` (responsáveis), `new_in_team` (membros do grupo, se `teams.notify_on_new = 'email_all_members'`) |
 | `ticket.assigned`, `ticket.assignees_changed` | `assigned` (quem entrou) |
 | `ticket.transferred` | `assigned` (novo responsável), `transferred` (membros do grupo de destino) |
-| `ticket.status_changed` | `mentioned` (mencionados no comentário da mudança, em qualquer uma); para um status `closed`: `closed` (observadores e quem registrou); saindo de um: `reopened` (responsáveis e observadores) |
+| `ticket.status_changed` | `mentioned` (mencionados no comentário da mudança, em qualquer uma); entrando num status `closed`: `closed` (observadores e quem registrou); saindo de um, menos para outro `closed` ou um `canceled`: `reopened` (responsáveis e observadores) |
 | `comment.created` | `mentioned`, `comment` (responsáveis e observadores) |
 
 - **Um e-mail por pessoa por ação:** vale o primeiro motivo da lista do handler (menção, atribuição, o resto). Quem causou o evento, quem está inativo, foi excluído ou não tem e-mail não recebe.
