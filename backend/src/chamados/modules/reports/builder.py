@@ -247,6 +247,35 @@ BUILTINS: dict[str, ReportConfig] = {
 }
 
 
+def dimensions_for(visual: Visual) -> tuple[Dimension, ...]:
+    """Os agrupamentos de um visual: os que o editor oferece e o `check_block` aceita (um teste
+    confere que os dois concordam). As barras agrupam por cadastro ou idade; a linha, só por
+    período; a idade é do em aberto, que não tem horas para empilhar; cartões e a lista de
+    tarefas não agrupam."""
+    if visual in ("cards", "tasks"):
+        return ()
+    if visual == "bars":
+        return (*CATEGORIES, "age")
+    if visual == "line":
+        return TIMES
+    if visual == "stacked":
+        return tuple(d for d in DIMENSIONS if d != "age")
+    return DIMENSIONS
+
+
+def measures_for(visual: Visual, dimension: Dimension | None) -> tuple[Measure, ...]:
+    """As medidas que cabem num visual com o agrupamento (o editor oferece só estas): as
+    empilhadas são sempre as horas e as extras; a idade é só do em aberto; o em aberto, retrato
+    do fim, não se agrupa por período."""
+    if visual == "tasks":
+        return ()
+    if visual == "stacked":
+        return tuple(STACKED)
+    if dimension == "age":
+        return ("backlog",)
+    return tuple(m for m in MEASURES if not (m == "backlog" and dimension in TIMES))
+
+
 def check_block(block: Block) -> None:
     """As combinações que o formulário não deixa escolher, conferidas de novo ao salvar."""
     if block.visual == "tasks":

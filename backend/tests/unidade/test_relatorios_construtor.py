@@ -18,11 +18,17 @@ from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.reports import csv_export
 from chamados.modules.reports.builder import (
     BUILTINS,
+    DIMENSIONS,
+    MEASURES,
     OTHERS,
+    STACKED,
+    VISUALS,
     Block,
     PeriodSpec,
     check_block,
     comparison_period,
+    dimensions_for,
+    measures_for,
     needs,
     next_period,
     previous_period,
@@ -304,6 +310,26 @@ def test_combinacoes_recusadas(bloco: Block, erro: str) -> None:
     with pytest.raises(HTTPException) as exc:
         check_block(bloco)
     assert exc.value.status_code == 422 and exc.value.detail == erro
+
+
+def test_o_editor_oferece_so_o_que_o_check_block_aceita() -> None:
+    # Cada visual × agrupamento × medida: o que `dimensions_for` e `measures_for` oferecem passa
+    # no `check_block`; um agrupamento que eles não oferecem é recusado.
+    for visual in VISUALS:
+        if visual == "tasks":
+            continue
+        allowed = dimensions_for(visual)
+        for dimension in (None, *DIMENSIONS):
+            offered = dimension in allowed or (visual == "cards" and dimension is None)
+            if visual == "cards" and dimension is not None:
+                continue
+            for measures in [STACKED] if visual == "stacked" else [[m] for m in MEASURES]:
+                bloco = Block(visual=visual, dimension=dimension, measures=measures)
+                if offered and set(measures) <= set(measures_for(visual, dimension)):
+                    check_block(bloco)
+                else:
+                    with pytest.raises(HTTPException):
+                        check_block(bloco)
 
 
 def test_modelos_prontos_sao_validos() -> None:

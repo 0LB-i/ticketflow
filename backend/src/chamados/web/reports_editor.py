@@ -20,8 +20,6 @@ from chamados.modules.reports.builder import (
     BUILTINS,
     CATEGORIES,
     CHARTS,
-    STACKED,
-    TIMES,
     Block,
     FilterSpec,
     PeriodSpec,
@@ -83,27 +81,24 @@ def _read_block(form: FormData, i: int) -> Block:
         value = form.get(f"b{i}-{name}")
         return value.strip() if isinstance(value, str) else ""
 
-    visual = one("visual") if one("visual") in builder.VISUALS else "table"
-    dimension = one("agrupar") if one("agrupar") in builder.DIMENSIONS else None
-    if visual in ("cards", "tasks"):
-        dimension = None
-    elif visual == "bars" and dimension not in (*CATEGORIES, "age"):
-        dimension = "person"
-    elif (visual == "line" and dimension not in TIMES) or (
-        visual == "stacked" and dimension in (None, "age")
-    ):
-        dimension = "day"
-    elif dimension is None:
-        dimension = "day" if visual == "columns" else "person"
+    visual: builder.Visual = next((v for v in builder.VISUALS if v == one("visual")), "table")
+    # O agrupamento e as medidas ficam entre os que o visual aceita (`builder.dimensions_for`,
+    # `measures_for`); fora deles, o primeiro que cabe (nos gráficos de tempo, o dia).
+    allowed = builder.dimensions_for(visual)
+    dimension = next((d for d in allowed if d == one("agrupar")), None)
+    if dimension is None and allowed:
+        default = "day" if visual in ("columns", "stacked", "line") else "person"
+        dimension = next((d for d in allowed if d == default), allowed[0])
+    offered = builder.measures_for(visual, dimension)
     single = one("medida")
     checked = [v for v in form.getlist(f"b{i}-medidas") if isinstance(v, str)]
-    measures = [m for m in builder.MEASURES if m in checked]
+    measures = [m for m in offered if m in checked]
     if visual == "stacked":
-        measures = list(STACKED)
+        measures = list(offered)
     elif visual in CHARTS:
-        chosen = single if single in builder.MEASURES else (measures or ["hours"])[0]
+        chosen = single if single in offered else (measures or list(offered))[0]
         measures = [chosen]
-    elif not measures and single in builder.MEASURES:
+    elif not measures and single in offered:
         measures = [single]
     top = one("maiores")
     order = one("ordem")
@@ -202,15 +197,7 @@ def _editor_page(
     status_code: int = 200,
 ) -> HTMLResponse:
     action = f"/relatorios/modelos/{model.public_id}" if model else "/relatorios/modelos"
-    # O que cada visual agrupa: as barras, cadastros e idade; a linha, só períodos; a idade é
-    # do em aberto, que não tem horas para empilhar.
-    dimensions = {
-        "bars": (*CATEGORIES, "age"),
-        "columns": builder.DIMENSIONS,
-        "stacked": tuple(d for d in builder.DIMENSIONS if d != "age"),
-        "line": TIMES,
-        "table": builder.DIMENSIONS,
-    }
+    dimensions = {v: d for v in builder.VISUALS if (d := builder.dimensions_for(v))}
     return page.render(
         "reports/editor.html",
         status_code=status_code,
@@ -227,7 +214,14 @@ def _editor_page(
             visual: [(d, page.t(f"relatorios.dimensoes.{d}").capitalize()) for d in options]
             for visual, options in dimensions.items()
         },
-        measure_options=[(m, page.t(f"relatorios.medidas.{m}")) for m in builder.MEASURES],
+        # As medidas que cabem em cada bloco, com o agrupamento escolhido.
+        measure_options=[
+            [
+                (m, page.t(f"relatorios.medidas.{m}"))
+                for m in builder.measures_for(b.visual, b.dimension)
+            ]
+            for b in editor.blocks
+        ],
         order_options=[(o, page.t(f"relatorios.ordens.{o}")) for o in ("desc", "asc", "name")],
         placeholders=[
             block_title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")

@@ -88,7 +88,7 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {{ select("b" ~ i ~ "-agrupar", t("relatorios.editor.agrupar"), dimension_options[b.visual], b.dimension, refresh("atualizar", "change")) }}
         {%- endif %}
         {%- if b.visual in charts and b.visual != "stacked" %}
-        {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medida"), measure_options, b.measures[0], refresh("atualizar", "change")) }}
+        {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medida"), measure_options[i], b.measures[0], refresh("atualizar", "change")) }}
         {%- endif %}
         {%- if b.visual in ("bars", "columns", "stacked", "table") and b.dimension in categories %}
         <div {{ refresh("atualizar", "change") }}>{{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}</div>
@@ -103,7 +103,7 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
       <fieldset class="flex flex-col gap-2" {{ refresh("atualizar", "change") }}>
         <legend class="font-medium">{{ t("relatorios.editor.medidas") }}</legend>
         <div class="flex flex-wrap gap-x-4 gap-y-2">
-          {%- for value, text in measure_options %}
+          {%- for value, text in measure_options[i] %}
           {{ checkbox("b" ~ i ~ "-medidas", text, checked=value in b.measures, value=value, id="campo-b" ~ i ~ "-medidas-" ~ value) }}
           {%- endfor %}
         </div>
