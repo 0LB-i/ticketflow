@@ -433,6 +433,8 @@
     "restaurarFiltros": "Restaurar filtros salvos",
     "filtradoPor": "Filtrado por:",
     "limparFiltros": "Limpar filtros",
+    "carregando": "Carregando…",
+    "atualizado": "Relatório atualizado.",
     "detalhe": {
       "periodo": "Detalhando de {de} a {ate}.",
       "voltar": "Voltar para {periodo}",

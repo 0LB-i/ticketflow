@@ -444,10 +444,13 @@ function atualizarTodos(select) {
   if (todos) todos.hidden = todos.disabled = opcoesLivres(select).length === 0
 }
 
-// Num formulário de filtro (relatórios), pôr ou tirar uma etiqueta aplica na hora.
+// Num formulário de filtro (relatórios), pôr ou tirar uma etiqueta aplica na hora. O foco fica na
+// lista da caixa (o × tirado sai da página), e a tela nova o devolve a ela pelo id.
 function aplicarFiltro(caixa) {
   const form = caixa.closest('form[data-envia-ao-mudar]')
-  if (form) form.requestSubmit()
+  if (!form) return
+  caixa.querySelector('[data-chips-adiciona]').focus()
+  form.requestSubmit()
 }
 
 function adicionarEtiqueta(caixa, opcao) {
@@ -486,6 +489,34 @@ document.addEventListener('click', (e) => {
   aplicarFiltro(caixa)
 })
 htmx.onLoad((raiz) => raiz.querySelectorAll('[data-chips-adiciona]').forEach(atualizarTodos))
+
+// --- relatórios (reports/index.html) --------------------------------------------------------
+
+// O formulário aplica pelo HTMX esperando as escolhas seguidas. Uma resposta que chega depois de
+// outra escolha (ainda no intervalo de espera) não troca a tela: apagaria a escolha nova; o
+// pedido dela vem em seguida.
+document.addEventListener('submit', (e) => {
+  e.target.dataset.envios = String(Number(e.target.dataset.envios || 0) + 1)
+}, true)
+document.addEventListener('htmx:beforeRequest', (e) => {
+  if (e.detail.target?.id !== 'relatorio') return
+  e.detail.xhr.envios = e.detail.elt.dataset.envios
+  e.detail.target.setAttribute('aria-busy', 'true')
+})
+document.addEventListener('htmx:beforeSwap', (e) => {
+  const { xhr, elt } = e.detail
+  if (xhr.envios !== undefined && xhr.envios !== elt.dataset.envios) e.detail.shouldSwap = false
+})
+document.addEventListener('htmx:afterRequest', (e) => {
+  if (e.detail.target?.id === 'relatorio') e.detail.target.removeAttribute('aria-busy')
+})
+// Avisa o leitor de tela que o relatório mudou (o aviso some e volta, para ser lido de novo).
+document.addEventListener('htmx:afterSettle', (e) => {
+  const aviso = document.getElementById('relatorio-aviso')
+  if (!aviso || e.detail.target?.id !== 'relatorio') return
+  aviso.textContent = ''
+  setTimeout(() => { aviso.textContent = aviso.dataset.texto }, 100)
+})
 
 // --- presença (tickets/_presence.html) ------------------------------------------------------
 

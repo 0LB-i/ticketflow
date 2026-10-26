@@ -19,9 +19,10 @@
 <a href="{{ url }}" download class="shrink-0 rounded p-1 text-muted hover:bg-surface-raised hover:text-fg" aria-label="{{ t('relatorios.baixarCsvBloco', bloco=title) }}" title="{{ t('relatorios.baixarCsvBloco', bloco=title) }}">{{ icon("download", "size-4") }}</a>
 {%- endmacro %}
 
-{#- Um texto que, com `href`, é um link (detalhar). #}
-{% macro linked(text, href) -%}
-{%- if href %}<a href="{{ href }}" class="hover:underline">{{ text }}</a>{% else %}{{ text }}{% endif -%}
+{#- Um texto que, com `href`, é um link: `boost`, o detalhar (troca o #relatorio pelo HTMX); sem
+    ele, a lista de chamados, que é outra página. #}
+{% macro linked(text, href, boost=False) -%}
+{%- if href %}<a href="{{ href }}"{% if boost %} hx-boost="true"{% endif %} class="hover:underline">{{ text }}</a>{% else %}{{ text }}{% endif -%}
 {%- endmacro %}
 
 {#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total
@@ -60,9 +61,18 @@
 {%- endmacro %}
 
 {% block content %}
-<div class="mx-auto flex max-w-7xl flex-col gap-4">
+{#- Avisa o leitor de tela quando o relatório chega pelo HTMX (chamado.js); fora do #relatorio,
+    que é trocado. #}
+<p id="relatorio-aviso" class="sr-only" aria-live="polite" data-texto="{{ t('relatorios.atualizado') }}"></p>
+{#- Os filtros, as abas e os links de detalhar trocam a página toda menos o menu: o cabeçalho
+    (Salvar filtros, Baixar…) e o intervalo também dependem dos filtros. Enquanto carrega, o
+    #relatorio ganha `htmx-request` (os blocos esmaecem) e `aria-busy`. #}
+<div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML" hx-indicator="#relatorio" class="mx-auto flex max-w-7xl flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
+    <div class="flex items-center gap-3">
+      <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
+      <span class="hidden items-center gap-2 text-sm text-muted in-[.htmx-request]:inline-flex">{{ icon("loader-circle", "size-4 animate-spin") }} {{ t("relatorios.carregando") }}</span>
+    </div>
     <div class="flex flex-wrap items-center gap-2">
       {%- if filters_changed %}
       {#- Os filtros da tela entram no modelo da pessoa. #}
@@ -73,7 +83,7 @@
         {%- endfor %}
         <button type="submit" class="{{ button_class() }}">{{ icon("check", "size-4") }} {{ t("relatorios.salvarFiltros") }}</button>
       </form>
-      <a href="{{ restore_url }}" class="{{ button_class('secondary') }}">{{ t("relatorios.restaurarFiltros") }}</a>
+      <a href="{{ restore_url }}" hx-boost="true" class="{{ button_class('secondary') }}">{{ t("relatorios.restaurarFiltros") }}</a>
       {%- endif %}
       {%- if model %}
       <a href="/relatorios/modelos/{{ model.public_id }}/editar" class="{{ button_class('secondary') }}">{{ icon("pencil", "size-4") }} {{ t("relatorios.editarModelo") }}</a>
@@ -97,15 +107,16 @@
   </div>
 
   {#- Os modelos prontos e os da pessoa. #}
-  <nav aria-label="{{ t('relatorios.modelos') }}" class="flex flex-wrap gap-1 border-b border-border">
+  <nav aria-label="{{ t('relatorios.modelos') }}" hx-boost="true" class="flex flex-wrap gap-1 border-b border-border">
     {%- for slug, label, url in tabs %}
     <a href="{{ url }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
     {%- endfor %}
   </nav>
 
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
-      continua. #}
-  <form method="get" action="/relatorios" data-envia-ao-mudar class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      continua. Pelo HTMX, esperando as escolhas seguidas (600 ms), com o endereço na barra (o
+      link continua valendo e o Voltar, também); um pedido novo cancela o anterior. #}
+  <form method="get" action="/relatorios" data-envia-ao-mudar hx-get="/relatorios" hx-trigger="submit delay:600ms" hx-push-url="true" hx-sync="this:replace" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     <input type="hidden" name="aba" value="{{ tab }}">
     {%- if origin %}
     {#- Mexer nos outros filtros mantém a trilha do detalhar. #}
@@ -138,12 +149,12 @@
     {{ chips(name, t("relatorios." ~ label), options, selected, dict(options), t("relatorios.adicionar") if selected else t("relatorios." ~ all_key), "relatorios.tirarFiltro") }}
     {%- endfor %}
     {#- Os cartões mostram a variação sobre o período anterior. mt-7: na linha dos campos. #}
-    <div class="mt-7">{{ checkbox("comparar", t("relatorios.comparacao.campo"), checked=compare) }}</div>
+    <div class="mt-7">{{ checkbox("comparar", t("relatorios.comparacao.campo"), checked=compare, id="campo-comparar") }}</div>
   </form>
 
   {#- O que está filtrado (cada × tira um valor) e a trilha do detalhar por período. #}
   {%- if chosen or drilled %}
-  <div class="flex flex-col gap-2 text-sm">
+  <div hx-boost="true" class="flex flex-col gap-2 text-sm">
     {%- if drilled %}
     {%- set text, back_label, back_url = drilled %}
     <p class="flex flex-wrap items-center gap-2"><span>{{ text }}</span> <a href="{{ back_url }}" class="inline-flex items-center gap-1 text-primary underline">{{ icon("arrow-left", "size-4") }} {{ back_label }}</a></p>
@@ -162,6 +173,8 @@
   </div>
   {%- endif %}
 
+  {#- Os resultados esmaecem enquanto o relatório novo carrega. #}
+  <div class="flex flex-col gap-4 transition-opacity in-[.htmx-request]:opacity-50">
   {%- if warning %}
   {{ alert(warning, "info") }}
   {%- endif %}
@@ -241,7 +254,7 @@
       {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total) %}
         {%- for label, href, cells in b.rows %}
         <tr class="border-t border-border">
-          <td class="px-3 py-2">{{ linked(label, href) }}</td>
+          <td class="px-3 py-2">{{ linked(label, href, boost=True) }}</td>
           {%- for value, link in cells %}
           <td class="px-3 py-2 tabular-nums">{{ linked(value, link) }}</td>
           {%- endfor %}
@@ -274,5 +287,6 @@
     {%- endfor %}
   </div>
   {%- endif %}
+  </div>
 </div>
 {% endblock %}

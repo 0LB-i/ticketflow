@@ -91,7 +91,8 @@ def test_numeros_graficos_e_abas(client: TestClient, cenario: dict[str, Any], db
     assert '<svg width="85.00%" height="16"' in r.text
     # A linha da pessoa aplica o filtro dela ao ser clicada (detalhar).
     achado = re.search(
-        r'<td class="px-3 py-2"><a href="([^"]+)" class="hover:underline">Ana</a>', r.text
+        r'<td class="px-3 py-2"><a href="([^"]+)" hx-boost="true" class="hover:underline">Ana</a>',
+        r.text,
     )
     assert achado and f"pessoa={cenario['ana']}" in achado.group(1)
 
@@ -571,7 +572,9 @@ def test_comparar_e_detalhar_por_linha(client: TestClient, cenario: dict[str, An
     # A coluna do dia aplica o dia como período; a barra da pessoa, a pessoa.
     de = f"de={dia.isoformat()}&amp;ate={dia.isoformat()}"
     assert re.search(
-        rf'<a href="/relatorios\?[^"]*periodo=personalizado&amp;{de}[^"]*" aria-label', r.text
+        rf'<a href="/relatorios\?[^"]*periodo=personalizado&amp;{de}[^"]*" hx-boost="true"'
+        " aria-label",
+        r.text,
     )
     assert f"pessoa={cenario['ana']}" in r.text
 
@@ -788,3 +791,38 @@ def test_trilha_do_detalhar(client: TestClient, cenario: dict[str, Any]) -> None
     assert "Detalhando" not in client.get(coluna.replace("mes-atual", "xyz")).text
     r = client.get("/relatorios", params={"periodo": "mes-atual", "origem": "mes-anterior"})
     assert "Detalhando" not in r.text
+
+
+def test_filtros_pelo_htmx(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
+    padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
+    numero = registrar(client, cenario, client_id=padaria)["number"]
+    tarefa(client, numero, 30, em(dia_util_passado(), 10))
+    r = client.get("/relatorios", params={"aba": "clientes"})
+    # O formulário troca o #relatorio (cabeçalho, filtros, abas e blocos) esperando as escolhas
+    # seguidas, com o endereço na barra; um pedido novo cancela o anterior.
+    assert (
+        '<div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML"'
+        ' hx-indicator="#relatorio"' in r.text
+    )
+    assert (
+        'hx-get="/relatorios" hx-trigger="submit delay:600ms" hx-push-url="true"'
+        ' hx-sync="this:replace"' in r.text
+    )
+    # O aviso para o leitor de tela fica fora da região trocada; o "Carregando…" dentro.
+    assert r.text.index('id="relatorio-aviso"') < r.text.index('<div id="relatorio"')
+    assert "Carregando…" in r.text and 'data-texto="Relatório atualizado."' in r.text
+    # O Comparar tem id: a tela nova devolve o foco a ele.
+    assert '<input type="checkbox" id="campo-comparar" name="comparar"' in r.text
+    # As abas e o detalhar vão pelo HTMX; a lista de chamados e os downloads, não.
+    assert '<nav aria-label="Modelos de relatório" hx-boost="true"' in r.text
+    assert 'hx-boost="true" class="hover:underline">Padaria Pão Quente</a>' in r.text
+    assert not re.search(r'<a href="/relatorios/(chamados|csv)[^"]*" hx-boost', r.text)
+    assert not re.search(r'<a href="/api/[^"]*" hx-boost', r.text)
+    # O pedido do HTMX recebe a página inteira (o hx-select escolhe o trecho).
+    r = client.get(
+        "/relatorios",
+        params={"aba": "clientes", "cliente": padaria},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200 and '<div id="relatorio"' in r.text
+    assert "Filtrado por:" in r.text

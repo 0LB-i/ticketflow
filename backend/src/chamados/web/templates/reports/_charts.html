@@ -3,11 +3,12 @@
     barra é um <svg> com a ponta arredondada (4px) e o lado da base reto: o retângulo
     arredondado inteiro mais um reto cobrindo a metade da base. `fmt`: formata o valor. -#}
 
-{#- Uma coluna ou um ponto: um link quando clicar aplica o valor como filtro (`p.href`); sem ele,
-    um elemento que recebe o foco, para a dica abrir pelo teclado. O caller desenha a marca. -#}
+{#- Uma coluna ou um ponto: um link quando clicar aplica o valor como filtro (`p.href`, trocando o
+    #relatorio pelo HTMX, como os filtros da tela); sem ele, um elemento que recebe o foco, para
+    a dica abrir pelo teclado. O caller desenha a marca. -#}
 {% macro point(p, fmt, tip=None) -%}
 {%- set tag = "a" if p.href else "span" %}
-<{{ tag }}{% if p.href %} href="{{ p.href }}"{% else %} tabindex="0"{% endif %} aria-label="{{ p.label }}: {{ fmt(p.value) }}" class="group relative flex size-full items-end justify-center">
+<{{ tag }}{% if p.href %} href="{{ p.href }}" hx-boost="true"{% else %} tabindex="0"{% endif %} aria-label="{{ p.label }}: {{ fmt(p.value) }}" class="group relative flex size-full items-end justify-center">
   {{- caller() }}
   <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus-visible:block">
     <strong class="tabular-nums">{{ fmt(p.value) }}</strong>
@@ -28,7 +29,7 @@
     {%- for item in items %}
     <li class="grid grid-cols-[minmax(0,10rem)_1fr] items-center gap-3">
       {%- if item.href %}
-      <a href="{{ item.href }}" class="truncate text-muted hover:text-fg hover:underline" title="{{ item.label }}">{{ item.label }}</a>
+      <a href="{{ item.href }}" hx-boost="true" class="truncate text-muted hover:text-fg hover:underline" title="{{ item.label }}">{{ item.label }}</a>
       {%- else %}
       <span class="truncate text-muted" title="{{ item.label }}">{{ item.label }}</span>
       {%- endif %}

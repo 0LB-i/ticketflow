@@ -433,6 +433,8 @@
     "restaurarFiltros": "Restore saved filters",
     "filtradoPor": "Filtered by:",
     "limparFiltros": "Clear filters",
+    "carregando": "Loading…",
+    "atualizado": "Report updated.",
     "detalhe": {
       "periodo": "Drilled down to {de} – {ate}.",
       "voltar": "Back to {periodo}",
