@@ -12,7 +12,7 @@
 {% macro point(p, fmt, tip=None) -%}
 {%- set tag = "a" if p.href else "span" %}
 {%- set tip = tip or p.before_tip %}
-<{{ tag }}{% if p.href %} href="{{ p.href }}" hx-boost="true"{% else %} tabindex="0"{% endif %} aria-label="{{ p.label }}: {{ fmt(p.value) }}{% if p.before_tip %} · {{ tip }}{% endif %}" class="group relative flex size-full items-end justify-center">
+<{{ tag }}{% if p.href %} href="{{ p.href }}" hx-boost="true"{% else %} tabindex="0"{% endif %} aria-label="{{ p.label }}: {{ fmt(p.value) }}{% if p.before_tip %} · {{ tip }}{% endif %}" class="group relative flex size-full items-end justify-center gap-0.5">
   {{- caller() }}
   <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus-visible:block">
     <strong class="tabular-nums">{{ fmt(p.value) }}</strong>
@@ -32,18 +32,19 @@
 </ul>
 {%- endmacro %}
 
-{#- Barras horizontais (horas por pessoa, por cliente): o rótulo à esquerda e o valor na ponta. -#}
-{% macro bar_chart(title, items, fmt) -%}
+{#- Barras horizontais (horas por pessoa, por cliente): o rótulo à esquerda, em até duas linhas
+    (mais larga nas telas largas; o nome inteiro também no `title` e, no link, no `aria-label`), e
+    o valor na ponta. -#}
+{% macro bar_chart(items, fmt) -%}
 {%- set top = ([1] + items | map(attribute="value") | list) | max %}
-<figure class="flex flex-col gap-3">
-  <figcaption class="font-medium">{{ title }}</figcaption>
+<div class="flex flex-col gap-3">
   <ul class="flex flex-col gap-2">
     {%- for item in items %}
-    <li class="grid grid-cols-[minmax(0,10rem)_1fr] items-center gap-3">
+    <li class="grid grid-cols-[minmax(0,10rem)_1fr] items-center gap-3 lg:grid-cols-[minmax(0,16rem)_1fr]">
       {%- if item.href %}
-      <a href="{{ item.href }}" hx-boost="true" class="truncate text-muted hover:text-fg hover:underline" title="{{ item.label }}">{{ item.label }}</a>
+      <a href="{{ item.href }}" hx-boost="true" class="line-clamp-2 break-words text-muted hover:text-fg hover:underline" title="{{ item.label }}" aria-label="{{ item.label }}">{{ item.label }}</a>
       {%- else %}
-      <span class="truncate text-muted" title="{{ item.label }}">{{ item.label }}</span>
+      <span class="line-clamp-2 break-words text-muted" title="{{ item.label }}">{{ item.label }}</span>
       {%- endif %}
       <span class="flex items-center gap-2">
         {%- if item.value %}
@@ -54,20 +55,20 @@
     </li>
     {%- endfor %}
   </ul>
-</figure>
+</div>
 {%- endmacro %}
 
 {#- Colunas (horas por dia ou por semana, chamados por cliente…). Passar o mouse ou o foco numa
     coluna mostra o rótulo e o valor; o eixo tem três marcas (0, metade, topo) em múltiplos de
     `step` (120: horas cheias e pares; 2 nas contagens), e o de baixo, o primeiro rótulo e mais
-    uns cinco. A dica abre com o foco só pelo teclado: um clique não a deixa presa. -#}
-{% macro column_chart(title, points, fmt, step=120, legend=None) -%}
+    uns cinco. A dica abre com o foco só pelo teclado: um clique não a deixa presa. A coluna ocupa
+    3/5 da faixa dela, até 2,5rem (comparando, as duas ficam com metade disso cada uma). -#}
+{% macro column_chart(points, fmt, step=120, legend=None) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
 {%- set step = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
-<figure class="flex flex-col gap-3">
-  <figcaption class="font-medium">{{ title }}</figcaption>
+<div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
     <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
@@ -86,17 +87,17 @@
         <li class="flex h-full flex-1">
           {%- call point(p, fmt) %}
           {%- if p.before is not none %}
-          {#- A de antes à esquerda, mais clara; as duas na metade da largura. #}
+          {#- A de antes à esquerda, mais clara; cada uma com metade da largura. #}
           {%- if p.before %}
-          <svg width="50%" height="{{ '%.2f' | format(p.before / top * 100) }}%" class="max-w-3 fill-chart-before" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          <svg width="30%" height="{{ '%.2f' | format(p.before / top * 100) }}%" class="max-w-5 fill-chart-before" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- else %}
-          <span class="w-1/2 max-w-3"></span>
+          <span class="w-[30%] max-w-5"></span>
           {%- endif %}
           {%- endif %}
           {%- if p.value %}
-          <svg width="{{ '50%' if p.before is not none else '100%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-3' if p.before is not none else 'max-w-6' }} fill-chart-1 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          <svg width="{{ '30%' if p.before is not none else '60%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-5' if p.before is not none else 'max-w-10' }} fill-chart-1 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- elif p.before is not none %}
-          <span class="w-1/2 max-w-3"></span>
+          <span class="w-[30%] max-w-5"></span>
           {%- endif %}
           {%- endcall %}
         </li>
@@ -113,20 +114,19 @@
   {%- if legend %}
   {{ compare_legend(legend) }}
   {%- endif %}
-</figure>
+</div>
 {%- endmacro %}
 
 
 {#- Linha ao longo do tempo: os mesmos eixos e dicas das colunas; cada ponto fica no meio da sua
     faixa, e a linha (em viewBox de 0 a 100, sem engrossar ao esticar) liga os centros. -#}
-{% macro line_chart(title, points, fmt, step=120, legend=None) -%}
+{% macro line_chart(points, fmt, step=120, legend=None) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
 {%- set step_label = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
 {%- set count = [1, points | length] | max %}
-<figure class="flex flex-col gap-3">
-  <figcaption class="font-medium">{{ title }}</figcaption>
+<div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
     <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
@@ -169,19 +169,18 @@
   {%- if legend %}
   {{ compare_legend(legend) }}
   {%- endif %}
-</figure>
+</div>
 {%- endmacro %}
 
 
 {#- Colunas empilhadas: as horas no expediente embaixo (chart-1) e as extras em cima (chart-2),
     com a legenda; os eixos e as dicas das colunas. `labels`: os nomes das duas partes. -#}
-{% macro stacked_chart(title, points, fmt, step, labels) -%}
+{% macro stacked_chart(points, fmt, step, labels) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
 {%- set step_label = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
-<figure class="flex flex-col gap-3">
-  <figcaption class="font-medium">{{ title }}</figcaption>
+<div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
     <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
@@ -201,7 +200,7 @@
           {%- call point(p, fmt, labels[0] ~ ": " ~ fmt(p.value - p.extra) ~ " · " ~ labels[1] ~ ": " ~ fmt(p.extra)) %}
           {%- if p.value %}
           {%- set upper = "%.2f" | format(p.extra / p.value * 100) %}
-          <svg width="100%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-6 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="{{ upper }}%" class="fill-chart-2"/><rect y="{{ upper }}%" width="100%" height="{{ '%.2f' | format(100 - p.extra / p.value * 100) }}%" class="fill-chart-1"/></svg>
+          <svg width="60%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-10 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="{{ upper }}%" class="fill-chart-2"/><rect y="{{ upper }}%" width="100%" height="{{ '%.2f' | format(100 - p.extra / p.value * 100) }}%" class="fill-chart-1"/></svg>
           {%- endif %}
           {%- endcall %}
         </li>
@@ -219,5 +218,5 @@
     <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-1" aria-hidden="true"></span>{{ labels[0] }}</li>
     <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-2" aria-hidden="true"></span>{{ labels[1] }}</li>
   </ul>
-</figure>
+</div>
 {%- endmacro %}

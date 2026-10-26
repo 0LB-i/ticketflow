@@ -29,6 +29,7 @@ from chamados.web.reports_blocks import (
     compares,
     single_client,
     uses_overtime,
+    wide,
 )
 from chamados.web.reports_state import (
     NO_CLIENT,
@@ -112,19 +113,20 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     work_hours = None
     client_view = None
     # Na página sem os números: os blocos que o esqueleto imita (o índice, que é o id para onde
-    # a paginação da lista rola, o visual e quantos cartões).
-    skeleton: list[tuple[int, str, int]] | None = None
+    # a paginação da lista rola, o visual e se ocupa a linha inteira).
+    skeleton: list[tuple[int, str, bool]] | None = None
     f, config = state.filters, choice.config
     if f is not None and config is not None and config.audience == "client":
         # Sem um cliente (só um) no filtro, o aviso não depende dos números.
         if lazy and single_client(state) is not None:
-            skeleton = [(0, "table", 0)]
+            skeleton = [(0, "table", True)]
         else:
             client_view = await client_preview(page, db, state, f, config)
         if single_client(state) is not None:
             downloads = {"pdf": with_query("/relatorios/pdf", {**query, "aba": slug})}
     elif f is not None and config is not None and lazy:
-        skeleton = [(i, b.visual, len(b.measures)) for i, b in enumerate(config.blocks)]
+        visuals = [b.visual for b in config.blocks]
+        skeleton = list(zip(range(len(visuals)), visuals, wide(visuals), strict=True))
     elif f is not None and config is not None:
         data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
         before = None
@@ -155,6 +157,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             )
             for i, block in enumerate(config.blocks)
         ]
+        for view, span in zip(blocks, wide([b.visual for b in config.blocks]), strict=True):
+            view["wide"] = span
     if f is not None and config is not None and config.audience != "client":
         if uses_overtime(config):
             wh = state.lookups.work_hours

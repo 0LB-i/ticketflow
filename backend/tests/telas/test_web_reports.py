@@ -25,6 +25,7 @@ from chamados.modules.reports.models import ReportModel
 from chamados.modules.system.models import SystemSetting
 from chamados.modules.tickets.models import Ticket
 from chamados.web.formatting import TIMEZONE, format_day, format_month
+from chamados.web.reports_blocks import wide
 from tests.apoio import API, dia_util_passado, em, formulario, registrar, status_id, tarefa
 from tests.conftest import criar_cliente, criar_usuario, entrar, outra_sessao
 
@@ -910,7 +911,8 @@ def test_numeros_em_segundo_plano(
     )
     # Um esqueleto por bloco, com o id para onde a paginação da lista rola; sem JavaScript, o
     # link dos números.
-    assert r.text.count('class="h-24 animate-pulse') == 5  # os cartões
+    cartoes = 'id="bloco-0" class="scroll-mt-4 animate-pulse rounded-lg bg-surface-raised h-44'
+    assert f'{cartoes} lg:col-span-2"' in r.text  # os cartões, na linha inteira
     assert all(f'id="bloco-{i}"' in r.text for i in range(4))
     assert f'<noscript><p><a href="{url}" class="text-primary underline">' in r.text
     # O cabeçalho não depende dos números: os downloads e os filtros já vêm.
@@ -1050,7 +1052,7 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
     anterior = format_day("pt-BR", dia - timedelta(days=1))
     assert f'aria-label="{format_day("pt-BR", dia)}: 1h · Antes ({anterior}): 30min"' in r.text
     assert "Período anterior</li>" in r.text
-    assert 'class="max-w-3 fill-chart-before"' in r.text
+    assert 'class="max-w-5 fill-chart-before"' in r.text
     # As barras por pessoa, não.
     assert "Antes (Ana)" not in r.text
 
@@ -1098,7 +1100,7 @@ def test_previa_no_editor(
     assert len(chamadas) == 1
     assert r.text.count(f"Prévia, de {data} a {data}:") == 4
     assert "<div inert" in r.text and '<dd class="mt-1 text-2xl font-semibold">1h30</dd>' in r.text
-    assert "Baixar o CSV de" not in r.text  # na prévia, sem o CSV
+    assert "Ações de" not in r.text  # na prévia, sem o menu do CSV
     # Os campos do bloco refazem o formulário (e a prévia) ao mudar; os textos, não.
     assert re.search(r'id="campo-b1-medida" name="b1-medida" hx-post="/relatorios/modelos"', r.text)
     assert 'id="campo-b0-medidas-hours"' in r.text
@@ -1172,3 +1174,25 @@ def test_lista_de_tarefas_em_paginas(
     r = client.get("/relatorios/blocos", params=_um_dia(dia))
     assert '<th scope="col" class="px-3 py-2 font-medium text-right">Horas</th>' in r.text
     assert '<th scope="col" class="px-3 py-2 font-medium">Pessoa</th>' in r.text
+
+
+def _largura(html: str) -> dict[int, bool]:
+    """Os blocos da página: se cada um ocupa a linha inteira da grade."""
+    blocos = re.findall(r'id="bloco-(\d+)" class="([^"]*)"', html)
+    return {int(i): "lg:col-span-2" in classes for i, classes in blocos}
+
+
+def test_grafico_sozinho_ocupa_a_linha(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Os gráficos ocupam meia linha; o último de uma sequência ímpar deles, a linha inteira (sem
+    a metade vazia), como os cartões, as tabelas e as listas."""
+    # Produtividade: cartões, colunas e barras (um par), tabela.
+    r = client.get("/relatorios/blocos", params={"aba": "produtividade"})
+    assert _largura(r.text) == {0: True, 1: False, 2: False, 3: True}
+    # Clientes: as barras ficam sozinhas entre os cartões e a tabela; o esqueleto, também.
+    inteiros = {0: True, 1: True, 2: True}
+    for url in ("/relatorios/blocos", "/relatorios"):
+        assert _largura(client.get(url, params={"aba": "clientes"}).text) == inteiros
+    # Três gráficos seguidos: o terceiro; um no fim, sozinho, também.
+    visuais = ["cards", "line", "line", "columns", "table", "bars"]
+    assert wide(visuais) == [True, False, False, True, True, True]
+    assert wide(["bars", "stacked", "line", "columns"]) == [False] * 4

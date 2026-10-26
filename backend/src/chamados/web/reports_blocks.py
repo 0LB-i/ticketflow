@@ -4,7 +4,7 @@ variação sobre o período anterior e os links de detalhar; e a prévia do rela
 cliente (§14.8.5).
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from functools import partial
@@ -73,6 +73,23 @@ def compared(config: ReportConfig) -> list[Block]:
 def compares(config: ReportConfig) -> bool:
     """Se algum bloco precisa dos dados do período anterior."""
     return bool(compared(config))
+
+
+def wide(visuals: Sequence[str]) -> list[bool]:
+    """Quais blocos ocupam a linha inteira da grade (os gráficos ocupam meia): os que não são
+    gráficos e o último de uma sequência ímpar de gráficos, que ficaria sozinho com a outra
+    metade vazia. Um seletor CSS não conta a sequência entre dois blocos de linha inteira."""
+    result = []
+    run = 0  # os gráficos seguidos até aqui
+    for i, visual in enumerate(visuals):
+        if visual not in CHARTS:
+            run = 0
+            result.append(True)
+            continue
+        run += 1
+        last = i + 1 == len(visuals) or visuals[i + 1] not in CHARTS
+        result.append(last and run % 2 == 1)
+    return result
 
 
 Format = Callable[[builder.Value], str]
@@ -256,6 +273,18 @@ def block_view(
         "title": block_title(page, block, dimension),
         "csv": with_query("/relatorios/csv", {**base, "bloco": str(index)}),
     }
+    # O subtítulo: o período e, quando o bloco mostra a comparação, o de antes.
+    view["period"] = page.t(
+        "relatorios.intervalo",
+        de=format_day(page.locale, f.start),
+        ate=format_day(page.locale, f.end),
+    )
+    if previous is not None and (block.visual in ("cards", "table") or dimension in TIMES):
+        view["period"] += " · " + page.t(
+            "relatorios.comparacao.com",
+            de=format_day(page.locale, first),
+            ate=format_day(page.locale, last),
+        )
     if block.visual == "cards":
         cards = []
         for m in block.measures:

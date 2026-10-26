@@ -5,9 +5,47 @@
 {% from "_ui.html" import button_class %}
 {% from "reports/_charts.html" import bar_chart, column_chart, line_chart, stacked_chart %}
 
-{#- O link do CSV de um bloco. #}
-{% macro csv_link(url, title) -%}
-<a href="{{ url }}" download class="shrink-0 rounded p-1 text-muted hover:bg-surface-raised hover:text-fg" aria-label="{{ t('relatorios.baixarCsvBloco', bloco=title) }}" title="{{ t('relatorios.baixarCsvBloco', bloco=title) }}">{{ icon("download", "size-4") }}</a>
+{#- O menu de ações de um bloco (hoje, só o CSV), no padrão dos menus da tela (`data-menu`, que
+    o app.js fecha ao clicar fora e com o Esc). #}
+{% macro block_menu(b) -%}
+{%- set name = b.title or t("relatorios.editor.bloco", n=b.index + 1) %}
+<details data-menu class="relative shrink-0">
+  <summary class="inline-flex size-8 cursor-pointer list-none items-center justify-center rounded-md text-muted hover:bg-surface-raised hover:text-fg [&::-webkit-details-marker]:hidden" aria-label="{{ t('relatorios.acoesBloco', bloco=name) }}" title="{{ t('relatorios.acoesBloco', bloco=name) }}">{{ icon("ellipsis", "size-4") }}</summary>
+  <div role="menu" class="absolute right-0 z-50 mt-1 min-w-40 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
+    <a href="{{ b.csv }}" download role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("download", "size-4") }} {{ t("relatorios.baixarCsv") }}</a>
+  </div>
+</details>
+{%- endmacro %}
+
+{#- O cabeçalho de todo bloco: o título, o período (e o de comparação, quando o bloco compara)
+    e, à direita, o menu de ações (fora da prévia do editor). #}
+{% macro block_head(b, preview, menu=True) -%}
+<div class="flex items-start justify-between gap-2">
+  <div class="flex min-w-0 flex-col gap-0.5">
+    {%- if b.title %}
+    <h2 class="font-medium">{{ b.title }}</h2>
+    {%- endif %}
+    <p class="text-sm text-muted">{{ b.period }}</p>
+  </div>
+  {%- if menu and not preview %}
+  {{ block_menu(b) }}
+  {%- endif %}
+</div>
+{%- endmacro %}
+
+{#- O cartão de todo bloco: a mesma borda, sombra e espaçamento. Os gráficos são um <figure> com
+    o cabeçalho no <figcaption>; os outros, uma <section>. Ocupa a linha inteira da grade com
+    `b.wide` (reports_blocks.wide). O id e o scroll-mt: a paginação da lista rola até ele. #}
+{% macro frame(b, preview, figure=False, menu=True) -%}
+{%- set tag = "figure" if figure else "section" %}
+<{{ tag }} id="bloco-{{ b.index }}" class="flex min-w-0 scroll-mt-4 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md{% if b.wide %} lg:col-span-2{% endif %}">
+  {%- if figure %}
+  <figcaption>{{ block_head(b, preview, menu) }}</figcaption>
+  {%- else %}
+  {{ block_head(b, preview, menu) }}
+  {%- endif %}
+  {{ caller() }}
+</{{ tag }}>
 {%- endmacro %}
 
 {#- Um texto que, com `href`, é um link: `boost`, o detalhar (troca o #relatorio pelo HTMX); sem
@@ -23,7 +61,7 @@
     com o cabeçalho fixo: o `sticky` fica preso ao contêiner que rola, e o overflow-x-auto já
     era um. #}
 {% macro table(caption, columns, empty, count, foot=None, titles=None, numeric=()) -%}
-<div class="max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface shadow-md">
+<div class="max-h-[70vh] overflow-auto rounded-md border border-border">
   <table class="w-full border-collapse text-left">
     <caption class="sr-only">{{ caption }}</caption>
     <thead class="sticky top-0 z-10 bg-surface-raised text-muted">
@@ -59,50 +97,40 @@
 {#- Um bloco: cartões, gráfico, tabela ou lista de tarefas. -#}
 {% macro block(b, preview=False) -%}
 {%- if b.visual == "cards" %}
-<section class="flex flex-col gap-2 lg:col-span-2">
-  {%- if b.title %}
-  <h2 class="font-medium">{{ b.title }}</h2>
-  {%- endif %}
-  <dl class="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
-    {%- for card in b.cards %}
-    <div class="rounded-lg border border-border bg-surface p-4 shadow-md">
-      <dt class="text-muted">{{ card.label }}</dt>
-      <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
-      {%- if card.before is defined %}
-      <dd class="mt-1 text-sm text-muted tabular-nums">{{ t("relatorios.comparacao.antes", variacao=card.change, anterior=card.before) if card.change else t("relatorios.comparacao.soAntes", anterior=card.before) }}</dd>
-      {%- endif %}
-    </div>
-    {%- endfor %}
-  </dl>
-</section>
+{#- Os cartões não têm CSV. As divisórias: cada cartão tem a borda de cima e a da esquerda, e o
+    -mt-px/-ml-px esconde as da primeira linha e as do começo de cada linha (o overflow-hidden). #}
+{% call frame(b, preview, menu=False) %}
+  <div class="overflow-hidden">
+    <dl class="-mt-px -ml-px flex flex-wrap">
+      {%- for card in b.cards %}
+      <div class="flex-1 basis-40 border-t border-l border-border px-4 py-3">
+        <dt class="text-muted">{{ card.label }}</dt>
+        <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
+        {%- if card.before is defined %}
+        <dd class="mt-1 text-sm text-muted tabular-nums">{{ t("relatorios.comparacao.antes", variacao=card.change, anterior=card.before) if card.change else t("relatorios.comparacao.soAntes", anterior=card.before) }}</dd>
+        {%- endif %}
+      </div>
+      {%- endfor %}
+    </dl>
+  </div>
+{% endcall %}
 {%- elif b.visual in ("bars", "columns", "stacked", "line") %}
-<div class="flex items-start gap-2 rounded-lg border border-border bg-surface p-4 shadow-md">
-  <div class="min-w-0 flex-1">
-    {%- if b.visual == "bars" %}
-    {{ bar_chart(b.title, b.points, b.fmt) }}
-    {%- if not b.points %}
-    <p class="text-muted">{{ b.empty }}</p>
-    {%- endif %}
-    {%- elif b.visual == "columns" %}
-    {{ column_chart(b.title, b.points, b.fmt, b.step, b.legend) }}
-    {%- elif b.visual == "stacked" %}
-    {{ stacked_chart(b.title, b.points, b.fmt, b.step, b.labels) }}
-    {%- else %}
-    {{ line_chart(b.title, b.points, b.fmt, b.step, b.legend) }}
-    {%- endif %}
-  </div>
-  {%- if not preview %}
-  {{ csv_link(b.csv, b.title) }}
+{% call frame(b, preview, figure=True) %}
+  {%- if b.visual == "bars" %}
+  {{ bar_chart(b.points, b.fmt) }}
+  {%- if not b.points %}
+  <p class="text-muted">{{ b.empty }}</p>
   {%- endif %}
-</div>
+  {%- elif b.visual == "columns" %}
+  {{ column_chart(b.points, b.fmt, b.step, b.legend) }}
+  {%- elif b.visual == "stacked" %}
+  {{ stacked_chart(b.points, b.fmt, b.step, b.labels) }}
+  {%- else %}
+  {{ line_chart(b.points, b.fmt, b.step, b.legend) }}
+  {%- endif %}
+{% endcall %}
 {%- elif b.visual == "table" %}
-<section class="flex flex-col gap-2 lg:col-span-2">
-  <div class="flex items-center justify-between gap-2">
-    <h2 class="font-medium">{{ b.title }}</h2>
-    {%- if not preview %}
-    {{ csv_link(b.csv, b.title) }}
-    {%- endif %}
-  </div>
+{% call frame(b, preview) %}
   {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles, range(1, b.columns | length)) %}
     {%- for label, href, cells in b.rows %}
     <tr class="border-t border-border">
@@ -113,15 +141,9 @@
     </tr>
     {%- endfor %}
   {% endcall %}
-</section>
+{% endcall %}
 {%- else %}
-<section id="bloco-{{ b.index }}" class="flex scroll-mt-4 flex-col gap-2 lg:col-span-2">
-  <div class="flex items-center justify-between gap-2">
-    <h2 class="font-medium">{{ b.title }}</h2>
-    {%- if not preview %}
-    {{ csv_link(b.csv, b.title) }}
-    {%- endif %}
-  </div>
+{% call frame(b, preview) %}
   {% call table(b.title, [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], b.empty, b.tasks | length, numeric=(3, 4)) %}
     {%- for o in b.tasks %}
     <tr class="border-t border-border">
@@ -148,6 +170,6 @@
     </div>
   </nav>
   {%- endif %}
-</section>
+{% endcall %}
 {%- endif %}
 {%- endmacro %}
