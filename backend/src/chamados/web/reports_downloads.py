@@ -23,6 +23,7 @@ from chamados.web.formatting import TIMEZONE, format_date, format_datetime, form
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.palette import palette
 from chamados.web.reports_blocks import (
+    COMPARED,
     LISTED,
     Format,
     Point,
@@ -172,10 +173,8 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
     else:
         data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
         before = None
-        if state.compare and compares(config):
-            first, last = builder.previous_period(
-                f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
-            )
+        if (compared_period := state.comparison()) and compares(config):
+            first, last = compared_period
             before = await service.facts(
                 db,
                 page.auth,
@@ -188,10 +187,8 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             for i, block in enumerate(config.blocks)
         ]
         lines = [period]
-        if state.compare:
-            first, last = builder.previous_period(
-                f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
-            )
+        if compared_period:
+            first, last = compared_period
             lines.append(
                 page.t(
                     "relatorios.pdf.comparado",
@@ -241,7 +238,16 @@ async def block_csv(
     block = config.blocks[bloco]
     data = await service.facts(db, page.auth, f, builder.needs([block]), state.lookups)
     result = builder.run(data, block, f.start, f.end)
-    content = csv_export.render_block(data, result, cast(Locale, page.locale))
+    # Com a comparação, o bloco no período comparado, como na tela (sem a lista de tarefas e
+    # sem as barras e as empilhadas, que não comparam).
+    previous = None
+    if (compared_period := state.comparison()) and block.visual in COMPARED:
+        first, last = compared_period
+        before = await service.facts(
+            db, page.auth, replace(f, start=first, end=last), builder.needs([block]), state.lookups
+        )
+        previous = builder.run(before, block, first, last)
+    content = csv_export.render_block(data, result, cast(Locale, page.locale), previous)
     reports_api.record_export(
         db, page.request, page.auth, f, format="csv", table="block", model=state.choice.name
     )

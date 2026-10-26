@@ -553,7 +553,12 @@
     "noExpediente": "Within working hours",
     "tituloEmpilhado": "Hours per {dimensao}: within working hours and overtime",
     "comparacao": {
-      "campo": "Compare with the previous period",
+      "campo": "Compare with",
+      "opcoes": {
+        "none": "Nothing",
+        "previous": "The previous period",
+        "year": "The same period last year"
+      },
       "com": "compared with {de} to {ate}",
       "antes": "{variacao} · before: {anterior}",
       "soAntes": "Before: {anterior}",
@@ -562,7 +567,10 @@
       "pontos": "{n} pp",
       "variacaoDe": "Change in {medida}",
       "atual": "Current period",
-      "anterior": "Previous period",
+      "legenda": {
+        "previous": "Previous period",
+        "year": "Last year"
+      },
       "dica": "Before ({rotulo}): {valor}",
       "colunaPdf": "Chg."
     },

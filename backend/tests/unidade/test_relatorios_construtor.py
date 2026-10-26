@@ -22,13 +22,18 @@ from chamados.modules.reports.builder import (
     Block,
     PeriodSpec,
     check_block,
+    comparison_period,
     needs,
     next_period,
     previous_period,
     relative_period,
     run,
     trend,
+    upgrade,
+    year_before,
 )
+from chamados.modules.reports.models import ReportModel
+from chamados.modules.reports.saved import config_of
 from chamados.modules.reports.service import (
     GROUPS,
     TZ,
@@ -516,6 +521,60 @@ def test_periodo_anterior() -> None:
         date(2026, 10, 11),
         date(2026, 10, 17),
     )
+
+
+def test_mesmo_periodo_do_ano_anterior() -> None:
+    # Meses inteiros: os mesmos meses, com o fevereiro de cada ano.
+    assert year_before(date(2026, 10, 1), date(2026, 10, 31)) == (
+        date(2025, 10, 1),
+        date(2025, 10, 31),
+    )
+    assert year_before(date(2025, 2, 1), date(2025, 2, 28)) == (
+        date(2024, 2, 1),
+        date(2024, 2, 29),
+    )
+    assert year_before(date(2024, 2, 1), date(2024, 2, 29)) == (
+        date(2023, 2, 1),
+        date(2023, 2, 28),
+    )
+    assert year_before(date(2025, 12, 1), date(2026, 11, 30)) == (
+        date(2024, 12, 1),
+        date(2025, 11, 30),
+    )
+    # Semanas inteiras: 52 semanas antes, de segunda a domingo.
+    assert year_before(date(2026, 10, 19), date(2026, 10, 25)) == (
+        date(2025, 10, 20),
+        date(2025, 10, 26),
+    )
+    assert date(2025, 10, 20).weekday() == 0
+    # As demais: as mesmas datas; o 29 de fevereiro vira 28.
+    assert year_before(date(2026, 1, 1), date(2026, 10, 24)) == (
+        date(2025, 1, 1),
+        date(2025, 10, 24),
+    )
+    assert year_before(date(2024, 2, 29), date(2024, 3, 10)) == (
+        date(2023, 2, 28),
+        date(2023, 3, 10),
+    )
+    # A escolha da comparação.
+    outubro = (date(2026, 10, 1), date(2026, 10, 31))
+    assert comparison_period(*outubro, "none") is None
+    assert comparison_period(*outubro, "previous") == previous_period(*outubro)
+    assert comparison_period(*outubro, "year") == year_before(*outubro)
+
+
+def test_configuracao_da_versao_1_e_convertida() -> None:
+    antiga = {"version": 1, "period": {"kind": "mes-atual", "compare": True}, "blocks": []}
+    assert upgrade(antiga)["period"]["compare"] == "previous"
+    assert upgrade(antiga)["version"] == 2
+    sem = {"version": 1, "period": {"kind": "mes-atual", "compare": False}}
+    assert upgrade(sem)["period"]["compare"] == "none"
+    assert upgrade({"version": 1})["version"] == 2  # sem o campo, o padrão
+    modelo = ReportModel(
+        config={**antiga, "blocks": [{"visual": "cards", "measures": ["hours"]}]},
+    )
+    assert config_of(modelo).period.compare == "previous"
+    assert upgrade({"version": 2, "period": {"compare": "year"}})["period"]["compare"] == "year"
 
 
 def test_periodo_seguinte() -> None:

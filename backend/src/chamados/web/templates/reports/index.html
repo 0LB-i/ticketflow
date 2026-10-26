@@ -2,7 +2,7 @@
     blocos do modelo (cartões, gráficos, tabelas, lista de tarefas) e os downloads com os mesmos
     filtros. Quem vê o quê é decidido pela API. -#}
 {% extends "app.html" %}
-{% from "_ui.html" import alert, button_class, checkbox, field with context %}
+{% from "_ui.html" import alert, button_class, field with context %}
 {% from "_fields.html" import chips, client_chips with context %}
 {% from "_icons.html" import icon %}
 {% from "reports/_blocks.html" import block, client_sheet with context %}
@@ -148,8 +148,16 @@
     {{ chips(name, t("relatorios." ~ label), options, selected, names, placeholder, "relatorios.tirarFiltro") }}
     {%- endif %}
     {%- endfor %}
-    {#- Os cartões mostram a variação sobre o período anterior. mt-7: na linha dos campos. #}
-    <div class="mt-7">{{ checkbox("comparar", t("relatorios.comparacao.campo"), checked=compare, id="campo-comparar") }}</div>
+    {#- Os cartões mostram a variação sobre o período comparado: o anterior ou o mesmo do ano
+        anterior. #}
+    <div class="flex flex-col gap-1">
+      <label for="campo-comparar" class="font-medium">{{ t("relatorios.comparacao.campo") }}</label>
+      <select id="campo-comparar" name="comparar" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+        {%- for value, slug in (("none", ""), ("previous", "anterior"), ("year", "ano")) %}
+        <option value="{{ slug }}"{% if value == compare %} selected{% endif %}>{{ t("relatorios.comparacao.opcoes." ~ value) }}</option>
+        {%- endfor %}
+      </select>
+    </div>
   </form>
 
   {#- O que está filtrado (cada × tira um valor) e a trilha do detalhar por período. #}

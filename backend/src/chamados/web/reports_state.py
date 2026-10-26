@@ -22,6 +22,7 @@ from chamados.modules.reports.builder import (
     LAST_DAYS,
     MAX_DAYS,
     RELATIVE,
+    Compare,
     FilterSpec,
     PeriodSpec,
     ReportConfig,
@@ -40,6 +41,11 @@ TABS = {
 
 
 NO_CLIENT = "sem-cliente"
+
+# A comparação na URL (`comparar`) → `PeriodSpec.compare`. O "1" é o dos links de quando só se
+# comparava com o período anterior.
+COMPARE: dict[str, Compare] = {"anterior": "previous", "ano": "year", "1": "previous"}
+COMPARE_SLUGS: dict[Compare, str] = {"previous": "anterior", "year": "ano"}
 
 
 # Período relativo (slug) → chave do catálogo (relatorios.periodos.*).
@@ -177,12 +183,20 @@ class State:
     no_client: bool
     statuses: list[int]
     client_names: dict[uuid.UUID, str] = field(default_factory=dict)  # os escolhidos
-    compare: bool = False
+    compare: Compare = "none"
     origin: str | None = None  # Params.origem, só no personalizado
     filters: service.Filters | None = None
     error: str | None = None
     warning: str | None = None
     query: dict[str, str | list[str] | None] = field(default_factory=dict)
+
+    def comparison(self) -> tuple[date, date] | None:
+        """O período com que se compara; sem comparar (ou sem um período válido), None."""
+        if not (self.start and self.end and self.start <= self.end):
+            return None
+        return builder.comparison_period(
+            self.start, self.end, self.compare, year_to_date=self.period == "ano-ate-hoje"
+        )
 
     def specs(self) -> tuple[PeriodSpec, FilterSpec]:
         """O período e os filtros como o modelo os guarda. Um mês da lista vira as datas dele."""
@@ -234,7 +248,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
     warning = None
     url = (periodo, de, ate, dias, grupo, pessoa, cliente, status, comparar)
-    compare = comparar == "1"
+    compare: Compare = COMPARE.get(comparar or "", "none")
     if all(v is None for v in url) and choice.config is not None:
         spec, saved_filters = choice.config.period, choice.config.filters
         periodo = spec.kind
@@ -340,7 +354,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         "pessoa": [str(p) for p in people],
         "cliente": ([NO_CLIENT] if no_client else []) + [str(c) for c in clients],
         "status": [str(s) for s in statuses],
-        "comparar": "1" if compare else None,
+        "comparar": COMPARE_SLUGS.get(compare),
         "origem": origin,
     }
     return state
@@ -411,10 +425,8 @@ def interval_text(page: LoggedPage, state: State) -> str | None:
                 ate=format_day(page.locale, end),
             )
         )
-    if state.compare:
-        first, last = builder.previous_period(
-            start, end, year_to_date=state.period == "ano-ate-hoje"
-        )
+    if compared := state.comparison():
+        first, last = compared
         parts.append(
             page.t(
                 "relatorios.comparacao.com",

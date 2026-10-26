@@ -250,7 +250,7 @@ def block_view(
     page_number: int = 1,
 ) -> dict[str, Any]:
     """Um bloco pronto para o template: os números já formatados e os links de detalhar.
-    `before`: os dados do período anterior, para a variação (cartões e tabelas) e a série de
+    `before`: os dados do período comparado, para a variação (cartões e tabelas) e a série de
     antes (colunas e linha por período); `page_number`: a página da lista de tarefas."""
     base = {**state.query, "aba": state.choice.slug}
     long = (f.end - f.start).days >= DAILY_LIMIT
@@ -258,22 +258,15 @@ def block_view(
     result = builder.run(data, block, f.start, f.end, dimension="week" if weekly else None)
     dimension = result.dimension
 
-    # O mesmo bloco no período anterior, agrupado do mesmo jeito.
+    # O mesmo bloco no período comparado, agrupado do mesmo jeito.
     previous = None
-    if before is not None and block.visual in COMPARED:
-        first, last = builder.previous_period(
-            f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
-        )
+    compared_period = state.comparison()
+    if before is not None and compared_period and block.visual in COMPARED:
+        first, last = compared_period
         previous = builder.run(before, block, first, last, dimension=dimension)
 
     def matching(index: int, row: builder.Row) -> builder.Row | None:
-        """A linha de antes que corresponde: no tempo, a da mesma posição (1º dia com o 1º
-        dia); nos cadastros, a do mesmo valor. "Outros" não tem (os maiores mudam)."""
-        if previous is None or row.key == OTHERS:
-            return None
-        if dimension in TIMES:
-            return previous.rows[index] if index < len(previous.rows) else None
-        return next((r for r in previous.rows if r.key == row.key), None)
+        return builder.matching(previous, index, row) if previous else None
 
     def tickets(measure: str, drill: dict[str, Any] | None = None) -> str | None:
         """A lista dos chamados por trás de um número (medidas de chamado)."""
@@ -379,7 +372,7 @@ def block_view(
         if series:
             view["legend"] = (
                 page.t("relatorios.comparacao.atual"),
-                page.t("relatorios.comparacao.anterior"),
+                page.t(f"relatorios.comparacao.legenda.{state.compare}"),
             )
     elif block.visual == "table":
         formats = [formatter(page, config, m) for m in block.measures]

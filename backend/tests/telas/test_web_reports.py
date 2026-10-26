@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.reports import model_pdf
-from chamados.modules.reports.builder import previous_period, relative_period
+from chamados.modules.reports.builder import previous_period, relative_period, year_before
 from chamados.modules.reports.models import ReportModel
 from chamados.modules.system.models import SystemSetting
 from chamados.modules.tickets.models import Ticket
@@ -492,6 +492,31 @@ def test_linha_e_horas_em_decimal(client: TestClient, cenario: dict[str, Any]) -
     assert f'aria-label="{format_day("pt-BR", dia)}: 1,5 h"' in r.text
 
 
+def test_modelo_salvo_na_versao_1_continua_abrindo(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    # Na versão 1, `compare` era booleano: true é comparar com o período anterior.
+    modelo = _criar(client, "Antigo")
+    atual = db.scalar(select(ReportModel.config).where(ReportModel.name == "Antigo"))
+    assert atual is not None and atual["version"] == 2
+    for compara, opcao in ((True, "anterior"), (False, "")):
+        config = {**atual, "version": 1, "period": {**atual["period"], "compare": compara}}
+        db.execute(update(ReportModel).where(ReportModel.name == "Antigo").values(config=config))
+        db.commit()
+        r = client.get("/relatorios/blocos", params={"aba": modelo})
+        assert f'<option value="{opcao}" selected>' in r.text
+    # Salvo de novo, fica na versão 2.
+    r = client.post(
+        f"/relatorios/modelos/{modelo}",
+        data=formulario(client, nome="Antigo", horas="hm", blocos="1", acao="salvar", **TABELA),
+        follow_redirects=False,
+    )
+    assert r.status_code == 303, r.text
+    db.expire_all()
+    salvo = db.scalar(select(ReportModel.config).where(ReportModel.name == "Antigo"))
+    assert salvo is not None and salvo["version"] == 2 and salvo["period"]["compare"] == "none"
+
+
 def test_filtro_salvo_que_nao_vale_mais(
     client: TestClient, cenario: dict[str, Any], db: Session
 ) -> None:
@@ -641,7 +666,10 @@ def test_comparar_e_detalhar_por_linha(client: TestClient, cenario: dict[str, An
     anterior = format_day("pt-BR", dia - timedelta(days=1))
     assert f"comparado com {anterior} a {anterior}" in r.text
     assert "+100% · antes: 30min" in r.text  # 1h contra 30min
-    assert 'name="comparar" value="1" checked' in r.text
+    # O "comparar=1" dos links antigos é o período anterior.
+    assert '<option value="anterior" selected>O período anterior</option>' in r.text
+    (aba,) = _links(r.text, "Clientes")
+    assert "comparar=anterior" in aba
 
     # A coluna do dia aplica o dia como período; a barra da pessoa, a pessoa.
     de = f"de={dia.isoformat()}&amp;ate={dia.isoformat()}"
@@ -915,7 +943,7 @@ def test_filtros_pelo_htmx(client: TestClient, cenario: dict[str, Any], db: Sess
     assert r.text.index('id="relatorio-aviso"') < r.text.index('<div id="relatorio"')
     assert "Carregando…" in r.text and 'data-texto="Relatório atualizado."' in r.text
     # O Comparar tem id: a tela nova devolve o foco a ele.
-    assert '<input type="checkbox" id="campo-comparar" name="comparar"' in r.text
+    assert '<select id="campo-comparar" name="comparar"' in r.text
     # As abas e o detalhar vão pelo HTMX; a lista de chamados e os downloads, não.
     assert '<nav aria-label="Modelos de relatório" hx-boost="true"' in r.text
     assert 'hx-boost="true" class="hover:underline">Padaria Pão Quente</a>' in r.text
@@ -1135,6 +1163,50 @@ def test_comparar_nas_tabelas_e_nos_graficos(client: TestClient, cenario: dict[s
     r = client.get("/relatorios/blocos", params=filtros)
     assert 'stroke-dasharray="4 3"' in r.text
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")
+
+
+def test_comparar_com_o_ano_anterior(client: TestClient, cenario: dict[str, Any]) -> None:
+    dia = dia_util_passado()
+    ano = year_before(dia, dia)[0]  # a mesma data do ano anterior
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(dia, 10))
+    tarefa(client, numero, 30, em(ano, 10))
+    tarefa(client, numero, 45, em(dia - timedelta(days=1), 10))  # o período anterior: fora
+
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, comparar="ano"))
+    assert '<option value="ano" selected>O mesmo período do ano anterior</option>' in r.text
+    antes = format_day("pt-BR", ano)
+    assert f"comparado com {antes} a {antes}" in r.text
+    assert "+100% · antes: 30min" in r.text
+    assert "Ano anterior</li>" in r.text  # a legenda da série de antes
+    (aba,) = _links(r.text, "Clientes")
+    assert "comparar=ano" in aba
+
+    # Semanas inteiras: as 52 semanas antes, de segunda a domingo.
+    r = client.get("/relatorios/blocos", params={"periodo": "semana-anterior", "comparar": "ano"})
+    segunda = dia - timedelta(weeks=52)
+    texto = f"comparado com {format_day('pt-BR', segunda)} a "
+    assert texto + format_day("pt-BR", segunda + timedelta(days=6)) in r.text
+
+    # O CSV do bloco leva o valor de antes e a variação de cada medida, também no total.
+    filtros = _um_dia(dia, aba="produtividade", comparar="ano", bloco="3")
+    r = client.get("/relatorios/csv", params=filtros)
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[0][:7] == [
+        "Pessoa",
+        "Horas",
+        "Horas (min)",
+        "Horas, antes",
+        "Horas, antes (min)",
+        "Variação de Horas (%)",
+        "Horas extras",
+    ]
+    assert linhas[1][:6] == ["Ana", "1,00", "60", "0,50", "30", "100,0"]
+    assert linhas[-1][:6] == ["Total", "1,00", "60", "0,50", "30", "100,0"]
+    # Sem comparar, o CSV fica como era.
+    filtros.pop("comparar")
+    r = client.get("/relatorios/csv", params=filtros)
+    assert "antes" not in r.content.decode("utf-8-sig")
 
 
 def test_previa_no_editor(

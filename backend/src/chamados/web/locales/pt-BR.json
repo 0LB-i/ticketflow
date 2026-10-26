@@ -553,7 +553,12 @@
     "noExpediente": "No expediente",
     "tituloEmpilhado": "Horas por {dimensao}: no expediente e extras",
     "comparacao": {
-      "campo": "Comparar com o período anterior",
+      "campo": "Comparar com",
+      "opcoes": {
+        "none": "Nada",
+        "previous": "O período anterior",
+        "year": "O mesmo período do ano anterior"
+      },
       "com": "comparado com {de} a {ate}",
       "antes": "{variacao} · antes: {anterior}",
       "soAntes": "Antes: {anterior}",
@@ -562,7 +567,10 @@
       "pontos": "{n} p.p.",
       "variacaoDe": "Variação de {medida}",
       "atual": "Período atual",
-      "anterior": "Período anterior",
+      "legenda": {
+        "previous": "Período anterior",
+        "year": "Ano anterior"
+      },
       "dica": "Antes ({rotulo}): {valor}",
       "colunaPdf": "Var."
     },

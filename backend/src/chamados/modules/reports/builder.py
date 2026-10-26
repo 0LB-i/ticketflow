@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -47,6 +47,8 @@ Measure = Literal[
     "reopen_rate",
 ]
 Order = Literal["desc", "asc", "name"]
+# Comparar com nada, com o período imediatamente anterior ou com o mesmo período do ano anterior.
+Compare = Literal["none", "previous", "year"]
 
 VISUALS: tuple[Visual, ...] = ("cards", "bars", "columns", "stacked", "line", "table", "tasks")
 DIMENSIONS: tuple[Dimension, ...] = (
@@ -146,7 +148,7 @@ class PeriodSpec(BaseModel):
     start: date | None = None  # só no personalizado
     end: date | None = None
     days: int | None = Field(default=None, ge=1, le=MAX_DAYS)  # só nos últimos N dias
-    compare: bool = False  # os cartões mostram a variação sobre o período anterior
+    compare: Compare = "none"  # os cartões mostram a variação sobre o período comparado
 
 
 class FilterSpec(BaseModel):
@@ -163,11 +165,11 @@ class FilterSpec(BaseModel):
 
 class ReportConfig(BaseModel):
     """O que um modelo guarda (`report_models.config`). `version` muda quando o formato mudar
-    de um jeito que os modelos salvos precisem ser convertidos."""
+    de um jeito que os modelos salvos precisem ser convertidos (`upgrade`)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     period: PeriodSpec = PeriodSpec()
     filters: FilterSpec = FilterSpec()
     hours: Literal["hm", "decimal"] = "hm"  # 7h30 ou 7,5 h
@@ -182,6 +184,17 @@ class ReportConfig(BaseModel):
         if self.audience == "internal" and not self.blocks:
             raise ValueError("um modelo interno precisa de ao menos um bloco")
         return self
+
+
+def upgrade(config: dict[str, Any]) -> dict[str, Any]:
+    """A configuração salva num formato antigo, convertida para o atual (`ReportConfig`).
+    1 → 2: `period.compare` era booleano (comparar com o período anterior ou não)."""
+    if config.get("version", 1) == 1:
+        period = dict(config.get("period") or {})
+        if "compare" in period:
+            period["compare"] = "previous" if period["compare"] else "none"
+        config = {**config, "period": period, "version": 2}
+    return config
 
 
 _CARDS = Block(visual="cards", measures=["hours", "overtime", "tasks", "opened", "closed"])
@@ -272,9 +285,9 @@ def _month(day: date) -> tuple[date, date]:
 
 
 def previous_period(start: date, end: date, *, year_to_date: bool = False) -> tuple[date, date]:
-    """O período de comparação: o ano até a data ("ano-ate-hoje"), com as mesmas datas do ano
-    anterior; meses inteiros, com os meses de antes; os demais, com o mesmo número de dias logo
-    antes."""
+    """O período imediatamente anterior (comparar com o anterior e a seta da tela): o ano até a
+    data ("ano-ate-hoje"), com as mesmas datas do ano anterior; meses inteiros, com os meses de
+    antes; os demais, com o mesmo número de dias logo antes."""
     if year_to_date:
         last = end - timedelta(days=1) if (end.month, end.day) == (2, 29) else end
         return start.replace(year=start.year - 1), last.replace(year=end.year - 1)
@@ -300,6 +313,35 @@ def next_period(start: date, end: date, *, year_to_date: bool = False) -> tuple[
         return after, date(index // 12, index % 12 + 1, 1) - timedelta(days=1)
     length = (end - start).days + 1
     return after, end + timedelta(days=length)
+
+
+def _year_before(day: date) -> date:
+    """O mesmo dia do ano anterior; o 29 de fevereiro vira 28."""
+    if (day.month, day.day) == (2, 29):
+        day -= timedelta(days=1)
+    return day.replace(year=day.year - 1)
+
+
+def year_before(start: date, end: date) -> tuple[date, date]:
+    """O mesmo período do ano anterior: meses inteiros, os mesmos meses (fevereiro inteiro com
+    fevereiro inteiro, de 28 ou 29 dias); semanas inteiras (de segunda a domingo), as 52 semanas
+    antes, para cada dia cair no mesmo dia da semana; as demais, as mesmas datas."""
+    if start.day == 1 and (end + timedelta(days=1)).day == 1:
+        return start.replace(year=start.year - 1), _month(date(end.year - 1, end.month, 1))[1]
+    if start.weekday() == 0 and ((end - start).days + 1) % 7 == 0:
+        return start - timedelta(weeks=52), end - timedelta(weeks=52)
+    return _year_before(start), _year_before(end)
+
+
+def comparison_period(
+    start: date, end: date, compare: Compare, *, year_to_date: bool = False
+) -> tuple[date, date] | None:
+    """O período com que se compara (`PeriodSpec.compare`); sem comparar, None."""
+    if compare == "previous":
+        return previous_period(start, end, year_to_date=year_to_date)
+    if compare == "year":
+        return year_before(start, end)
+    return None
 
 
 def relative_period(slug: str, today: date, days: int | None = None) -> tuple[date, date]:
@@ -355,6 +397,17 @@ class Result:
     total: dict[Measure, Value] = field(default_factory=dict)
     is_list: bool = False  # a lista de tarefas (`tasks`), sem agrupar
     tasks: list[TaskFact] = field(default_factory=list)
+
+
+def matching(previous: Result, index: int, row: Row) -> Row | None:
+    """A linha do período comparado que corresponde a `row` (a de número `index`): no tempo, a
+    da mesma posição (1º dia com o 1º dia); nos cadastros, a do mesmo valor. "Outros" não tem
+    (os maiores mudam)."""
+    if row.key == OTHERS:
+        return None
+    if previous.dimension in TIMES:
+        return previous.rows[index] if index < len(previous.rows) else None
+    return next((r for r in previous.rows if r.key == row.key), None)
 
 
 # As medidas que somam: vêm somadas pelo `service.facts` (`Sums`), no banco ou das linhas.

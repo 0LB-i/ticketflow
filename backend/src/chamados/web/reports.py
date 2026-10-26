@@ -130,10 +130,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     elif f is not None and config is not None:
         data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
         before = None
-        if state.compare and compares(config):
-            first, last = builder.previous_period(
-                f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
-            )
+        if (compared_period := state.comparison()) and compares(config):
+            first, last = compared_period
             before = await service.facts(
                 db,
                 page.auth,

@@ -9,7 +9,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.modules.identity.deps import Auth
-from chamados.modules.reports.builder import MAX_MODELS, ReportConfig, check_block
+from chamados.modules.reports.builder import MAX_MODELS, ReportConfig, check_block, upgrade
 from chamados.modules.reports.models import ReportModel
 
 MAX_NAME = 80
@@ -38,8 +38,10 @@ async def get(db: AsyncSession, auth: Auth, public_id: uuid.UUID) -> ReportModel
 
 
 def config_of(model: ReportModel) -> ReportConfig:
+    """A configuração do modelo, convertida se foi salva num formato antigo (`builder.upgrade`);
+    ela só é gravada no formato novo quando o modelo for salvo de novo."""
     try:
-        return ReportConfig.model_validate(model.config)
+        return ReportConfig.model_validate(upgrade(model.config))
     except ValidationError:
         raise HTTPException(422, "Este modelo foi salvo num formato que não vale mais.") from None
 

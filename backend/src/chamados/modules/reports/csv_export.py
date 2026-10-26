@@ -10,6 +10,7 @@ from datetime import date, datetime
 from typing import Literal
 
 from chamados.core.i18n import Locale
+from chamados.modules.reports import builder
 from chamados.modules.reports.builder import (
     DURATIONS,
     ELAPSED,
@@ -47,6 +48,9 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "time": "Tempo",
         "outside": "Fora do expediente",
         "minutes": "{column} (min)",
+        "before": "{column}, antes",
+        "change": "Variação de {column} (%)",
+        "change_points": "Variação de {column} (p.p.)",
         "no_client": "Sem cliente",
         "others": "Outros",
         "total": "Total",
@@ -86,6 +90,9 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "time": "Time",
         "outside": "Outside working hours",
         "minutes": "{column} (min)",
+        "before": "{column}, before",
+        "change": "Change in {column} (%)",
+        "change_points": "Change in {column} (pp)",
         "no_client": "No client",
         "others": "Others",
         "total": "Total",
@@ -183,9 +190,13 @@ def _write(head: list[str], rows: list[list[str | int]], pt: bool) -> bytes:
     return ("\ufeff" + buffer.getvalue()).encode()
 
 
-def render_block(data: Facts, result: Result, locale: Locale) -> bytes:
+def render_block(
+    data: Facts, result: Result, locale: Locale, previous: Result | None = None
+) -> bytes:
     """Um bloco de um modelo: as linhas agrupadas, como na tela, com o total no fim (a coluna da
-    medida tem o nome da do CSV das tabelas); a lista de tarefas, com as colunas do de tarefas."""
+    medida tem o nome da do CSV das tabelas); a lista de tarefas, com as colunas do de tarefas.
+    `previous`: o bloco no período comparado; cada medida ganha o valor de antes e a variação
+    (em %, ou em pontos nas porcentagens), as mesmas da tela (`builder.matching`)."""
     t = TEXTS[locale]
     pt = locale == "pt-BR"
 
@@ -219,29 +230,46 @@ def render_block(data: Facts, result: Result, locale: Locale) -> bytes:
     head = [t[result.dimension]] if result.dimension else []
     timed = (*DURATIONS, *ELAPSED)  # em horas decimais e em minutos
     for m in measures:
-        column = t[m]
-        head += [column, t["minutes"].format(column=column)] if m in timed else [column]
+        names = [t[m]] if previous is None else [t[m], t["before"].format(column=t[m])]
+        for column in names:
+            head += [column, t["minutes"].format(column=column)] if m in timed else [column]
+        if previous is not None:
+            head.append(t["change_points" if m in PERCENT else "change"].format(column=t[m]))
 
-    def values(v: dict[Measure, Value]) -> list[str | int]:
+    def decimal(number: float) -> str:
+        text = f"{number:.1f}"
+        return text.replace(".", ",") if pt else text
+
+    def cell(m: Measure, value: Value) -> list[str | int]:
+        if value is None:  # mediana ou porcentagem sem nenhum chamado
+            return ["", ""] if m in timed else [""]
+        if m in timed:
+            return hours(value)
+        if m in PERCENT:
+            return [decimal(value / 100)]
+        return [value]
+
+    def change(m: Measure, now: Value, before: Value) -> str:
+        """A variação da tela (`_change` em web/reports_blocks.py), em número; sem base, vazia."""
+        if now is None or before is None or (before == 0 and m not in PERCENT):
+            return ""
+        return decimal((now - before) / 100 if m in PERCENT else (now - before) / before * 100)
+
+    def values(v: dict[Measure, Value], old: dict[Measure, Value] | None) -> list[str | int]:
         cells: list[str | int] = []
         for m in measures:
-            value = v[m]
-            if value is None:  # mediana ou porcentagem sem nenhum chamado
-                cells += ["", ""] if m in timed else [""]
-            elif m in timed:
-                cells += hours(value)
-            elif m in PERCENT:
-                percent = f"{value / 100:.1f}"
-                cells.append(percent.replace(".", ",") if pt else percent)
-            else:
-                cells.append(value)
+            cells += cell(m, v[m])
+            if previous is not None:
+                before = old[m] if old else None
+                cells += [*cell(m, before), change(m, v[m], before)]
         return cells
 
     if result.dimension == "month":
         day_format = "%m/%Y" if pt else "%Y-%m"
     else:
         day_format = "%d/%m/%Y" if pt else "%Y-%m-%d"
-    for row in result.rows:
+    for i, row in enumerate(result.rows):
+        old = builder.matching(previous, i, row) if previous else None
         if isinstance(row.key, date):
             label = row.key.strftime(day_format)
         elif result.dimension == "age" and isinstance(row.key, int):
@@ -250,8 +278,9 @@ def render_block(data: Facts, result: Result, locale: Locale) -> bytes:
             label = t["others"]
         else:
             label = _text(row.label or t["no_client"])
-        rows.append([label, *values(row.values)])
-    rows.append([*([t["total"]] if result.dimension else []), *values(result.total)])
+        rows.append([label, *values(row.values, old.values if old else None)])
+    total = values(result.total, previous.total if previous else None)
+    rows.append([*([t["total"]] if result.dimension else []), *total])
     return _write(head, rows, pt)
 
 
