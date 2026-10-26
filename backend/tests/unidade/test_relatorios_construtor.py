@@ -12,6 +12,7 @@ from typing import Any, get_args
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.reports import csv_export
@@ -19,6 +20,7 @@ from chamados.modules.reports.builder import (
     BUILTINS,
     OTHERS,
     Block,
+    PeriodSpec,
     check_block,
     needs,
     next_period,
@@ -324,6 +326,54 @@ def test_periodos_relativos() -> None:
         date(2026, 12, 1),
         date(2026, 12, 31),
     )
+
+
+def test_periodos_relativos_de_semana_ano_e_n_dias() -> None:
+    domingo = date(2026, 11, 15)
+    # A semana vai de segunda a domingo, inteira, como o mês.
+    assert relative_period("semana-atual", domingo) == (date(2026, 11, 9), domingo)
+    assert relative_period("semana-atual", date(2026, 11, 9)) == (
+        date(2026, 11, 9),
+        date(2026, 11, 15),
+    )
+    assert relative_period("semana-anterior", domingo) == (date(2026, 11, 2), date(2026, 11, 8))
+    assert relative_period("ano-anterior", domingo) == (date(2025, 1, 1), date(2025, 12, 31))
+    # Os 12 meses: o atual e os 11 anteriores, inteiros (até 366 dias).
+    assert relative_period("ultimos-12-meses", domingo) == (date(2025, 12, 1), date(2026, 11, 30))
+    assert relative_period("ultimos-12-meses", date(2026, 12, 3)) == (
+        date(2026, 1, 1),
+        date(2026, 12, 31),
+    )
+    assert relative_period("ultimos-12-meses", date(2024, 2, 10)) == (
+        date(2023, 3, 1),
+        date(2024, 2, 29),
+    )
+    # Os N dias terminam hoje; sem N, os 30 do padrão.
+    assert relative_period("ultimos-n-dias", domingo, 1) == (domingo, domingo)
+    assert relative_period("ultimos-n-dias", domingo, 45) == (date(2026, 10, 2), domingo)
+    assert relative_period("ultimos-n-dias", domingo, 366) == (date(2025, 11, 15), domingo)
+    assert relative_period("ultimos-n-dias", domingo) == relative_period("ultimos-30-dias", domingo)
+    # As setas andam um do mesmo tamanho: a semana, o ano e os 12 meses (meses inteiros), os N.
+    assert previous_period(date(2026, 11, 9), date(2026, 11, 15)) == (
+        date(2026, 11, 2),
+        date(2026, 11, 8),
+    )
+    assert previous_period(date(2025, 1, 1), date(2025, 12, 31)) == (
+        date(2024, 1, 1),
+        date(2024, 12, 31),
+    )
+    assert next_period(date(2025, 12, 1), date(2026, 11, 30)) == (
+        date(2026, 12, 1),
+        date(2027, 11, 30),
+    )
+    assert previous_period(date(2026, 10, 2), domingo) == (date(2026, 8, 18), date(2026, 10, 1))
+
+
+def test_dias_do_periodo_ficam_entre_1_e_366() -> None:
+    assert PeriodSpec(kind="ultimos-n-dias", days=366).days == 366
+    for dias in (0, 367):
+        with pytest.raises(ValidationError):
+            PeriodSpec(kind="ultimos-n-dias", days=dias)
 
 
 def _csv(conteudo: bytes, separador: str = ";") -> list[list[str]]:

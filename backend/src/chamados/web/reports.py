@@ -253,7 +253,10 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
                 ate=format_day(page.locale, state.end),
             ),
             page.t("relatorios.detalhe.voltar", periodo=label),
-            with_query("/relatorios", {**here, "de": None, "ate": None, "origem": None, **back}),
+            with_query(
+                "/relatorios",
+                {**here, "de": None, "ate": None, "dias": None, "origem": None, **back},
+            ),
         )
 
     today = datetime.now(TIMEZONE).date()
@@ -276,9 +279,14 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         month = next((m for m in months if (m.start, m.end) == (first, last)), None)
         period: dict[str, str | None]
         if month is None:
-            period = {"periodo": CUSTOM, "de": first.isoformat(), "ate": last.isoformat()}
+            period = {
+                "periodo": CUSTOM,
+                "de": first.isoformat(),
+                "ate": last.isoformat(),
+                "dias": None,
+            }
         else:
-            period = {"periodo": month.value, "de": None, "ate": None}
+            period = {"periodo": month.value, "de": None, "ate": None, "dias": None}
         return with_query("/relatorios", {**here, "origem": None, **period})
 
     def interval(first: date, last: date) -> str:
@@ -336,6 +344,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         ],
         start=state.start_text,
         end=state.end_text,
+        days=state.days,
         period_ok=bool(start and end and start <= end),
         steps=steps,
         shortcuts=shortcuts,

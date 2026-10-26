@@ -122,6 +122,10 @@
       <p class="text-sm text-muted">{{ interval }}</p>
       {%- endif %}
     </div>
+    {#- Os N dias aparecem só nesse período; aplicam ao sair do campo ou com o Enter. #}
+    {%- if period == "ultimos-n-dias" %}
+    {{ field("dias", t("relatorios.dias"), type="number", value=days, min="1", max="366", step="1", inputmode="numeric") }}
+    {%- endif %}
     {%- if period == "personalizado" %}
     {{ field("de", t("relatorios.de"), type="date", value=start) }}
     {{ field("ate", t("relatorios.ate"), type="date", value=end, error=None if period_ok else t("relatorios.periodoInvalido")) }}

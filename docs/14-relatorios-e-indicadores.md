@@ -97,12 +97,12 @@ O modelo guarda a **configuração**, nunca os números. Ao abrir, tudo é calcu
 | Parte | Conteúdo |
 |-------|----------|
 | **Nome** | Livre |
-| **Período** | Relativo (mês atual, mês anterior, últimos 7, 30 ou 90 dias, trimestre atual, trimestre anterior, ano até hoje) ou duas datas fixas. Até 366 dias, como hoje |
+| **Período** | Relativo (semana atual, semana anterior, mês atual, mês anterior, últimos 7, 30 ou 90 dias, últimos N dias, trimestre atual, trimestre anterior, ano até hoje, ano anterior, últimos 12 meses) ou duas datas fixas. Até 366 dias, como hoje |
 | **Filtros** | §14.8.2 |
 | **Blocos** | Lista ordenada de cartões, gráficos e tabelas (§14.8.3) |
 | **Público** | Interno ou cliente (§14.8.5) |
 
-- **Período relativo:** é o que torna um modelo salvo útil. "Horas por cliente, mês anterior" serve todo mês.
+- **Período relativo:** é o que torna um modelo salvo útil. "Horas por cliente, mês anterior" serve todo mês. A semana vai de segunda a domingo e, como o mês e o trimestre, até o último dia; os últimos 12 meses são o mês atual e os 11 anteriores, inteiros; os últimos N dias (N de 1 a 366, padrão 30, num campo que só aparece com essa opção) terminam hoje.
 - **Modelos prontos:** Produtividade, Clientes e Horas extras (os painéis da §14.7), Chamados (os indicadores da §14.3: contagens, tempos, reabertura, registrados e concluídos por semana, em aberto por idade e por status, e por grupo) e, quando existirem, os painéis da §14.4. Não podem ser apagados, mas dá para duplicar e ajustar.
 - **Modelo inicial:** cada pessoa escolhe qual modelo abre ao entrar em Relatórios.
 - **Versão da configuração:** a configuração guarda o número da versão do formato. Assim o formato pode mudar sem quebrar os modelos salvos.

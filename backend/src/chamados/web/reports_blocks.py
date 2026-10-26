@@ -221,6 +221,7 @@ def _drill(
             "periodo": CUSTOM,
             "de": first.isoformat(),
             "ate": last.isoformat(),
+            "dias": None,
             "origem": origin_of(state),
         }
     if dimension == "client":

@@ -19,6 +19,8 @@ from chamados.modules.reports import builder, saved, service
 from chamados.modules.reports.builder import (
     BUILTINS,
     CUSTOM,
+    LAST_DAYS,
+    MAX_DAYS,
     RELATIVE,
     FilterSpec,
     PeriodSpec,
@@ -45,14 +47,19 @@ RELATIVE_KEYS = dict(
     zip(
         RELATIVE,
         (
+            "semanaAtual",
+            "semanaAnterior",
             "mesAtual",
             "mesAnterior",
             "ultimos7",
             "ultimos30",
             "ultimos90",
+            "ultimosN",
             "trimestreAtual",
             "trimestreAnterior",
             "anoAteHoje",
+            "anoAnterior",
+            "ultimos12Meses",
         ),
         strict=True,
     )
@@ -71,6 +78,7 @@ class Params:
     periodo: str | None = None
     de: str | None = None
     ate: str | None = None
+    dias: str | None = None  # os N do "ultimos-n-dias"
     grupo: Values = None
     pessoa: Values = None
     cliente: Values = None
@@ -92,7 +100,7 @@ class Params:
 ParamsDep = Annotated[Params, Depends()]
 
 
-FILTER_FIELDS = ("periodo", "de", "ate", "grupo", "pessoa", "cliente", "status", "comparar")
+FILTER_FIELDS = ("periodo", "de", "ate", "dias", "grupo", "pessoa", "cliente", "status", "comparar")
 
 
 @dataclass
@@ -119,6 +127,11 @@ def _date(value: str | None) -> date | None:
         return date.fromisoformat(value) if value else None
     except ValueError:
         return None
+
+
+def _days(value: str | None) -> int | None:
+    """Os N dias do "ultimos-n-dias", de 1 a MAX_DAYS; fora disso (ou sem número), None."""
+    return int(value) if value and value.isdigit() and 1 <= int(value) <= MAX_DAYS else None
 
 
 def parse_uuids(values: list[str] | None) -> list[uuid.UUID]:
@@ -157,6 +170,7 @@ class State:
     end_text: str
     start: date | None
     end: date | None
+    days: int | None  # os N do "ultimos-n-dias"; None nos outros períodos
     teams: list[uuid.UUID]
     people: list[uuid.UUID]
     clients: list[uuid.UUID]
@@ -173,7 +187,7 @@ class State:
     def specs(self) -> tuple[PeriodSpec, FilterSpec]:
         """O período e os filtros como o modelo os guarda. Um mês da lista vira as datas dele."""
         if self.period in RELATIVE:
-            period = PeriodSpec(kind=self.period, compare=self.compare)
+            period = PeriodSpec(kind=self.period, days=self.days, compare=self.compare)
         else:
             period = PeriodSpec(kind=CUSTOM, start=self.start, end=self.end, compare=self.compare)
         filters = FilterSpec(
@@ -210,7 +224,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     months = last_months(page.locale, today)
     models = await saved.list_mine(db, auth)
     choice = _choice(page, params.aba, models)
-    periodo, de, ate = params.periodo, params.de, params.ate
+    periodo, de, ate, dias = params.periodo, params.de, params.ate, params.dias
     grupo, pessoa, cliente, status = params.grupo, params.pessoa, params.cliente, params.status
     comparar = params.comparar
     lookups = await service.lookups(db)
@@ -219,7 +233,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     # Sem filtro na URL, valem os do modelo. Os salvos que deixaram de valer para a pessoa
     # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
     warning = None
-    url = (periodo, de, ate, grupo, pessoa, cliente, status, comparar)
+    url = (periodo, de, ate, dias, grupo, pessoa, cliente, status, comparar)
     compare = comparar == "1"
     if all(v is None for v in url) and choice.config is not None:
         spec, saved_filters = choice.config.period, choice.config.filters
@@ -227,6 +241,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         compare = spec.compare
         de = spec.start.isoformat() if spec.start else None
         ate = spec.end.isoformat() if spec.end else None
+        dias = str(spec.days) if spec.days else None
         lost = []
         teams = [t for t in saved_filters.teams if t in {o.id for o in options.teams}]
         if len(teams) < len(saved_filters.teams):
@@ -257,8 +272,10 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     period = (
         periodo if periodo and (periodo in RELATIVE or periodo == CUSTOM or month) else "mes-atual"
     )
+    # Os N dias: um número fora de 1 a MAX_DAYS (ou apagado) volta ao padrão.
+    days = (_days(dias) or builder.DEFAULT_DAYS) if period == LAST_DAYS else None
     if period in RELATIVE:
-        first, last = builder.relative_period(period, today)
+        first, last = builder.relative_period(period, today, days)
         start_text, end_text = first.isoformat(), last.isoformat()
     elif month:
         start_text, end_text = month.start.isoformat(), month.end.isoformat()
@@ -269,7 +286,10 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
 
     origin = params.origem if period == CUSTOM else None
     if origin is not None and not (
-        origin in RELATIVE or any(m.value == origin for m in months) or _span(origin)
+        (origin in RELATIVE and origin != LAST_DAYS)
+        or _last_days(origin)
+        or any(m.value == origin for m in months)
+        or _span(origin)
     ):
         origin = None
 
@@ -283,6 +303,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         end_text=end_text,
         start=start,
         end=end,
+        days=days,
         teams=teams,
         people=people,
         clients=clients,
@@ -314,6 +335,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         "periodo": period,
         "de": start_text if period == CUSTOM else None,
         "ate": end_text if period == CUSTOM else None,
+        "dias": str(days) if days else None,
         "grupo": [str(t) for t in teams],
         "pessoa": [str(p) for p in people],
         "cliente": ([NO_CLIENT] if no_client else []) + [str(c) for c in clients],
@@ -331,10 +353,19 @@ def _span(value: str) -> tuple[date, date] | None:
     return (start, end) if start and end and start <= end else None
 
 
+def _last_days(value: str) -> int | None:
+    """Os N de uma origem "ultimos-n-dias:N"."""
+    slug, _, days = value.partition(":")
+    return _days(days) if slug == LAST_DAYS else None
+
+
 def origin_of(state: State) -> str:
-    """O período aberto como origem do detalhar: o slug (relativo ou mês) ou "de_ate"."""
+    """O período aberto como origem do detalhar: o slug (relativo ou mês), "ultimos-n-dias:N"
+    ou "de_ate"."""
     if state.period == CUSTOM:
         return f"{state.start_text}_{state.end_text}"
+    if state.period == LAST_DAYS:
+        return f"{LAST_DAYS}:{state.days}"
     return state.period
 
 
@@ -350,6 +381,10 @@ def origin_view(page: LoggedPage, state: State) -> tuple[str, dict[str, str]] | 
             ate=format_day(page.locale, span[1]),
         )
         return label, {"periodo": CUSTOM, "de": span[0].isoformat(), "ate": span[1].isoformat()}
+    days = _last_days(state.origin)
+    if days:
+        label = page.t("relatorios.periodos.ultimosNDias", n=days)
+        return label, {"periodo": LAST_DAYS, "dias": str(days)}
     if state.origin in RELATIVE_KEYS:
         label = page.t(f"relatorios.periodos.{RELATIVE_KEYS[state.origin]}")
         return label, {"periodo": state.origin}
@@ -405,6 +440,7 @@ def form_params(form: FormData) -> Params:
         periodo=one("periodo"),
         de=one("de"),
         ate=one("ate"),
+        dias=one("dias"),
         grupo=many("grupo"),
         pessoa=many("pessoa"),
         cliente=many("cliente"),

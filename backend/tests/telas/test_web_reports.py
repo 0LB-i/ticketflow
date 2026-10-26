@@ -266,6 +266,36 @@ def test_periodos_relativos(client: TestClient, cenario: dict[str, Any]) -> None
     assert "periodo=ultimos-7-dias" in aba and "de=" not in aba
 
 
+def test_ultimos_n_dias(client: TestClient, cenario: dict[str, Any]) -> None:
+    agora = datetime.now(TIMEZONE).date()
+    # O campo dos dias só aparece nesse período.
+    r = client.get("/relatorios", params={"periodo": "mes-atual"})
+    assert 'name="dias"' not in r.text
+    r = client.get("/relatorios/blocos", params={"periodo": "ultimos-n-dias", "dias": "45"})
+    assert '<option value="ultimos-n-dias" selected>Últimos N dias</option>' in r.text
+    assert 'name="dias" type="number" value="45"' in r.text
+    inicio = agora - timedelta(days=44)
+    assert f"De {format_day('pt-BR', inicio)} a {format_day('pt-BR', agora)}" in r.text
+    assert _pdf(r.text, "csv")["start"] == [inicio.isoformat()]
+    (aba,) = _links(r.text, "Produtividade")
+    assert "periodo=ultimos-n-dias" in aba and "dias=45" in aba
+    # Fora de 1 a 366 (ou sem número), o padrão: 30.
+    for dias in ("0", "367", "x", ""):
+        r = client.get("/relatorios/blocos", params={"periodo": "ultimos-n-dias", "dias": dias})
+        assert 'name="dias" type="number" value="30"' in r.text
+    # O modelo guarda os N e os usa ao abrir.
+    modelo = _criar(client, "Quinzena", periodo="ultimos-n-dias", dias="15")
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
+    assert 'name="dias" type="number" value="15"' in r.text
+    # O detalhar a partir dele volta aos mesmos N dias.
+    html = client.get(
+        "/relatorios/blocos",
+        params=_um_dia(agora, origem="ultimos-n-dias:15"),
+    ).text
+    (voltar,) = _links(html, "Voltar para Últimos 15 dias")
+    assert "periodo=ultimos-n-dias" in voltar and "dias=15" in voltar
+
+
 # --- modelos (docs/14 §14.8) -----------------------------------------------------------------
 
 TABELA = {"b0-visual": "table", "b0-agrupar": "person", "b0-medidas": ["hours", "tasks"]}
@@ -1015,6 +1045,18 @@ def test_setas_do_periodo(client: TestClient, cenario: dict[str, Any]) -> None:
     antes, depois = setas(periodo="personalizado", de="2025-03-10", ate="2025-03-16")
     assert antes == _datas(date(2025, 3, 3), date(2025, 3, 9))
     assert depois == _datas(date(2025, 3, 17), date(2025, 3, 23))
+
+    # A semana, o ano anterior e os N dias: um do mesmo tamanho.
+    segunda = hoje - timedelta(days=hoje.weekday())
+    antes, depois = setas(periodo="semana-anterior")
+    assert antes == _datas(segunda - timedelta(days=14), segunda - timedelta(days=8))
+    assert depois == _datas(segunda, segunda + timedelta(days=6))
+    antes, depois = setas(periodo="ano-anterior")
+    assert antes == _datas(date(hoje.year - 2, 1, 1), date(hoje.year - 2, 12, 31))
+    assert depois == _datas(date(hoje.year, 1, 1), date(hoje.year, 12, 31))
+    antes, depois = setas(periodo="ultimos-n-dias", dias="10")
+    assert antes == _datas(hoje - timedelta(days=19), hoje - timedelta(days=10))
+    assert depois is None
 
     # Os filtros continuam; a trilha do detalhar, não.
     html = client.get(

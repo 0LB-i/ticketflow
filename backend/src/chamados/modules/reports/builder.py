@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Literal
+from typing import Literal, get_args
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -101,17 +101,27 @@ CHARTS: tuple[Visual, ...] = ("bars", "columns", "stacked", "line")
 AGE_LIMITS = (24 * 60, 3 * 24 * 60, 7 * 24 * 60)
 STACKED: list[Measure] = ["hours", "overtime"]  # no expediente (horas − extras) e extras
 
-# Períodos que andam com o calendário (os slugs também são os da URL da tela).
-RELATIVE = (
+# Períodos que andam com o calendário (os slugs também são os da URL da tela), na ordem do
+# seletor. "ultimos-n-dias" leva o número de dias (`PeriodSpec.days`, `dias` na URL).
+Relative = Literal[
+    "semana-atual",
+    "semana-anterior",
     "mes-atual",
     "mes-anterior",
     "ultimos-7-dias",
     "ultimos-30-dias",
     "ultimos-90-dias",
+    "ultimos-n-dias",
     "trimestre-atual",
     "trimestre-anterior",
     "ano-ate-hoje",
-)
+    "ano-anterior",
+    "ultimos-12-meses",
+]
+RELATIVE: tuple[Relative, ...] = get_args(Relative)
+LAST_DAYS = "ultimos-n-dias"
+DEFAULT_DAYS = 30  # o padrão da §14.2
+MAX_DAYS = 366  # o limite de um período (service.resolve)
 CUSTOM = "personalizado"
 OTHERS = "outros"  # a chave da linha que junta o que passou dos N maiores
 MAX_MODELS = 50
@@ -132,19 +142,10 @@ class Block(BaseModel):
 class PeriodSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal[
-        "mes-atual",
-        "mes-anterior",
-        "ultimos-7-dias",
-        "ultimos-30-dias",
-        "ultimos-90-dias",
-        "trimestre-atual",
-        "trimestre-anterior",
-        "ano-ate-hoje",
-        "personalizado",
-    ] = "mes-atual"
+    kind: Relative | Literal["personalizado"] = "mes-atual"
     start: date | None = None  # só no personalizado
     end: date | None = None
+    days: int | None = Field(default=None, ge=1, le=MAX_DAYS)  # só nos últimos N dias
     compare: bool = False  # os cartões mostram a variação sobre o período anterior
 
 
@@ -301,9 +302,19 @@ def next_period(start: date, end: date, *, year_to_date: bool = False) -> tuple[
     return after, end + timedelta(days=length)
 
 
-def relative_period(slug: str, today: date) -> tuple[date, date]:
-    """O início e o fim (incluído) de um período de RELATIVE. O mês e o trimestre vão até o
-    último dia, como os meses da lista da tela; os demais terminam hoje."""
+def relative_period(slug: str, today: date, days: int | None = None) -> tuple[date, date]:
+    """O início e o fim (incluído) de um período de RELATIVE. A semana (de segunda a domingo),
+    o mês, o trimestre e os últimos 12 meses (o atual e os 11 anteriores) vão até o último dia,
+    como os meses da lista da tela; os N dias terminam hoje. `days`: os dias do "ultimos-n-dias"
+    (sem ele, DEFAULT_DAYS)."""
+    if slug in ("semana-atual", "semana-anterior"):
+        monday = today - timedelta(days=today.weekday() + (7 if slug == "semana-anterior" else 0))
+        return monday, monday + timedelta(days=6)
+    if slug == "ano-anterior":
+        return date(today.year - 1, 1, 1), date(today.year - 1, 12, 31)
+    if slug == "ultimos-12-meses":
+        index = today.year * 12 + today.month - 1 - 11
+        return date(index // 12, index % 12 + 1, 1), _month(today)[1]
     if slug == "mes-atual":
         return _month(today)
     if slug == "mes-anterior":
@@ -314,8 +325,11 @@ def relative_period(slug: str, today: date) -> tuple[date, date]:
         return _quarter(_quarter(today)[0] - timedelta(days=1))
     if slug == "ano-ate-hoje":
         return today.replace(month=1, day=1), today
-    days = {"ultimos-7-dias": 7, "ultimos-30-dias": 30, "ultimos-90-dias": 90}[slug]
-    return today - timedelta(days=days - 1), today
+    if slug == LAST_DAYS:
+        count = days or DEFAULT_DAYS
+    else:
+        count = {"ultimos-7-dias": 7, "ultimos-30-dias": 30, "ultimos-90-dias": 90}[slug]
+    return today - timedelta(days=count - 1), today
 
 
 # --- cálculo ---------------------------------------------------------------------------------
