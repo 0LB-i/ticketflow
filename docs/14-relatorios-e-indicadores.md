@@ -155,7 +155,7 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 O modelo de público "cliente" é feito para enviar ao cliente, em PDF.
 
-- **No editor:** "Público: cliente" (o padrão é interno). Os blocos ficam escondidos e guardados, para quando o modelo voltar a ser interno; a tela mostra a prévia do que vai no PDF.
+- **No editor:** "Público: cliente" (o padrão é interno). Os blocos ficam escondidos e guardados, para quando o modelo voltar a ser interno; a tela mostra a prévia do que vai no PDF. A prévia tem cara de folha A4 (papel branco também no modo escuro, a tipografia do PDF), com os mesmos textos e a mesma ordem, mas sem prometer as quebras de página.
 - **Um cliente:** o filtro precisa ter exatamente um cliente; sem isso, a tela avisa e não há PDF.
 - **Cabeçalho:** o logotipo da instalação (Configurações), o nome do cliente e o período.
 - **Conteúdo:** totais (horas, chamados registrados e concluídos) e a lista dos chamados do período (os que tiveram tarefa no período, ou foram registrados ou concluídos nele), com número, título, registrado em, concluído em (se está concluído), status atual e as horas das tarefas do período.

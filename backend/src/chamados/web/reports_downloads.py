@@ -162,11 +162,11 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         content = await run_in_threadpool(
             model_pdf.render_client,
             logo,
-            page.t("relatorios.paraCliente.titulo"),
-            [view["client"], period],
+            view["title"],
+            view["lines"],
             view["totals"],
             model_pdf.Grid("", view["columns"], view["rows"], empty=page.t("relatorios.nada")),
-            page.t("relatorios.paraCliente.gerado", quando=now),
+            view["footer"],
         )
         table = "client"
     else:

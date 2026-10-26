@@ -34,6 +34,7 @@ As cores da empresa são **laranja, cinza e branco**. A interface é majoritaria
 | `chart-1` | = `primary` | = `primary` | Série dos gráficos dos relatórios |
 | `chart-2` | `#1D4ED8` (blue-700) | `#3B82F6` (blue-500) | Segunda série (as horas extras das colunas empilhadas) |
 | `chart-before` | `#D3785C` | `#BE7844` | Série do período anterior (comparar): a `primary` mais clara |
+| `paper`, `paper-fg`, `paper-muted`, `paper-rule`, `paper-head` | `#FFFFFF`, `#171717`, `#525252`, `#E5E5E5`, `#F5F5F5` | os mesmos | A folha da prévia do relatório para o cliente: papel branco nos dois modos, com as cores do PDF |
 
 O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro); o **amarelo-ouro** (`gold`, só para "Marcar como entregue") é `#FACC15` com texto `#171717` nos dois modos, `#EAB308` no hover.
 

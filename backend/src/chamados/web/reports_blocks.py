@@ -6,7 +6,7 @@ cliente (§14.8.5).
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from functools import partial
 from typing import Any
 
@@ -27,7 +27,9 @@ from chamados.modules.reports.builder import (
     ReportConfig,
 )
 from chamados.web.formatting import (
+    TIMEZONE,
     format_date,
+    format_datetime,
     format_day,
     format_duration,
     format_elapsed,
@@ -464,7 +466,9 @@ def single_client(state: State) -> str | None:
 async def client_preview(
     page: LoggedPage, db: DB, state: State, f: service.Filters, config: ReportConfig
 ) -> dict[str, Any]:
-    """O relatório para o cliente (§14.8.5), na tela e no PDF: os totais e os chamados."""
+    """O relatório para o cliente (§14.8.5), na tela e no PDF, com os mesmos textos e na mesma
+    ordem: o título, as linhas do cabeçalho (o cliente e o período), os totais, os chamados e o
+    rodapé (quando foi gerado)."""
     client = single_client(state)
     if client is None:
         return {"ready": False, "message": page.t("relatorios.paraCliente.umCliente")}
@@ -490,9 +494,17 @@ async def client_preview(
         if config.show_people:
             row.append(", ".join(t.people))
         rows.append(row)
+    locale = page.locale
+    period = page.t(
+        "relatorios.pdf.periodo", de=format_date(locale, f.start), ate=format_date(locale, f.end)
+    )
+    now = format_datetime(locale, datetime.now(TIMEZONE))
     return {
         "ready": True,
         "client": client,
+        "title": page.t("relatorios.paraCliente.titulo"),
+        "lines": [client, period],
+        "footer": page.t("relatorios.paraCliente.gerado", quando=now),
         "totals": [
             (page.t("relatorios.medidas.hours"), hours(sum(t.minutes for t in data.tasks))),
             (page.t("relatorios.medidas.opened"), format_number(page.locale, len(data.opened))),

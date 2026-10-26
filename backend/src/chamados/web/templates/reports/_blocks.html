@@ -94,6 +94,65 @@
 </div>
 {%- endmacro %}
 
+{#- A prévia do relatório para o cliente (reports_blocks.client_preview) com cara de folha A4: os
+    mesmos textos e a mesma ordem do PDF (model_pdf.render_client), com a tipografia dele (9 pt no
+    corpo, 16 pt no título, 14 pt nos totais) e papel branco também no modo escuro. As margens de
+    15 mm são 15/210 da largura (o padding em % vem da largura do pai, que tem a da folha); o
+    aspect-ratio é só a altura mínima: a folha cresce com a lista, sem prometer as quebras de
+    página do PDF. No celular, a letra diminui um pouco e as células quebram. -#}
+{% macro client_sheet(v) -%}
+<div class="mx-auto w-full max-w-[210mm]">
+  <article aria-label="{{ v.title }}" class="aspect-[210/297] w-full rounded-sm border border-border bg-paper p-[7.14%] font-paper text-[11px] leading-[1.35] text-paper-fg shadow-md sm:text-[12px]">
+    <header class="flex items-center gap-4">
+      {%- if branding.logo_url %}
+      <img src="{{ branding.logo_url }}" alt="" class="max-h-[18mm] max-w-[40mm] shrink-0 object-contain">
+      {%- endif %}
+      <div class="min-w-0">
+        <h2 class="mb-[0.2em] text-[1.78em] leading-tight font-bold">{{ v.title }}</h2>
+        {%- for line in v.lines %}
+        <p>{{ line }}</p>
+        {%- endfor %}
+      </div>
+    </header>
+    <dl class="mt-[1.5em] grid grid-cols-3 border border-paper-rule">
+      {%- for label, value in v.totals %}
+      <div class="border-l border-paper-rule p-[0.5em] first:border-l-0">
+        <dt class="text-paper-muted">{{ label }}</dt>
+        <dd class="text-[1.55em] leading-snug">{{ value }}</dd>
+      </div>
+      {%- endfor %}
+    </dl>
+    {%- if v.rows %}
+    {#- A 6ª coluna é a das horas; a 3ª e a 4ª, as datas. #}
+    <div class="mt-[1em] overflow-x-auto">
+      <table class="w-full border-collapse text-left">
+        <caption class="sr-only">{{ v.title }}</caption>
+        <thead class="bg-paper-head text-paper-muted">
+          <tr>
+            {%- for label in v.columns %}
+            <th scope="col" class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top font-normal{% if loop.index0 == 5 %} text-right{% endif %}">{{ label }}</th>
+            {%- endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {%- for row in v.rows %}
+          <tr>
+            {%- for cell in row %}
+            <td class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top{% if loop.index0 in (2, 3) %} whitespace-nowrap{% elif loop.index0 == 5 %} text-right whitespace-nowrap tabular-nums{% endif %}">{{ cell }}</td>
+            {%- endfor %}
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- else %}
+    <p class="mt-[1em] text-paper-muted">{{ t("relatorios.nada") }}</p>
+    {%- endif %}
+    <p class="mt-[1.5em] text-paper-muted">{{ v.footer }}</p>
+  </article>
+</div>
+{%- endmacro %}
+
 {#- Um bloco: cartões, gráfico, tabela ou lista de tarefas. -#}
 {% macro block(b, preview=False) -%}
 {%- if b.visual == "cards" %}

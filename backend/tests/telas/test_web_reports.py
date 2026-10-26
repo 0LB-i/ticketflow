@@ -704,6 +704,13 @@ def test_pdf_do_modelo(
     assert (registro.after or {})["format"] == "pdf" and (registro.after or {})["table"] == "model"
 
 
+def _folha(html: str) -> str:
+    """A folha da prévia do relatório para o cliente."""
+    achado = re.search(r"<article .*?</article>", html, re.S)
+    assert achado, "sem a folha"
+    return achado.group(0)
+
+
 def test_relatorio_para_o_cliente(
     client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -730,11 +737,15 @@ def test_relatorio_para_o_cliente(
 
     filtros = _um_dia(dia, aba=modelo, cliente=padaria)
     r = client.get("/relatorios/blocos", params=filtros)
-    assert "Prévia do relatório para Padaria Pão Quente." in r.text
-    assert '<td class="px-3 py-2">#' + str(numero) + "</td>" in r.text
-    assert "De outro cliente" not in r.text
-    assert '<th scope="col" class="px-3 py-2 font-medium">Atendido por</th>' in r.text
-    assert '<th scope="col" class="px-3 py-2 font-medium">Horas extras</th>' not in r.text
+    assert "Prévia do relatório para Padaria Pão Quente:" in r.text
+    # Uma folha A4 de papel branco (também no modo escuro), com o cabeçalho, os totais, os
+    # chamados e o rodapé do PDF; sem logotipo nas Configurações, sem imagem.
+    folha = _folha(r.text)
+    assert "aspect-[210/297]" in folha and "bg-paper" in folha and "font-paper" in folha
+    assert ">Relatório de atendimento</h2>" in folha and "<p>Padaria Pão Quente</p>" in folha
+    assert f">#{numero}</td>" in folha and "De outro cliente" not in folha
+    assert ">Atendido por</th>" in folha and ">Horas extras</th>" not in folha
+    assert ">Gerado em " in folha and "<img" not in folha
 
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
     # O PDF leva o logotipo da instalação.
@@ -754,6 +765,10 @@ def test_relatorio_para_o_cliente(
     assert chamados.columns[-1] == "Atendido por"
     assert chamados.rows[0][0] == f"#{numero}" and chamados.rows[0][-1] == "Ana"
     assert "Ana" not in rodape  # sem o nome de quem gerou
+    # A prévia: os mesmos textos, e o logotipo como nas Configurações.
+    folha = _folha(client.get("/relatorios/blocos", params=filtros).text)
+    assert f"<p>{linhas[1]}</p>" in folha and f">{titulo}</h2>" in folha
+    assert '<img src="/api/v1/branding/logo?v=x"' in folha
     sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     assert sem_cliente.status_code == 422
 
@@ -940,7 +955,7 @@ def test_numeros_em_segundo_plano(
         client,
         f"/relatorios?aba={modelo}&cliente={padaria}&periodo=personalizado&de={dia}&ate={dia}",
     )
-    assert "Prévia do relatório para Padaria Pão Quente." in r.text
+    assert "Prévia do relatório para Padaria Pão Quente:" in r.text
 
 
 def _seta(html: str, qual: str) -> dict[str, list[str]] | None:

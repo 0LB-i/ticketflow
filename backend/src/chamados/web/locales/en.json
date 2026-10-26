@@ -584,7 +584,7 @@
     "paraCliente": {
       "titulo": "Service report",
       "umCliente": "The client report needs a client, and just one, in the client filter.",
-      "previa": "Preview of the report for {cliente}. The PDF also carries the installation logo.",
+      "previa": "Preview of the report for {cliente}: the same text as the PDF, without its page breaks.",
       "gerado": "Generated on {quando}",
       "colunas": {
         "chamado": "Ticket",

@@ -63,6 +63,14 @@
   --tf-chart-2: #1d4ed8;
   --tf-chart-before: #d3785c;
 
+  /* A folha da prévia do relatório para o cliente: papel branco também no modo escuro, com as
+     cores do PDF (modules/reports/model_pdf.py: INK, MUTED, RULE e HEAD) */
+  --tf-paper: #ffffff;
+  --tf-paper-fg: #171717;
+  --tf-paper-muted: #525252;
+  --tf-paper-rule: #e5e5e5;
+  --tf-paper-head: #f5f5f5;
+
   /* Status e prioridade: texto / fundo (docs/17, tabela de badges) */
   --tf-blue-fg: #1d4ed8;
   --tf-blue-bg: #eff6ff;
@@ -112,6 +120,8 @@
 
 @theme inline {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
+  /* A do PDF (as fontes padrão do PDF: Helvetica), na prévia do relatório para o cliente */
+  --font-paper: Helvetica, Arial, sans-serif;
 
   --color-brand: var(--tf-brand);
   --color-primary: var(--tf-primary);
@@ -134,6 +144,11 @@
   --color-chart-1: var(--tf-chart-1);
   --color-chart-2: var(--tf-chart-2);
   --color-chart-before: var(--tf-chart-before);
+  --color-paper: var(--tf-paper);
+  --color-paper-fg: var(--tf-paper-fg);
+  --color-paper-muted: var(--tf-paper-muted);
+  --color-paper-rule: var(--tf-paper-rule);
+  --color-paper-head: var(--tf-paper-head);
 
   --color-blue-fg: var(--tf-blue-fg);
   --color-blue-bg: var(--tf-blue-bg);

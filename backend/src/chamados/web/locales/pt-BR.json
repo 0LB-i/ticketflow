@@ -584,7 +584,7 @@
     "paraCliente": {
       "titulo": "Relatório de atendimento",
       "umCliente": "O relatório para o cliente precisa de um cliente, e só um, no filtro de cliente.",
-      "previa": "Prévia do relatório para {cliente}. O PDF leva também o logotipo da instalação.",
+      "previa": "Prévia do relatório para {cliente}: os mesmos textos do PDF, sem as quebras de página.",
       "gerado": "Gerado em {quando}",
       "colunas": {
         "chamado": "Chamado",
