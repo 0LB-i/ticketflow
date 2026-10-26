@@ -19,6 +19,7 @@ from sqlalchemy import (
     ColumnElement,
     Date,
     DateTime,
+    Integer,
     and_,
     any_,
     bindparam,
@@ -343,6 +344,10 @@ class TaskFact:
     def day(self) -> date:
         return self.done_at.astimezone(TZ).date()
 
+    @property
+    def hour(self) -> int:
+        return self.done_at.astimezone(TZ).hour
+
 
 FINAL = ("closed", "canceled")
 # Tempo que não conta no líquido: esperando o cliente, ou concluído antes de ser reaberto.
@@ -377,6 +382,7 @@ class TicketFact:
     net_lead: int | None = None  # o mesmo, sem o tempo parado (PAUSED)
     reopened: bool = False
     age: int | None = None  # em aberto: minutos do registro ao fim do período
+    hour: int = 0  # a hora do registro, da conclusão ou do cancelamento (no fuso da máquina)
 
 
 # Os nomes do que aparece num período, com as colunas que os relatórios mostram: num ano são
@@ -407,9 +413,10 @@ Summed = Literal["hours", "overtime", "tasks", "opened", "closed", "canceled", "
 # Os conjuntos de chamados (linhas ou contagens).
 Counted = Literal["opened", "closed", "canceled", "backlog"]
 COUNTED: tuple[Counted, ...] = ("opened", "closed", "canceled", "backlog")
-# Os agrupamentos das somas; a semana e o mês saem do dia.
-Group = Literal["person", "client", "team", "status", "day"]
-GROUPS: tuple[Group, ...] = ("person", "client", "team", "status", "day")
+# Os agrupamentos das somas; a semana, o mês e o dia da semana saem do dia. A hora é a do dia, no
+# fuso da máquina (0 a 23): a de término da tarefa, a do registro, da conclusão ou do cancelamento.
+Group = Literal["person", "client", "team", "status", "day", "hour"]
+GROUPS: tuple[Group, ...] = ("person", "client", "team", "status", "day", "hour")
 
 
 @dataclass
@@ -463,6 +470,8 @@ def group_keys(fact: TaskFact | TicketFact, group: Group) -> Iterable[Any]:
         return (fact.team_id,)
     if group == "status":
         return (fact.status_id,)
+    if group == "hour":
+        return (fact.hour,)
     return (fact.day,)
 
 
@@ -506,6 +515,11 @@ def _local_day(moment: Any) -> ColumnElement[date]:
     return cast(func.timezone(TZ.key, moment), Date)
 
 
+def _local_hour(moment: Any) -> ColumnElement[int]:
+    """A hora (0 a 23) de um instante no fuso da máquina: a `hour` das linhas, no banco."""
+    return cast(func.extract("hour", func.timezone(TZ.key, moment)), Integer)
+
+
 def _task_group(group: Group) -> Any:
     if group == "person":
         return TicketComment.author_id
@@ -515,6 +529,8 @@ def _task_group(group: Group) -> Any:
         return Ticket.team_id
     if group == "status":
         return Ticket.status_id
+    if group == "hour":
+        return _local_hour(TicketComment.done_at)
     return _local_day(TicketComment.done_at)
 
 
@@ -650,10 +666,12 @@ async def _ticket_sums(
     if "person" in groups:
         targets.append(("person", None))
         exprs.append(Ticket.assignee_id)
-    if "day" in groups:
-        for part in parts:
-            targets.append(("day", part))
-            exprs.append(_local_day(TICKET_DAY[part]))
+    locals_: tuple[tuple[Group, Any], ...] = (("day", _local_day), ("hour", _local_hour))
+    for group, local in locals_:
+        if group in groups:
+            for part in parts:
+                targets.append((group, part))
+                exprs.append(local(TICKET_DAY[part]))
     counts = [func.count().filter(sets[p]) for p in parts]
     query = (
         select(*exprs, *(func.grouping(e) for e in exprs), *counts)
@@ -912,6 +930,7 @@ async def facts(
             team_id=r.team_id,
             status_id=status_id or r.status_id,
             day=moment.astimezone(TZ).date(),
+            hour=moment.astimezone(TZ).hour,
             people=people if seen is None else people & seen,
             created_at=r.created_at,
             **extra,

@@ -61,6 +61,9 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "month": "Mês",
         "age": "Idade",
         "ages": "até 1 dia|1 a 3 dias|3 a 7 dias|mais de 7 dias",
+        "weekday": "Dia da semana",
+        "weekdays": "segunda|terça|quarta|quinta|sexta|sábado|domingo",
+        "hour": "Hora do dia",
         "canceled": "Chamados cancelados",
         "backlog": "Em aberto no fim",
         "lead_time": "Mediana até a conclusão",
@@ -103,6 +106,9 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "month": "Month",
         "age": "Age",
         "ages": "up to 1 day|1 to 3 days|3 to 7 days|over 7 days",
+        "weekday": "Weekday",
+        "weekdays": "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday",
+        "hour": "Hour of day",
         "canceled": "Tickets canceled",
         "backlog": "Open at the end",
         "lead_time": "Median time to close",
@@ -274,6 +280,10 @@ def render_block(
             label = row.key.strftime(day_format)
         elif result.dimension == "age" and isinstance(row.key, int):
             label = t["ages"].split("|")[row.key]
+        elif result.dimension == "weekday" and isinstance(row.key, int):
+            label = t["weekdays"].split("|")[row.key]
+        elif result.dimension == "hour":
+            label = f"{row.key:02d}:00"
         elif row.key == OTHERS:
             label = t["others"]
         else:

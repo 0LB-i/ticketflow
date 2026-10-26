@@ -1431,3 +1431,91 @@ def test_sparkline_nos_cartoes(client: TestClient, cenario: dict[str, Any]) -> N
     assert "<polyline" not in _cartao(r.text, "Em aberto no fim")
     r = client.get("/relatorios/blocos", params=_um_dia(segunda))
     assert "<polyline" not in _cartao(r.text, "Horas")
+
+
+# --- extensão: dia da semana e hora do dia (docs/14 §14.8.3) --------------------------------
+
+
+def test_dia_da_semana_e_hora_do_dia(client: TestClient, cenario: dict[str, Any]) -> None:
+    segunda = dia_util_passado()
+    chamado = registrar(client, cenario)
+    numero = chamado["number"]
+    tarefa(client, numero, 60, em(segunda, 10))
+    tarefa(client, numero, 30, em(segunda + timedelta(days=1), 15))
+    tarefa(client, numero, 15, em(segunda + timedelta(days=7), 10))  # outra segunda, às 10h
+    modelo = _criar(
+        client,
+        "Ciclos",
+        blocos="2",
+        **{
+            "b0-medidas": ["hours", "tasks"],
+            "b0-agrupar": "weekday",
+            "b1-visual": "columns",
+            "b1-agrupar": "hour",
+            "b1-medida": "hours",
+        },
+    )
+    filtros = {
+        "aba": modelo,
+        "periodo": "personalizado",
+        "de": segunda.isoformat(),
+        "ate": (segunda + timedelta(days=7)).isoformat(),
+    }
+    r = client.get("/relatorios/blocos", params=filtros)
+    assert "Horas por dia da semana" not in r.text  # a tabela tem o título dela
+    assert "Por dia da semana" in r.text and "Horas por hora do dia" in r.text
+
+    def linha(rotulo: str) -> list[str]:
+        achado = re.search(rf"<td[^>]*>{rotulo}</td>(.*?)</tr>", r.text, re.S)
+        assert achado, rotulo
+        return re.findall(r"<td [^>]*>(.*?)</td>", achado.group(1), re.S)
+
+    # Os 7 dias, na ordem, mesmo sem nada; as duas segundas somam; sem link de detalhar.
+    assert linha("Segunda-feira") == ["1h15", "2"]
+    assert linha("Terça-feira") == ["30min", "1"]
+    assert linha("Domingo") == ["0min", "0"]
+    assert r.text.index("Segunda-feira") < r.text.index("Domingo")
+    # As 24 horas, a da hora de término da tarefa.
+    assert 'aria-label="10h: 1h15"' in r.text and 'aria-label="15h: 30min"' in r.text
+    assert 'aria-label="0h: 0min"' in r.text and 'aria-label="23h: 0min"' in r.text
+
+    # O CSV de cada um.
+    r = client.get("/relatorios/csv", params={**filtros, "bloco": "1"})
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[0][0] == "Hora do dia" and len(linhas) == 26
+    assert linhas[11] == ["10:00", "1,25", "75"]
+    r = client.get("/relatorios/csv", params={**filtros, "bloco": "0"})
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[1][:4] == ["segunda", "1,25", "75", "2"]
+
+    # Comparando, a série de antes alinha pela hora.
+    r = client.get("/relatorios/blocos", params={**filtros, "comparar": "anterior"})
+    assert "Período anterior</li>" in r.text
+
+    # Os registrados pela hora do registro (contados no banco).
+    registro = datetime.fromisoformat(chamado["created_at"]).astimezone(TIMEZONE)
+    contagem = _criar(
+        client,
+        "Registros por hora",
+        **{"b0-medidas": ["opened"], "b0-agrupar": "hour", "b0-visual": "table"},
+    )
+    r = client.get("/relatorios/blocos", params=_um_dia(registro.date(), aba=contagem))
+    assert linha(f"{registro.hour}h") == ["1"]
+
+
+def test_editor_com_dia_da_semana_e_hora(client: TestClient, cenario: dict[str, Any]) -> None:
+    # As barras e a linha não agrupam por dia da semana nem hora; o Em aberto não é oferecido.
+    dados = formulario(
+        client,
+        nome="X",
+        horas="hm",
+        blocos="2",
+        acao="atualizar",
+        **{"b0-visual": "table", "b0-agrupar": "hour", "b1-visual": "bars"},
+    )
+    r = client.post("/relatorios/modelos", data=dados)
+    assert '<option value="hour" selected>Hora do dia</option>' in r.text
+    assert 'id="campo-b0-medidas-backlog"' not in r.text
+    assert 'id="campo-b0-medidas-hours"' in r.text
+    barras = re.search(r'name="b1-agrupar".*?</select>', r.text, re.S)
+    assert barras and "weekday" not in barras.group(0) and "hour" not in barras.group(0)

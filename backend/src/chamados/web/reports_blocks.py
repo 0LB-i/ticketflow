@@ -16,6 +16,7 @@ from chamados.modules.reports.builder import (
     CATEGORIES,
     CHARTS,
     CUSTOM,
+    CYCLES,
     DURATIONS,
     ELAPSED,
     GOOD_DIRECTION,
@@ -45,6 +46,13 @@ DAILY_LIMIT = 62  # um gráfico por dia de um período mais longo agrupa por sem
 
 
 LISTED = 200  # tarefas por página na lista (e no PDF, só a primeira); o CSV traz todas
+
+# Os dias da semana (0 = segunda) → chave dos catálogos (expediente.diasCurtos.*,
+# relatorios.diasDaSemana.*).
+WEEKDAYS = ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
+# Os agrupamentos em que cada chave tem o seu lugar fixo (todas aparecem, na ordem): a série de
+# antes se alinha pela posição.
+ORDERED = (*TIMES, *CYCLES)
 
 
 @dataclass
@@ -132,6 +140,11 @@ def _row_label(page: LoggedPage, dimension: str | None, row: builder.Row, *, sho
         return page.t("relatorios.semanaDe", dia=day) if dimension == "week" and not short else day
     if dimension == "age":
         return page.t(f"relatorios.idades.{row.key}")
+    if dimension == "weekday" and isinstance(row.key, int):
+        day = WEEKDAYS[row.key]
+        return page.t(f"expediente.diasCurtos.{day}" if short else f"relatorios.diasDaSemana.{day}")
+    if dimension == "hour":
+        return page.t("relatorios.hora", h=row.key)
     return row.label or page.t("relatorios.semCliente")
 
 
@@ -212,7 +225,7 @@ def _drill(
     "Outros", as idades, alguém que a pessoa não pode filtrar). Um período clicado leva o de
     agora como `origem`, para a tela mostrar a trilha e voltar a ele."""
     f = state.filters
-    if f is None or key == OTHERS or dimension in (None, "age"):
+    if f is None or key == OTHERS or dimension in (None, "age", *CYCLES):
         return None
     if isinstance(key, date):
         first = max(key, f.start)
@@ -296,7 +309,7 @@ def block_view(
         de=format_day(page.locale, f.start),
         ate=format_day(page.locale, f.end),
     )
-    if previous is not None and (block.visual in ("cards", "table") or dimension in TIMES):
+    if previous is not None and (block.visual in ("cards", "table") or dimension in ORDERED):
         view["period"] += " · " + page.t(
             "relatorios.comparacao.com",
             de=format_day(page.locale, first),
@@ -340,9 +353,9 @@ def block_view(
         )
     elif block.visual in CHARTS:
         m = block.measures[0]
-        # A série de antes, só agrupada por período: nos cadastros, a mesma posição não é o
-        # mesmo valor.
-        series = previous is not None and dimension in TIMES
+        # A série de antes, só agrupada por período, dia da semana ou hora: nos cadastros, a
+        # mesma posição não é o mesmo valor.
+        series = previous is not None and dimension in ORDERED
         fmt = formatter(page, config, m)
         points = []
         for i, r in enumerate(result.rows):

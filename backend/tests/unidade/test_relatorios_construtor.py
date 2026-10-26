@@ -519,6 +519,44 @@ def test_medidas_de_chamados() -> None:
     assert vazio.total == {"lead_time": None, "reopen_rate": None}
 
 
+def test_medidas_por_dia_da_semana_e_hora() -> None:
+    quinta = date(2026, 10, 1)  # INICIO
+    concluidos = [
+        _chamado(quinta, {ANA}, numero=1, lead=60, hour=9),
+        _chamado(quinta, {ANA}, numero=2, lead=180, hour=9),
+        _chamado(quinta + timedelta(days=1), {BIA}, numero=3, lead=600, hour=17),
+    ]
+    dados = _dados(
+        [_tarefa(ANA, 60, quinta), _tarefa(BIA, 30, quinta + timedelta(days=7))],
+        concluidos=concluidos,
+    )
+    medidas = ["hours", "closed", "lead_time"]
+    dias = run(dados, Block(visual="table", dimension="weekday", measures=medidas), INICIO, FIM)
+    assert [r.key for r in dias.rows] == list(range(7))
+    assert dias.rows[3].values == {"hours": 90, "closed": 2, "lead_time": 120}  # quinta
+    assert dias.rows[4].values == {"hours": 0, "closed": 1, "lead_time": 600}  # sexta
+    assert dias.rows[0].values == {"hours": 0, "closed": 0, "lead_time": None}
+    assert all(r.label is None for r in dias.rows)
+    horas = run(dados, Block(visual="table", dimension="hour", measures=medidas), INICIO, FIM)
+    assert len(horas.rows) == 24
+    assert horas.rows[9].values == {"hours": 0, "closed": 2, "lead_time": 120}
+    assert horas.rows[10].values == {"hours": 90, "closed": 0, "lead_time": None}
+    assert horas.rows[17].values["closed"] == 1
+    # Os N maiores não cortam as listas fixas.
+    corte = Block(visual="table", dimension="hour", measures=["hours"], top=3)
+    assert len(run(dados, corte, INICIO, FIM).rows) == 24
+    # O em aberto não se agrupa por dia da semana nem por hora.
+    with pytest.raises(HTTPException):
+        check_block(Block(visual="table", dimension="weekday", measures=["backlog"]))
+    # O dia da semana sai das somas por dia; a hora tem a sua.
+    assert needs([Block(visual="table", dimension="weekday", measures=["hours"])]).sums == {
+        "hours": {"day"}
+    }
+    assert needs([Block(visual="table", dimension="hour", measures=["opened"])]).sums == {
+        "opened": {"hour"}
+    }
+
+
 def test_periodo_anterior() -> None:
     assert previous_period(date(2026, 10, 1), date(2026, 10, 31)) == (
         date(2026, 9, 1),

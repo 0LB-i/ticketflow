@@ -486,8 +486,20 @@
       "day": "day",
       "week": "week",
       "month": "month",
-      "age": "age"
+      "age": "age",
+      "weekday": "weekday",
+      "hour": "hour of day"
     },
+    "diasDaSemana": {
+      "seg": "Monday",
+      "ter": "Tuesday",
+      "qua": "Wednesday",
+      "qui": "Thursday",
+      "sex": "Friday",
+      "sab": "Saturday",
+      "dom": "Sunday"
+    },
+    "hora": "{h}:00",
     "visuais": {
       "cards": "Cards",
       "bars": "Bars",

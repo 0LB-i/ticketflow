@@ -486,8 +486,20 @@
       "day": "dia",
       "week": "semana",
       "month": "mês",
-      "age": "idade"
+      "age": "idade",
+      "weekday": "dia da semana",
+      "hour": "hora do dia"
     },
+    "diasDaSemana": {
+      "seg": "Segunda-feira",
+      "ter": "Terça-feira",
+      "qua": "Quarta-feira",
+      "qui": "Quinta-feira",
+      "sex": "Sexta-feira",
+      "sab": "Sábado",
+      "dom": "Domingo"
+    },
+    "hora": "{h}h",
     "visuais": {
       "cards": "Cartões",
       "bars": "Barras",

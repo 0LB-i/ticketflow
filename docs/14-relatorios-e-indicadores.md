@@ -130,13 +130,14 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 | Escolha | Opções |
 |---------|--------|
-| **Agrupar por** | Pessoa, cliente, grupo, status, idade (só do em aberto: até 1 dia, 1 a 3, 3 a 7, mais de 7), dia, semana (de segunda a domingo), mês (ou nada, num cartão). Categoria e tipo, quando a tela de chamado os usar (§14.8.2) |
+| **Agrupar por** | Pessoa, cliente, grupo, status, idade (só do em aberto: até 1 dia, 1 a 3, 3 a 7, mais de 7), dia, semana (de segunda a domingo), mês, dia da semana, hora do dia (ou nada, num cartão). Categoria e tipo, quando a tela de chamado os usar (§14.8.2) |
 | **Medidas de tarefas** | Horas, horas extras, tarefas (somadas) |
 | **Medidas de chamados** | Registrados, concluídos, cancelados, em aberto no fim (contados); mediana até a conclusão, bruta e líquida (dos concluídos no período); reabertura (% dos concluídos com pelo menos uma reabertura). Sem base (nenhum concluído), a mediana e a porcentagem aparecem como "—". O em aberto não se agrupa por período (é o retrato do fim) |
 | **Visual** | Cartões (KPI, com a tendência da medida no período numa linha pequena, por dia ou por semana como os gráficos; o em aberto, que é o retrato do fim, sem ela), barras (agrupam por cadastro ou idade), colunas, colunas empilhadas (as horas no expediente embaixo e as extras em cima), linha (agrupa por período), tabela (várias medidas, uma por coluna, com o total), lista de tarefas |
 | **Ajustes** | Título do bloco (vazio: um automático, como "Horas por pessoa") · só os N maiores, com o resto em "Outros" · ordem (maior, menor, nome) · horas em `hh:mm` ou em decimal (`7,5 h`), para o modelo todo. As barras já mostram o valor na ponta; as colunas e a linha, na dica |
 
 - **Pessoa e chamado:** agrupado por pessoa, um chamado conta para cada responsável (como os concluídos da §14.7), mas o total da tabela e o cartão contam o chamado uma vez.
+- **Dia da semana e hora do dia:** no fuso da máquina, os 7 dias (de segunda a domingo) e as 24 horas, todos, na ordem, mesmo sem nada. As horas e as tarefas contam na hora e no dia em que a tarefa terminou (`done_at`, a mesma regra do dia; não são distribuídas pelo intervalo que a tarefa atravessa); os chamados, na do registro, da conclusão ou do cancelamento. Em colunas, colunas empilhadas e tabela (as barras ficam para os cadastros e a linha, para os períodos); sem Em aberto (retrato do fim), sem "só os N maiores" e sem detalhar (não há filtro por dia da semana nem por hora). Comparando, a série de antes se alinha pelo mesmo dia da semana ou pela mesma hora.
 - **Períodos vazios:** agrupado por dia, semana ou mês, todos os períodos aparecem, mesmo sem nada. Um gráfico por dia de um período de mais de dois meses agrupa por semana (a tabela e o CSV continuam por dia).
 
 - **Sem linha de meta:** a §14.1 não tem metas.

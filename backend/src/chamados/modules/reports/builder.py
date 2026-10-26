@@ -34,7 +34,9 @@ from chamados.modules.reports.service import (
 )
 
 Visual = Literal["cards", "bars", "columns", "stacked", "line", "table", "tasks"]
-Dimension = Literal["person", "client", "team", "status", "age", "day", "week", "month"]
+Dimension = Literal[
+    "person", "client", "team", "status", "age", "day", "week", "month", "weekday", "hour"
+]
 Measure = Literal[
     "hours",
     "overtime",
@@ -61,9 +63,14 @@ DIMENSIONS: tuple[Dimension, ...] = (
     "day",
     "week",
     "month",
+    "weekday",
+    "hour",
 )
 CATEGORIES: tuple[Dimension, ...] = ("person", "client", "team", "status")
 TIMES: tuple[Dimension, ...] = ("day", "week", "month")
+# O dia da semana (0 = segunda) e a hora do dia (0 a 23), no fuso da máquina: todos aparecem, na
+# ordem, como os períodos; não detalham (não há filtro por dia da semana nem por hora).
+CYCLES: tuple[Dimension, ...] = ("weekday", "hour")
 MEASURES: tuple[Measure, ...] = (
     "hours",
     "overtime",
@@ -273,7 +280,7 @@ def measures_for(visual: Visual, dimension: Dimension | None) -> tuple[Measure, 
         return tuple(STACKED)
     if dimension == "age":
         return ("backlog",)
-    return tuple(m for m in MEASURES if not (m == "backlog" and dimension in TIMES))
+    return tuple(m for m in MEASURES if not (m == "backlog" and dimension in (*TIMES, *CYCLES)))
 
 
 def check_block(block: Block) -> None:
@@ -299,6 +306,11 @@ def check_block(block: Block) -> None:
     if block.dimension in TIMES and "backlog" in block.measures:
         raise HTTPException(
             422, "Em aberto é o retrato do fim do período: não se agrupa por dia, semana ou mês."
+        )
+    if block.dimension in CYCLES and "backlog" in block.measures:
+        raise HTTPException(
+            422,
+            "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.",
         )
 
 
@@ -408,7 +420,8 @@ def relative_period(slug: str, today: date, days: int | None = None) -> tuple[da
 
 # --- cálculo ---------------------------------------------------------------------------------
 
-Key = int | date | str | None  # id do cadastro, dia, faixa de idade, OTHERS ou None (sem cliente)
+# id do cadastro, dia, faixa de idade, dia da semana, hora, OTHERS ou None (sem cliente)
+Key = int | date | str | None
 Value = int | None  # None: medida sem base (mediana ou porcentagem de nada)
 
 
@@ -456,8 +469,8 @@ SUMS: dict[Measure, Summed] = {
 
 def _group(dimension: Dimension) -> Group:
     """O agrupamento das somas de uma dimensão (menos a idade, que sai das linhas do em aberto):
-    o dia serve à semana e ao mês."""
-    return "day" if dimension in TIMES else dimension  # type: ignore[return-value]
+    o dia serve à semana, ao mês e ao dia da semana."""
+    return "day" if dimension in (*TIMES, "weekday") else dimension  # type: ignore[return-value]
 
 
 def needs(blocks: Iterable[Block]) -> Want:
@@ -532,13 +545,19 @@ def _amounts(data: Facts, measure: Measure, dimension: Dimension) -> Iterator[tu
                 yield sum(t.age > limit for limit in AGE_LIMITS), 1
         return
     group = _group(dimension)
+
+    def bucket(key: Key) -> Key:
+        if isinstance(key, date):
+            return key.weekday() if dimension == "weekday" else _bucket(key, dimension)
+        return key
+
     if measure in SUMS:
         for key, amount in _sums(data, measure, group).by[group].items():
-            yield (_bucket(key, dimension) if dimension in TIMES else key), amount
+            yield bucket(key), amount
         return
     for fact, amount in _contributions(data, measure):
         for key in group_keys(fact, group):
-            yield (_bucket(key, dimension) if dimension in TIMES else key), amount
+            yield bucket(key), amount
 
 
 def _reduce(measure: Measure, amounts: list[int]) -> Value:
@@ -567,7 +586,7 @@ def bucket_end(start: date, dimension: Dimension) -> date:
 
 
 def _label(data: Facts, dimension: Dimension, key: Key) -> str | None:
-    if not isinstance(key, int) or dimension == "age":
+    if not isinstance(key, int) or dimension in ("age", *CYCLES):
         return None
     if dimension == "person":
         return data.users[key].display_name
@@ -620,6 +639,9 @@ def run(
     elif dim == "age":  # as quatro faixas, na ordem
         for band in range(len(AGE_LIMITS) + 1):
             amounts[band] = {m: [] for m in measures}
+    elif dim in CYCLES:  # os 7 dias da semana ou as 24 horas, na ordem
+        for cycle in range(7 if dim == "weekday" else 24):
+            amounts[cycle] = {m: [] for m in measures}
     for m in measures:
         for key, amount in _amounts(data, m, dim):
             amounts[key][m].append(amount)
@@ -628,7 +650,7 @@ def run(
         return {m: _reduce(m, lists[m]) for m in measures}
 
     rows = [Row(key, _label(data, dim, key), reduced(lists)) for key, lists in amounts.items()]
-    if dim in TIMES or dim == "age":
+    if dim in (*TIMES, *CYCLES) or dim == "age":
         return Result(dimension=dim, rows=rows, total=total)
 
     def by_name(r: Row) -> tuple[bool, str, int]:

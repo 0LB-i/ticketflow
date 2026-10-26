@@ -23,6 +23,7 @@ from chamados.modules.reports.builder import CUSTOM
 from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.reports_blocks import (
+    WEEKDAYS,
     block_view,
     client_preview,
     compared,
@@ -52,9 +53,6 @@ router = APIRouter()
 # A tabela de cada modelo pronto de horas no CSV da API (`reports/csv_export.Table`); esses
 # também têm o PDF.
 CSV_TABLES = {"produtividade": "people", "clientes": "clients", "horas-extras": "overtime"}
-
-
-WEEKDAYS = ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
 
 
 def _fold(text: str) -> str:

@@ -181,6 +181,9 @@ EN: dict[str, str] = {
     "Em aberto é o retrato do fim do período: não se agrupa por dia, semana ou mês.": (
         "Open is a snapshot of the end of the period: it is not grouped by day, week or month."
     ),
+    "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.": (
+        "Open is a snapshot of the end of the period: it is not grouped by weekday or hour."
+    ),
     "Modelo não encontrado.": "Report template not found.",
     "Este modelo foi salvo num formato que não vale mais.": (
         "This template was saved in a format that is no longer valid."
