@@ -1196,3 +1196,24 @@ def test_grafico_sozinho_ocupa_a_linha(client: TestClient, cenario: dict[str, An
     visuais = ["cards", "line", "line", "columns", "table", "bars"]
     assert wide(visuais) == [True, False, False, True, True, True]
     assert wide(["bars", "stacked", "line", "columns"]) == [False] * 4
+
+
+def _menu_modelo(html: str) -> list[tuple[str, list[str]]]:
+    """Os itens do menu Modelo do cabeçalho: o caminho e a aba de base de cada link."""
+    menu = re.search(r"<summary [^>]*>Modelo <svg.*?</details>", html, re.S)
+    assert menu, "sem o menu Modelo"
+    links = re.findall(r'<a href="([^"]*)" role="menuitem"', menu.group(0))
+    partes = [urlsplit(link.replace("&amp;", "&")) for link in links]
+    return [(p.path, parse_qs(p.query).get("base", [])) for p in partes]
+
+
+def test_menu_modelo(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Editar e salvar como modelo ficam num menu; editar, só nos modelos da pessoa."""
+    r = client.get("/relatorios/blocos", params={"aba": "clientes"})
+    assert _menu_modelo(r.text) == [("/relatorios/modelos/novo", ["clientes"])]
+    modelo = _criar(client, "Meu", periodo="ultimos-7-dias")
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
+    assert _menu_modelo(r.text) == [
+        (f"/relatorios/modelos/{modelo}/editar", []),
+        ("/relatorios/modelos/novo", [modelo]),
+    ]

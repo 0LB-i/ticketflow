@@ -457,6 +457,7 @@
     },
     "salvarComoModelo": "Save as template",
     "editarModelo": "Edit template",
+    "menuModelo": "Template",
     "medidas": {
       "hours": "Hours",
       "overtime": "Overtime",

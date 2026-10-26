@@ -50,10 +50,16 @@
       </form>
       <a href="{{ restore_url }}" hx-boost="true" class="{{ button_class('secondary') }}">{{ t("relatorios.restaurarFiltros") }}</a>
       {%- endif %}
-      {%- if model %}
-      <a href="/relatorios/modelos/{{ model.public_id }}/editar" class="{{ button_class('secondary') }}">{{ icon("pencil", "size-4") }} {{ t("relatorios.editarModelo") }}</a>
-      {%- endif %}
-      <a href="{{ new_model_url }}" class="{{ button_class('secondary') }}">{{ icon("plus", "size-4") }} {{ t("relatorios.salvarComoModelo") }}</a>
+      {#- Editar (só nos modelos da pessoa) e salvar como modelo, num menu. #}
+      <details data-menu class="relative">
+        <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden {{ button_class('secondary') }}">{{ t("relatorios.menuModelo") }} {{ icon("chevron-down", "size-4") }}</summary>
+        <div role="menu" class="absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
+          {%- if model %}
+          <a href="/relatorios/modelos/{{ model.public_id }}/editar" role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("pencil", "size-4") }} {{ t("relatorios.editarModelo") }}</a>
+          {%- endif %}
+          <a href="{{ new_model_url }}" role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("plus", "size-4") }} {{ t("relatorios.salvarComoModelo") }}</a>
+        </div>
+      </details>
       {#- O PDF e o CSV da tabela (modelos prontos) e o CSV de todas as tarefas, com os mesmos
           filtros. #}
       {%- if downloads %}
