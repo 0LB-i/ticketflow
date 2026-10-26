@@ -476,8 +476,13 @@
       "backlog": "Open at the end",
       "lead_time": "Median time to close",
       "net_lead_time": "Median time to close (net)",
-      "reopen_rate": "Reopened"
+      "reopen_rate": "Reopened",
+      "overtime_rate": "Overtime %",
+      "hours_per_ticket": "Hours per ticket",
+      "completion_rate": "Completion rate",
+      "tasks_per_workday": "Tasks per working day"
     },
+    "acimaDe100": "Above 100%: more tickets closed than opened.",
     "dimensoes": {
       "person": "person",
       "client": "client",

@@ -36,6 +36,7 @@ from chamados.modules.reports.builder import (
     run,
     trend,
     upgrade,
+    workdays,
     year_before,
 )
 from chamados.modules.reports.models import ReportModel
@@ -53,6 +54,7 @@ from chamados.modules.reports.service import (
     TicketFact,
     UserName,
     add_up,
+    distinct_tickets,
     net_minutes,
 )
 from chamados.modules.system.work_hours import DEFAULT
@@ -65,14 +67,20 @@ INICIO, FIM = date(2026, 10, 1), date(2026, 10, 20)
 
 
 def _tarefa(
-    autor: int, minutos: int, dia: date, *, extra: int = 0, cliente: int | None = None
+    autor: int,
+    minutos: int,
+    dia: date,
+    *,
+    extra: int = 0,
+    cliente: int | None = None,
+    numero: int = 1000,
 ) -> TaskFact:
     return TaskFact(
         author_id=autor,
         minutes=minutos,
         overtime=extra,
         done_at=datetime.combine(dia, datetime.min.time(), TZ) + timedelta(hours=10),
-        ticket_number=1000,
+        ticket_number=numero,
         ticket_title="Impressora",
         client_id=cliente,
         team_id=TI,
@@ -115,6 +123,7 @@ def _dados(
         "hours": add_up(((t, t.minutes) for t in tarefas), GROUPS),
         "overtime": add_up(((t, t.overtime) for t in tarefas), GROUPS),
         "tasks": add_up(((t, 1) for t in tarefas), GROUPS),
+        "worked": distinct_tickets(tarefas, GROUPS),
     }
     for parte, linhas in chamados.items():
         somas[parte] = add_up(((t, 1) for t in linhas), GROUPS)  # type: ignore[index]
@@ -555,6 +564,89 @@ def test_medidas_por_dia_da_semana_e_hora() -> None:
     assert needs([Block(visual="table", dimension="hour", measures=["opened"])]).sums == {
         "opened": {"hour"}
     }
+
+
+def test_medidas_derivadas() -> None:
+    tarefas = [
+        _tarefa(ANA, 60, INICIO, extra=30, numero=1),
+        _tarefa(ANA, 30, INICIO + timedelta(days=1), numero=1),
+        _tarefa(ANA, 30, INICIO + timedelta(days=1), numero=2),
+        _tarefa(BIA, 120, INICIO, extra=60, numero=1),
+    ]
+    dados = _dados(
+        tarefas,
+        registrados=[_chamado(INICIO, {ANA}, numero=1), _chamado(INICIO, {BIA}, numero=2)],
+        concluidos=[_chamado(INICIO, {ANA}, numero=n) for n in (1, 3, 4)],
+    )
+    medidas = ["overtime_rate", "hours_per_ticket", "completion_rate", "tasks_per_workday"]
+    cartoes = run(dados, Block(visual="cards", measures=medidas), INICIO, FIM)
+    # 90 de 240 min fora; 240 min em 2 chamados; 3 concluídos de 2 registrados (passa de 100%);
+    # 4 tarefas em 14 dias úteis (1º a 20 de outubro de 2026, segunda a sexta).
+    assert workdays(INICIO, FIM, DEFAULT) == 14
+    assert cartoes.total == {
+        "overtime_rate": 3750,
+        "hours_per_ticket": 120,
+        "completion_rate": 15000,
+        "tasks_per_workday": 29,
+    }
+    por_pessoa = run(
+        dados, Block(visual="table", dimension="person", measures=medidas), INICIO, FIM
+    )
+    # Na ordem da primeira medida (a % de hora extra), da maior para a menor.
+    assert [(r.label, r.values) for r in por_pessoa.rows] == [
+        (
+            "Bia",
+            {
+                "overtime_rate": 5000,
+                "hours_per_ticket": 120,
+                "completion_rate": 0,
+                "tasks_per_workday": 7,
+            },
+        ),
+        (
+            "Ana",
+            {
+                "overtime_rate": 2500,
+                "hours_per_ticket": 60,
+                "completion_rate": 30000,
+                "tasks_per_workday": 21,
+            },
+        ),
+    ]
+    # Em "Outros", as horas por chamado ficam sem valor (um chamado pode estar em duas linhas).
+    corte = Block(visual="table", dimension="person", measures=["hours_per_ticket"], top=1)
+    assert [r.values["hours_per_ticket"] for r in run(dados, corte, INICIO, FIM).rows] == [
+        120,
+        None,
+    ]
+    # Por dia: os chamados distintos de cada dia.
+    por_dia = run(
+        dados, Block(visual="columns", dimension="day", measures=["hours_per_ticket"]), INICIO, FIM
+    )
+    assert [r.values["hours_per_ticket"] for r in por_dia.rows[:3]] == [180, 30, None]
+    # Sem base, sem valor.
+    vazio = run(_dados([]), Block(visual="cards", measures=medidas), INICIO, FIM)
+    assert vazio.total == {
+        "overtime_rate": None,
+        "hours_per_ticket": None,
+        "completion_rate": None,
+        "tasks_per_workday": 0,
+    }
+    # O que cada uma pede: as somas das partes; os chamados distintos, no agrupamento de cada um.
+    assert needs(
+        [Block(visual="columns", dimension="week", measures=["hours_per_ticket"])]
+    ).sums == {
+        "hours": {"day"},
+        "worked": {"week"},
+    }
+    assert needs([Block(visual="cards", measures=["completion_rate"])]).sums == {
+        "closed": {"day"},
+        "opened": {"day"},
+    }
+    with pytest.raises(HTTPException):
+        check_block(Block(visual="columns", dimension="day", measures=["tasks_per_workday"]))
+    assert "tasks_per_workday" not in measures_for("table", "hour")
+    assert "tasks_per_workday" in measures_for("table", "person")
 
 
 def test_periodo_anterior() -> None:

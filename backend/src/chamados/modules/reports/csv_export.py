@@ -16,6 +16,7 @@ from chamados.modules.reports.builder import (
     ELAPSED,
     OTHERS,
     PERCENT,
+    RATES,
     Measure,
     Result,
     Value,
@@ -69,6 +70,10 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "lead_time": "Mediana até a conclusão",
         "net_lead_time": "Mediana até a conclusão, líquida",
         "reopen_rate": "Reabertura (%)",
+        "overtime_rate": "Hora extra (%)",
+        "hours_per_ticket": "Horas por chamado",
+        "completion_rate": "Taxa de conclusão (%)",
+        "tasks_per_workday": "Tarefas por dia útil",
         "people": "Responsáveis",
         "created": "Registrado em",
         "closed_at": "Concluído em",
@@ -114,6 +119,10 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "lead_time": "Median time to close",
         "net_lead_time": "Median time to close, net",
         "reopen_rate": "Reopened (%)",
+        "overtime_rate": "Overtime (%)",
+        "hours_per_ticket": "Hours per ticket",
+        "completion_rate": "Completion rate (%)",
+        "tasks_per_workday": "Tasks per working day",
         "people": "Assignees",
         "created": "Opened at",
         "closed_at": "Closed at",
@@ -251,7 +260,7 @@ def render_block(
             return ["", ""] if m in timed else [""]
         if m in timed:
             return hours(value)
-        if m in PERCENT:
+        if m in PERCENT or m in RATES:
             return [decimal(value / 100)]
         return [value]
 

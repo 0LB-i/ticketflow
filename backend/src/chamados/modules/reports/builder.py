@@ -32,6 +32,7 @@ from chamados.modules.reports.service import (
     Want,
     group_keys,
 )
+from chamados.modules.system.work_hours import WorkHours
 
 Visual = Literal["cards", "bars", "columns", "stacked", "line", "table", "tasks"]
 Dimension = Literal[
@@ -48,6 +49,10 @@ Measure = Literal[
     "lead_time",
     "net_lead_time",
     "reopen_rate",
+    "overtime_rate",
+    "hours_per_ticket",
+    "completion_rate",
+    "tasks_per_workday",
 ]
 Order = Literal["desc", "asc", "name"]
 # Comparar com nada, com o período imediatamente anterior ou com o mesmo período do ano anterior.
@@ -82,15 +87,34 @@ MEASURES: tuple[Measure, ...] = (
     "lead_time",
     "net_lead_time",
     "reopen_rate",
+    "overtime_rate",
+    "hours_per_ticket",
+    "completion_rate",
+    "tasks_per_workday",
 )
-DURATIONS: tuple[Measure, ...] = ("hours", "overtime")  # minutos somados
+DURATIONS: tuple[Measure, ...] = ("hours", "overtime", "hours_per_ticket")  # minutos
 ELAPSED: tuple[Measure, ...] = ("lead_time", "net_lead_time")  # minutos, pela mediana
-PERCENT: tuple[Measure, ...] = ("reopen_rate",)  # em centésimos de ponto (1250 = 12,5%)
+# Em centésimos de ponto (1250 = 12,5%); a taxa de conclusão passa de 100% quando se conclui
+# mais do que se registra.
+PERCENT: tuple[Measure, ...] = ("reopen_rate", "overtime_rate", "completion_rate")
+RATES: tuple[Measure, ...] = ("tasks_per_workday",)  # em centésimos (250 = 2,5 por dia)
+# As medidas derivadas: uma conta entre duas somas que já existem (`service.Sums`), em cada
+# linha e no total; sem base (o divisor zero), None. As tarefas por dia útil dividem pelos dias
+# do expediente no período (`workdays`), e por isso não se agrupam por período, dia da semana nem
+# hora (o dia de folga daria divisão por zero).
+DERIVED: dict[Measure, tuple[Summed, Summed | None]] = {
+    "overtime_rate": ("overtime", "hours"),
+    "hours_per_ticket": ("hours", "worked"),  # ÷ os chamados distintos com tarefa
+    "completion_rate": ("closed", "opened"),
+    "tasks_per_workday": ("tasks", None),
+}
 # A direção boa de cada medida, para a cor da variação dos cartões: 1, subir é bom; -1, subir é
 # ruim. As que não estão aqui são neutras (horas, tarefas, registrados e cancelados).
 GOOD_DIRECTION: dict[Measure, int] = {
     "closed": 1,
+    "completion_rate": 1,
     "overtime": -1,
+    "overtime_rate": -1,
     "backlog": -1,
     "lead_time": -1,
     "net_lead_time": -1,
@@ -110,6 +134,9 @@ CHARTS: tuple[Visual, ...] = ("bars", "columns", "stacked", "line")
 # Idade do em aberto no fim do período (§14.3): até 1 dia, 1 a 3, 3 a 7, mais de 7 (em minutos).
 AGE_LIMITS = (24 * 60, 3 * 24 * 60, 7 * 24 * 60)
 STACKED: list[Measure] = ["hours", "overtime"]  # no expediente (horas − extras) e extras
+# As medidas sem a tendência dos cartões: o em aberto é o retrato do fim, e as tarefas por dia
+# útil não se agrupam por período.
+UNTRENDED: tuple[Measure, ...] = ("backlog", "tasks_per_workday")
 
 # Períodos que andam com o calendário (os slugs também são os da URL da tela), na ordem do
 # seletor. "ultimos-n-dias" leva o número de dias (`PeriodSpec.days`, `dias` na URL).
@@ -273,14 +300,15 @@ def dimensions_for(visual: Visual) -> tuple[Dimension, ...]:
 def measures_for(visual: Visual, dimension: Dimension | None) -> tuple[Measure, ...]:
     """As medidas que cabem num visual com o agrupamento (o editor oferece só estas): as
     empilhadas são sempre as horas e as extras; a idade é só do em aberto; o em aberto, retrato
-    do fim, não se agrupa por período."""
+    do fim, e as tarefas por dia útil não se agrupam por período, dia da semana nem hora."""
     if visual == "tasks":
         return ()
     if visual == "stacked":
         return tuple(STACKED)
     if dimension == "age":
         return ("backlog",)
-    return tuple(m for m in MEASURES if not (m == "backlog" and dimension in (*TIMES, *CYCLES)))
+    timed = dimension in (*TIMES, *CYCLES)
+    return tuple(m for m in MEASURES if not (timed and m in ("backlog", "tasks_per_workday")))
 
 
 def check_block(block: Block) -> None:
@@ -311,6 +339,10 @@ def check_block(block: Block) -> None:
         raise HTTPException(
             422,
             "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.",
+        )
+    if block.dimension in (*TIMES, *CYCLES) and "tasks_per_workday" in block.measures:
+        raise HTTPException(
+            422, "Tarefas por dia útil não se agrupa por período, dia da semana nem hora."
         )
 
 
@@ -455,7 +487,8 @@ def matching(previous: Result, index: int, row: Row) -> Row | None:
     return next((r for r in previous.rows if r.key == row.key), None)
 
 
-# As medidas que somam: vêm somadas pelo `service.facts` (`Sums`), no banco ou das linhas.
+# As medidas que somam: vêm somadas pelo `service.facts` (`Sums`), no banco ou das linhas. As
+# derivadas (DERIVED) usam as somas das partes delas.
 SUMS: dict[Measure, Summed] = {
     "hours": "hours",
     "overtime": "overtime",
@@ -467,10 +500,13 @@ SUMS: dict[Measure, Summed] = {
 }
 
 
-def _group(dimension: Dimension) -> Group:
+def _group(dimension: Dimension, summed: Summed | None = None) -> Group:
     """O agrupamento das somas de uma dimensão (menos a idade, que sai das linhas do em aberto):
-    o dia serve à semana, ao mês e ao dia da semana."""
-    return "day" if dimension in (*TIMES, "weekday") else dimension  # type: ignore[return-value]
+    o dia serve à semana, ao mês e ao dia da semana; os chamados distintos (`worked`) não somam
+    de um dia para o outro e têm o agrupamento de cada um."""
+    if summed == "worked" or dimension not in (*TIMES, "weekday"):
+        return dimension  # type: ignore[return-value]
+    return "day"
 
 
 def needs(blocks: Iterable[Block]) -> Want:
@@ -481,15 +517,17 @@ def needs(blocks: Iterable[Block]) -> Want:
     for block in blocks:
         if block.visual == "tasks":
             want.rows.add("overtime" if block.only_overtime else "tasks")
-        group = _group(block.dimension) if block.dimension not in (None, "age") else None
+        dimension = block.dimension if block.dimension not in (None, "age") else None
         for m in block.measures:
-            if m in SUMS:
-                groups = want.sums.setdefault(SUMS[m], set())
-                if group is not None:
-                    groups.add(group)
-                elif block.visual == "cards" and m != "backlog":  # a tendência (`trend`)
-                    groups.add("day")
-            else:
+            summed = [SUMS[m]] if m in SUMS else [c for c in DERIVED.get(m, ()) if c]
+            for c in summed:
+                groups = want.sums.setdefault(c, set())
+                if dimension is not None:
+                    groups.add(_group(dimension, c))
+                elif block.visual == "cards" and m not in UNTRENDED:  # a tendência (`trend`)
+                    # Por dia; num período longo, por semana (só o `worked` não sai do dia).
+                    groups.update({"day", "week"} if c == "worked" else {"day"})
+            if not summed:
                 want.rows.add("closed")
                 if m == "net_lead_time":
                     want.rows.add("net_lead")
@@ -502,12 +540,12 @@ def _part(data: Facts, part: Part) -> None:
         raise ValueError(f"service.facts sem a parte {part!r}: peça com builder.needs")
 
 
-def _sums(data: Facts, measure: Measure, group: Group | None) -> Sums:
+def _sums(data: Facts, summed: Summed, group: Group | None) -> Sums:
     """As somas de uma medida, com o agrupamento pedido (o mesmo aviso do `_part`)."""
-    sums = data.sums.get(SUMS[measure])
+    sums = data.sums.get(summed)
     if sums is None or (group is not None and group not in sums.by):
         raise ValueError(
-            f"service.facts sem a soma {measure!r} por {group!r}: peça com builder.needs"
+            f"service.facts sem a soma {summed!r} por {group!r}: peça com builder.needs"
         )
     return sums
 
@@ -531,7 +569,7 @@ def _contributions(data: Facts, measure: Measure) -> list[tuple[TicketFact, int]
 
 def _total(data: Facts, measure: Measure) -> Value:
     if measure in SUMS:
-        return _sums(data, measure, None).total
+        return _sums(data, SUMS[measure], None).total
     return _reduce(measure, [amount for _, amount in _contributions(data, measure)])
 
 
@@ -552,7 +590,7 @@ def _amounts(data: Facts, measure: Measure, dimension: Dimension) -> Iterator[tu
         return key
 
     if measure in SUMS:
-        for key, amount in _sums(data, measure, group).by[group].items():
+        for key, amount in _sums(data, SUMS[measure], group).by[group].items():
             yield bucket(key), amount
         return
     for fact, amount in _contributions(data, measure):
@@ -597,13 +635,42 @@ def _label(data: Facts, dimension: Dimension, key: Key) -> str | None:
     return data.statuses[key].name
 
 
+def workdays(start: date, end: date, wh: WorkHours) -> int:
+    """Os dias do expediente no período: os dias de trabalho que não são feriado."""
+    count = 0
+    day = start
+    while day <= end:
+        count += day.weekday() in wh.weekdays and day not in wh.holidays
+        day += timedelta(days=1)
+    return count
+
+
+def _derive(measure: Measure, sums: dict[Summed, int | None], days: int) -> Value:
+    """Uma medida derivada (DERIVED) a partir das somas das partes; sem base, None."""
+    top, below = DERIVED[measure]
+    bottom = days if below is None else sums[below]
+    if not bottom or sums[top] is None:
+        return None
+    scale = 10000 if measure in PERCENT else 100 if measure in RATES else 1
+    return round(sums[top] * scale / bottom)  # type: ignore[operator]
+
+
+def _summed_amounts(data: Facts, summed: Summed, dimension: Dimension) -> Iterator[tuple[Key, int]]:
+    """As somas de uma parte de medida derivada por chave da dimensão (como o `_amounts`)."""
+    group = _group(dimension, summed)
+    for key, amount in _sums(data, summed, group).by[group].items():
+        if isinstance(key, date):
+            key = key.weekday() if dimension == "weekday" else _bucket(key, dimension)
+        yield key, amount
+
+
 def trend(
     data: Facts, block: Block, start: date, end: date, dimension: Dimension
 ) -> dict[Measure, list[Value]]:
     """A tendência de cada medida de um bloco de cartões no período (a sparkline), por dia ou por
-    semana, das mesmas somas e linhas dos totais. O em aberto fica de fora: é o retrato do fim,
-    e não se agrupa por período."""
-    measures = [m for m in block.measures if m != "backlog"]
+    semana, das mesmas somas e linhas dos totais. O em aberto e as tarefas por dia útil ficam de
+    fora (UNTRENDED): não se agrupam por período."""
+    measures = [m for m in block.measures if m not in UNTRENDED]
     if not measures:
         return {}
     by_time = block.model_copy(update={"measures": measures})
@@ -615,7 +682,8 @@ def run(
     data: Facts, block: Block, start: date, end: date, *, dimension: Dimension | None = None
 ) -> Result:
     """Calcula um bloco. `dimension` troca a do bloco (a tela agrupa por semana um gráfico por
-    dia de um período longo)."""
+    dia de um período longo). As medidas derivadas saem das somas das partes delas, em cada linha
+    e no total."""
     if block.visual == "tasks":
         if block.only_overtime:
             _part(data, "overtime")
@@ -626,28 +694,57 @@ def run(
         return Result(dimension=None, is_list=True, tasks=tasks)
     dim = dimension or block.dimension
     measures = block.measures
-    total = {m: _total(data, m) for m in measures}
+    plain = [m for m in measures if m not in DERIVED]
+    parts = sorted({c for m in measures if m in DERIVED for c in DERIVED[m] if c})
+    days = workdays(start, end, data.work_hours) if "tasks_per_workday" in measures else 0
+
+    def values(
+        plain_values: dict[Measure, Value], part_sums: dict[Summed, int | None]
+    ) -> dict[Measure, Value]:
+        return {
+            m: _derive(m, part_sums, days) if m in DERIVED else plain_values[m] for m in measures
+        }
+
+    total = values(
+        {m: _total(data, m) for m in plain}, {c: _sums(data, c, None).total for c in parts}
+    )
     if dim is None:
         return Result(dimension=None, total=total)
 
-    amounts: dict[Key, dict[Measure, list[int]]] = defaultdict(lambda: {m: [] for m in measures})
+    # As parcelas de cada chave: as das medidas e as das partes das derivadas (os nomes que
+    # coincidem, como "hours", são a mesma soma).
+    slots = [*plain, *(c for c in parts if c not in plain)]
+
+    def empty() -> dict[str, list[int]]:
+        return {slot: [] for slot in slots}
+
+    amounts: dict[Key, dict[str, list[int]]] = defaultdict(empty)
     if dim in TIMES:  # todos os períodos, mesmo os vazios, já na ordem
         bucket = _bucket(start, dim)
         while bucket <= end:
-            amounts[bucket] = {m: [] for m in measures}
+            amounts[bucket] = empty()
             bucket = _bucket(bucket + timedelta(days={"day": 1, "week": 7}.get(dim, 32)), dim)
     elif dim == "age":  # as quatro faixas, na ordem
         for band in range(len(AGE_LIMITS) + 1):
-            amounts[band] = {m: [] for m in measures}
+            amounts[band] = empty()
     elif dim in CYCLES:  # os 7 dias da semana ou as 24 horas, na ordem
         for cycle in range(7 if dim == "weekday" else 24):
-            amounts[cycle] = {m: [] for m in measures}
-    for m in measures:
+            amounts[cycle] = empty()
+    for m in plain:
         for key, amount in _amounts(data, m, dim):
             amounts[key][m].append(amount)
+    for c in parts:
+        if c not in plain:
+            for key, amount in _summed_amounts(data, c, dim):
+                amounts[key][c].append(amount)
 
-    def reduced(lists: dict[Measure, list[int]]) -> dict[Measure, Value]:
-        return {m: _reduce(m, lists[m]) for m in measures}
+    def reduced(lists: dict[str, list[int]], *, others: bool = False) -> dict[Measure, Value]:
+        # Em "Outros", os chamados distintos de cada linha não somam (um chamado pode estar em
+        # duas): as horas por chamado ficam sem valor.
+        part_sums: dict[Summed, int | None] = {
+            c: None if others and c == "worked" else sum(lists[c]) for c in parts
+        }
+        return values({m: _reduce(m, lists[m]) for m in plain}, part_sums)
 
     rows = [Row(key, _label(data, dim, key), reduced(lists)) for key, lists in amounts.items()]
     if dim in (*TIMES, *CYCLES) or dim == "age":
@@ -665,6 +762,8 @@ def run(
         rows.sort(key=lambda r: (sign * (r.values[first] or 0), *by_name(r)))
     if block.top and len(rows) > block.top:
         rest = {r.key for r in rows[block.top :]}
-        others = {m: [a for k in rest for a in amounts[k][m]] for m in measures}
-        rows = [*rows[: block.top], Row(OTHERS, None, reduced(others))]
+        others: dict[str, list[int]] = {
+            slot: [a for k in rest for a in amounts[k][slot]] for slot in slots
+        }
+        rows = [*rows[: block.top], Row(OTHERS, None, reduced(others, others=True))]
     return Result(dimension=dim, rows=rows, total=total)

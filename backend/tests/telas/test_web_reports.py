@@ -1519,3 +1519,82 @@ def test_editor_com_dia_da_semana_e_hora(client: TestClient, cenario: dict[str, 
     assert 'id="campo-b0-medidas-hours"' in r.text
     barras = re.search(r'name="b1-agrupar".*?</select>', r.text, re.S)
     assert barras and "weekday" not in barras.group(0) and "hour" not in barras.group(0)
+
+
+def test_medidas_derivadas(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
+    segunda = dia_util_passado()
+    um = registrar(client, cenario)["number"]
+    dois = registrar(client, cenario)["number"]
+    tarefa(client, um, 90, em(segunda, 19))  # 60 min fora do expediente
+    tarefa(client, um, 30, em(segunda, 10))
+    tarefa(client, dois, 60, em(segunda + timedelta(days=1), 10))
+    medidas = ["overtime_rate", "hours_per_ticket", "completion_rate", "tasks_per_workday"]
+    modelo = _criar(
+        client,
+        "Derivadas",
+        blocos="3",
+        **{
+            "b0-visual": "cards",
+            "b0-medidas": medidas,
+            "b1-visual": "table",
+            "b1-agrupar": "person",
+            "b1-medidas": medidas,
+            "b2-visual": "columns",
+            "b2-agrupar": "week",
+            "b2-medida": "hours_per_ticket",
+        },
+    )
+    semana = {
+        "aba": modelo,
+        "periodo": "personalizado",
+        "de": segunda.isoformat(),
+        "ate": (segunda + timedelta(days=6)).isoformat(),
+    }
+    r = client.get("/relatorios/blocos", params=semana)
+    # 60 de 180 min fora; 180 min em 2 chamados; nenhum registrado na semana (sem base);
+    # 3 tarefas em 5 dias úteis.
+    for rotulo, valor in (
+        ("% de hora extra", "33,3%"),
+        ("Horas por chamado", "1h30"),
+        ("Taxa de conclusão", "—"),
+        ("Tarefas por dia útil", "0,6"),
+    ):
+        assert re.search(rf"<dt[^>]*>{re.escape(rotulo)}</dt>\s*<dd[^>]*>{valor}</dd>", r.text), (
+            rotulo
+        )
+    linha = re.search(r">Ana</a></td>(.*?)</tr>", r.text, re.S)
+    assert linha
+    celulas = re.findall(r"<td [^>]*>(.*?)</td>", linha.group(1), re.S)
+    assert celulas == ["33,3%", "1h30", "—", "0,6"]
+    assert f'aria-label="{format_day("pt-BR", segunda)}: 1h30"' in r.text  # a semana
+
+    # O CSV: as porcentagens e as tarefas por dia em número; as horas por chamado em horas e min.
+    r = client.get("/relatorios/csv", params={**semana, "bloco": "1"})
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[0] == [
+        "Pessoa",
+        "Hora extra (%)",
+        "Horas por chamado",
+        "Horas por chamado (min)",
+        "Taxa de conclusão (%)",
+        "Tarefas por dia útil",
+    ]
+    assert linhas[1] == ["Ana", "33,3", "1,50", "90", "", "0,6"]
+
+    # Hoje, com os dois chamados registrados e nenhum concluído: 0%.
+    hoje = datetime.now(TIMEZONE).date()
+    r = client.get("/relatorios/blocos", params=_um_dia(hoje, aba=modelo))
+    assert re.search(r"<dt[^>]*>Taxa de conclusão</dt>\s*<dd[^>]*>0%</dd>", r.text)
+    assert "Acima de 100%" not in r.text
+    # Concluídos os dois, e um deles registrado antes: 2 de 1, com o aviso.
+    for numero in (um, dois):
+        r = client.post(
+            f"{API}/{numero}/transitions",
+            json={"action": "close", "comment": "Pronto", "resolution_code_id": 1},
+        )
+        assert r.status_code == 200, r.text
+    db.execute(update(Ticket).where(Ticket.number == um).values(created_at=em(segunda, 9)))
+    db.commit()
+    r = client.get("/relatorios/blocos", params=_um_dia(hoje, aba=modelo))
+    assert re.search(r"<dt[^>]*>Taxa de conclusão</dt>\s*<dd[^>]*>200%</dd>", r.text)
+    assert "Acima de 100%: concluiu mais do que registrou." in r.text

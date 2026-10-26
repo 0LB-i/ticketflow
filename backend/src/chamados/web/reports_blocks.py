@@ -22,6 +22,7 @@ from chamados.modules.reports.builder import (
     GOOD_DIRECTION,
     OTHERS,
     PERCENT,
+    RATES,
     TICKET_SETS,
     TIMES,
     Block,
@@ -38,6 +39,7 @@ from chamados.web.formatting import (
     format_month,
     format_number,
     format_percent,
+    format_tenths,
 )
 from chamados.web.page import LoggedPage
 from chamados.web.reports_state import NO_CLIENT, State, origin_of, with_query
@@ -116,6 +118,8 @@ def formatter(page: LoggedPage, config: ReportConfig, measure: str) -> Format:
         base = format_elapsed
     elif measure in PERCENT:
         base = partial(format_percent, page.locale)
+    elif measure in RATES:
+        base = partial(format_tenths, page.locale)
     else:
         base = partial(format_number, page.locale)
     return lambda value: "—" if value is None else base(value)
@@ -127,6 +131,8 @@ def _step(measure: str, highest: int) -> int:
         return 120
     if measure in ELAPSED:
         return 1440 if highest > 2880 else 120
+    if measure in RATES:
+        return 100  # 1 por dia
     return 2000 if measure in PERCENT else 2
 
 
@@ -327,6 +333,9 @@ def block_view(
             }
             card["href"] = tickets(m)
             card["spark"] = _spark(trend[m]) if m in trend else None
+            # A taxa de conclusão passa de 100% quando se conclui mais do que se registra.
+            if m == "completion_rate" and (result.total[m] or 0) > 10000:
+                card["hint"] = page.t("relatorios.acimaDe100")
             if previous is not None:
                 card["change"] = _change(page, m, result.total[m], previous.total[m])
                 card["before"] = fmt(previous.total[m])

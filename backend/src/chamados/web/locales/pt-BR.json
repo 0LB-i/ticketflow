@@ -476,8 +476,13 @@
       "backlog": "Em aberto no fim",
       "lead_time": "Mediana até a conclusão",
       "net_lead_time": "Mediana até a conclusão (líquida)",
-      "reopen_rate": "Reabertura"
+      "reopen_rate": "Reabertura",
+      "overtime_rate": "% de hora extra",
+      "hours_per_ticket": "Horas por chamado",
+      "completion_rate": "Taxa de conclusão",
+      "tasks_per_workday": "Tarefas por dia útil"
     },
+    "acimaDe100": "Acima de 100%: concluiu mais do que registrou.",
     "dimensoes": {
       "person": "pessoa",
       "client": "cliente",

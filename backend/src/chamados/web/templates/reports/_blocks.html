@@ -165,6 +165,9 @@
       <div class="flex-1 basis-40 border-t border-l border-border px-4 py-3">
         <dt class="text-muted">{{ card.label }}</dt>
         <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
+        {%- if card.hint %}
+        <dd class="mt-1 text-sm text-muted">{{ card.hint }}</dd>
+        {%- endif %}
         {%- if card.before is defined %}
         {#- A variação: verde na direção boa da medida, vermelho na ruim, cinza nas neutras; a seta
             e o texto dizem o mesmo sem a cor, e o leitor de tela ouve "subiu" ou "caiu". #}

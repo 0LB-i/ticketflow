@@ -77,6 +77,12 @@ def format_percent(locale: str, hundredths: int) -> str:
     return f"{text if locale == 'en' else text.replace('.', ',')}%"
 
 
+def format_tenths(locale: str, hundredths: int) -> str:
+    """Um número guardado em centésimos, com uma casa: 250 → "2,5", 300 → "3"."""
+    text = f"{hundredths / 100:.1f}".removesuffix(".0")
+    return text if locale == "en" else text.replace(".", ",")
+
+
 def format_number(locale: str, value: int) -> str:
     """Inteiro com separador de milhar: "1.234" ou "1,234"."""
     text = f"{value:,}"
