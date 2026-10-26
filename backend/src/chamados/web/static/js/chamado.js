@@ -507,8 +507,11 @@ document.addEventListener('htmx:beforeRequest', (e) => {
   e.detail.target.setAttribute('aria-busy', 'true')
 })
 document.addEventListener('htmx:beforeSwap', (e) => {
-  const { xhr, elt } = e.detail
-  if (xhr.envios !== undefined && xhr.envios !== elt.dataset.envios) e.detail.shouldSwap = false
+  // O `elt` do beforeSwap é o alvo (o #relatorio); quem pediu é o `requestConfig.elt`.
+  const { xhr, requestConfig } = e.detail
+  if (xhr.envios !== undefined && xhr.envios !== requestConfig.elt.dataset.envios) {
+    e.detail.shouldSwap = false
+  }
 })
 document.addEventListener('htmx:afterRequest', (e) => {
   if (e.detail.target?.id === 'relatorio') e.detail.target.removeAttribute('aria-busy')
