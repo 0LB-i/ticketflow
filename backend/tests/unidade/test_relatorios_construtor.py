@@ -5,8 +5,9 @@ dados (`service.Facts`) são montados à mão.
 
 import csv
 import io
+from dataclasses import replace
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from fastapi import HTTPException
@@ -21,12 +22,13 @@ from chamados.modules.reports.builder import (
     OTHERS,
     Block,
     check_block,
+    needs,
     next_period,
     previous_period,
     relative_period,
     run,
 )
-from chamados.modules.reports.service import TZ, Facts, TaskFact, TicketFact, net_minutes
+from chamados.modules.reports.service import TZ, Facts, Part, TaskFact, TicketFact, net_minutes
 from chamados.modules.system.work_hours import DEFAULT
 
 ANA, BIA = 1, 2
@@ -76,6 +78,7 @@ def _dados(
     em_aberto: list[TicketFact] | None = None,
 ) -> Facts:
     return Facts(
+        parts=frozenset(get_args(Part)),
         work_hours=DEFAULT,
         tasks=tarefas,
         opened=registrados or [],
@@ -111,6 +114,27 @@ def test_por_pessoa_com_tarefas_e_chamados() -> None:
     assert r.total == {"hours": 90, "overtime": 30, "tasks": 2, "closed": 1}
     cartoes = run(dados, Block(visual="cards", measures=["opened", "closed"]), INICIO, FIM)
     assert cartoes.rows == [] and cartoes.total == {"opened": 1, "closed": 1}
+
+
+def test_cada_bloco_pede_so_o_que_usa() -> None:
+    """`service.facts` só consulta as partes que os blocos usam; uma que não veio é erro (não
+    um zero)."""
+    assert needs(BUILTINS["produtividade"].blocks) == {"tasks", "opened", "closed"}
+    assert needs(BUILTINS["chamados"].blocks) == {
+        "opened",
+        "closed",
+        "canceled",
+        "backlog",
+        "net_lead",
+    }
+    assert needs([Block(visual="tasks", only_overtime=True)]) == {"tasks"}
+    assert needs([Block(visual="cards", measures=["lead_time"])]) == {"closed"}
+    dados = replace(_dados([]), parts=frozenset({"tasks"}))
+    with pytest.raises(ValueError, match="closed"):
+        run(dados, Block(visual="cards", measures=["closed"]), INICIO, INICIO)
+    dados = replace(_dados([]), parts=frozenset({"closed"}))
+    with pytest.raises(ValueError, match="net_lead"):
+        run(dados, Block(visual="cards", measures=["net_lead_time"]), INICIO, INICIO)
 
 
 def test_os_maiores_outros_e_ordem() -> None:

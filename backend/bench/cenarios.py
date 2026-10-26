@@ -238,6 +238,16 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             "status no banco",
         )
 
+    def conferir_registrados(r: Response) -> None:
+        """O cartão dos registrados no mês, contra o banco (com o ponto do milhar)."""
+        de, ate = ctx.periodo(ctx.mes, ctx.hoje)
+        abertos = ctx.valor(
+            "SELECT count(*) FROM tickets WHERE created_at >= :de AND created_at < :ate",
+            de=de,
+            ate=ate,
+        )
+        igual(f">{abertos:,}</a></dd>".replace(",", ".") in r.text, True, "chamados registrados")
+
     def conferir_todas_as_paginas(r: Response) -> None:
         igual(numeros(r), ctx.chamados("agente"), "primeira página")
         vistos = _todas_as_paginas(clientes["agente"])
@@ -532,6 +542,13 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             "admin",
             lambda c: c.get("/relatorios"),
             lambda r: igual(r.status_code, 200, "status"),
+        ),
+        Cenario(
+            # Todos os conjuntos de chamados (o em aberto no fim é o mais largo), duas vezes.
+            "tela · Relatórios, Chamados com Comparar (admin)",
+            "admin",
+            lambda c: c.get("/relatorios", params={"aba": "chamados", "comparar": "1"}),
+            conferir_registrados,
         ),
         Cenario(
             "tela · clientes para escolher: padaria (agente)",

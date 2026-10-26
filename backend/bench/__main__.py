@@ -193,7 +193,9 @@ def main() -> int:
         with TestClient(app) as base:
             clientes = {p: entrar(app, base, email) for p, email in PERSONAS.items()}
             ctx = Contexto(engine, clientes)
-            escolhidos = [c for c in cenarios(ctx, clientes) if args.filtro in c.nome]
+            escolhidos = [
+                c for c in cenarios(ctx, clientes) if args.filtro.casefold() in c.nome.casefold()
+            ]
             app_engine = app.state.engine.sync_engine
             medidas = []
             for i, cenario in enumerate(escolhidos, 1):

@@ -8,11 +8,11 @@ filtro de visibilidade dos chamados (regra 1 da arquitetura).
 
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException
 from sqlalchemy import ColumnElement, and_, any_, bindparam, func, not_, or_, select, true
@@ -282,10 +282,18 @@ class TicketFact:
     age: int | None = None  # em aberto: minutos do registro ao fim do período
 
 
+# As partes de `facts`: as tarefas, cada conjunto de chamados e o tempo líquido dos concluídos
+# (que lê o histórico deles). Cada uma custa consultas próprias (o em aberto no fim é a mais
+# larga), então quem chama pede só as que usa (`builder.needs`); as outras ficam vazias.
+Part = Literal["tasks", "opened", "closed", "canceled", "backlog", "net_lead"]
+
+
 @dataclass
 class Facts:
-    """Os dados de um período, já com o escopo e os filtros, e os nomes do que aparece neles."""
+    """Os dados de um período, já com o escopo e os filtros, e os nomes do que aparece neles.
+    `parts`: as partes pedidas; as listas das outras ficam vazias (e o `net_lead`, None)."""
 
+    parts: frozenset[Part]
     work_hours: WorkHours
     tasks: list[TaskFact]
     opened: list[TicketFact]
@@ -321,53 +329,56 @@ def net_minutes(
     return max(0, round((closed_at - created_at - paused).total_seconds() / 60))
 
 
-async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
+async def facts(db: AsyncSession, auth: Auth, f: Filters, parts: Collection[Part]) -> Facts:
+    """Os dados do período: só as `parts` pedidas (as outras listas ficam vazias)."""
     wh = await get_work_hours(db)
     since, until = _bounds(f)
     me = auth.user.id
     people_ids = {p.id for p in f.people}
 
     # --- tarefas do período (horas, horas extras) ---
-    task_conds = [
-        *_ticket_filters(auth, f),
-        _own_or_supervised(auth, TicketComment.author_id == me),
-        TicketComment.deleted_at.is_(None),
-        TicketComment.done_at >= since,
-        TicketComment.done_at < until,
-    ]
-    if people_ids:
-        task_conds.append(TicketComment.author_id.in_(people_ids))
-    # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o autor
-    # de cada linha; os nomes vêm depois, uma vez cada.
-    rows = await db.execute(
-        select(
-            TicketComment.author_id,
-            TicketComment.time_spent_minutes,
-            TicketComment.done_at,
-            Ticket.number,
-            Ticket.title,
-            Ticket.client_id,
-            Ticket.team_id,
-            Ticket.status_id,
+    tasks: list[TaskFact] = []
+    if "tasks" in parts:
+        task_conds = [
+            *_ticket_filters(auth, f),
+            _own_or_supervised(auth, TicketComment.author_id == me),
+            TicketComment.deleted_at.is_(None),
+            TicketComment.done_at >= since,
+            TicketComment.done_at < until,
+        ]
+        if people_ids:
+            task_conds.append(TicketComment.author_id.in_(people_ids))
+        # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o
+        # autor de cada linha; os nomes vêm depois, uma vez cada.
+        rows = await db.execute(
+            select(
+                TicketComment.author_id,
+                TicketComment.time_spent_minutes,
+                TicketComment.done_at,
+                Ticket.number,
+                Ticket.title,
+                Ticket.client_id,
+                Ticket.team_id,
+                Ticket.status_id,
+            )
+            .join(Ticket, Ticket.id == TicketComment.ticket_id)
+            .where(*task_conds)
+            .order_by(TicketComment.done_at)
         )
-        .join(Ticket, Ticket.id == TicketComment.ticket_id)
-        .where(*task_conds)
-        .order_by(TicketComment.done_at)
-    )
-    tasks = [
-        TaskFact(
-            author_id=author_id,
-            minutes=spent or 0,
-            overtime=outside_minutes(done_at, spent, wh) if spent else 0,
-            done_at=done_at,
-            ticket_number=number,
-            ticket_title=title,
-            client_id=client_id,
-            team_id=team_id,
-            status_id=status_id,
-        )
-        for author_id, spent, done_at, number, title, client_id, team_id, status_id in rows
-    ]
+        tasks = [
+            TaskFact(
+                author_id=author_id,
+                minutes=spent or 0,
+                overtime=outside_minutes(done_at, spent, wh) if spent else 0,
+                done_at=done_at,
+                ticket_number=number,
+                ticket_title=title,
+                client_id=client_id,
+                team_id=team_id,
+                status_id=status_id,
+            )
+            for author_id, spent, done_at, number, title, client_id, team_id, status_id in rows
+        ]
 
     # --- chamados: registrados, concluídos e cancelados no período, em aberto no fim ---
     ticket_conds = [*_ticket_filters(auth, f), _own_or_supervised(auth, assigned_to(me))]
@@ -395,21 +406,32 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
         )
         return (await db.execute(query)).all()
 
-    opened = await tickets(Ticket.created_at >= since, Ticket.created_at < until)
-    closed = await tickets(
-        TicketStatus.kind == "closed", Ticket.closed_at >= since, Ticket.closed_at < until
-    )
-    canceled = await tickets(
-        TicketStatus.kind == "canceled", Ticket.canceled_at >= since, Ticket.canceled_at < until
-    )
+    none: Sequence[Any] = ()
+    opened = none
+    if "opened" in parts:
+        opened = await tickets(Ticket.created_at >= since, Ticket.created_at < until)
+    closed = none
+    if "closed" in parts:
+        closed = await tickets(
+            TicketStatus.kind == "closed", Ticket.closed_at >= since, Ticket.closed_at < until
+        )
+    canceled = none
+    if "canceled" in parts:
+        canceled = await tickets(
+            TicketStatus.kind == "canceled",
+            Ticket.canceled_at >= since,
+            Ticket.canceled_at < until,
+        )
     # Em aberto no fim: registrados até lá e não concluídos nem cancelados antes dele (pelas
     # datas de conclusão e cancelamento, as mesmas das medidas). O status de então é o "de" da
     # primeira mudança depois do fim; sem mudança, o atual.
-    candidates = await tickets(
-        Ticket.created_at < until,
-        not_(and_(TicketStatus.kind == "closed", Ticket.closed_at < until)),
-        not_(and_(TicketStatus.kind == "canceled", Ticket.canceled_at < until)),
-    )
+    candidates = none
+    if "backlog" in parts:
+        candidates = await tickets(
+            Ticket.created_at < until,
+            not_(and_(TicketStatus.kind == "closed", Ticket.closed_at < until)),
+            not_(and_(TicketStatus.kind == "canceled", Ticket.canceled_at < until)),
+        )
     statuses = {s.id: s for s in await db.scalars(select(TicketStatus))}
     kinds = {i: s.kind for i, s in statuses.items()}
     status_at_end: dict[int, int] = {}
@@ -439,7 +461,8 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
 
     # As mudanças de status dos concluídos, para o tempo líquido.
     changes: dict[int, list[tuple[datetime, int, int]]] = defaultdict(list)
-    if closed:
+    net = "net_lead" in parts
+    if closed and net:
         events = await db.execute(
             select(
                 TicketEvent.ticket_id,
@@ -469,7 +492,7 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
     allowed: set[int] | None = None
     if people_ids:
         allowed = people_ids
-    elif not can(auth.actor, P.REPORT_VIEW_ALL):
+    elif assignees and not can(auth.actor, P.REPORT_VIEW_ALL):
         # Um colega de outro grupo pode ser corresponsável: só entra quem a pessoa pode ver.
         allowed = {me} | set(
             await db.scalars(
@@ -499,7 +522,7 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
             r.closed_at,
             finished_at=r.closed_at,
             lead=round((r.closed_at - r.created_at).total_seconds() / 60),
-            net_lead=net_minutes(r.created_at, r.closed_at, changes[r.id], kinds),
+            net_lead=net_minutes(r.created_at, r.closed_at, changes[r.id], kinds) if net else None,
             reopened=r.reopened_count > 0,
         )
         for r in closed
@@ -522,6 +545,7 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
     client_ids = {t.client_id for t in every if t.client_id is not None}
     team_ids = {t.team_id for t in every}
     return Facts(
+        parts=frozenset(parts),
         work_hours=wh,
         tasks=tasks,
         opened=opened_facts,
@@ -600,10 +624,14 @@ async def client_tickets(db: AsyncSession, auth: Auth, data: Facts) -> list[Clie
     ]
 
 
+# O que `build` soma: as tarefas, os registrados e os concluídos (com os responsáveis).
+BUILD_PARTS: frozenset[Part] = frozenset({"tasks", "opened", "closed"})
+
+
 async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = False) -> Report:
     """Os números das telas prontas, da API e do PDF. `all_tasks`: também a lista de todas as
     tarefas (`Report.tasks`, para o CSV)."""
-    data = await facts(db, auth, f)
+    data = await facts(db, auth, f, BUILD_PARTS)
     # As somas em Counter, e os modelos só no fim: num ano são dezenas de milhares de tarefas, e
     # cada `+=` num modelo do pydantic passa pela validação da atribuição.
     people: dict[int, Counter[str]] = defaultdict(Counter)

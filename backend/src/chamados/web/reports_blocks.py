@@ -65,9 +65,14 @@ class Point:
 COMPARED = ("cards", "table", "columns", "line")
 
 
+def compared(config: ReportConfig) -> list[Block]:
+    """Os blocos que precisam dos dados do período anterior (e só as partes deles vêm)."""
+    return [b for b in config.blocks if b.visual in COMPARED]
+
+
 def compares(config: ReportConfig) -> bool:
     """Se algum bloco precisa dos dados do período anterior."""
-    return any(b.visual in COMPARED for b in config.blocks)
+    return bool(compared(config))
 
 
 Format = Callable[[builder.Value], str]
@@ -408,7 +413,8 @@ async def client_preview(
     client = _single_client(state)
     if client is None:
         return {"ready": False, "message": page.t("relatorios.paraCliente.umCliente")}
-    data = await service.facts(db, page.auth, f)
+    # Os totais e a lista: as tarefas, os registrados e os concluídos.
+    data = await service.facts(db, page.auth, f, {"tasks", "opened", "closed"})
     tickets = await service.client_tickets(db, page.auth, data)
     hours = formatter(page, config, "hours")
     columns = ["chamado", "titulo", "registrado", "concluido", "status", "horas"]

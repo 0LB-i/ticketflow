@@ -20,7 +20,7 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from chamados.modules.reports.service import Facts, TaskFact, TicketFact
+from chamados.modules.reports.service import Facts, Part, TaskFact, TicketFact
 
 Visual = Literal["cards", "bars", "columns", "stacked", "line", "table", "tasks"]
 Dimension = Literal["person", "client", "team", "status", "age", "day", "week", "month"]
@@ -67,7 +67,7 @@ DURATIONS: tuple[Measure, ...] = ("hours", "overtime")  # minutos somados
 ELAPSED: tuple[Measure, ...] = ("lead_time", "net_lead_time")  # minutos, pela mediana
 PERCENT: tuple[Measure, ...] = ("reopen_rate",)  # em centésimos de ponto (1250 = 12,5%)
 # Os chamados por trás de cada medida de chamado (a lista do "detalhar").
-TICKET_SETS: dict[Measure, str] = {
+TICKET_SETS: dict[Measure, Part] = {
     "opened": "opened",
     "closed": "closed",
     "canceled": "canceled",
@@ -323,12 +323,35 @@ class Result:
     tasks: list[TaskFact] = field(default_factory=list)
 
 
+def needs(blocks: Iterable[Block]) -> set[Part]:
+    """As partes de `service.facts` que os blocos usam: as tarefas (nas medidas de tarefa e na
+    lista), o conjunto de chamados de cada medida de chamado (TICKET_SETS) e, no tempo líquido,
+    o histórico dos concluídos."""
+    parts: set[Part] = set()
+    for block in blocks:
+        if block.visual == "tasks":
+            parts.add("tasks")
+        for m in block.measures:
+            parts.add(TICKET_SETS.get(m, "tasks"))
+            if m == "net_lead_time":
+                parts.add("net_lead")
+    return parts
+
+
+def _part(data: Facts, part: Part) -> None:
+    """Uma parte que não foi pedida viria vazia, e o número sairia zero sem aviso."""
+    if part not in data.parts:
+        raise ValueError(f"service.facts sem a parte {part!r}: peça com builder.needs")
+
+
 def tickets_of(data: Facts, measure: Measure) -> list[TicketFact]:
     """Os chamados por trás de uma medida de chamado."""
+    _part(data, TICKET_SETS[measure])
     return list(getattr(data, TICKET_SETS[measure]))
 
 
 def _contributions(data: Facts, measure: Measure) -> list[tuple[TaskFact | TicketFact, int]]:
+    _part(data, TICKET_SETS.get(measure, "tasks"))
     if measure == "hours":
         return [(t, t.minutes) for t in data.tasks]
     if measure == "overtime":
@@ -338,6 +361,7 @@ def _contributions(data: Facts, measure: Measure) -> list[tuple[TaskFact | Ticke
     if measure == "lead_time":
         return [(t, t.lead) for t in data.closed if t.lead is not None]
     if measure == "net_lead_time":
+        _part(data, "net_lead")
         return [(t, t.net_lead) for t in data.closed if t.net_lead is not None]
     if measure == "reopen_rate":
         return [(t, 10000 if t.reopened else 0) for t in data.closed]
@@ -402,6 +426,7 @@ def run(
     """Calcula um bloco. `dimension` troca a do bloco (a tela agrupa por semana um gráfico por
     dia de um período longo)."""
     if block.visual == "tasks":
+        _part(data, "tasks")
         return Result(
             dimension=None,
             is_list=True,

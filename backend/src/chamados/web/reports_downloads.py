@@ -28,6 +28,7 @@ from chamados.web.reports_blocks import (
     Point,
     block_view,
     client_preview,
+    compared,
     compares,
 )
 from chamados.web.reports_state import ParamsDep, State, interval_text, load_state, with_query
@@ -166,13 +167,18 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         )
         table = "client"
     else:
-        data = await service.facts(db, page.auth, f)
+        data = await service.facts(db, page.auth, f, builder.needs(config.blocks))
         before = None
         if state.compare and compares(config):
             first, last = builder.previous_period(
                 f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
             )
-            before = await service.facts(db, page.auth, replace(f, start=first, end=last))
+            before = await service.facts(
+                db,
+                page.auth,
+                replace(f, start=first, end=last),
+                builder.needs(compared(config)),
+            )
         views = [
             block_view(page, state, f, config, data, block, i, before)
             for i, block in enumerate(config.blocks)
@@ -228,7 +234,7 @@ async def block_csv(
     if not 0 <= bloco < len(config.blocks):
         raise HTTPException(404)
     block = config.blocks[bloco]
-    data = await service.facts(db, page.auth, f)
+    data = await service.facts(db, page.auth, f, builder.needs([block]))
     result = builder.run(data, block, f.start, f.end)
     content = csv_export.render_block(data, result, cast(Locale, page.locale))
     reports_api.record_export(
@@ -276,7 +282,11 @@ async def ticket_list(
         context["error"] = state.error or page.t("relatorios.periodoInvalido")
         return page.render("reports/tickets.html", status_code=422, **context)
 
-    data = await service.facts(db, page.auth, f)
+    # O conjunto da medida; nos concluídos, também o tempo líquido (uma coluna da lista).
+    parts: set[service.Part] = {kind}
+    if kind == "closed":
+        parts.add("net_lead")
+    data = await service.facts(db, page.auth, f, parts)
     tickets = builder.tickets_of(data, measure)
     # Os mais recentes primeiro; no em aberto, os mais antigos (os que esperam há mais tempo).
     if kind == "backlog":

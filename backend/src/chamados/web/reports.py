@@ -21,7 +21,13 @@ from chamados.modules.reports import builder, service
 from chamados.modules.reports.builder import CUSTOM
 from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPageDep
-from chamados.web.reports_blocks import block_view, client_preview, compares, uses_overtime
+from chamados.web.reports_blocks import (
+    block_view,
+    client_preview,
+    compared,
+    compares,
+    uses_overtime,
+)
 from chamados.web.reports_state import (
     NO_CLIENT,
     RELATIVE_KEYS,
@@ -74,13 +80,18 @@ async def reports_page(
         if client_view["ready"]:
             downloads = {"pdf": with_query("/relatorios/pdf", {**query, "aba": slug})}
     elif f is not None and config is not None:
-        data = await service.facts(db, page.auth, f)
+        data = await service.facts(db, page.auth, f, builder.needs(config.blocks))
         before = None
         if state.compare and compares(config):
             first, last = builder.previous_period(
                 f.start, f.end, year_to_date=state.period == "ano-ate-hoje"
             )
-            before = await service.facts(db, page.auth, replace(f, start=first, end=last))
+            before = await service.facts(
+                db,
+                page.auth,
+                replace(f, start=first, end=last),
+                builder.needs(compared(config)),
+            )
         # A página de cada lista de tarefas (`pagina<i>`); sem ela, a primeira.
         numbers = page.request.query_params
         blocks = [
