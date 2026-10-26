@@ -5,6 +5,7 @@ dados (`service.Facts`) são montados à mão.
 
 import csv
 import io
+import uuid
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from typing import Any, get_args
@@ -13,9 +14,6 @@ import pytest
 from fastapi import HTTPException
 
 from chamados.modules.catalog.models import TicketStatus
-from chamados.modules.clients.models import Client
-from chamados.modules.identity.models import User
-from chamados.modules.organization.models import Team
 from chamados.modules.reports import csv_export
 from chamados.modules.reports.builder import (
     BUILTINS,
@@ -28,7 +26,17 @@ from chamados.modules.reports.builder import (
     relative_period,
     run,
 )
-from chamados.modules.reports.service import TZ, Facts, Part, TaskFact, TicketFact, net_minutes
+from chamados.modules.reports.service import (
+    TZ,
+    ClientName,
+    Facts,
+    Part,
+    TaskFact,
+    TeamName,
+    TicketFact,
+    UserName,
+    net_minutes,
+)
 from chamados.modules.system.work_hours import DEFAULT
 
 ANA, BIA = 1, 2
@@ -85,13 +93,13 @@ def _dados(
         closed=concluidos or [],
         canceled=cancelados or [],
         backlog=em_aberto or [],
-        users={ANA: User(id=ANA, display_name="Ana"), BIA: User(id=BIA, display_name="Bia")},
+        users={ANA: UserName(uuid.uuid4(), "Ana"), BIA: UserName(uuid.uuid4(), "Bia")},
         clients={
-            PADARIA: Client(id=PADARIA, name="Padaria"),
-            MERCADO: Client(id=MERCADO, name="Mercado"),
-            FARMACIA: Client(id=FARMACIA, name="=Farmácia"),
+            PADARIA: ClientName(uuid.uuid4(), "Padaria"),
+            MERCADO: ClientName(uuid.uuid4(), "Mercado"),
+            FARMACIA: ClientName(uuid.uuid4(), "=Farmácia"),
         },
-        teams={TI: Team(id=TI, name="TI")},
+        teams={TI: TeamName(uuid.uuid4(), "TI")},
         statuses={PENDENTE: TicketStatus(id=PENDENTE, name="Pendente")},
     )
 

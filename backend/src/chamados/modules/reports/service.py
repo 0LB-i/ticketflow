@@ -12,7 +12,7 @@ from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from fastapi import HTTPException
 from sqlalchemy import ColumnElement, and_, any_, bindparam, func, not_, or_, select, true
@@ -364,6 +364,23 @@ class TicketFact:
     age: int | None = None  # em aberto: minutos do registro ao fim do período
 
 
+# Os nomes do que aparece num período, com as colunas que os relatórios mostram: num ano são
+# milhares de clientes, e o objeto do ORM de cada um custava mais que a consulta.
+class UserName(NamedTuple):
+    public_id: uuid.UUID
+    display_name: str
+
+
+class ClientName(NamedTuple):
+    public_id: uuid.UUID
+    label: str
+
+
+class TeamName(NamedTuple):
+    public_id: uuid.UUID
+    name: str
+
+
 # As partes de `facts`: as tarefas, cada conjunto de chamados e o tempo líquido dos concluídos
 # (que lê o histórico deles). Cada uma custa consultas próprias (o em aberto no fim é a mais
 # larga), então quem chama pede só as que usa (`builder.needs`); as outras ficam vazias.
@@ -382,9 +399,9 @@ class Facts:
     closed: list[TicketFact]
     canceled: list[TicketFact]
     backlog: list[TicketFact]
-    users: dict[int, User]
-    clients: dict[int, Client]
-    teams: dict[int, Team]
+    users: dict[int, UserName]
+    clients: dict[int, ClientName]
+    teams: dict[int, TeamName]
     statuses: dict[int, TicketStatus]
 
 
@@ -663,14 +680,24 @@ async def facts(
         closed=closed_facts,
         canceled=canceled_facts,
         backlog=backlog_facts,
-        users={u.id: u for u in await db.scalars(select(User).where(_among(User.id, user_ids)))},
-        clients={
-            c.id: c
-            for c in await db.scalars(
-                select(Client).where(_among(Client.id, client_ids)).options(CLIENT_LABEL)
+        users={
+            i: UserName(public_id, name)
+            for i, public_id, name in await db.execute(
+                select(User.id, User.public_id, User.display_name).where(_among(User.id, user_ids))
             )
         },
-        teams={t.id: t for t in await db.scalars(select(Team).where(_among(Team.id, team_ids)))},
+        clients={
+            i: ClientName(public_id, label_of(name, trade_name, city, state))
+            for i, public_id, name, trade_name, city, state in await db.execute(
+                select(Client.id, *_LABEL_COLUMNS).where(_among(Client.id, client_ids))
+            )
+        },
+        teams={
+            i: TeamName(public_id, name)
+            for i, public_id, name in await db.execute(
+                select(Team.id, Team.public_id, Team.name).where(_among(Team.id, team_ids))
+            )
+        },
         statuses=statuses,
     )
 
