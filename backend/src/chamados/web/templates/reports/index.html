@@ -115,8 +115,9 @@
     {%- if period == "personalizado" %}
     {{ field("de", t("relatorios.de"), type="date", value=start) }}
     {{ field("ate", t("relatorios.ate"), type="date", value=end, error=None if period_ok else t("relatorios.periodoInvalido")) }}
-    {#- As datas não aplicam ao mudar (app.js): o botão ou o Enter. mt-7: na linha dos campos. #}
-    <div><button type="submit" class="mt-7 {{ button_class('secondary') }}">{{ t("relatorios.aplicar") }}</button></div>
+    {#- As datas não aplicam ao mudar (app.js): o botão ou o Enter. mt-6: a altura do rótulo (20 px
+        do text-sm mais o gap-1), na linha dos campos. #}
+    <div><button type="submit" class="mt-6 {{ button_class('secondary') }}">{{ t("relatorios.aplicar") }}</button></div>
     <div hx-boost="true" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:col-span-2 lg:col-span-4">
       <span class="text-muted">{{ t("relatorios.atalhos.rotulo") }}</span>
       {%- for label, url in shortcuts %}
