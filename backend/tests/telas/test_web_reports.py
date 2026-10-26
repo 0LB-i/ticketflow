@@ -65,8 +65,8 @@ def test_relatorio_do_mes(client: TestClient, cenario: dict[str, Any]) -> None:
     assert "Todos os grupos" not in r.text
     assert "Todas as pessoas" not in r.text
     assert '<label for="campo-cliente" class="font-medium">Cliente</label>' in r.text
-    assert '<option value="">Todos os clientes</option>' in r.text
-    assert '<option value="sem-cliente">Sem cliente</option>' in r.text
+    # O cliente é uma busca (são milhares): "Sem cliente" vem nas opções dela.
+    assert 'placeholder="Todos os clientes" hx-get="/relatorios/clientes"' in r.text
     assert '<option value="">Todos os status</option>' in r.text
 
     client.cookies.clear()  # sem sessão, vai para o login e volta depois
@@ -164,6 +164,37 @@ def test_filtro_de_cliente(client: TestClient, cenario: dict[str, Any], db: Sess
     assert pdf["client"] == [padaria] and pdf["no_client"] == ["true"]
     # As abas levam os filtros junto.
     assert f"cliente=sem-cliente&amp;cliente={padaria}" in r.text
+
+
+def test_busca_de_cliente_no_filtro(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    """Os clientes não vêm na página: a busca traz "Sem cliente" e os que batem, inclusive os
+    desativados (o relatório olha o passado), sem os já escolhidos."""
+    padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
+    antiga = criar_cliente(db, "Padaria Antiga", "11444777000161", ativo=False)
+    r = client.get("/relatorios")
+    assert "Padaria Pão Quente" not in r.text and "Cliente Padrão" not in r.text
+
+    r = client.get("/relatorios/clientes")
+    assert 'data-id="sem-cliente" data-nome="Sem cliente"' in r.text
+    assert f'data-id="{padaria}"' in r.text and f'data-id="{cenario["cliente"]}"' in r.text
+    r = client.get("/relatorios/clientes", params={"q": "padaria"})
+    assert "Sem cliente" not in r.text and "Cliente Padrão" not in r.text
+    assert f'data-id="{padaria}"' in r.text and f'data-id="{antiga}"' in r.text
+    r = client.get("/relatorios/clientes", params={"q": "sem cli"})
+    assert 'data-id="sem-cliente"' in r.text
+    # Os escolhidos (as etiquetas, pelo hx-include) ficam de fora.
+    r = client.get("/relatorios/clientes", params={"q": "", "cliente": [padaria, "sem-cliente"]})
+    assert f'data-id="{padaria}"' not in r.text and "sem-cliente" not in r.text
+    assert f'data-id="{antiga}"' in r.text
+    r = client.get("/relatorios/clientes", params={"q": "xyz"})
+    assert "Nenhum cliente encontrado" in r.text
+
+    # O escolhido aparece com o nome, na etiqueta e no resumo.
+    r = client.get("/relatorios", params={"cliente": antiga})
+    assert "<span data-rotulo>Padaria Antiga</span>" in r.text
+    assert 'aria-label="Tirar Padaria Antiga"' in r.text
 
 
 def test_periodo_personalizado(client: TestClient, cenario: dict[str, Any]) -> None:

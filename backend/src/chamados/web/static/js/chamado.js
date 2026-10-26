@@ -449,20 +449,19 @@ function atualizarTodos(select) {
 function aplicarFiltro(caixa) {
   const form = caixa.closest('form[data-envia-ao-mudar]')
   if (!form) return
-  caixa.querySelector('[data-chips-adiciona]').focus()
+  caixa.querySelector('[data-chips-adiciona], [role=combobox]').focus()
   form.requestSubmit()
 }
 
-function adicionarEtiqueta(caixa, opcao) {
+function adicionarEtiqueta(caixa, valor, nome) {
   const modelo = caixa.querySelector('template[data-modelo]')
   const etiqueta = modelo.content.firstElementChild.cloneNode(true)
-  etiqueta.dataset.valor = opcao.value
-  etiqueta.querySelector('[data-rotulo]').textContent = opcao.textContent.trim()
-  etiqueta.querySelector('input').value = opcao.value
+  etiqueta.dataset.valor = valor
+  etiqueta.querySelector('[data-rotulo]').textContent = nome
+  etiqueta.querySelector('input').value = valor
   const remover = etiqueta.querySelector('[data-chips-remove]')
-  remover.setAttribute('aria-label', remover.getAttribute('aria-label').replace('{nome}', opcao.textContent.trim()))
+  remover.setAttribute('aria-label', remover.getAttribute('aria-label').replace('{nome}', nome))
   caixa.querySelector('[data-chips-lista]').append(etiqueta)
-  opcao.hidden = opcao.disabled = true
 }
 
 document.addEventListener('change', (e) => {
@@ -471,7 +470,10 @@ document.addEventListener('change', (e) => {
   const caixa = select.closest('[data-chips]')
   const escolhidas =
     select.value === '*' ? opcoesLivres(select) : [select.selectedOptions[0]].filter(Boolean)
-  for (const opcao of escolhidas) adicionarEtiqueta(caixa, opcao)
+  for (const opcao of escolhidas) {
+    adicionarEtiqueta(caixa, opcao.value, opcao.textContent.trim())
+    opcao.hidden = opcao.disabled = true
+  }
   select.value = ''
   atualizarTodos(select)
   aplicarFiltro(caixa)
@@ -481,11 +483,12 @@ document.addEventListener('click', (e) => {
   if (!remover) return
   const etiqueta = remover.closest('[data-valor]')
   const caixa = remover.closest('[data-chips]')
+  // Na busca de cliente não há select: as opções vêm de novo do servidor, sem os escolhidos.
   const select = caixa.querySelector('[data-chips-adiciona]')
-  const opcao = [...select.options].find((o) => o.value === etiqueta.dataset.valor)
+  const opcao = [...(select?.options ?? [])].find((o) => o.value === etiqueta.dataset.valor)
   if (opcao) opcao.hidden = opcao.disabled = false
   etiqueta.remove()
-  atualizarTodos(select)
+  if (select) atualizarTodos(select)
   aplicarFiltro(caixa)
 })
 htmx.onLoad((raiz) => raiz.querySelectorAll('[data-chips-adiciona]').forEach(atualizarTodos))
@@ -533,11 +536,20 @@ function fecharOpcoes(caixa, restaurar = true) {
   const lista = caixa.querySelector('[data-opcoes]')
   lista.hidden = true
   caixa.querySelector('[role=combobox]').setAttribute('aria-expanded', 'false')
-  // Texto digitado sem escolher: volta ao cliente escolhido.
-  if (restaurar) caixa.querySelector('[role=combobox]').value = caixa.querySelector('[name=cliente_nome]').value
+  // Texto digitado sem escolher: volta ao cliente escolhido (nas etiquetas, a busca fica vazia).
+  const nome = caixa.querySelector('[name=cliente_nome]')
+  if (restaurar) caixa.querySelector('[role=combobox]').value = nome ? nome.value : ''
 }
 
 function escolherCliente(caixa, opcao) {
+  // Nas etiquetas (filtro dos relatórios), o cliente vira uma etiqueta e o filtro aplica.
+  const etiquetas = caixa.closest('[data-chips]')
+  if (etiquetas) {
+    adicionarEtiqueta(etiquetas, opcao.dataset.id, opcao.dataset.nome)
+    fecharOpcoes(caixa)
+    aplicarFiltro(etiquetas)
+    return
+  }
   caixa.querySelector('[name=client_id]').value = opcao.dataset.id
   caixa.querySelector('[name=cliente_nome]').value = opcao.dataset.nome
   caixa.querySelector('[role=combobox]').value = opcao.dataset.nome
@@ -566,6 +578,11 @@ document.addEventListener('keydown', (e) => {
   const atual = opcoes.findIndex((o) => o.getAttribute('aria-selected') === 'true')
   if (e.key === 'Escape') {
     fecharOpcoes(caixa)
+  } else if (e.key === 'ArrowDown' && lista.hidden && caixa.closest('[data-chips]')) {
+    // Nas etiquetas, a lista não abre ao receber o foco (o foco volta a ela depois de cada
+    // filtro aplicado): abre com a seta.
+    e.preventDefault()
+    htmx.trigger(campo, 'abrir')
   } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && opcoes.length && !lista.hidden) {
     e.preventDefault()
     const proxima = (atual + (e.key === 'ArrowDown' ? 1 : opcoes.length - 1)) % opcoes.length
@@ -582,7 +599,7 @@ document.addEventListener('keydown', (e) => {
 // selecionado: digitar já começa uma busca nova.
 document.addEventListener('focusin', (e) => {
   const campo = e.target.closest?.('[data-cliente] [role=combobox]')
-  if (!campo) return
+  if (!campo || campo.closest('[data-chips]')) return
   campo.select()
   htmx.ajax('GET', '/clientes/opcoes', { target: campo.closest('[data-cliente]').querySelector('[data-opcoes]') })
 })

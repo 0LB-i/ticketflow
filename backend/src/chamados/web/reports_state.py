@@ -16,7 +16,6 @@ from starlette.datastructures import FormData
 
 from chamados.db.session import DB
 from chamados.modules.reports import builder, saved, service
-from chamados.modules.reports import router as reports_api
 from chamados.modules.reports.builder import (
     BUILTINS,
     CUSTOM,
@@ -26,7 +25,6 @@ from chamados.modules.reports.builder import (
     ReportConfig,
 )
 from chamados.modules.reports.models import ReportModel
-from chamados.modules.reports.schemas import ReportOptions
 from chamados.web.formatting import TIMEZONE, format_day, format_month
 from chamados.web.page import LoggedPage
 
@@ -123,7 +121,7 @@ def _date(value: str | None) -> date | None:
         return None
 
 
-def _uuids(values: list[str] | None) -> list[uuid.UUID]:
+def parse_uuids(values: list[str] | None) -> list[uuid.UUID]:
     """Os valores que são UUID, sem repetir; o resto (ex.: "sem-cliente") fica de fora."""
     result = []
     for value in values or []:
@@ -152,7 +150,7 @@ class State:
 
     choice: Choice
     models: list[ReportModel]
-    options: ReportOptions
+    options: service.Choices
     period: str
     start_text: str
     end_text: str
@@ -163,6 +161,7 @@ class State:
     clients: list[uuid.UUID]
     no_client: bool
     statuses: list[int]
+    client_names: dict[uuid.UUID, str] = field(default_factory=dict)  # os escolhidos
     compare: bool = False
     origin: str | None = None  # Params.origem, só no personalizado
     filters: service.Filters | None = None
@@ -213,7 +212,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     periodo, de, ate = params.periodo, params.de, params.ate
     grupo, pessoa, cliente, status = params.grupo, params.pessoa, params.cliente, params.status
     comparar = params.comparar
-    options = await reports_api.report_options(auth, db)
+    options = await service.choices(db, auth)
 
     # Sem filtro na URL, valem os do modelo. Os salvos que deixaram de valer para a pessoa
     # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
@@ -233,7 +232,8 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         people = [p for p in saved_filters.people if p in {o.id for o in options.people}]
         if len(people) < len(saved_filters.people):
             lost.append(page.t("relatorios.pessoa"))
-        clients = [c for c in saved_filters.clients if c in {o.id for o in options.clients}]
+        client_names = await service.client_labels(db, saved_filters.clients)
+        clients = [c for c in saved_filters.clients if c in client_names]
         if len(clients) < len(saved_filters.clients):
             lost.append(page.t("relatorios.cliente"))
         statuses = [s for s in saved_filters.statuses if s in {o.id for o in options.statuses}]
@@ -243,7 +243,8 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         if lost:
             warning = page.t("relatorios.filtrosSalvosInvalidos", filtros=", ".join(lost))
     else:
-        teams, people, clients = _uuids(grupo), _uuids(pessoa), _uuids(cliente)
+        teams, people, clients = parse_uuids(grupo), parse_uuids(pessoa), parse_uuids(cliente)
+        client_names = await service.client_labels(db, clients)
         no_client = NO_CLIENT in (cliente or [])
         statuses = [int(v) for v in status or [] if v.isdigit()]
 
@@ -284,6 +285,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         clients=clients,
         no_client=no_client,
         statuses=statuses,
+        client_names=client_names,
         compare=compare,
         origin=origin,
         warning=warning,

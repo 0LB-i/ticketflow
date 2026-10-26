@@ -128,7 +128,10 @@ def _filters_line(page: LoggedPage, state: State) -> str:
         (
             "cliente",
             ([page.t("relatorios.semCliente")] if state.no_client else [])
-            + [c.name for c in o.clients if c.id in state.clients],
+            + sorted(
+                (state.client_names[c] for c in state.clients if c in state.client_names),
+                key=str.casefold,
+            ),
         ),
         ("status", [s.name for s in o.statuses if s.id in state.statuses]),
     ):

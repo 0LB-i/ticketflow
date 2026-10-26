@@ -20,6 +20,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from chamados.db.base import Base
 
 
+def label_of(name: str | None, trade_name: str | None, city: str, state: str) -> str:
+    """O `Client.label` a partir das colunas (para quem lê só elas, sem o cadastro)."""
+    return name or trade_name or f"{city}/{state}"
+
+
 class Client(Base):
     """Cliente atendido: pessoa física (CPF) ou jurídica (CNPJ). Não tem login no sistema.
 
@@ -66,4 +71,4 @@ class Client(Base):
     @property
     def label(self) -> str:
         """Como o cliente aparece nas listas e no chamado, mesmo sem nome."""
-        return self.name or self.trade_name or f"{self.city}/{self.state}"
+        return label_of(self.name, self.trade_name, self.city, self.state)

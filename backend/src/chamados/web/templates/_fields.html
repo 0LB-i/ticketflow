@@ -165,6 +165,29 @@
 </div>
 {%- endmacro %}
 
+{#- Etiquetas com a busca de cliente pelo HTMX (os relatórios): os clientes são milhares e não
+    cabem num select. A busca abre ao clicar, ao digitar ou com a seta para baixo, e não manda os
+    já escolhidos (`hx-include` das etiquetas); escolher vira uma etiqueta (chamado.js). A troca, a
+    seleção e o indicador são os da própria busca, não os herdados da região que a contém (o
+    #relatorio troca a si mesmo e esmaece). -#}
+{% macro client_chips(name, label, selected, names, placeholder, remove_key, url) -%}
+<div data-chips class="flex flex-col gap-2">
+  <div data-cliente class="relative flex flex-col gap-1">
+    <label for="campo-{{ name }}" class="font-medium">{{ label }}</label>
+    <div class="inline-flex h-10 items-center gap-1 rounded-md border border-border-input bg-surface pr-2 pl-3">
+      <input id="campo-{{ name }}" type="text" name="q" form="sem-formulario" role="combobox" aria-expanded="false" aria-controls="campo-{{ name }}-opcoes" aria-autocomplete="list" autocomplete="off" placeholder="{{ placeholder }}" hx-get="{{ url }}" hx-trigger="input changed delay:300ms, click, abrir" hx-include="closest [data-chips]" hx-target="#campo-{{ name }}-opcoes" hx-swap="innerHTML" hx-select="unset" hx-indicator="this" hx-sync="this:replace" class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted">
+      {{ icon("chevron-down", "size-4 shrink-0 text-muted") }}
+    </div>
+    <ul id="campo-{{ name }}-opcoes" role="listbox" data-opcoes hidden class="absolute inset-x-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 text-fg shadow-lg"></ul>
+  </div>
+  <ul data-chips-lista class="flex flex-wrap gap-2">
+    {%- for value in selected %}
+    {{ chip(name, value, names.get(value, value), t(remove_key, nome=names.get(value, value))) }}
+    {%- endfor %}
+  </ul>
+  <template data-modelo>{{ chip(name, "", "", t(remove_key, nome="{nome}")) }}</template>
+</div>
+{%- endmacro %}
 {% macro chip(name, value, text, remove_label) -%}
 <li data-valor="{{ value }}" class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">
   <span data-rotulo>{{ text }}</span>

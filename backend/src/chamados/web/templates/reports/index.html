@@ -3,7 +3,7 @@
     filtros. Quem vê o quê é decidido pela API. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, button_class, checkbox, field with context %}
-{% from "_fields.html" import chips with context %}
+{% from "_fields.html" import chips, client_chips with context %}
 {% from "_icons.html" import icon %}
 {% from "reports/_blocks.html" import block, table with context %}
 
@@ -126,8 +126,13 @@
     </div>
     {%- endif %}
     {#- Vários valores em etiquetas; nenhuma é "todos". #}
-    {%- for name, label, options, selected, all_key in filters %}
-    {{ chips(name, t("relatorios." ~ label), options, selected, dict(options), t("relatorios.adicionar") if selected else t("relatorios." ~ all_key), "relatorios.tirarFiltro") }}
+    {%- for name, label, options, selected, all_key, names in filters %}
+    {%- set placeholder = t("relatorios.adicionar") if selected else t("relatorios." ~ all_key) %}
+    {%- if options is none %}
+    {{ client_chips(name, t("relatorios." ~ label), selected, names, placeholder, "relatorios.tirarFiltro", "/relatorios/clientes") }}
+    {%- else %}
+    {{ chips(name, t("relatorios." ~ label), options, selected, names, placeholder, "relatorios.tirarFiltro") }}
+    {%- endif %}
     {%- endfor %}
     {#- Os cartões mostram a variação sobre o período anterior. mt-7: na linha dos campos. #}
     <div class="mt-7">{{ checkbox("comparar", t("relatorios.comparacao.campo"), checked=compare, id="campo-comparar") }}</div>

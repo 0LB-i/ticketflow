@@ -403,7 +403,7 @@ def _single_client(state: State) -> str | None:
     """O nome do cliente do relatório para o cliente: o filtro precisa ter um, e só um."""
     if len(state.clients) != 1 or state.no_client:
         return None
-    return next((c.name for c in state.options.clients if c.id == state.clients[0]), None)
+    return state.client_names.get(state.clients[0])
 
 
 async def client_preview(

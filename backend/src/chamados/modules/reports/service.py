@@ -21,9 +21,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
 from chamados.core.permissions import P, can
+from chamados.core.text import LIKE_ESCAPE, contains_pattern
 from chamados.core.timezone import LOCAL_TZ
 from chamados.modules.catalog.models import TicketStatus
-from chamados.modules.clients.models import Client
+from chamados.modules.clients.models import Client, label_of
 from chamados.modules.identity.deps import Auth
 from chamados.modules.identity.models import User
 from chamados.modules.organization.models import Team, TeamMember
@@ -93,7 +94,17 @@ def _work_window(day: date, start: time, end: time) -> tuple[datetime, datetime]
     return w_start, datetime.combine(day, end, TZ).astimezone(UTC)
 
 
-async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
+@dataclass
+class Choices:
+    """As opções dos filtros da tela, sem os clientes: são milhares, e a tela os busca aos
+    poucos (`client_choices`), com os nomes só dos escolhidos (`client_labels`)."""
+
+    teams: list[Ref]
+    people: list[Ref]
+    statuses: list[StatusRef]
+
+
+async def choices(db: AsyncSession, auth: Auth) -> Choices:
     actor = auth.actor
     people = select(User).where(User.deleted_at.is_(None))
     teams = select(Team).where(Team.is_active)
@@ -107,10 +118,7 @@ async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
                 ),
             )
         )
-    clients = sorted(
-        await db.scalars(select(Client).options(CLIENT_LABEL)), key=lambda c: c.label.casefold()
-    )
-    return ReportOptions(
+    return Choices(
         teams=[
             Ref(id=t.public_id, name=t.name) for t in await db.scalars(teams.order_by(Team.name))
         ],
@@ -118,12 +126,68 @@ async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
             Ref(id=u.public_id, name=u.display_name)
             for u in await db.scalars(people.order_by(User.display_name))
         ],
-        clients=[Ref(id=c.public_id, name=c.label) for c in clients],
         statuses=[
             StatusRef(id=s.id, name=s.name)
             for s in await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order))
         ],
     )
+
+
+async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
+    found = await choices(db, auth)
+    clients = sorted(
+        await db.scalars(select(Client).options(CLIENT_LABEL)), key=lambda c: c.label.casefold()
+    )
+    return ReportOptions(
+        teams=found.teams,
+        people=found.people,
+        clients=[Ref(id=c.public_id, name=c.label) for c in clients],
+        statuses=found.statuses,
+    )
+
+
+# As colunas do rótulo do cliente (`Client.label`), sem carregar o cadastro.
+_LABEL_COLUMNS = (Client.public_id, Client.name, Client.trade_name, Client.city, Client.state)
+
+
+async def client_labels(db: AsyncSession, ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """Os nomes dos clientes escolhidos num filtro; um id que não existe fica de fora."""
+    wanted = list(ids)
+    if not wanted:
+        return {}
+    rows = await db.execute(select(*_LABEL_COLUMNS).where(Client.public_id.in_(wanted)))
+    return {
+        public_id: label_of(name, trade_name, city, state)
+        for public_id, name, trade_name, city, state in rows
+    }
+
+
+CLIENT_CHOICES = 50  # por busca, como no campo de cliente do chamado
+
+
+async def client_choices(db: AsyncSession, q: str, exclude: Collection[uuid.UUID]) -> list[Ref]:
+    """Os clientes para o filtro: pelo nome ou nome fantasia, inclusive os desativados (um
+    relatório olha o passado), sem os já escolhidos; os primeiros CLIENT_CHOICES pelo nome."""
+    stmt = select(*_LABEL_COLUMNS)
+    if q.strip():
+        term = func.unaccent(contains_pattern(q.strip()))
+        stmt = stmt.where(
+            or_(
+                func.unaccent(Client.name).ilike(term, escape=LIKE_ESCAPE),
+                func.unaccent(Client.trade_name).ilike(term, escape=LIKE_ESCAPE),
+            )
+        )
+    if exclude:
+        stmt = stmt.where(Client.public_id.not_in(list(exclude)))
+    rows = await db.execute(
+        stmt.order_by(
+            func.lower(func.coalesce(Client.name, Client.trade_name, Client.city)), Client.id
+        ).limit(CLIENT_CHOICES)
+    )
+    return [
+        Ref(id=public_id, name=label_of(name, trade_name, city, state))
+        for public_id, name, trade_name, city, state in rows
+    ]
 
 
 async def _find[M: (Team, User, Client)](

@@ -1,0 +1,6 @@
+{#- Opções do filtro de cliente dos relatórios (_fields.html: client_chips), pedidas pelo HTMX. -#}
+{%- for value, text in options %}
+<li role="option" id="relatorio-cliente-{{ value }}" data-id="{{ value }}" data-nome="{{ text }}" aria-selected="false" class="flex cursor-default rounded px-2 py-1.5 select-none hover:bg-surface-raised aria-selected:bg-surface-raised">{{ text }}</li>
+{%- else %}
+<li class="px-2 py-1.5 text-muted">{{ t("chamado.nenhumCliente") }}</li>
+{%- endfor %}

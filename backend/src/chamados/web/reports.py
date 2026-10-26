@@ -9,6 +9,7 @@ o PDF em reports_blocks.py, os downloads (PDF, CSV de um bloco, lista de chamado
 reports_downloads.py e o editor de modelos em reports_editor.py.
 """
 
+import unicodedata
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -33,10 +34,12 @@ from chamados.web.reports_state import (
     RELATIVE_KEYS,
     TABS,
     ParamsDep,
+    Values,
     interval_text,
     last_months,
     load_state,
     origin_view,
+    parse_uuids,
     with_query,
 )
 
@@ -49,6 +52,29 @@ CSV_TABLES = {"produtividade": "people", "clientes": "clients", "horas-extras": 
 
 
 WEEKDAYS = ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
+
+
+def _fold(text: str) -> str:
+    """Sem acento nem maiúsculas, para achar "Sem cliente" digitando "sem cli"."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
+@router.get("/relatorios/clientes")
+async def client_choices(
+    page: LoggedPageDep, db: DB, q: str = "", cliente: Values = None
+) -> HTMLResponse:
+    """As opções do filtro de cliente (HTMX): "Sem cliente" e os clientes que batem com a busca,
+    sem os já escolhidos (`cliente`, as etiquetas)."""
+    text = q.strip()[:200]
+    chosen = cliente or []
+    none_label = page.t("relatorios.semCliente")
+    options = []
+    if NO_CLIENT not in chosen and _fold(text) in _fold(none_label):
+        options.append((NO_CLIENT, none_label))
+    found = await service.client_choices(db, text, parse_uuids(chosen))
+    options += [(str(c.id), c.name) for c in found]
+    return page.render("reports/_client_options.html", options=options)
 
 
 @router.get("/relatorios")
@@ -140,32 +166,46 @@ async def reports_page(
     if choice.model is not None and config is not None and state.start and state.end:
         filters_changed = state.specs() != (config.period, config.filters)
 
-    # Os filtros de vários valores (etiquetas): nome, rótulo, opções, escolhidos e o texto de
-    # "todos". Grupo só com o que escolher; pessoa, só para quem vê mais que o próprio trabalho.
-    filters = []
-    if options.teams:
-        team_options = [(str(t.id), t.name) for t in options.teams]
-        filters.append(("grupo", "grupo", team_options, query["grupo"], "todosOsGrupos"))
-    if len(options.people) > 1:
-        person_options = [(str(p.id), p.name) for p in options.people]
-        filters.append(("pessoa", "pessoa", person_options, query["pessoa"], "todasAsPessoas"))
-    client_options = [(NO_CLIENT, page.t("relatorios.semCliente"))]
-    client_options += [(str(c.id), c.name) for c in options.clients]
-    filters.append(("cliente", "cliente", client_options, query["cliente"], "todosOsClientes"))
+    # Os filtros de vários valores (etiquetas): nome, rótulo, opções, escolhidos, o texto de
+    # "todos" e os nomes. Grupo só com o que escolher; pessoa, só para quem vê mais que o próprio
+    # trabalho. O cliente não tem a lista (são milhares): busca pelo HTMX (`client_choices`), e
+    # os nomes são só os dos escolhidos.
+    client_names = {
+        NO_CLIENT: page.t("relatorios.semCliente"),
+        **{str(c): name for c, name in state.client_names.items()},
+    }
+    team_options = [(str(t.id), t.name) for t in options.teams]
+    person_options = [(str(p.id), p.name) for p in options.people]
     status_options = [(str(s.id), s.name) for s in options.statuses]
-    filters.append(("status", "status", status_options, query["status"], "todosOsStatus"))
+    filters: list[tuple[str, str, list[tuple[str, str]] | None, Any, str, dict[str, str]]] = []
+    if options.teams:
+        filters.append(
+            ("grupo", "grupo", team_options, query["grupo"], "todosOsGrupos", dict(team_options))
+        )
+    if len(options.people) > 1:
+        filters.append(
+            (
+                "pessoa",
+                "pessoa",
+                person_options,
+                query["pessoa"],
+                "todasAsPessoas",
+                dict(person_options),
+            )
+        )
+    filters.append(("cliente", "cliente", None, query["cliente"], "todosOsClientes", client_names))
+    filters.append(
+        ("status", "status", status_options, query["status"], "todosOsStatus", dict(status_options))
+    )
 
     # "Filtrado por": cada valor escolhido com o link que o tira, e "Limpar filtros", que tira
     # todos e mantém a aba e o período (sem nenhum filtro na URL valeriam os salvos do modelo).
     here = {**query, "aba": slug}
     names = {
-        "grupo": {str(t.id): t.name for t in options.teams},
-        "pessoa": {str(p.id): p.name for p in options.people},
-        "cliente": {
-            NO_CLIENT: page.t("relatorios.semCliente"),
-            **{str(c.id): c.name for c in options.clients},
-        },
-        "status": {str(s.id): s.name for s in options.statuses},
+        "grupo": dict(team_options),
+        "pessoa": dict(person_options),
+        "cliente": client_names,
+        "status": dict(status_options),
     }
     chosen = []
     for name, known in names.items():
