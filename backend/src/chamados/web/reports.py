@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse
 
 from chamados.db.session import DB
 from chamados.modules.reports import builder, service
-from chamados.web.formatting import TIMEZONE
+from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPageDep
 from chamados.web.reports_blocks import block_view, client_preview, uses_overtime
 from chamados.web.reports_state import (
@@ -29,6 +29,7 @@ from chamados.web.reports_state import (
     interval_text,
     last_months,
     load_state,
+    origin_view,
     with_query,
 )
 
@@ -130,6 +131,41 @@ async def reports_page(
     status_options = [(str(s.id), s.name) for s in options.statuses]
     filters.append(("status", "status", status_options, query["status"], "todosOsStatus"))
 
+    # "Filtrado por": cada valor escolhido com o link que o tira, e "Limpar filtros", que tira
+    # todos e mantém a aba e o período (sem nenhum filtro na URL valeriam os salvos do modelo).
+    here = {**query, "aba": slug}
+    names = {
+        "grupo": {str(t.id): t.name for t in options.teams},
+        "pessoa": {str(p.id): p.name for p in options.people},
+        "cliente": {
+            NO_CLIENT: page.t("relatorios.semCliente"),
+            **{str(c.id): c.name for c in options.clients},
+        },
+        "status": {str(s.id): s.name for s in options.statuses},
+    }
+    chosen = []
+    for name, known in names.items():
+        values = query[name] or []
+        for value in values:
+            without = with_query("/relatorios", {**here, name: [v for v in values if v != value]})
+            chosen.append((known.get(value, value), without))
+    clear_url = with_query("/relatorios", {k: v for k, v in here.items() if k not in names})
+
+    # A trilha do detalhar: o período clicado e o link que volta ao de antes.
+    drilled = None
+    origin = origin_view(page, state)
+    if origin is not None and state.start and state.end:
+        label, back = origin
+        drilled = (
+            page.t(
+                "relatorios.detalhe.periodo",
+                de=format_day(page.locale, state.start),
+                ate=format_day(page.locale, state.end),
+            ),
+            page.t("relatorios.detalhe.voltar", periodo=label),
+            with_query("/relatorios", {**here, "de": None, "ate": None, "origem": None, **back}),
+        )
+
     today = datetime.now(TIMEZONE).date()
     start, end = state.start, state.end
     return page.render(
@@ -163,6 +199,12 @@ async def reports_page(
             for value in ([values] if isinstance(values, str) else values)
         ],
         filters_changed=filters_changed,
+        # Volta aos filtros salvos: o modelo sem nenhum filtro na URL.
+        restore_url=with_query("/relatorios", {"aba": slug}),
+        chosen=chosen,
+        clear_url=clear_url,
+        drilled=drilled,
+        origin=state.origin,
         new_model_url=with_query("/relatorios/modelos/novo", {**query, "base": slug}),
         blocks=blocks,
         client_view=client_view,

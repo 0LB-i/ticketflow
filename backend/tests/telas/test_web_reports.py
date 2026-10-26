@@ -710,3 +710,81 @@ def test_relatorio_para_o_cliente(
     assert "Ana" not in rodape  # sem o nome de quem gerou
     sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     assert sem_cliente.status_code == 422
+
+
+def _links(html: str, texto: str) -> list[str]:
+    """Os endereços dos links cujo texto ou aria-label tem `texto`, já sem o &amp;."""
+    achados = re.findall(rf'<a href="([^"]+)"[^>]*>(?:(?!</a>).)*{re.escape(texto)}', html, re.S)
+    achados += re.findall(rf'<a href="([^"]+)"[^>]*aria-label="[^"]*{re.escape(texto)}', html)
+    return [a.replace("&amp;", "&") for a in achados]
+
+
+def test_abas_logo_abaixo_do_titulo(client: TestClient, cenario: dict[str, Any]) -> None:
+    r = client.get("/relatorios")
+    assert r.text.index('<nav aria-label="Modelos') < r.text.index('<form method="get"')
+
+
+def test_resumo_dos_filtros_e_limpar(client: TestClient, cenario: dict[str, Any]) -> None:
+    entrar(client, "bia@x.com")
+    r = client.get("/relatorios", params={"pessoa": cenario["ana"], "cliente": "sem-cliente"})
+    assert "Filtrado por:" in r.text
+    # Cada × tira só aquele valor; o período continua.
+    (tira_ana,) = _links(r.text, "Tirar Ana")
+    query = parse_qs(urlsplit(tira_ana).query)
+    assert "pessoa" not in query and query["cliente"] == ["sem-cliente"]
+    assert query["periodo"] == ["mes-atual"] and query["aba"] == ["produtividade"]
+    # "Limpar" tira todos e manda o período, para não cair nos filtros salvos.
+    (limpar,) = _links(r.text, "Limpar filtros")
+    assert parse_qs(urlsplit(limpar).query) == {"periodo": ["mes-atual"], "aba": ["produtividade"]}
+    assert "Filtrado por:" not in client.get(limpar).text
+
+    # Num modelo com filtro salvo, "Limpar" fica no modelo e não traz o salvo de volta.
+    modelo = _criar(client, "Sem cliente", periodo="ultimos-7-dias", cliente="sem-cliente")
+    r = client.get("/relatorios", params={"aba": modelo})
+    (limpar,) = _links(r.text, "Limpar filtros")
+    r = client.get(limpar)
+    assert '<option value="ultimos-7-dias" selected>' in r.text
+    assert 'name="cliente" value="sem-cliente"' not in r.text
+    assert "Salvar filtros" in r.text
+
+
+def test_restaurar_filtros_salvos(client: TestClient, cenario: dict[str, Any]) -> None:
+    modelo = _criar(client, "Semana", periodo="ultimos-7-dias")
+    # Com os filtros salvos, nada a restaurar.
+    r = client.get("/relatorios", params={"aba": modelo})
+    assert "Restaurar filtros salvos" not in r.text
+    # Mexer num filtro mostra "Salvar filtros" e o link que volta aos salvos.
+    r = client.get("/relatorios", params={"aba": modelo, "periodo": "mes-anterior"})
+    assert "Salvar filtros" in r.text
+    assert _links(r.text, "Restaurar filtros salvos") == [f"/relatorios?aba={modelo}"]
+    # Nos modelos prontos não há o que restaurar.
+    r = client.get("/relatorios", params={"periodo": "mes-anterior"})
+    assert "Restaurar filtros salvos" not in r.text
+
+
+def test_trilha_do_detalhar(client: TestClient, cenario: dict[str, Any]) -> None:
+    hoje = datetime.now(TIMEZONE).date()
+    r = client.get("/relatorios", params={"periodo": "mes-atual"})
+    # A coluna de um dia aplica o dia como período e leva o de antes como origem.
+    dia = hoje.isoformat()
+    coluna = next(u for u in _links(r.text, format_day("pt-BR", hoje)) if f"de={dia}" in u)
+    assert parse_qs(urlsplit(coluna).query)["origem"] == ["mes-atual"]
+
+    r = client.get(coluna)
+    assert f"Detalhando de {format_day('pt-BR', hoje)} a {format_day('pt-BR', hoje)}." in r.text
+    (voltar,) = _links(r.text, "Voltar para Mês atual")
+    query = parse_qs(urlsplit(voltar).query)
+    assert query["periodo"] == ["mes-atual"]
+    assert "de" not in query and "origem" not in query
+    # O formulário leva a origem: mexer nos outros filtros mantém a trilha.
+    assert '<input type="hidden" name="origem" value="mes-atual">' in r.text
+
+    # Detalhar a partir de um personalizado volta às duas datas.
+    r = client.get(coluna.replace("origem=mes-atual", "origem=2026-01-01_2026-01-31"))
+    (voltar,) = _links(r.text, "Voltar para")
+    query = parse_qs(urlsplit(voltar).query)
+    assert (query["de"], query["ate"]) == (["2026-01-01"], ["2026-01-31"])
+    # Origem desconhecida, ou fora do personalizado: sem trilha.
+    assert "Detalhando" not in client.get(coluna.replace("mes-atual", "xyz")).text
+    r = client.get("/relatorios", params={"periodo": "mes-atual", "origem": "mes-anterior"})
+    assert "Detalhando" not in r.text

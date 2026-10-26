@@ -35,7 +35,7 @@ from chamados.web.formatting import (
     format_percent,
 )
 from chamados.web.page import LoggedPage
-from chamados.web.reports_state import NO_CLIENT, State, with_query
+from chamados.web.reports_state import NO_CLIENT, State, origin_of, with_query
 
 DAILY_LIMIT = 62  # um gráfico por dia de um período mais longo agrupa por semana
 
@@ -146,14 +146,20 @@ def _drill(
     state: State, data: service.Facts, dimension: str | None, key: builder.Key
 ) -> dict[str, Any] | None:
     """Os filtros que uma linha (ou barra, coluna) aplica ao ser clicada; None: não aplica (os
-    "Outros", as idades, alguém que a pessoa não pode filtrar)."""
+    "Outros", as idades, alguém que a pessoa não pode filtrar). Um período clicado leva o de
+    agora como `origem`, para a tela mostrar a trilha e voltar a ele."""
     f = state.filters
     if f is None or key == OTHERS or dimension in (None, "age"):
         return None
     if isinstance(key, date):
         first = max(key, f.start)
         last = min(builder.bucket_end(key, dimension), f.end)  # type: ignore[arg-type]
-        return {"periodo": CUSTOM, "de": first.isoformat(), "ate": last.isoformat()}
+        return {
+            "periodo": CUSTOM,
+            "de": first.isoformat(),
+            "ate": last.isoformat(),
+            "origem": origin_of(state),
+        }
     if dimension == "client":
         client = data.clients.get(key) if isinstance(key, int) else None
         return {"cliente": [str(client.public_id) if client else NO_CLIENT]}

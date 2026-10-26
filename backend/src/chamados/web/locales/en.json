@@ -430,6 +430,14 @@
     "modeloInvalido": "This template was saved in a format that is no longer valid. Edit it and save it again.",
     "salvarFiltros": "Save filters",
     "filtrosSalvos": "Filters saved in the template.",
+    "restaurarFiltros": "Restore saved filters",
+    "filtradoPor": "Filtered by:",
+    "limparFiltros": "Clear filters",
+    "detalhe": {
+      "periodo": "Drilled down to {de} – {ate}.",
+      "voltar": "Back to {periodo}",
+      "intervalo": "{de} to {ate}"
+    },
     "salvarComoModelo": "Save as template",
     "editarModelo": "Edit template",
     "medidas": {

@@ -430,6 +430,14 @@
     "modeloInvalido": "Este modelo foi salvo num formato que não vale mais. Edite-o e salve de novo.",
     "salvarFiltros": "Salvar filtros",
     "filtrosSalvos": "Filtros salvos no modelo.",
+    "restaurarFiltros": "Restaurar filtros salvos",
+    "filtradoPor": "Filtrado por:",
+    "limparFiltros": "Limpar filtros",
+    "detalhe": {
+      "periodo": "Detalhando de {de} a {ate}.",
+      "voltar": "Voltar para {periodo}",
+      "intervalo": "{de} a {ate}"
+    },
     "salvarComoModelo": "Salvar como modelo",
     "editarModelo": "Editar modelo",
     "medidas": {

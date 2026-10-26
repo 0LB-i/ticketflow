@@ -78,6 +78,9 @@ class Params:
     cliente: Values = None
     status: Values = None
     comparar: str | None = None
+    # O período de onde o detalhar saiu (a trilha da tela): um relativo, um mês da lista ou
+    # "de_ate". Não é filtro: não conta para "sem nenhum filtro na URL".
+    origem: str | None = None
 
     def hidden(self) -> list[tuple[str, str]]:
         """Os filtros em campos escondidos de um formulário."""
@@ -161,6 +164,7 @@ class State:
     no_client: bool
     statuses: list[int]
     compare: bool = False
+    origin: str | None = None  # Params.origem, só no personalizado
     filters: service.Filters | None = None
     error: str | None = None
     warning: str | None = None
@@ -260,6 +264,12 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         end_text = today.isoformat() if ate is None else ate
     start, end = _date(start_text), _date(end_text)
 
+    origin = params.origem if period == CUSTOM else None
+    if origin is not None and not (
+        origin in RELATIVE or any(m.value == origin for m in months) or _span(origin)
+    ):
+        origin = None
+
     state = State(
         choice=choice,
         models=models,
@@ -275,6 +285,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         no_client=no_client,
         statuses=statuses,
         compare=compare,
+        origin=origin,
         warning=warning,
     )
     if choice.config is None:
@@ -303,8 +314,43 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         "cliente": ([NO_CLIENT] if no_client else []) + [str(c) for c in clients],
         "status": [str(s) for s in statuses],
         "comparar": "1" if compare else None,
+        "origem": origin,
     }
     return state
+
+
+def _span(value: str) -> tuple[date, date] | None:
+    """As duas datas de um "de_ate" (a origem personalizada)."""
+    first, _, last = value.partition("_")
+    start, end = _date(first), _date(last)
+    return (start, end) if start and end and start <= end else None
+
+
+def origin_of(state: State) -> str:
+    """O período aberto como origem do detalhar: o slug (relativo ou mês) ou "de_ate"."""
+    if state.period == CUSTOM:
+        return f"{state.start_text}_{state.end_text}"
+    return state.period
+
+
+def origin_view(page: LoggedPage, state: State) -> tuple[str, dict[str, str]] | None:
+    """O nome do período de onde o detalhar saiu e a query que volta a ele."""
+    if state.origin is None:
+        return None
+    span = _span(state.origin)
+    if span:
+        label = page.t(
+            "relatorios.detalhe.intervalo",
+            de=format_day(page.locale, span[0]),
+            ate=format_day(page.locale, span[1]),
+        )
+        return label, {"periodo": CUSTOM, "de": span[0].isoformat(), "ate": span[1].isoformat()}
+    if state.origin in RELATIVE_KEYS:
+        label = page.t(f"relatorios.periodos.{RELATIVE_KEYS[state.origin]}")
+        return label, {"periodo": state.origin}
+    today = datetime.now(TIMEZONE).date()
+    month = next((m for m in last_months(page.locale, today) if m.value == state.origin), None)
+    return (month.label, {"periodo": state.origin}) if month else None
 
 
 def with_query(path: str, query: dict[str, Any]) -> str:

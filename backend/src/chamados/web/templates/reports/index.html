@@ -73,6 +73,7 @@
         {%- endfor %}
         <button type="submit" class="{{ button_class() }}">{{ icon("check", "size-4") }} {{ t("relatorios.salvarFiltros") }}</button>
       </form>
+      <a href="{{ restore_url }}" class="{{ button_class('secondary') }}">{{ t("relatorios.restaurarFiltros") }}</a>
       {%- endif %}
       {%- if model %}
       <a href="/relatorios/modelos/{{ model.public_id }}/editar" class="{{ button_class('secondary') }}">{{ icon("pencil", "size-4") }} {{ t("relatorios.editarModelo") }}</a>
@@ -95,10 +96,21 @@
     </div>
   </div>
 
+  {#- Os modelos prontos e os da pessoa. #}
+  <nav aria-label="{{ t('relatorios.modelos') }}" class="flex flex-wrap gap-1 border-b border-border">
+    {%- for slug, label, url in tabs %}
+    <a href="{{ url }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
+    {%- endfor %}
+  </nav>
+
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
       continua. #}
   <form method="get" action="/relatorios" data-envia-ao-mudar class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     <input type="hidden" name="aba" value="{{ tab }}">
+    {%- if origin %}
+    {#- Mexer nos outros filtros mantém a trilha do detalhar. #}
+    <input type="hidden" name="origem" value="{{ origin }}">
+    {%- endif %}
     <div class="flex flex-col gap-1">
       <label for="campo-periodo" class="font-medium">{{ t("relatorios.periodo") }}</label>
       <select id="campo-periodo" name="periodo" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
@@ -129,12 +141,26 @@
     <div class="mt-7">{{ checkbox("comparar", t("relatorios.comparacao.campo"), checked=compare) }}</div>
   </form>
 
-  {#- Os modelos prontos e os da pessoa. #}
-  <nav aria-label="{{ t('relatorios.modelos') }}" class="flex flex-wrap gap-1 border-b border-border">
-    {%- for slug, label, url in tabs %}
-    <a href="{{ url }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
-    {%- endfor %}
-  </nav>
+  {#- O que está filtrado (cada × tira um valor) e a trilha do detalhar por período. #}
+  {%- if chosen or drilled %}
+  <div class="flex flex-col gap-2 text-sm">
+    {%- if drilled %}
+    {%- set text, back_label, back_url = drilled %}
+    <p class="flex flex-wrap items-center gap-2"><span>{{ text }}</span> <a href="{{ back_url }}" class="inline-flex items-center gap-1 text-primary underline">{{ icon("arrow-left", "size-4") }} {{ back_label }}</a></p>
+    {%- endif %}
+    {%- if chosen %}
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-muted">{{ t("relatorios.filtradoPor") }}</span>
+      <ul class="flex flex-wrap items-center gap-2">
+        {%- for name, url in chosen %}
+        <li class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">{{ name }} <a href="{{ url }}" class="rounded-full p-0.5 text-muted hover:bg-border" aria-label="{{ t('relatorios.tirarFiltro', nome=name) }}" title="{{ t('relatorios.tirarFiltro', nome=name) }}">{{ icon("x", "size-4") }}</a></li>
+        {%- endfor %}
+      </ul>
+      <a href="{{ clear_url }}" class="text-primary underline">{{ t("relatorios.limparFiltros") }}</a>
+    </div>
+    {%- endif %}
+  </div>
+  {%- endif %}
 
   {%- if warning %}
   {{ alert(warning, "info") }}

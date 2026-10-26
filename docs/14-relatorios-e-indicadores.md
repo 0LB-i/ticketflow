@@ -106,7 +106,7 @@ O modelo guarda a **configuração**, nunca os números. Ao abrir, tudo é calcu
 - **Modelos prontos:** Produtividade, Clientes e Horas extras (os painéis da §14.7), Chamados (os indicadores da §14.3: contagens, tempos, reabertura, registrados e concluídos por semana, em aberto por idade e por status, e por grupo) e, quando existirem, os painéis da §14.4. Não podem ser apagados, mas dá para duplicar e ajustar.
 - **Modelo inicial:** cada pessoa escolhe qual modelo abre ao entrar em Relatórios.
 - **Versão da configuração:** a configuração guarda o número da versão do formato. Assim o formato pode mudar sem quebrar os modelos salvos.
-- **Na tela (fase 2):** os modelos prontos e os da pessoa são as abas de Relatórios. **Salvar como modelo** cria um modelo com os blocos da aba aberta e o período e os filtros da tela; **Editar modelo** muda o nome, o formato das horas, o modelo inicial e os blocos. O período e os filtros se ajustam na própria tela: num modelo da pessoa, mexer neles mostra **Salvar filtros**.
+- **Na tela (fase 2):** os modelos prontos e os da pessoa são as abas de Relatórios. **Salvar como modelo** cria um modelo com os blocos da aba aberta e o período e os filtros da tela; **Editar modelo** muda o nome, o formato das horas, o modelo inicial e os blocos. O período e os filtros se ajustam na própria tela: num modelo da pessoa, mexer neles mostra **Salvar filtros** e **Restaurar filtros salvos**. A tela resume o que está filtrado ("Filtrado por", cada valor com um × que o tira) e tem **Limpar filtros**, que mantém a aba e o período.
 - **Apagar:** é de verdade (nada aponta para um modelo), com confirmação. Até 50 modelos por pessoa, com nomes que não se repetem.
 
 ### 14.8.2 Filtros
@@ -141,7 +141,7 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 - **Sem linha de meta:** a §14.1 não tem metas.
 - **Tempos pela mediana:** a média aparece só como informação secundária (§14.1).
-- **Detalhar ao clicar:** clicar numa barra, coluna, ponto ou linha da tabela aplica aquele valor como filtro (a pessoa, o cliente, o grupo, o status, ou o dia, a semana ou o mês como período). Não aplicam: "Outros", as idades, alguém que a pessoa não pode filtrar e o status do em aberto (que é o do fim do período, e o filtro é o atual). Clicar num número de uma medida de chamado (cartão, célula ou total da tabela) abre a lista desses chamados dentro de Relatórios (`/relatorios/chamados`), com as mesmas regras do número, as colunas de cada tipo (§14.5) e o CSV; a lista de chamados do sistema não tem os filtros dos relatórios.
+- **Detalhar ao clicar:** clicar numa barra, coluna, ponto ou linha da tabela aplica aquele valor como filtro (a pessoa, o cliente, o grupo, o status, ou o dia, a semana ou o mês como período). Quando troca o período, a tela mostra o período detalhado e um link que volta ao de antes. Não aplicam: "Outros", as idades, alguém que a pessoa não pode filtrar e o status do em aberto (que é o do fim do período, e o filtro é o atual). Clicar num número de uma medida de chamado (cartão, célula ou total da tabela) abre a lista desses chamados dentro de Relatórios (`/relatorios/chamados`), com as mesmas regras do número, as colunas de cada tipo (§14.5) e o CSV; a lista de chamados do sistema não tem os filtros dos relatórios.
 - **Catálogo fechado:** as medidas e os agrupamentos são uma lista fixa no código, e cada item tem a sua consulta. Nada do que a pessoa escolhe vira SQL.
 
 ### 14.8.4 Exportação CSV
