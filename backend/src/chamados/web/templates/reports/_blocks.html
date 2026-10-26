@@ -113,6 +113,10 @@
           {%- if card.trend %}<span aria-hidden="true">{{ "▲" if card.trend == "up" else "▼" }}</span> <span class="sr-only">{{ t("relatorios.comparacao." ~ ("subiu" if card.trend == "up" else "caiu")) }}</span> {% endif -%}
           {{ t("relatorios.comparacao.antes", variacao=card.change, anterior=card.before) if card.change else t("relatorios.comparacao.soAntes", anterior=card.before) }}</dd>
         {%- endif %}
+        {%- if card.spark %}
+        {#- A tendência no período (reports_blocks._spark): sem eixo nem rótulos, só a linha. #}
+        <dd class="mt-2" aria-hidden="true"><svg viewBox="0 0 100 32" preserveAspectRatio="none" class="block h-8 w-full overflow-visible"><polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="{{ card.spark }}"/></svg></dd>
+        {%- endif %}
       </div>
       {%- endfor %}
     </dl>

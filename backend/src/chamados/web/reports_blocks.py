@@ -180,6 +180,18 @@ def _trend(measure: builder.Measure, now: builder.Value, before: builder.Value) 
     return {"trend": "up" if up else "down", "tone": tone}
 
 
+def _spark(values: list[builder.Value]) -> str | None:
+    """Os pontos da sparkline de um cartão (`points` de um polyline num viewBox de 100 × 32), de
+    zero ao maior valor; um dia sem base (a mediana de nada) fica sem ponto. Com menos de dois
+    pontos, nada."""
+    points = [(i, v) for i, v in enumerate(values) if v is not None]
+    if len(points) < 2:
+        return None
+    top = max(v for _, v in points) or 1
+    step = 100 / (len(values) - 1)
+    return " ".join(f"{i * step:.2f},{30 - v / top * 28:.2f}" for i, v in points)
+
+
 def _signed(page: LoggedPage, number: float, *, decimals: int = 1) -> str:
     text = f"{abs(number):.{decimals}f}"
     if decimals:
@@ -238,11 +250,8 @@ def block_view(
     `before`: os dados do período anterior, para a variação (cartões e tabelas) e a série de
     antes (colunas e linha por período); `page_number`: a página da lista de tarefas."""
     base = {**state.query, "aba": state.choice.slug}
-    weekly = (
-        block.visual in ("columns", "stacked", "line")
-        and block.dimension == "day"
-        and (f.end - f.start).days >= DAILY_LIMIT
-    )
+    long = (f.end - f.start).days >= DAILY_LIMIT
+    weekly = block.visual in ("columns", "stacked", "line") and block.dimension == "day" and long
     result = builder.run(data, block, f.start, f.end, dimension="week" if weekly else None)
     dimension = result.dimension
 
@@ -299,6 +308,8 @@ def block_view(
         )
     if block.visual == "cards":
         cards = []
+        # A tendência no período, por dia (por semana num período longo, como os gráficos).
+        trend = builder.trend(data, block, f.start, f.end, "week" if long else "day")
         for m in block.measures:
             fmt = formatter(page, config, m)
             card: dict[str, Any] = {
@@ -306,6 +317,7 @@ def block_view(
                 "value": fmt(result.total[m]),
             }
             card["href"] = tickets(m)
+            card["spark"] = _spark(trend[m]) if m in trend else None
             if previous is not None:
                 card["change"] = _change(page, m, result.total[m], previous.total[m])
                 card["before"] = fmt(previous.total[m])

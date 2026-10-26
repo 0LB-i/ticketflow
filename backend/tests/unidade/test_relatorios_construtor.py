@@ -25,6 +25,7 @@ from chamados.modules.reports.builder import (
     previous_period,
     relative_period,
     run,
+    trend,
 )
 from chamados.modules.reports.service import (
     GROUPS,
@@ -145,25 +146,42 @@ def test_por_pessoa_com_tarefas_e_chamados() -> None:
     assert cartoes.rows == [] and cartoes.total == {"opened": 1, "closed": 1}
 
 
+def test_tendencia_dos_cartoes() -> None:
+    """A sparkline de cada cartão: a medida por dia (ou semana), das mesmas somas e linhas dos
+    totais; o em aberto (o retrato do fim) fica de fora."""
+    segundo = INICIO + timedelta(days=1)
+    dados = _dados(
+        [_tarefa(ANA, 60, INICIO), _tarefa(BIA, 30, segundo), _tarefa(ANA, 15, segundo)],
+        concluidos=[_chamado(segundo, {ANA}, lead=120)],
+    )
+    bloco = Block(visual="cards", measures=["hours", "closed", "lead_time", "backlog"])
+    serie = trend(dados, bloco, INICIO, segundo, "day")
+    assert serie["hours"] == [60, 45] and serie["closed"] == [0, 1]
+    assert serie["lead_time"] == [None, 120]  # sem concluídos no dia, sem base
+    assert "backlog" not in serie
+    assert trend(dados, Block(visual="cards", measures=["backlog"]), INICIO, FIM, "day") == {}
+
+
 def test_cada_bloco_pede_so_o_que_usa() -> None:
     """`service.facts` só consulta o que os blocos usam: as somas das medidas que somam, por
-    agrupamento (o dia serve à semana e ao mês), e as linhas da lista, dos concluídos (a mediana)
-    e do em aberto. Uma parte ou uma soma que não veio é erro (não um zero)."""
+    agrupamento (o dia serve à semana e ao mês; nos cartões, à tendência, menos no em aberto), e
+    as linhas da lista, dos concluídos (a mediana) e do em aberto. Uma parte ou uma soma que não
+    veio é erro (não um zero)."""
     produtividade = needs(BUILTINS["produtividade"].blocks)
     assert produtividade.rows == set()
     assert produtividade.sums == {
         "hours": {"day", "person"},
-        "overtime": {"person"},
-        "tasks": {"person"},
-        "opened": set(),
-        "closed": {"person"},
+        "overtime": {"day", "person"},
+        "tasks": {"day", "person"},
+        "opened": {"day"},
+        "closed": {"day", "person"},
     }
     chamados = needs(BUILTINS["chamados"].blocks)
     assert chamados.rows == {"closed", "net_lead"}
     assert chamados.sums == {
         "opened": {"day", "team"},
         "closed": {"day", "team"},
-        "canceled": {"team"},
+        "canceled": {"day", "team"},
         "backlog": {"status", "team"},
     }
     assert needs([Block(visual="tasks", only_overtime=True)]).rows == {"overtime"}

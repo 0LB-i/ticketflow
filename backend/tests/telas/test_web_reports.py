@@ -1251,3 +1251,33 @@ def test_variacao_dos_cartoes(client: TestClient, cenario: dict[str, Any]) -> No
     # Sem variação (as tarefas: uma e uma), nem seta nem cor.
     tarefas = _variacao(r.text, "Tarefas")
     assert "text-muted" in tarefas and "sr-only" not in tarefas
+
+
+def _cartao(html: str, medida: str) -> str:
+    """Um cartão inteiro, do rótulo até o fim dele."""
+    achado = re.search(rf"<dt[^>]*>{medida}</dt>.*?</div>", html, re.S)
+    assert achado, medida
+    return achado.group(0)
+
+
+def test_sparkline_nos_cartoes(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Cada cartão tem a tendência da medida no período, só a linha (sem eixo nem rótulos, fora
+    do leitor de tela); o em aberto, que é o retrato do fim, e um período de um dia, não."""
+    segunda = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(segunda, 10))
+    tarefa(client, numero, 30, em(segunda + timedelta(days=1), 10))
+    dois_dias = {
+        "periodo": "personalizado",
+        "de": segunda.isoformat(),
+        "ate": (segunda + timedelta(days=1)).isoformat(),
+    }
+    r = client.get("/relatorios/blocos", params=dois_dias)
+    horas = _cartao(r.text, "Horas")
+    assert '<dd class="mt-2" aria-hidden="true"><svg viewBox="0 0 100 32"' in horas
+    assert 'class="stroke-chart-1"' in horas and 'points="0.00,2.00 100.00,16.00"' in horas
+    r = client.get("/relatorios/blocos", params={**dois_dias, "aba": "chamados"})
+    assert "<polyline" in _cartao(r.text, "Chamados registrados")
+    assert "<polyline" not in _cartao(r.text, "Em aberto no fim")
+    r = client.get("/relatorios/blocos", params=_um_dia(segunda))
+    assert "<polyline" not in _cartao(r.text, "Horas")

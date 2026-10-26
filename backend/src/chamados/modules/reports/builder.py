@@ -375,6 +375,8 @@ def needs(blocks: Iterable[Block]) -> Want:
                 groups = want.sums.setdefault(SUMS[m], set())
                 if group is not None:
                     groups.add(group)
+                elif block.visual == "cards" and m != "backlog":  # a tendência (`trend`)
+                    groups.add("day")
             else:
                 want.rows.add("closed")
                 if m == "net_lead_time":
@@ -475,6 +477,20 @@ def _label(data: Facts, dimension: Dimension, key: Key) -> str | None:
     if dimension == "team":
         return data.teams[key].name
     return data.statuses[key].name
+
+
+def trend(
+    data: Facts, block: Block, start: date, end: date, dimension: Dimension
+) -> dict[Measure, list[Value]]:
+    """A tendência de cada medida de um bloco de cartões no período (a sparkline), por dia ou por
+    semana, das mesmas somas e linhas dos totais. O em aberto fica de fora: é o retrato do fim,
+    e não se agrupa por período."""
+    measures = [m for m in block.measures if m != "backlog"]
+    if not measures:
+        return {}
+    by_time = block.model_copy(update={"measures": measures})
+    result = run(data, by_time, start, end, dimension=dimension)
+    return {m: [r.values[m] for r in result.rows] for m in measures}
 
 
 def run(
