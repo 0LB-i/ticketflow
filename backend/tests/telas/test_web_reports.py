@@ -18,14 +18,15 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
+from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.builder import relative_period
 from chamados.modules.reports.models import ReportModel
 from chamados.modules.system.models import SystemSetting
 from chamados.modules.tickets.models import Ticket
 from chamados.web.formatting import TIMEZONE, format_day, format_month
-from tests.apoio import API, dia_util_passado, em, formulario, registrar, tarefa
-from tests.conftest import criar_cliente, entrar
+from tests.apoio import API, dia_util_passado, em, formulario, registrar, status_id, tarefa
+from tests.conftest import criar_cliente, criar_usuario, entrar, outra_sessao
 
 
 def _um_dia(dia: date, **extra: str | list[str]) -> dict[str, str | list[str]]:
@@ -494,6 +495,65 @@ def test_chamados_em_aberto_e_detalhar(
     ).all()[-1]
     assert (registro.after or {})["table"] == "tickets"
     assert client.get("/relatorios/chamados", params=_um_dia(dia, medida="xyz")).status_code == 404
+
+
+def _registrado_ha_dias(
+    client: TestClient, cenario: dict[str, Any], db: Session, status: int
+) -> int:
+    """Um chamado registrado 3 dias antes, já no `status` (sem evento: como se fosse antigo)."""
+    numero: int = registrar(client, cenario)["number"]
+    db.execute(
+        update(Ticket)
+        .where(Ticket.number == numero)
+        .values(created_at=datetime.now(TIMEZONE) - timedelta(days=3), status_id=status)
+    )
+    db.commit()
+    return numero
+
+
+def test_em_aberto_no_fim_com_transferencia_depois(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    """A transferência volta o chamado para Pendente: o status de antes conta como o do fim."""
+    aguardando = int(status_id(client, "Aguardando cliente"))
+    numero = _registrado_ha_dias(client, cenario, db, aguardando)
+    r = client.post(
+        f"{API}/{numero}/transfer",
+        json={"team_id": cenario["infra"], "assignee_id": cenario["caio"], "reason": "Rede"},
+    )
+    assert r.status_code == 200, r.text
+
+    # A Ana deixou de ser responsável: quem vê é o admin.
+    admin = outra_sessao(client)
+    criar_usuario(db, "admin@x.com", "admin")
+    entrar(admin, "admin@x.com")
+    ontem = datetime.now(TIMEZONE).date() - timedelta(days=1)
+    r = admin.get("/relatorios/chamados", params=_um_dia(ontem, medida="backlog"))
+    assert f'href="/chamados/{numero}"' in r.text
+    assert '<td class="px-3 py-2">Aguardando cliente</td>' in r.text
+
+
+def test_em_aberto_no_fim_num_status_removido(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    """O status do fim do período foi removido depois: fica o nome da data da mudança."""
+    removido = TicketStatus(name="Esperando peças", kind="waiting", sort_order=99)
+    db.add(removido)
+    db.commit()
+    numero = _registrado_ha_dias(client, cenario, db, removido.id)
+    r = client.patch(f"{API}/{numero}", json={"status_id": int(status_id(client, "Pendente"))})
+    assert r.status_code == 200, r.text
+    admin = outra_sessao(client)
+    criar_usuario(db, "admin@x.com", "admin")
+    entrar(admin, "admin@x.com")
+    assert admin.delete(f"/api/v1/statuses/{removido.id}").status_code == 200
+
+    ontem = datetime.now(TIMEZONE).date() - timedelta(days=1)
+    r = client.get("/relatorios/chamados", params=_um_dia(ontem, medida="backlog"))
+    assert r.status_code == 200
+    assert '<td class="px-3 py-2">Esperando peças</td>' in r.text
+    r = client.get("/relatorios", params=_um_dia(ontem, aba="chamados"))
+    assert r.status_code == 200
 
 
 def test_comparar_e_detalhar_por_linha(client: TestClient, cenario: dict[str, Any]) -> None:

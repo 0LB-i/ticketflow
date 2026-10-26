@@ -7,16 +7,18 @@ filtro de visibilidade dos chamados (regra 1 da arquitetura).
 """
 
 import uuid
-from collections import defaultdict
-from collections.abc import Sequence
+from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
+from functools import lru_cache
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import ColumnElement, and_, not_, or_, select, true
-from sqlalchemy.dialects.postgresql import distinct_on
+from sqlalchemy import ColumnElement, and_, any_, bindparam, func, not_, or_, select, true
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from chamados.core.permissions import P, can
 from chamados.core.timezone import LOCAL_TZ
@@ -46,6 +48,11 @@ from chamados.modules.tickets.models import (
 from chamados.modules.tickets.visibility import assigned_to, ticket_visibility_filter
 
 TZ = LOCAL_TZ
+# Os relatórios só mostram o cliente pelo nome (`label`) e o filtram pelo id público: sem os
+# telefones, os e-mails e o endereço de cada um (são milhares nas opções do filtro).
+CLIENT_LABEL = load_only(
+    Client.public_id, Client.name, Client.trade_name, Client.city, Client.state
+)
 MAX_DAYS = 366
 
 
@@ -66,19 +73,24 @@ def outside_minutes(end: datetime, minutes: int, wh: WorkHours) -> int:
     """Minutos da tarefa fora do expediente. A tarefa vai de `end - minutes` até `end` (done_at
     é quando ela terminou), no horário da máquina."""
     begin = end - timedelta(minutes=minutes)
-    holidays = set(wh.holidays)
     inside = timedelta()
     day = begin.astimezone(TZ).date()
     while day <= end.astimezone(TZ).date():
-        if day.weekday() in wh.weekdays and day not in holidays:
-            # Em UTC: somar e subtrair datas no mesmo fuso do zoneinfo ignora a troca de horário.
-            w_start = datetime.combine(day, wh.start, TZ).astimezone(UTC)
-            w_end = datetime.combine(day, wh.end, TZ).astimezone(UTC)
+        if day.weekday() in wh.weekdays and day not in wh.holidays:
+            w_start, w_end = _work_window(day, wh.start, wh.end)
             overlap = min(end, w_end) - max(begin, w_start)
             if overlap > timedelta():
                 inside += overlap
         day += timedelta(days=1)
     return minutes - round(inside.total_seconds() / 60)
+
+
+@lru_cache(maxsize=1024)
+def _work_window(day: date, start: time, end: time) -> tuple[datetime, datetime]:
+    """O expediente do dia em UTC (somar e subtrair datas no mesmo fuso do zoneinfo ignora a
+    troca de horário). Em cache: num relatório de um ano, cada dia volta milhares de vezes."""
+    w_start = datetime.combine(day, start, TZ).astimezone(UTC)
+    return w_start, datetime.combine(day, end, TZ).astimezone(UTC)
 
 
 async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
@@ -95,7 +107,9 @@ async def options(db: AsyncSession, auth: Auth) -> ReportOptions:
                 ),
             )
         )
-    clients = sorted(await db.scalars(select(Client)), key=lambda c: c.label.casefold())
+    clients = sorted(
+        await db.scalars(select(Client).options(CLIENT_LABEL)), key=lambda c: c.label.casefold()
+    )
     return ReportOptions(
         teams=[
             Ref(id=t.public_id, name=t.name) for t in await db.scalars(teams.order_by(Team.name))
@@ -198,6 +212,15 @@ def _ticket_filters(auth: Auth, f: Filters) -> list[ColumnElement[bool]]:
     return conds
 
 
+def _among(column: Any, values: Iterable[int]) -> ColumnElement[bool]:
+    """`coluna = ANY(:valores)`: um parâmetro só. Num ano são dezenas de milhares de ids, e um
+    `IN` com um parâmetro para cada levava mais tempo montando a consulta do que rodando."""
+    among: ColumnElement[bool] = column == any_(
+        bindparam(None, list(values), type_=ARRAY(column.type))
+    )
+    return among
+
+
 def _own_or_supervised(auth: Auth, own: ColumnElement[bool]) -> ColumnElement[bool]:
     actor = auth.actor
     if can(actor, P.REPORT_VIEW_ALL):
@@ -227,6 +250,14 @@ class TaskFact:
 FINAL = ("closed", "canceled")
 # Tempo que não conta no líquido: esperando o cliente, ou concluído antes de ser reaberto.
 PAUSED = ("waiting", "closed", "canceled")
+
+# As mudanças de status no histórico: as do fluxo e do formulário e a da transferência, que leva
+# o chamado de volta a Aberto (com o "de" e o "para" em `status`).
+STATUS_CHANGED = or_(
+    TicketEvent.event_type == "ticket.status_changed",
+    and_(TicketEvent.event_type == "ticket.transferred", TicketEvent.payload.has_key("status")),
+)
+STATUS_CHANGE = func.coalesce(TicketEvent.payload["status"], TicketEvent.payload, type_=JSONB)
 
 
 @dataclass
@@ -384,16 +415,24 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
     status_at_end: dict[int, int] = {}
     if candidates:
         first_change = await db.execute(
-            select(TicketEvent.ticket_id, TicketEvent.payload["from"]["id"].as_integer())
+            select(
+                TicketEvent.ticket_id,
+                STATUS_CHANGE["from"]["id"].as_integer(),
+                STATUS_CHANGE["from"]["name"].as_string(),
+            )
             .where(
-                TicketEvent.event_type == "ticket.status_changed",
+                STATUS_CHANGED,
                 TicketEvent.created_at >= until,
-                TicketEvent.ticket_id.in_([r.id for r in candidates]),
+                _among(TicketEvent.ticket_id, [r.id for r in candidates]),
             )
             .ext(distinct_on(TicketEvent.ticket_id))
             .order_by(TicketEvent.ticket_id, TicketEvent.created_at)
         )
-        status_at_end = {ticket_id: status_id for ticket_id, status_id in first_change}
+        for ticket_id, status_id, name in first_change:
+            status_at_end[ticket_id] = status_id
+            # Removido depois: fica o nome da data da mudança (sem o comportamento, conta aberto).
+            if status_id not in statuses:
+                statuses[status_id] = TicketStatus(id=status_id, name=name, kind="")
     backlog = [
         r for r in candidates if kinds.get(status_at_end.get(r.id, r.status_id)) not in FINAL
     ]
@@ -405,13 +444,10 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
             select(
                 TicketEvent.ticket_id,
                 TicketEvent.created_at,
-                TicketEvent.payload["from"]["id"].as_integer(),
-                TicketEvent.payload["to"]["id"].as_integer(),
+                STATUS_CHANGE["from"]["id"].as_integer(),
+                STATUS_CHANGE["to"]["id"].as_integer(),
             )
-            .where(
-                TicketEvent.event_type == "ticket.status_changed",
-                TicketEvent.ticket_id.in_([r.id for r in closed]),
-            )
+            .where(STATUS_CHANGED, _among(TicketEvent.ticket_id, [r.id for r in closed]))
             .order_by(TicketEvent.ticket_id, TicketEvent.created_at)
         )
         for ticket_id, at, before, after in events:
@@ -425,7 +461,7 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
     if assignees:
         co = await db.execute(
             select(TicketCoAssignee.ticket_id, TicketCoAssignee.user_id).where(
-                TicketCoAssignee.ticket_id.in_(list(assignees))
+                _among(TicketCoAssignee.ticket_id, assignees)
             )
         )
         for ticket_id, user_id in co:
@@ -492,11 +528,14 @@ async def facts(db: AsyncSession, auth: Auth, f: Filters) -> Facts:
         closed=closed_facts,
         canceled=canceled_facts,
         backlog=backlog_facts,
-        users={u.id: u for u in await db.scalars(select(User).where(User.id.in_(user_ids)))},
+        users={u.id: u for u in await db.scalars(select(User).where(_among(User.id, user_ids)))},
         clients={
-            c.id: c for c in await db.scalars(select(Client).where(Client.id.in_(client_ids)))
+            c.id: c
+            for c in await db.scalars(
+                select(Client).where(_among(Client.id, client_ids)).options(CLIENT_LABEL)
+            )
         },
-        teams={t.id: t for t in await db.scalars(select(Team).where(Team.id.in_(team_ids)))},
+        teams={t.id: t for t in await db.scalars(select(Team).where(_among(Team.id, team_ids)))},
         statuses=statuses,
     )
 
@@ -527,7 +566,7 @@ async def client_tickets(db: AsyncSession, auth: Auth, data: Facts) -> list[Clie
         select(Ticket.id, Ticket.number, Ticket.title, Ticket.created_at, Ticket.closed_at)
         .add_columns(TicketStatus.name, TicketStatus.kind, Ticket.assignee_id)
         .join(TicketStatus, TicketStatus.id == Ticket.status_id)
-        .where(Ticket.number.in_(numbers), ticket_visibility_filter(auth.actor))
+        .where(_among(Ticket.number, numbers), ticket_visibility_filter(auth.actor))
         .order_by(Ticket.number)
     )
     tickets = rows.all()
@@ -536,7 +575,7 @@ async def client_tickets(db: AsyncSession, auth: Auth, data: Facts) -> list[Clie
         people[r.id].add(r.assignee_id)
     co = await db.execute(
         select(TicketCoAssignee.ticket_id, TicketCoAssignee.user_id).where(
-            TicketCoAssignee.ticket_id.in_([r.id for r in tickets])
+            _among(TicketCoAssignee.ticket_id, [r.id for r in tickets])
         )
     )
     for ticket_id, user_id in co:
@@ -544,7 +583,7 @@ async def client_tickets(db: AsyncSession, auth: Auth, data: Facts) -> list[Clie
     names = {
         u.id: u.display_name
         for u in await db.scalars(
-            select(User).where(User.id.in_({u for ids in people.values() for u in ids}))
+            select(User).where(_among(User.id, {u for ids in people.values() for u in ids}))
         )
     }
     return [
@@ -565,57 +604,31 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
     """Os números das telas prontas, da API e do PDF. `all_tasks`: também a lista de todas as
     tarefas (`Report.tasks`, para o CSV)."""
     data = await facts(db, auth, f)
-    people: dict[int, PersonRow] = {}
-    clients: dict[int | None, ClientRow] = {}
-    days = {
-        f.start + timedelta(days=i): DayRow(
-            date=f.start + timedelta(days=i), minutes=0, overtime_minutes=0
-        )
-        for i in range((f.end - f.start).days + 1)
-    }
+    # As somas em Counter, e os modelos só no fim: num ano são dezenas de milhares de tarefas, e
+    # cada `+=` num modelo do pydantic passa pela validação da atribuição.
+    people: dict[int, Counter[str]] = defaultdict(Counter)
+    clients: dict[int | None, Counter[str]] = defaultdict(Counter)
+    days = {f.start + timedelta(days=i): Counter[str]() for i in range((f.end - f.start).days + 1)}
     overtime_tasks: list[TaskRow] = []
     task_rows: list[TaskRow] = []
 
-    def person_row(user_id: int) -> PersonRow:
-        if user_id not in people:
-            user = data.users[user_id]
-            people[user_id] = PersonRow(
-                id=user.public_id,
-                name=user.display_name,
-                minutes=0,
-                overtime_minutes=0,
-                tasks=0,
-                tickets_closed=0,
-            )
-        return people[user_id]
-
-    def client_row(client_id: int | None) -> ClientRow:
-        if client_id not in clients:
-            client = data.clients.get(client_id) if client_id is not None else None
-            clients[client_id] = ClientRow(
-                id=client.public_id if client else None,
-                name=client.label if client else None,
-                minutes=0,
-                tickets_opened=0,
-                tickets_closed=0,
-            )
-        return clients[client_id]
+    def client_name(client_id: int | None) -> str | None:
+        return data.clients[client_id].label if client_id is not None else None
 
     for t in data.tasks:
-        p = person_row(t.author_id)
-        p.tasks += 1
-        p.minutes += t.minutes
-        p.overtime_minutes += t.overtime
-        client = client_row(t.client_id)
-        client.minutes += t.minutes
+        p = people[t.author_id]
+        p["tasks"] += 1
+        p["minutes"] += t.minutes
+        p["overtime_minutes"] += t.overtime
+        clients[t.client_id]["minutes"] += t.minutes
         day = days[t.day]
-        day.minutes += t.minutes
-        day.overtime_minutes += t.overtime
+        day["minutes"] += t.minutes
+        day["overtime_minutes"] += t.overtime
         if t.overtime or all_tasks:
             row = TaskRow(
                 ticket_number=t.ticket_number,
                 ticket_title=t.ticket_title,
-                client=client.name,
+                client=client_name(t.client_id),
                 person=data.users[t.author_id].display_name,
                 done_at=t.done_at,
                 minutes=t.minutes,
@@ -626,12 +639,33 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
             if all_tasks:
                 task_rows.append(row)
     for ticket in data.opened:
-        client_row(ticket.client_id).tickets_opened += 1
+        clients[ticket.client_id]["tickets_opened"] += 1
     for ticket in data.closed:
-        client_row(ticket.client_id).tickets_closed += 1
+        clients[ticket.client_id]["tickets_closed"] += 1
         for user_id in ticket.people:
-            person_row(user_id).tickets_closed += 1
+            people[user_id]["tickets_closed"] += 1
 
+    person_rows = [
+        PersonRow(
+            id=data.users[user_id].public_id,
+            name=data.users[user_id].display_name,
+            minutes=s["minutes"],
+            overtime_minutes=s["overtime_minutes"],
+            tasks=s["tasks"],
+            tickets_closed=s["tickets_closed"],
+        )
+        for user_id, s in people.items()
+    ]
+    client_rows = [
+        ClientRow(
+            id=data.clients[client_id].public_id if client_id is not None else None,
+            name=client_name(client_id),
+            minutes=s["minutes"],
+            tickets_opened=s["tickets_opened"],
+            tickets_closed=s["tickets_closed"],
+        )
+        for client_id, s in clients.items()
+    ]
     return Report(
         start=f.start,
         end=f.end,
@@ -643,12 +677,15 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
             tickets_opened=len(data.opened),
             tickets_closed=len(data.closed),
         ),
-        people=sorted(people.values(), key=lambda p: (-p.minutes, p.name)),
+        people=sorted(person_rows, key=lambda p: (-p.minutes, p.name)),
         clients=sorted(
-            clients.values(),
+            client_rows,
             key=lambda c: (-c.minutes, -c.tickets_opened, c.name is None, c.name or ""),
         ),
-        days=list(days.values()),
+        days=[
+            DayRow(date=d, minutes=s["minutes"], overtime_minutes=s["overtime_minutes"])
+            for d, s in days.items()
+        ],
         overtime_tasks=overtime_tasks,
         tasks=task_rows,
     )

@@ -103,10 +103,14 @@ def render(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
     def p(text: str, style: ParagraphStyle = body) -> Paragraph:
         return Paragraph(escape(text), style)
 
-    def table(head: list[str], rows: list[list[str]], widths: list[float]) -> Table | Paragraph:
+    def table(
+        head: list[str], rows: list[list[str | Paragraph]], widths: list[float]
+    ) -> Table | Paragraph:
+        """Só o texto que pode quebrar (nomes, títulos) vai como Paragraph; números e datas, como
+        texto simples, no mesmo corpo: um Paragraph por célula levava segundos num mês cheio."""
         if not rows:
             return p(t["empty"], muted)
-        data = [[p(h, muted) for h in head]] + [[p(c) for c in row] for row in rows]
+        data: list[list[str | Paragraph]] = [[p(h, muted) for h in head], *rows]
         tbl = Table(data, colWidths=widths, repeatRows=1)
         tbl.setStyle(
             TableStyle(
@@ -114,6 +118,8 @@ def render(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
                     ("BACKGROUND", (0, 0), (-1, 0), HEAD),
                     ("LINEBELOW", (0, 0), (-1, -1), 0.5, RULE),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("FONT", (0, 1), (-1, -1), body.fontName, body.fontSize, body.leading),
+                    ("TEXTCOLOR", (0, 1), (-1, -1), INK),
                 ]
             )
         )
@@ -160,7 +166,7 @@ def render(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
             [t["person"], t["hours"], t["overtime"], t["tasks"], t["closed"]],
             [
                 [
-                    r.name,
+                    p(r.name),
                     hours(r.minutes),
                     hours(r.overtime_minutes),
                     str(r.tasks),
@@ -175,7 +181,7 @@ def render(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
             [t["client"], t["hours"], t["opened"], t["closed"]],
             [
                 [
-                    r.name or t["no_client"],
+                    p(r.name or t["no_client"]),
                     hours(r.minutes),
                     str(r.tickets_opened),
                     str(r.tickets_closed),
@@ -190,8 +196,8 @@ def render(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
             [
                 [
                     _moment(r.done_at, locale),
-                    r.person,
-                    f"#{r.ticket_number} {r.ticket_title}",
+                    p(r.person),
+                    p(f"#{r.ticket_number} {r.ticket_title}"),
                     hours(r.minutes),
                     hours(r.overtime_minutes),
                 ]
