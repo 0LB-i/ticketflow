@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.reports import model_pdf
-from chamados.modules.reports.builder import relative_period
+from chamados.modules.reports.builder import previous_period, relative_period
 from chamados.modules.reports.models import ReportModel
 from chamados.modules.system.models import SystemSetting
 from chamados.modules.tickets.models import Ticket
@@ -219,7 +219,8 @@ def test_periodos_relativos(client: TestClient, cenario: dict[str, Any]) -> None
     assert f"De {format_day('pt-BR', inicio)} a {format_day('pt-BR', agora)}" in r.text
     assert _pdf(r.text, "csv")["start"] == [inicio.isoformat()]
     # As abas mantêm o período relativo (não as datas): o link continua valendo amanhã.
-    assert "periodo=ultimos-7-dias" in r.text and "de=" not in r.text
+    (aba,) = _links(r.text, "Produtividade")
+    assert "periodo=ultimos-7-dias" in aba and "de=" not in aba
 
 
 # --- modelos (docs/14 §14.8) -----------------------------------------------------------------
@@ -826,3 +827,86 @@ def test_filtros_pelo_htmx(client: TestClient, cenario: dict[str, Any], db: Sess
     )
     assert r.status_code == 200 and '<div id="relatorio"' in r.text
     assert "Filtrado por:" in r.text
+
+
+def _seta(html: str, qual: str) -> dict[str, list[str]] | None:
+    """A query da seta do período ("Período anterior" ou "Próximo período"); None: desativada."""
+    achado = re.search(rf'<a href="([^"]+)" hx-boost="true" [^>]*aria-label="{qual}:', html)
+    if achado is None:
+        assert re.search(rf'aria-disabled="true" [^>]*aria-label="{qual}:', html)
+        return None
+    return parse_qs(urlsplit(achado.group(1).replace("&amp;", "&")).query)
+
+
+def _datas(inicio: date, fim: date) -> dict[str, list[str]]:
+    return {"periodo": ["personalizado"], "de": [inicio.isoformat()], "ate": [fim.isoformat()]}
+
+
+def test_setas_do_periodo(client: TestClient, cenario: dict[str, Any]) -> None:
+    hoje = datetime.now(TIMEZONE).date()
+
+    def setas(**params: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+        html = client.get("/relatorios", params=params).text
+        um, outro = _seta(html, "Período anterior"), _seta(html, "Próximo período")
+        sem_aba = [{k: v for k, v in q.items() if k != "aba"} if q else None for q in (um, outro)]
+        return sem_aba[0], sem_aba[1]
+
+    # Mês: um mês da lista para cada lado; depois do mês atual, nada.
+    inicio, _ = relative_period("mes-anterior", hoje)
+    antes, depois = setas(periodo="mes-anterior")
+    assert antes == {"periodo": [f"{inicio - timedelta(days=1):%Y-%m}"]}
+    assert depois == {"periodo": [f"{hoje:%Y-%m}"]}
+    assert setas(periodo="mes-atual")[1] is None
+
+    # Trimestre: os três meses vizinhos, em datas.
+    inicio, fim = relative_period("trimestre-anterior", hoje)
+    antes, depois = setas(periodo="trimestre-anterior")
+    assert antes == _datas(*previous_period(inicio, fim))
+    assert depois == _datas(*relative_period("trimestre-atual", hoje))
+
+    # Últimos 30 dias: os 30 de antes; os seguintes ainda não chegaram.
+    antes, depois = setas(periodo="ultimos-30-dias")
+    assert antes == _datas(hoje - timedelta(days=59), hoje - timedelta(days=30))
+    assert depois is None
+
+    # Ano até hoje: as mesmas datas do ano anterior; e, dali, as do seguinte.
+    antes, depois = setas(periodo="ano-ate-hoje")
+    fim = hoje - timedelta(days=1) if (hoje.month, hoje.day) == (2, 29) else hoje
+    assert antes == _datas(date(hoje.year - 1, 1, 1), fim.replace(year=hoje.year - 1))
+    assert depois is None
+    antes, depois = setas(periodo="personalizado", de="2024-01-01", ate="2024-06-15")
+    assert antes == _datas(date(2023, 1, 1), date(2023, 6, 15))
+    assert depois == _datas(date(2025, 1, 1), date(2025, 6, 15))
+    # Os demais personalizados: o mesmo número de dias.
+    antes, depois = setas(periodo="personalizado", de="2025-03-10", ate="2025-03-16")
+    assert antes == _datas(date(2025, 3, 3), date(2025, 3, 9))
+    assert depois == _datas(date(2025, 3, 17), date(2025, 3, 23))
+
+    # Os filtros continuam; a trilha do detalhar, não.
+    html = client.get(
+        "/relatorios",
+        params=_um_dia(date(2025, 3, 10), cliente="sem-cliente", origem="mes-atual"),
+    ).text
+    seta = _seta(html, "Próximo período")
+    assert seta and seta["cliente"] == ["sem-cliente"] and "origem" not in seta
+    assert seta["de"] == ["2025-03-11"]
+    # Período inválido: sem setas.
+    html = client.get("/relatorios", params={"periodo": "personalizado", "de": "x"}).text
+    assert "Período anterior" not in html
+
+
+def test_atalhos_do_personalizado(client: TestClient, cenario: dict[str, Any]) -> None:
+    hoje = datetime.now(TIMEZONE).date()
+    assert "Atalhos:" not in client.get("/relatorios").text
+    r = client.get("/relatorios", params={"periodo": "personalizado"})
+    segunda = hoje - timedelta(days=hoje.weekday())
+    (semana,) = _links(r.text, "Esta semana")
+    assert parse_qs(urlsplit(semana).query)["de"] == [segunda.isoformat()]
+    (passada,) = _links(r.text, "Semana passada")
+    assert parse_qs(urlsplit(passada).query)["ate"] == [(segunda - timedelta(days=1)).isoformat()]
+    # Os meses inteiros são os da lista.
+    (mes,) = _links(r.text, "Este mês")
+    assert parse_qs(urlsplit(mes).query)["periodo"] == [f"{hoje:%Y-%m}"]
+    (anterior,) = _links(r.text, "Mês passado")
+    um_antes = hoje.replace(day=1) - timedelta(days=1)
+    assert parse_qs(urlsplit(anterior).query)["periodo"] == [f"{um_antes:%Y-%m}"]

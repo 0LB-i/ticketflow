@@ -25,6 +25,17 @@
 {%- if href %}<a href="{{ href }}"{% if boost %} hx-boost="true"{% endif %} class="hover:underline">{{ text }}</a>{% else %}{{ text }}{% endif -%}
 {%- endmacro %}
 
+{#- Uma seta do período: (intervalo, endereço); sem endereço (o próximo começaria depois de hoje),
+    desativada. #}
+{% macro step_link(step, name, key) -%}
+{%- set label, url = step %}
+{%- if url %}
+<a href="{{ url }}" hx-boost="true" class="shrink-0 rounded-md p-2 text-muted hover:bg-surface-raised hover:text-fg" aria-label="{{ t(key, intervalo=label) }}" title="{{ t(key, intervalo=label) }}">{{ icon(name, "size-5") }}</a>
+{%- else %}
+<span role="link" aria-disabled="true" class="shrink-0 p-2 text-muted opacity-40" aria-label="{{ t(key, intervalo=label) }}">{{ icon(name, "size-5") }}</span>
+{%- endif %}
+{%- endmacro %}
+
 {#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total
     ((texto, link) de cada coluna). #}
 {% macro table(caption, columns, empty, count, foot=None) -%}
@@ -124,7 +135,12 @@
     {%- endif %}
     <div class="flex flex-col gap-1">
       <label for="campo-periodo" class="font-medium">{{ t("relatorios.periodo") }}</label>
-      <select id="campo-periodo" name="periodo" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+      {#- As setas andam um período do mesmo tamanho. #}
+      <div class="flex items-center gap-1">
+      {%- if steps %}
+      {{ step_link(steps[0], "chevron-left", "relatorios.periodoAnterior") }}
+      {%- endif %}
+      <select id="campo-periodo" name="periodo" class="h-10 min-w-0 flex-1 rounded-md border border-border-input bg-surface px-3 text-fg">
         {%- for group, options in period_groups %}
         <optgroup label="{{ group }}">
           {%- for value, text in options %}
@@ -134,6 +150,10 @@
         {%- endfor %}
         <option value="personalizado"{% if period == "personalizado" %} selected{% endif %}>{{ t("relatorios.personalizado") }}</option>
       </select>
+      {%- if steps %}
+      {{ step_link(steps[1], "chevron-right", "relatorios.proximoPeriodo") }}
+      {%- endif %}
+      </div>
       {%- if interval %}
       <p class="text-sm text-muted">{{ interval }}</p>
       {%- endif %}
@@ -143,6 +163,12 @@
     {{ field("ate", t("relatorios.ate"), type="date", value=end, error=None if period_ok else t("relatorios.periodoInvalido")) }}
     {#- As datas não aplicam ao mudar (app.js): o botão ou o Enter. mt-7: na linha dos campos. #}
     <div><button type="submit" class="mt-7 {{ button_class('secondary') }}">{{ t("relatorios.aplicar") }}</button></div>
+    <div hx-boost="true" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:col-span-2 lg:col-span-4">
+      <span class="text-muted">{{ t("relatorios.atalhos.rotulo") }}</span>
+      {%- for label, url in shortcuts %}
+      <a href="{{ url }}" class="text-primary underline">{{ label }}</a>
+      {%- endfor %}
+    </div>
     {%- endif %}
     {#- Vários valores em etiquetas; nenhuma é "todos". #}
     {%- for name, label, options, selected, all_key in filters %}

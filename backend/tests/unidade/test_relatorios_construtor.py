@@ -21,6 +21,7 @@ from chamados.modules.reports.builder import (
     OTHERS,
     Block,
     check_block,
+    next_period,
     previous_period,
     relative_period,
     run,
@@ -378,6 +379,42 @@ def test_periodo_anterior() -> None:
         date(2026, 10, 11),
         date(2026, 10, 17),
     )
+
+
+def test_periodo_seguinte() -> None:
+    # Simétrico ao anterior: os meses seguintes (o trimestre, o seguinte), as mesmas datas do ano
+    # seguinte no ano até a data, os demais com o mesmo número de dias logo depois.
+    assert next_period(date(2026, 9, 1), date(2026, 9, 30)) == (
+        date(2026, 10, 1),
+        date(2026, 10, 31),
+    )
+    assert next_period(date(2026, 1, 31), date(2026, 1, 31)) == (date(2026, 2, 1), date(2026, 2, 1))
+    assert next_period(date(2025, 10, 1), date(2025, 12, 31)) == (
+        date(2026, 1, 1),
+        date(2026, 3, 31),
+    )
+    assert next_period(date(2025, 12, 1), date(2026, 1, 31)) == (
+        date(2026, 2, 1),
+        date(2026, 3, 31),
+    )
+    assert next_period(date(2025, 1, 1), date(2025, 10, 24), year_to_date=True) == (
+        date(2026, 1, 1),
+        date(2026, 10, 24),
+    )
+    assert next_period(date(2028, 1, 1), date(2028, 2, 29), year_to_date=True) == (
+        date(2029, 1, 1),
+        date(2029, 2, 28),
+    )
+    assert next_period(date(2026, 9, 27), date(2026, 10, 26)) == (
+        date(2026, 10, 27),
+        date(2026, 11, 25),
+    )
+    # Ida e volta.
+    for inicio, fim in [
+        (date(2026, 10, 1), date(2026, 10, 31)),
+        (date(2026, 9, 27), date(2026, 10, 26)),
+    ]:
+        assert previous_period(*next_period(inicio, fim)) == (inicio, fim)
 
 
 def test_csv_dos_chamados_e_da_porcentagem() -> None:

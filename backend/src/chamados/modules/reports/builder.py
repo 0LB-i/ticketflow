@@ -266,6 +266,21 @@ def previous_period(start: date, end: date, *, year_to_date: bool = False) -> tu
     return start - timedelta(days=length), start - timedelta(days=1)
 
 
+def next_period(start: date, end: date, *, year_to_date: bool = False) -> tuple[date, date]:
+    """O período seguinte (as setas da tela), simétrico ao `previous_period`: as mesmas datas do
+    ano seguinte, os meses seguintes ou o mesmo número de dias logo depois."""
+    if year_to_date:
+        last = end - timedelta(days=1) if (end.month, end.day) == (2, 29) else end
+        return start.replace(year=start.year + 1), last.replace(year=end.year + 1)
+    after = end + timedelta(days=1)
+    if start.day == 1 and after.day == 1:
+        months = (after.year - start.year) * 12 + after.month - start.month
+        index = after.year * 12 + after.month - 1 + months
+        return after, date(index // 12, index % 12 + 1, 1) - timedelta(days=1)
+    length = (end - start).days + 1
+    return after, end + timedelta(days=length)
+
+
 def relative_period(slug: str, today: date) -> tuple[date, date]:
     """O início e o fim (incluído) de um período de RELATIVE. O mês e o trimestre vão até o
     último dia, como os meses da lista da tela; os demais terminam hoje."""

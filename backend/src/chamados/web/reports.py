@@ -10,7 +10,7 @@ reports_downloads.py e o editor de modelos em reports_editor.py.
 """
 
 from dataclasses import replace
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter
@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse
 
 from chamados.db.session import DB
 from chamados.modules.reports import builder, service
+from chamados.modules.reports.builder import CUSTOM
 from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPageDep
 from chamados.web.reports_blocks import block_view, client_preview, uses_overtime
@@ -167,7 +168,56 @@ async def reports_page(
         )
 
     today = datetime.now(TIMEZONE).date()
+    months = last_months(page.locale, today)
     start, end = state.start, state.end
+
+    def period_url(first: date, last: date) -> str:
+        """O endereço de um período: um mês da lista ou o personalizado."""
+        month = next((m for m in months if (m.start, m.end) == (first, last)), None)
+        period: dict[str, str | None]
+        if month is None:
+            period = {"periodo": CUSTOM, "de": first.isoformat(), "ate": last.isoformat()}
+        else:
+            period = {"periodo": month.value, "de": None, "ate": None}
+        return with_query("/relatorios", {**here, "origem": None, **period})
+
+    def interval(first: date, last: date) -> str:
+        return page.t(
+            "relatorios.intervalo",
+            de=format_day(page.locale, first),
+            ate=format_day(page.locale, last),
+        )
+
+    # As setas andam um período do mesmo tamanho (o mês, o trimestre, os N dias). No "ano até
+    # hoje", e num personalizado de 1º de janeiro até um dia do mesmo ano (que não seja o fim de
+    # um mês: aí são meses inteiros), as mesmas datas do ano vizinho. Não vão além de hoje.
+    steps = None
+    if start and end and start <= end:
+        year_to_date = state.period == "ano-ate-hoje" or (
+            state.period == CUSTOM
+            and (start.month, start.day) == (1, 1)
+            and end.year == start.year
+            and (end + timedelta(days=1)).day != 1
+        )
+        earlier = builder.previous_period(start, end, year_to_date=year_to_date)
+        later = builder.next_period(start, end, year_to_date=year_to_date)
+        steps = (
+            (interval(*earlier), period_url(*earlier)),
+            (interval(*later), period_url(*later) if later[0] <= today else None),
+        )
+
+    # Atalhos do personalizado: as semanas (segunda a domingo) e os meses, inteiros.
+    monday = today - timedelta(days=today.weekday())
+    shortcuts = [
+        (page.t(f"relatorios.atalhos.{key}"), period_url(first, last))
+        for key, (first, last) in (
+            ("estaSemana", (monday, monday + timedelta(days=6))),
+            ("semanaPassada", (monday - timedelta(days=7), monday - timedelta(days=1))),
+            ("esteMes", (months[0].start, months[0].end)),
+            ("mesPassado", (months[1].start, months[1].end)),
+        )
+    ]
+
     return page.render(
         "reports/index.html",
         tabs=tabs,
@@ -181,12 +231,14 @@ async def reports_page(
             ),
             (
                 page.t("relatorios.meses"),
-                [(m.value, m.label) for m in last_months(page.locale, today)],
+                [(m.value, m.label) for m in months],
             ),
         ],
         start=state.start_text,
         end=state.end_text,
         period_ok=bool(start and end and start <= end),
+        steps=steps,
+        shortcuts=shortcuts,
         # O intervalo de um período relativo ou de um mês (que não aparece nos campos de data)
         # e o de comparação.
         interval=interval_text(page, state),
