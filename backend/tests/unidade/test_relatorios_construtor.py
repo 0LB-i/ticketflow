@@ -24,11 +24,13 @@ from chamados.modules.reports.builder import (
     STACKED,
     VISUALS,
     Block,
+    FilterSpec,
     PeriodSpec,
     check_block,
     comparison_period,
     dimensions_for,
     measures_for,
+    narrow,
     needs,
     next_period,
     previous_period,
@@ -919,3 +921,20 @@ def test_csv_dos_chamados_e_da_porcentagem() -> None:
     bloco = Block(visual="table", dimension="person", measures=["reopen_rate", "lead_time"])
     linhas = _csv(csv_export.render_block(dados, run(dados, bloco, INICIO, FIM), "pt-BR"))
     assert linhas[1] == ["Ana", "100,0", "1,50", "90"]
+
+
+def test_filtro_do_bloco_restringe_o_da_tela() -> None:
+    """Campo a campo: com valores nos dois, a interseção; só num, esse; nada em comum, o campo
+    que não combina (o bloco não consulta). O "sem cliente" é um valor do cliente."""
+    a, b, c = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    tela = FilterSpec(teams=[a, b], clients=[c], statuses=[1])
+    filtro, campos = narrow(tela, FilterSpec(teams=[b], people=[a], no_client=True, statuses=[1]))
+    assert filtro == FilterSpec(teams=[b], people=[a], statuses=[1])
+    assert campos == ["clients"]
+    filtro, campos = narrow(FilterSpec(no_client=True, clients=[c]), FilterSpec(no_client=True))
+    assert filtro == FilterSpec(no_client=True) and campos == []
+    assert narrow(FilterSpec(), FilterSpec(statuses=[3])) == (FilterSpec(statuses=[3]), [])
+    assert narrow(tela, FilterSpec()) == (tela, [])
+    # Um modelo salvo antes do filtro e do período do bloco abre com os da tela.
+    bloco = Block.model_validate({"visual": "cards", "measures": ["hours"]})
+    assert bloco.period is None and bloco.filters is None

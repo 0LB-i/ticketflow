@@ -591,7 +591,12 @@
       "area": "Fill the area under the line",
       "medidaBarras": "Bar measure",
       "medidaLinha": "Line measure",
-      "grande": "Big number (with the change and the trend)"
+      "grande": "Big number (with the change and the trend)",
+      "periodo": "Block period",
+      "periodoDaTela": "The page's",
+      "filtroDoBloco": "Block filter",
+      "filtroDoBlocoAjuda": "Narrows the page's filter: with values in both, what they have in common applies; with none here, the page's applies.",
+      "comoNaTela": "Same as the page"
     },
     "idades": {
       "0": "up to 1 day",
@@ -665,7 +670,9 @@
       "periodo": "Period: {de} to {ate}",
       "gerado": "Generated on {quando} by {quem}",
       "comparado": "Compared with {de} to {ate}"
-    }
+    },
+    "filtroNaoCombina": "This block's filter ({filtro}) doesn't match the page's.",
+    "filtroDoBlocoInvalido": "Parts of this block’s filter no longer apply to you and were left out: {filtros}."
   },
   "expediente": {
     "titulo": "Working hours",

@@ -6,7 +6,7 @@
     (Salvar filtros). -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, button_class, checkbox, field with context %}
-{% from "_fields.html" import dialog with context %}
+{% from "_fields.html" import chips, client_chips, dialog with context %}
 {% from "_icons.html" import icon %}
 {% from "reports/_blocks.html" import block with context %}
 
@@ -93,6 +93,11 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {%- if b.visual == "combo" %}
         {{ select("b" ~ i ~ "-medida2", t("relatorios.editor.medidaLinha"), partner_options[i], b.measures[1] if b.measures | length > 1 else "", refresh("atualizar", "change")) }}
         {%- endif %}
+        {#- O período próprio do bloco (vazio: o da tela), com os N dias no "ultimos-n-dias". #}
+        {{ select("b" ~ i ~ "-periodo", t("relatorios.editor.periodo"), period_options, b.period.kind if b.period else "", refresh("atualizar", "change")) }}
+        {%- if b.period and b.period.kind == "ultimos-n-dias" %}
+        <div {{ refresh("atualizar", "change") }}>{{ field("b" ~ i ~ "-dias", t("relatorios.dias"), type="number", value=b.period.days, min="1", max="366", step="1", inputmode="numeric") }}</div>
+        {%- endif %}
         {%- if b.visual in ("bars", "columns", "stacked", "table") and b.dimension in categories %}
         <div {{ refresh("atualizar", "change") }}>{{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}</div>
         {{ select("b" ~ i ~ "-ordem", t("relatorios.editor.ordem"), order_options, b.order, refresh("atualizar", "change")) }}
@@ -132,6 +137,23 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
       {%- elif b.visual == "tasks" %}
       <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-extras", t("relatorios.editor.soExtras"), checked=b.only_overtime, id="campo-b" ~ i ~ "-extras") }}</div>
       {%- endif %}
+      {#- O filtro próprio do bloco: as etiquetas da tela; só restringe o filtro dela, campo a
+          campo. Pôr ou tirar uma etiqueta refaz o formulário (o evento "etiquetas" do chamado.js). #}
+      <details class="rounded-md border border-border p-3"{% if b.filters %} open{% endif %}>
+        <summary class="cursor-pointer font-medium">{{ t("relatorios.editor.filtroDoBloco") }}</summary>
+        <p class="mt-2 text-muted">{{ t("relatorios.editor.filtroDoBlocoAjuda") }}</p>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2" {{ refresh("atualizar", "etiquetas") }}>
+          {%- for name, options, names in block_filters %}
+          {%- set selected = chosen[i][name] %}
+          {%- set placeholder = t("relatorios.adicionar") if selected else t("relatorios.editor.comoNaTela") %}
+          {%- if options is none %}
+          {{ client_chips("b" ~ i ~ "-" ~ name, t("relatorios." ~ name), selected, names, placeholder, "relatorios.tirarFiltro", "/relatorios/clientes") }}
+          {%- else %}
+          {{ chips("b" ~ i ~ "-" ~ name, t("relatorios." ~ name), options, selected, names, placeholder, "relatorios.tirarFiltro") }}
+          {%- endif %}
+          {%- endfor %}
+        </div>
+      </details>
       {#- A prévia, com o mesmo bloco da tela; os links não saem do editor (inert). #}
       {%- if previews.blocks %}
       {%- set preview = previews.blocks[i] %}

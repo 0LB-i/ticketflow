@@ -5,7 +5,6 @@ auditoria (`report.exported`).
 """
 
 import base64
-from dataclasses import replace
 from datetime import datetime
 from typing import Any, cast
 
@@ -23,14 +22,12 @@ from chamados.web.formatting import TIMEZONE, format_date, format_datetime, form
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.palette import palette
 from chamados.web.reports_blocks import (
-    COMPARED,
     LISTED,
     Format,
     Point,
     block_view,
     client_preview,
-    compared,
-    compares,
+    scopes,
 )
 from chamados.web.reports_state import ParamsDep, State, interval_text, load_state, with_query
 
@@ -49,7 +46,11 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
     blocks: list[model_pdf.Block] = []
     for v in views:
         visual = v["visual"]
-        if visual == "cards":
+        # O período e o filtro próprios do bloco, quando ele tem, debaixo do título.
+        subtitle = v["period"] if v["own"] else ""
+        if "message" in v:  # o filtro do bloco não combina com o da tela
+            blocks.append(model_pdf.Grid(v["title"], [], [], empty=v["message"], subtitle=subtitle))
+        elif visual == "cards":
             items = []
             for card in v["cards"]:
                 note = ""
@@ -66,7 +67,9 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                 if card.get("hint"):
                     note = f"{note} · {card['hint']}" if note else card["hint"]
                 items.append((card["label"], card["value"], note))
-            blocks.append(model_pdf.Cards(v["title"], items, big=v.get("big", False)))
+            blocks.append(
+                model_pdf.Cards(v["title"], items, big=v.get("big", False), subtitle=subtitle)
+            )
         elif visual in CHARTS:
             fmt = v["fmt"]
             blocks.append(
@@ -80,6 +83,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     before=[p.before for p in v["points"]] if "legend" in v else [],
                     reference=v.get("reference"),
                     area=v.get("area", False),
+                    subtitle=subtitle,
                 )
             )
         elif visual == "heatmap":
@@ -90,6 +94,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     [(short, [c["level"] for c in cells]) for short, _, cells in v["days"]],
                     v["legend"],
                     empty=v["empty"],
+                    subtitle=subtitle,
                 )
             )
         elif visual == "table":
@@ -106,6 +111,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     total=[text for text, _ in v["total"]],
                     total_label=page.t("relatorios.total"),
                     empty=page.t("relatorios.nada"),
+                    subtitle=subtitle,
                 )
             )
         else:
@@ -128,6 +134,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     note=page.t("relatorios.listaCortada", n=len(v["tasks"]), total=v["count"])
                     if v["count"] > len(v["tasks"])
                     else "",
+                    subtitle=subtitle,
                 )
             )
     return blocks
@@ -185,23 +192,13 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         )
         table = "client"
     else:
-        data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
-        before = None
-        if (compared_period := state.comparison()) and compares(config):
-            first, last = compared_period
-            before = await service.facts(
-                db,
-                page.auth,
-                replace(f, start=first, end=last),
-                builder.needs(compared(config)),
-                state.lookups,
-            )
+        found = await scopes(page, db, state, config.blocks)
         views = [
-            block_view(page, state, f, config, data, block, i, before)
-            for i, block in enumerate(config.blocks)
+            block_view(page, state, config, block, i, scope)
+            for i, (block, scope) in enumerate(zip(config.blocks, found, strict=True))
         ]
         lines = [period]
-        if compared_period:
+        if compared_period := state.comparison():
             first, last = compared_period
             lines.append(
                 page.t(
@@ -252,18 +249,19 @@ async def block_csv(
     if not 0 <= bloco < len(config.blocks):
         raise HTTPException(404)
     block = config.blocks[bloco]
-    data = await service.facts(db, page.auth, f, builder.needs([block]), state.lookups)
-    result = builder.run(data, block, f.start, f.end)
+    # O período e os filtros do bloco (os próprios, quando ele tem), como na tela.
+    (scope,) = await scopes(page, db, state, [block])
+    if scope.filters is None or scope.data is None:
+        raise HTTPException(422, "Não foi possível gerar o CSV com estes filtros.")
+    f = scope.filters
+    result = builder.run(scope.data, block, f.start, f.end)
     # Com a comparação, o bloco no período comparado, como na tela (sem a lista de tarefas e
     # sem as barras e as empilhadas, que não comparam).
     previous = None
-    if (compared_period := state.comparison()) and block.visual in COMPARED:
-        first, last = compared_period
-        before = await service.facts(
-            db, page.auth, replace(f, start=first, end=last), builder.needs([block]), state.lookups
-        )
-        previous = builder.run(before, block, first, last)
-    content = csv_export.render_block(data, result, cast(Locale, page.locale), previous)
+    if scope.before is not None and scope.comparison:
+        first, last = scope.comparison
+        previous = builder.run(scope.before, block, first, last)
+    content = csv_export.render_block(scope.data, result, cast(Locale, page.locale), previous)
     reports_api.record_export(
         db, page.request, page.auth, f, format="csv", table="block", model=state.choice.name
     )

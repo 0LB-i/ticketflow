@@ -1850,3 +1850,151 @@ def test_numero_grande(client: TestClient, cenario: dict[str, Any]) -> None:
     )
     r = client.post("/relatorios/modelos", data=dados)
     assert 'name="b0-grande"' not in r.text and "text-5xl" not in r.text
+
+
+# --- extensão: ajustes por bloco (docs/14 §14.8.3) -------------------------------------------
+
+
+def _bloco(html: str, i: int) -> str:
+    """O cartão inteiro de um bloco da tela, pelo id."""
+    achado = re.search(rf'id="bloco-{i}".*?</(?:section|figure)>', html, re.S)
+    assert achado, f"sem o bloco {i}"
+    return achado.group(0)
+
+
+def test_filtro_e_periodo_do_bloco(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O filtro do bloco só restringe o da tela (a interseção campo a campo; sem nada em comum,
+    o bloco avisa e não consulta); o período do bloco é um relativo que as setas não mexem. Os
+    dados vêm uma vez por grupo de blocos com o mesmo período e os mesmos filtros."""
+    from chamados.modules.reports import service
+
+    dia = dia_util_passado()  # a segunda da semana passada
+    tarefa(client, registrar(client, cenario)["number"], 60, em(dia, 10))  # a Ana
+    entrar(client, "bia@x.com")  # a supervisora do TI vê as duas
+    tarefa(client, registrar(client, cenario)["number"], 30, em(dia, 11))
+    ana = cenario["ana"]
+    campos = {
+        "blocos": "4",
+        "b0-visual": "cards",
+        "b0-medidas": "hours",
+        "b1-visual": "cards",
+        "b1-medidas": "hours",
+        "b1-pessoa": ana,
+        "b2-visual": "cards",
+        "b2-medidas": "hours",
+        "b2-periodo": "semana-anterior",
+        "b2-pessoa": ana,
+        "b3-visual": "table",
+        "b3-agrupar": "person",
+        "b3-medidas": ["hours", "closed"],
+        "b3-periodo": "semana-anterior",
+        "b3-pessoa": ana,
+    }
+    modelo = _criar(client, "Por bloco", **campos)
+    config = db.scalar(select(ReportModel.config).where(ReportModel.name == "Por bloco"))
+    assert config is not None and config["version"] == 2
+    assert config["blocks"][1]["filters"]["people"] == [ana]
+    assert config["blocks"][2]["period"] == {"kind": "semana-anterior", "days": None}
+
+    facts = service.facts
+    chamadas: list[Any] = []
+
+    async def contar(*args: Any, **kwargs: Any) -> Any:
+        chamadas.append(args)
+        return await facts(*args, **kwargs)
+
+    monkeypatch.setattr(service, "facts", contar)
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
+    # Quatro blocos, três grupos: o da tela, o da Ana e o da semana anterior com a Ana.
+    assert len(chamadas) == 3
+    assert ">1h30</dd>" in _bloco(r.text, 0)
+    assert ">1h</dd>" in _bloco(r.text, 1) and "Pessoa: Ana" in _bloco(r.text, 1)
+    assert "Semana anterior · De " in _bloco(r.text, 2) and ">1h</dd>" in _bloco(r.text, 2)
+    # O detalhar e a lista de chamados do bloco levam o período e o filtro dele.
+    tabela = _bloco(r.text, 3)
+    linha = re.search(r'<a href="(/relatorios\?[^"]+)" hx-boost="true"[^>]*>Ana</a>', tabela)
+    assert linha
+    query = parse_qs(urlsplit(linha.group(1).replace("&amp;", "&")).query)
+    assert query["periodo"] == ["semana-anterior"] and query["pessoa"] == [ana]
+    assert "de" not in query
+    lista = re.search(r'href="(/relatorios/chamados\?[^"]+)"', tabela)
+    assert (
+        lista and "periodo=semana-anterior" in lista.group(1) and f"pessoa={ana}" in lista.group(1)
+    )
+
+    # Hoje só: o bloco com o período da semana anterior continua com ela.
+    hoje = datetime.now(TIMEZONE).date()
+    r = client.get("/relatorios/blocos", params=_um_dia(hoje, aba=modelo))
+    assert ">0min</dd>" in _bloco(r.text, 0) and ">1h</dd>" in _bloco(r.text, 2)
+
+    # A tela com a Bia: o filtro da Ana não tem nada em comum, e o bloco não consulta.
+    chamadas.clear()
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo, pessoa=cenario["bia"]))
+    assert "O filtro deste bloco (Pessoa: Ana) não combina com o da tela." in _bloco(r.text, 1)
+    assert len(chamadas) == 1  # só o b0: os outros não consultam
+    # As duas na tela: vale a Ana.
+    r = client.get(
+        "/relatorios/blocos", params=_um_dia(dia, aba=modelo, pessoa=[ana, cenario["bia"]])
+    )
+    assert ">1h</dd>" in _bloco(r.text, 1)
+
+    # O CSV e o PDF do bloco usam o mesmo filtro e o mesmo período.
+    monkeypatch.setattr(service, "facts", facts)
+    r = client.get("/relatorios/csv", params=_um_dia(hoje, aba=modelo, bloco="3"))
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[1][:3] == ["Ana", "1,00", "60"]
+    pdf = _capturar(monkeypatch, "render_model")
+    client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo, pessoa=cenario["bia"]))
+    blocos = pdf[0][2]
+    assert blocos[0].subtitle == "" and blocos[1].subtitle == "Pessoa: Ana"
+    assert blocos[1].empty == "O filtro deste bloco (Pessoa: Ana) não combina com o da tela."
+    assert blocos[2].subtitle == "Semana anterior · Pessoa: Ana"
+
+    # Um grupo que saiu do alcance fica de fora, com o aviso (o bloco mostra o resto).
+    config["blocks"][1]["filters"]["teams"] = [cenario["infra"]]
+    db.execute(update(ReportModel).where(ReportModel.name == "Por bloco").values(config=config))
+    db.commit()
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
+    assert "ficaram de fora: Grupo." in _bloco(r.text, 1) and ">1h</dd>" in _bloco(r.text, 1)
+
+
+def test_filtro_do_bloco_no_editor(client: TestClient, cenario: dict[str, Any]) -> None:
+    """O editor oferece o período e as etiquetas do filtro em cada bloco, e a prévia os usa; um
+    filtro fora do alcance da pessoa não se salva."""
+    dia = dia_util_passado()
+    tarefa(client, registrar(client, cenario)["number"], 60, em(dia, 10))
+    campos = {"blocos": "1", "b0-visual": "cards", "b0-medidas": "hours"}
+    dados = formulario(client, nome="X", horas="hm", acao="atualizar", **campos)
+    datas = {k: v[0] for k, v in _datas(dia, dia).items()}
+    r = client.post("/relatorios/modelos", data={**dados, **datas})
+    assert '<summary class="cursor-pointer font-medium">Filtro do bloco</summary>' in r.text
+    assert 'id="campo-b0-status"' in r.text and 'id="campo-b0-cliente"' in r.text
+    assert 'hx-trigger="etiquetas"' in r.text
+    assert '<option value="" selected>O da tela</option>' in r.text
+    assert '<details class="rounded-md border border-border p-3">' in r.text  # recolhido
+    # Um status que não combina: a prévia avisa; os últimos N dias levam os dias.
+    aberto = str(status_id(client, "Pendente"))
+    fechado = str(status_id(client, "Concluído"))
+    r = client.post(
+        "/relatorios/modelos",
+        data={
+            **dados,
+            **datas,
+            "status": aberto,
+            "b0-status": fechado,
+            "b0-periodo": "ultimos-n-dias",
+            "b0-dias": "²",
+        },
+    )
+    assert "não combina com o da tela" in r.text
+    assert '<details class="rounded-md border border-border p-3" open>' in r.text
+    assert 'name="b0-dias"' in r.text and 'value="30"' in r.text  # "²" volta ao padrão
+    # Um valor fora da lista fechada vira o da tela.
+    r = client.post("/relatorios/modelos", data={**dados, **datas, "b0-periodo": "sempre"})
+    assert '<option value="" selected>O da tela</option>' in r.text
+    # A Ana não supervisiona: um grupo no filtro do bloco não se salva.
+    salvar = {**dados, "acao": "salvar", "b0-grupo": cenario["infra"]}
+    r = client.post("/relatorios/modelos", data=salvar)
+    assert r.status_code == 422 and "Você não tem permissão para esta ação." in r.text

@@ -8,6 +8,7 @@ filtros da tela, em campos escondidos. Cada bloco mostra a prévia, calculada co
 
 import uuid
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -20,17 +21,30 @@ from chamados.modules.reports.builder import (
     BUILTINS,
     CATEGORIES,
     CHARTS,
+    DEFAULT_DAYS,
+    LAST_DAYS,
     REFERENCED,
     Block,
+    BlockPeriod,
     FilterSpec,
     PeriodSpec,
     ReportConfig,
 )
 from chamados.modules.reports.models import ReportModel
-from chamados.web.formatting import format_day
+from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
-from chamados.web.reports_blocks import block_title, block_view
-from chamados.web.reports_state import Params, ParamsDep, form_params, load_state, with_query
+from chamados.web.reports_blocks import block_title, block_view, scopes
+from chamados.web.reports_state import (
+    NO_CLIENT,
+    RELATIVE_KEYS,
+    Params,
+    ParamsDep,
+    form_params,
+    load_state,
+    parse_days,
+    parse_uuids,
+    with_query,
+)
 
 router = APIRouter()
 
@@ -109,6 +123,24 @@ def _read_block(form: FormData, i: int) -> Block:
         measures = [single]
     top = one("maiores")
     order = one("ordem")
+    # O período próprio: um relativo da lista (vazio é o da tela), com os N dias no
+    # "ultimos-n-dias"; o filtro próprio, as etiquetas (sem nenhuma, o da tela).
+    kind = next((k for k in builder.RELATIVE if k == one("periodo")), None)
+    period = None
+    if kind is not None:
+        days = (parse_days(one("dias")) or DEFAULT_DAYS) if kind == LAST_DAYS else None
+        period = BlockPeriod(kind=kind, days=days)
+
+    def many(name: str) -> list[str]:
+        return [v for v in form.getlist(f"b{i}-{name}") if isinstance(v, str)]
+
+    own = FilterSpec(
+        teams=parse_uuids(many("grupo")),
+        people=parse_uuids(many("pessoa")),
+        clients=parse_uuids(many("cliente")),
+        no_client=NO_CLIENT in many("cliente"),
+        statuses=list(dict.fromkeys(int(v) for v in many("status") if v.isascii() and v.isdigit())),
+    )
     return Block(
         visual=visual,
         title=one("titulo")[:120],
@@ -127,6 +159,8 @@ def _read_block(form: FormData, i: int) -> Block:
             (r for r in ("mean", "median") if r == one("referencia") and visual in REFERENCED),
             "none",
         ),
+        period=period,
+        filters=own if own != FilterSpec() else None,
     )
 
 
@@ -182,7 +216,6 @@ async def _previews(page: LoggedPage, db: DB, editor: EditorForm, params: Params
     if f is None:
         message = state.error or page.t("relatorios.periodoInvalido")
         return Previews([message] * len(editor.blocks))
-    data = await service.facts(db, page.auth, f, builder.needs(editor.blocks), state.lookups)
     # Só o formato das horas importa para formatar; os blocos podem ainda não valer.
     hours: Literal["hm", "decimal"] = "decimal" if editor.hours == "decimal" else "hm"
     config = ReportConfig.model_construct(hours=hours, blocks=editor.blocks)
@@ -193,18 +226,25 @@ async def _previews(page: LoggedPage, db: DB, editor: EditorForm, params: Params
             ate=format_day(page.locale, f.end),
         )
     )
+    errors: dict[int, str] = {}
     for i, block in enumerate(editor.blocks):
         try:
             builder.check_block(block)
         except HTTPException as exc:
-            previews.blocks.append(page.api_message(exc))
+            errors[i] = page.api_message(exc)
+    valid = [b for i, b in enumerate(editor.blocks) if i not in errors]
+    found = iter(await scopes(page, db, state, valid, compare=False))
+    for i, block in enumerate(editor.blocks):
+        if i in errors:
+            previews.blocks.append(errors[i])
         else:
-            previews.blocks.append(block_view(page, state, f, config, data, block, i))
+            previews.blocks.append(block_view(page, state, config, block, i, next(found)))
     return previews
 
 
-def _editor_page(
+async def _editor_page(
     page: LoggedPage,
+    db: DB,
     editor: EditorForm,
     *,
     model: ReportModel | None,
@@ -215,6 +255,33 @@ def _editor_page(
 ) -> HTMLResponse:
     action = f"/relatorios/modelos/{model.public_id}" if model else "/relatorios/modelos"
     dimensions = {v: d for v in builder.VISUALS if (d := builder.dimensions_for(v))}
+    # O filtro de cada bloco: as mesmas etiquetas da tela (nome do campo, rótulo, opções ou None
+    # na busca de cliente, e os nomes), com os escolhidos de cada bloco.
+    options = await service.choices(db, page.auth)
+    labels = await service.client_labels(
+        db, {c for b in editor.blocks if b.filters for c in b.filters.clients}
+    )
+    teams = [(str(t.id), t.name) for t in options.teams]
+    people = [(str(p.id), p.name) for p in options.people]
+    statuses = [(str(s.id), s.name) for s in options.statuses]
+    clients = {NO_CLIENT: page.t("relatorios.semCliente")}
+    clients.update({str(c): name for c, name in labels.items()})
+    block_filters: list[tuple[str, list[tuple[str, str]] | None, dict[str, str]]] = []
+    if teams:
+        block_filters.append(("grupo", teams, dict(teams)))
+    if len(people) > 1:
+        block_filters.append(("pessoa", people, dict(people)))
+    block_filters.append(("cliente", None, clients))
+    block_filters.append(("status", statuses, dict(statuses)))
+    chosen = [
+        {
+            "grupo": [str(t) for t in own.teams],
+            "pessoa": [str(p) for p in own.people],
+            "cliente": [NO_CLIENT] * own.no_client + [str(c) for c in own.clients],
+            "status": [str(s) for s in own.statuses],
+        }
+        for own in (b.filters or FilterSpec() for b in editor.blocks)
+    ]
     return page.render(
         "reports/editor.html",
         status_code=status_code,
@@ -259,6 +326,10 @@ def _editor_page(
         aggregate_options=[
             (a, page.t(f"relatorios.editor.agregacoes.{a}")) for a in ("median", "mean")
         ],
+        period_options=[("", page.t("relatorios.editor.periodoDaTela"))]
+        + [(s, page.t(f"relatorios.periodos.{key}")) for s, key in RELATIVE_KEYS.items()],
+        block_filters=block_filters,
+        chosen=chosen,
         placeholders=[
             block_title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")
             for b in editor.blocks
@@ -298,8 +369,9 @@ async def new_model(
         editor = _base(page, base, models)
     except HTTPException as exc:
         editor = EditorForm(blocks=[NEW_BLOCK], error=page.api_message(exc))
-    return _editor_page(
+    return await _editor_page(
         page,
+        db,
         editor,
         model=None,
         hidden=params.hidden(),
@@ -326,7 +398,9 @@ async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLRe
             blocks=list(config.blocks),
         )
     previews = await _previews(page, db, editor, Params(aba=str(model_id)))
-    return _editor_page(page, editor, model=model, hidden=[], back=back, previews=previews)
+    return await _editor_page(
+        page, db, editor, model=model, hidden=[], back=back, previews=previews
+    )
 
 
 @router.post("/relatorios/modelos")
@@ -351,19 +425,42 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
     if action != "salvar":
         _apply(editor, action)
         previews = await _previews(page, db, editor, params)
-        return _editor_page(page, editor, model=model, hidden=hidden, back=back, previews=previews)
+        return await _editor_page(
+            page, db, editor, model=model, hidden=hidden, back=back, previews=previews
+        )
 
     for i, block in enumerate(editor.blocks):
         try:
             builder.check_block(block)
+            if block.filters is not None:  # o filtro do bloco, contra o alcance da pessoa
+                own = block.filters
+                today = datetime.now(TIMEZONE).date()
+                await service.resolve(
+                    db,
+                    page.auth,
+                    start=today,
+                    end=today,
+                    teams=own.teams,
+                    people=own.people,
+                    clients=own.clients,
+                    no_client=own.no_client,
+                    statuses=own.statuses,
+                )
         except HTTPException as exc:
             editor.errors[i] = page.api_message(exc)
     if not editor.blocks and editor.audience == "internal":
         editor.error = page.t("relatorios.editor.semBlocos")
     if editor.errors or editor.error:
         previews = await _previews(page, db, editor, params)
-        return _editor_page(
-            page, editor, model=model, hidden=hidden, back=back, previews=previews, status_code=422
+        return await _editor_page(
+            page,
+            db,
+            editor,
+            model=model,
+            hidden=hidden,
+            back=back,
+            previews=previews,
+            status_code=422,
         )
 
     try:
@@ -395,8 +492,15 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
     except HTTPException as exc:
         editor.error = page.api_message(exc)
         previews = await _previews(page, db, editor, params)
-        return _editor_page(
-            page, editor, model=model, hidden=hidden, back=back, previews=previews, status_code=422
+        return await _editor_page(
+            page,
+            db,
+            editor,
+            model=model,
+            hidden=hidden,
+            back=back,
+            previews=previews,
+            status_code=422,
         )
     await db.commit()
     response = RedirectResponse(with_query("/relatorios", {"aba": str(model.public_id)}), 303)

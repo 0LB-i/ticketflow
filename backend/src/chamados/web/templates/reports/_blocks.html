@@ -25,7 +25,13 @@
     {%- if b.title %}
     <h2 class="font-medium">{{ b.title }}</h2>
     {%- endif %}
+    {%- if b.period %}
     <p class="text-sm text-muted">{{ b.period }}</p>
+    {%- endif %}
+    {#- Uma parte do filtro próprio do bloco que saiu do alcance da pessoa (ficou de fora). #}
+    {%- if b.warning %}
+    <p class="text-sm text-muted" role="status">{{ b.warning }}</p>
+    {%- endif %}
   </div>
   {%- if menu and not preview %}
   {{ block_menu(b) }}
@@ -155,7 +161,12 @@
 
 {#- Um bloco: cartões, gráfico, tabela ou lista de tarefas. -#}
 {% macro block(b, preview=False) -%}
-{%- if b.visual == "cards" %}
+{%- if b.message %}
+{#- O filtro próprio do bloco não combina com o da tela: o bloco não consulta nada. #}
+{% call frame(b, preview, menu=False) %}
+  <p class="text-muted">{{ b.message }}</p>
+{% endcall %}
+{%- elif b.visual == "cards" %}
 {#- Os cartões não têm CSV. As divisórias: cada cartão tem a borda de cima e a da esquerda, e o
     -mt-px/-ml-px esconde as da primeira linha e as do começo de cada linha (o overflow-hidden). #}
 {% call frame(b, preview, menu=False) %}

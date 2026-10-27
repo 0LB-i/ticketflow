@@ -135,7 +135,7 @@ def _date(value: str | None) -> date | None:
         return None
 
 
-def _days(value: str | None) -> int | None:
+def parse_days(value: str | None) -> int | None:
     """Os N dias do "ultimos-n-dias", de 1 a MAX_DAYS; fora disso (ou sem número), None."""
     if not (value and value.isascii() and value.isdigit() and len(value) <= 3):
         return None  # "²" é dígito para o isdigit, mas não para o int
@@ -282,7 +282,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         teams, people, clients = parse_uuids(grupo), parse_uuids(pessoa), parse_uuids(cliente)
         client_names = await service.client_labels(db, clients)
         no_client = NO_CLIENT in (cliente or [])
-        statuses = [int(v) for v in status or [] if v.isdigit()]
+        statuses = [int(v) for v in status or [] if v.isascii() and v.isdigit()]
 
     # Um período relativo, um mês da lista ou o personalizado; sem período (ou um desconhecido),
     # o mês atual. Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em
@@ -292,7 +292,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         periodo if periodo and (periodo in RELATIVE or periodo == CUSTOM or month) else "mes-atual"
     )
     # Os N dias: um número fora de 1 a MAX_DAYS (ou apagado) volta ao padrão.
-    days = (_days(dias) or builder.DEFAULT_DAYS) if period == LAST_DAYS else None
+    days = (parse_days(dias) or builder.DEFAULT_DAYS) if period == LAST_DAYS else None
     if period in RELATIVE:
         first, last = builder.relative_period(period, today, days)
         start_text, end_text = first.isoformat(), last.isoformat()
@@ -375,7 +375,7 @@ def _span(value: str) -> tuple[date, date] | None:
 def _last_days(value: str) -> int | None:
     """Os N de uma origem "ultimos-n-dias:N"."""
     slug, _, days = value.partition(":")
-    return _days(days) if slug == LAST_DAYS else None
+    return parse_days(days) if slug == LAST_DAYS else None
 
 
 def origin_of(state: State) -> str:

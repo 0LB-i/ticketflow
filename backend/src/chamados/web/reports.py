@@ -10,7 +10,6 @@ reports_downloads.py e o editor de modelos em reports_editor.py.
 """
 
 import unicodedata
-from dataclasses import replace
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -26,8 +25,7 @@ from chamados.web.reports_blocks import (
     WEEKDAYS,
     block_view,
     client_preview,
-    compared,
-    compares,
+    scopes,
     single_client,
     uses_overtime,
     wide,
@@ -68,7 +66,9 @@ async def client_choices(
     """As opções do filtro de cliente (HTMX): "Sem cliente" e os clientes que batem com a busca,
     sem os já escolhidos (`cliente`, as etiquetas)."""
     text = q.strip()[:200]
-    chosen = cliente or []
+    # No editor, as etiquetas do filtro de um bloco se chamam `b<i>-cliente`.
+    extra = [v for k, v in page.request.query_params.multi_items() if k.endswith("-cliente")]
+    chosen = [*(cliente or []), *extra]
     none_label = page.t("relatorios.semCliente")
     options = []
     if NO_CLIENT not in chosen and _fold(text) in _fold(none_label):
@@ -126,32 +126,23 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         visuals = [b.visual for b in config.blocks]
         skeleton = list(zip(range(len(visuals)), visuals, wide(visuals), strict=True))
     elif f is not None and config is not None:
-        data = await service.facts(db, page.auth, f, builder.needs(config.blocks), state.lookups)
-        before = None
-        if (compared_period := state.comparison()) and compares(config):
-            first, last = compared_period
-            before = await service.facts(
-                db,
-                page.auth,
-                replace(f, start=first, end=last),
-                builder.needs(compared(config)),
-                state.lookups,
-            )
         # A página de cada lista de tarefas (`pagina<i>`); sem ela, a primeira.
         numbers = page.request.query_params
         blocks = [
             block_view(
                 page,
                 state,
-                f,
                 config,
-                data,
                 block,
                 i,
-                before,
-                page_number=int(n) if (n := numbers.get(f"pagina{i}", "")).isdigit() else 1,
+                scope,
+                page_number=int(n)
+                if (n := numbers.get(f"pagina{i}", "")).isascii() and n.isdigit()
+                else 1,
             )
-            for i, block in enumerate(config.blocks)
+            for i, (block, scope) in enumerate(
+                zip(config.blocks, await scopes(page, db, state, config.blocks), strict=True)
+            )
         ]
         for view, span in zip(blocks, wide([b.visual for b in config.blocks]), strict=True):
             view["wide"] = span

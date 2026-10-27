@@ -205,25 +205,6 @@ OTHERS = "outros"  # a chave da linha que junta o que passou dos N maiores
 MAX_MODELS = 50
 
 
-class Block(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    visual: Visual
-    title: str = Field(default="", max_length=120)  # vazio: o título automático
-    dimension: Dimension | None = None
-    measures: list[Measure] = Field(default=[], max_length=len(MEASURES))
-    top: int | None = Field(default=None, ge=1, le=100)  # só os N maiores; o resto em "Outros"
-    order: Order = "desc"
-    only_overtime: bool = False  # lista de tarefas: só as que têm tempo fora do expediente
-    # Os tempos até a conclusão pela mediana (§14.1) ou, escolhida no bloco, pela média, com o
-    # nome dizendo qual é.
-    aggregate: Literal["median", "mean"] = "median"
-    area: bool = False  # linha: a área sob ela preenchida
-    big: bool = False  # cartões com uma medida: o número grande, com a variação e a tendência
-    # Colunas e linha: uma linha tracejada na média ou na mediana dos pontos (não é meta: §14.1).
-    reference: Literal["none", "mean", "median"] = "none"
-
-
 class PeriodSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -244,6 +225,39 @@ class FilterSpec(BaseModel):
     clients: list[uuid.UUID] = []
     no_client: bool = False
     statuses: list[int] = []
+
+
+class BlockPeriod(BaseModel):
+    """O período próprio de um bloco: um relativo (com os N dias no "ultimos-n-dias"). Anda com o
+    calendário, e não com as setas da tela."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Relative
+    days: int | None = Field(default=None, ge=1, le=MAX_DAYS)  # só nos últimos N dias
+
+
+class Block(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    visual: Visual
+    title: str = Field(default="", max_length=120)  # vazio: o título automático
+    dimension: Dimension | None = None
+    measures: list[Measure] = Field(default=[], max_length=len(MEASURES))
+    top: int | None = Field(default=None, ge=1, le=100)  # só os N maiores; o resto em "Outros"
+    order: Order = "desc"
+    only_overtime: bool = False  # lista de tarefas: só as que têm tempo fora do expediente
+    # Os tempos até a conclusão pela mediana (§14.1) ou, escolhida no bloco, pela média, com o
+    # nome dizendo qual é.
+    aggregate: Literal["median", "mean"] = "median"
+    area: bool = False  # linha: a área sob ela preenchida
+    big: bool = False  # cartões com uma medida: o número grande, com a variação e a tendência
+    # Colunas e linha: uma linha tracejada na média ou na mediana dos pontos (não é meta: §14.1).
+    reference: Literal["none", "mean", "median"] = "none"
+    # O período e o filtro próprios do bloco; None: os da tela. O filtro só restringe o da tela,
+    # campo a campo (`narrow`).
+    period: BlockPeriod | None = None
+    filters: FilterSpec | None = None
 
 
 class ReportConfig(BaseModel):
@@ -278,6 +292,38 @@ def upgrade(config: dict[str, Any]) -> dict[str, Any]:
             period["compare"] = "previous" if period["compare"] else "none"
         config = {**config, "period": period, "version": 2}
     return config
+
+
+FilterField = Literal["teams", "people", "clients", "statuses"]
+
+
+def narrow(screen: FilterSpec, own: FilterSpec) -> tuple[FilterSpec, list[FilterField]]:
+    """O filtro de um bloco sobre o da tela, campo a campo: com valores nos dois, a interseção;
+    só num, esse. Devolve também os campos em que os dois têm valores e nada em comum (o bloco
+    não consulta nada). O cliente e o "sem cliente" são um campo só (`None` é o sem cliente)."""
+    conflicts: list[FilterField] = []
+
+    def both[T](mine: list[T], theirs: list[T], name: FilterField) -> list[T]:
+        if not (mine and theirs):
+            return mine or theirs
+        common = [v for v in mine if v in theirs]
+        if not common:
+            conflicts.append(name)
+        return common
+
+    clients = both(
+        [*([None] if screen.no_client else []), *screen.clients],
+        [*([None] if own.no_client else []), *own.clients],
+        "clients",
+    )
+    result = FilterSpec(
+        teams=both(screen.teams, own.teams, "teams"),
+        people=both(screen.people, own.people, "people"),
+        clients=[c for c in clients if c is not None],
+        no_client=None in clients,
+        statuses=both(screen.statuses, own.statuses, "statuses"),
+    )
+    return result, conflicts
 
 
 _CARDS = Block(visual="cards", measures=["hours", "overtime", "tasks", "opened", "closed"])

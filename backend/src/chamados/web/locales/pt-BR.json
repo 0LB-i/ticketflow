@@ -591,7 +591,12 @@
       "area": "Preencher a área sob a linha",
       "medidaBarras": "Medida das barras",
       "medidaLinha": "Medida da linha",
-      "grande": "Número grande (com a variação e a tendência)"
+      "grande": "Número grande (com a variação e a tendência)",
+      "periodo": "Período do bloco",
+      "periodoDaTela": "O da tela",
+      "filtroDoBloco": "Filtro do bloco",
+      "filtroDoBlocoAjuda": "Restringe o filtro da tela: com valores nos dois, vale o que eles têm em comum; sem nenhum aqui, vale o da tela.",
+      "comoNaTela": "Como na tela"
     },
     "idades": {
       "0": "até 1 dia",
@@ -665,7 +670,9 @@
       "periodo": "Período: {de} a {ate}",
       "gerado": "Gerado em {quando} por {quem}",
       "comparado": "Comparado com {de} a {ate}"
-    }
+    },
+    "filtroNaoCombina": "O filtro deste bloco ({filtro}) não combina com o da tela.",
+    "filtroDoBlocoInvalido": "Partes do filtro deste bloco não valem mais para você e ficaram de fora: {filtros}."
   },
   "expediente": {
     "titulo": "Expediente",

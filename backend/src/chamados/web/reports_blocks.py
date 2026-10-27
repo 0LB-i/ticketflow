@@ -7,10 +7,12 @@ cliente (§14.8.5).
 import math
 import statistics
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from functools import partial
 from typing import Any
+
+from fastapi import HTTPException
 
 from chamados.db.session import DB
 from chamados.modules.reports import builder, service
@@ -19,15 +21,18 @@ from chamados.modules.reports.builder import (
     CHARTS,
     CUSTOM,
     CYCLES,
+    DEFAULT_DAYS,
     DURATIONS,
     ELAPSED,
     GOOD_DIRECTION,
+    LAST_DAYS,
     OTHERS,
     PERCENT,
     RATES,
     TICKET_SETS,
     TIMES,
     Block,
+    FilterSpec,
     ReportConfig,
 )
 from chamados.web.formatting import (
@@ -45,7 +50,7 @@ from chamados.web.formatting import (
 )
 from chamados.web.page import LoggedPage
 from chamados.web.palette import HEAT_STEPS
-from chamados.web.reports_state import NO_CLIENT, State, origin_of, with_query
+from chamados.web.reports_state import NO_CLIENT, RELATIVE_KEYS, State, origin_of, with_query
 
 DAILY_LIMIT = 62  # um gráfico por dia de um período mais longo agrupa por semana
 
@@ -89,6 +94,165 @@ def compared(config: ReportConfig) -> list[Block]:
 def compares(config: ReportConfig) -> bool:
     """Se algum bloco precisa dos dados do período comparado."""
     return bool(compared(config))
+
+
+# Os campos do filtro → chave do catálogo (relatorios.*): o subtítulo e os avisos de um bloco.
+FILTER_LABELS: dict[builder.FilterField, str] = {
+    "teams": "grupo",
+    "people": "pessoa",
+    "clients": "cliente",
+    "statuses": "status",
+}
+
+
+@dataclass
+class Scope:
+    """O período e os filtros com que um bloco é calculado: os da tela ou os próprios dele
+    (`Block.period`, `Block.filters`), e os dados lidos para eles."""
+
+    filters: service.Filters | None  # None: o bloco não consulta nada (`message`)
+    query: dict[str, Any]  # os mesmos na URL: o detalhar e a lista de chamados
+    origin: str  # o período como origem do detalhar (`origin_of`)
+    comparison: tuple[date, date] | None = None
+    period: str = ""  # o nome do período próprio, para o subtítulo
+    filtered: str = ""  # o filtro próprio, para o subtítulo
+    message: str | None = None  # o filtro do bloco não combina com o da tela (ou o erro)
+    warning: str | None = None  # partes do filtro do bloco que deixaram de valer
+    data: service.Facts | None = None
+    before: service.Facts | None = None  # o período comparado
+
+
+async def scopes(
+    page: LoggedPage, db: DB, state: State, blocks: Sequence[Block], *, compare: bool = True
+) -> list[Scope]:
+    """O período, os filtros e os dados de cada bloco. Os blocos com o mesmo período e os mesmos
+    filtros efetivos formam um grupo, e o `facts` vem uma vez por grupo, com as partes de todos
+    eles juntas (`builder.needs`); o do período comparado também, só com os blocos que comparam
+    (`compare`: a prévia do editor não compara). O filtro do bloco passa pelo `resolve`, como o
+    da tela, e o que saiu do alcance da pessoa fica de fora, com o aviso."""
+    f = state.filters
+    if f is None:
+        raise ValueError("scopes sem o período e os filtros da tela (veja o state.error)")
+    today = datetime.now(TIMEZONE).date()
+    screen = state.specs()[1]
+    o = state.options
+    teams = {t.id: t.name for t in o.teams}
+    people = {p.id: p.name for p in o.people}
+    statuses = {s.id: s.name for s in o.statuses}
+    clients = await service.client_labels(
+        db, {c for b in blocks if b.filters for c in b.filters.clients}
+    )
+    # Cada grupo: o período, os filtros efetivos e se é o "ano até hoje" (a comparação muda).
+    groups: dict[tuple[date, date, bool, str], list[int]] = {}
+    found: list[Scope] = []
+    specs: list[FilterSpec] = []
+    for i, block in enumerate(blocks):
+        scope = Scope(filters=None, query={**state.query}, origin=origin_of(state))
+        start, end = f.start, f.end
+        year_to_date = state.period == "ano-ate-hoje"
+        if block.period is not None:
+            kind = block.period.kind
+            days = (block.period.days or DEFAULT_DAYS) if kind == LAST_DAYS else None
+            start, end = builder.relative_period(kind, today, days)
+            year_to_date = kind == "ano-ate-hoje"
+            scope.origin = f"{LAST_DAYS}:{days}" if days else kind
+            scope.query.update(periodo=kind, de=None, ate=None, dias=days and str(days))
+            scope.query["origem"] = None
+            scope.period = (
+                page.t("relatorios.periodos.ultimosNDias", n=days)
+                if days
+                else page.t(f"relatorios.periodos.{RELATIVE_KEYS[kind]}")
+            )
+        spec = screen
+        if block.filters is not None:
+            own = block.filters
+            kept = FilterSpec(
+                teams=[t for t in own.teams if t in teams],
+                people=[p for p in own.people if p in people],
+                clients=[c for c in own.clients if c in clients],
+                no_client=own.no_client,
+                statuses=[s for s in own.statuses if s in statuses],
+            )
+            names = {
+                "teams": [teams[t] for t in kept.teams],
+                "people": [people[p] for p in kept.people],
+                "clients": [page.t("relatorios.semCliente")] * kept.no_client
+                + [clients[c] for c in kept.clients],
+                "statuses": [statuses[s] for s in kept.statuses],
+            }
+            described = {
+                field: f"{page.t(f'relatorios.{label}')}: {', '.join(names[field])}"
+                for field, label in FILTER_LABELS.items()
+                if names[field]
+            }
+            scope.filtered = " · ".join(described.values())
+            lost = [
+                page.t(f"relatorios.{label}")
+                for field, label in FILTER_LABELS.items()
+                if len(getattr(kept, field)) < len(getattr(own, field))
+            ]
+            if lost:
+                scope.warning = page.t("relatorios.filtroDoBlocoInvalido", filtros=", ".join(lost))
+            spec, conflicts = builder.narrow(screen, kept)
+            if conflicts:
+                scope.message = page.t(
+                    "relatorios.filtroNaoCombina", filtro="; ".join(described[c] for c in conflicts)
+                )
+            scope.query.update(
+                grupo=[str(t) for t in spec.teams],
+                pessoa=[str(p) for p in spec.people],
+                cliente=[NO_CLIENT] * spec.no_client + [str(c) for c in spec.clients],
+                status=[str(s) for s in spec.statuses],
+            )
+        try:
+            scope.comparison = builder.comparison_period(
+                start, end, state.compare, year_to_date=year_to_date
+            )
+        except ValueError:  # antes do ano 1: não há com que comparar
+            scope.comparison = None
+        found.append(scope)
+        specs.append(spec)
+        if scope.message is None:
+            key = (start, end, year_to_date, spec.model_dump_json())
+            groups.setdefault(key, []).append(i)
+
+    for (start, end, _, _), members in groups.items():
+        spec = specs[members[0]]
+        filters = f
+        if spec != screen or (start, end) != (f.start, f.end):
+            try:
+                filters = await service.resolve(
+                    db,
+                    page.auth,
+                    start=start,
+                    end=end,
+                    teams=spec.teams,
+                    people=spec.people,
+                    clients=spec.clients,
+                    no_client=spec.no_client,
+                    statuses=spec.statuses,
+                )
+            except HTTPException as exc:
+                for i in members:
+                    found[i].message = page.api_message(exc)
+                continue
+        group = [blocks[i] for i in members]
+        data = await service.facts(db, page.auth, filters, builder.needs(group), state.lookups)
+        before = None
+        compared_period = found[members[0]].comparison
+        compared_blocks = [b for b in group if b.visual in COMPARED]
+        if compare and compared_period and compared_blocks:
+            first, last = compared_period
+            before = await service.facts(
+                db,
+                page.auth,
+                replace(filters, start=first, end=last),
+                builder.needs(compared_blocks),
+                state.lookups,
+            )
+        for i in members:
+            found[i].filters, found[i].data, found[i].before = filters, data, before
+    return found
 
 
 def wide(visuals: Sequence[str]) -> list[bool]:
@@ -242,13 +406,13 @@ def _signed(page: LoggedPage, number: float, *, decimals: int = 1) -> str:
 
 
 def _drill(
-    state: State, data: service.Facts, dimension: str | None, key: builder.Key
+    state: State, scope: Scope, dimension: str | None, key: builder.Key
 ) -> dict[str, Any] | None:
     """Os filtros que uma linha (ou barra, coluna) aplica ao ser clicada; None: não aplica (os
     "Outros", as idades, alguém que a pessoa não pode filtrar). Um período clicado leva o de
-    agora como `origem`, para a tela mostrar a trilha e voltar a ele."""
-    f = state.filters
-    if f is None or key == OTHERS or dimension in (None, "age", *CYCLES):
+    agora (o do bloco) como `origem`, para a tela mostrar a trilha e voltar a ele."""
+    f, data = scope.filters, scope.data
+    if f is None or data is None or key == OTHERS or dimension in (None, "age", *CYCLES):
         return None
     if isinstance(key, date):
         first = max(key, f.start)
@@ -258,7 +422,7 @@ def _drill(
             "de": first.isoformat(),
             "ate": last.isoformat(),
             "dias": None,
-            "origem": origin_of(state),
+            "origem": scope.origin,
         }
     if dimension == "client":
         client = data.clients.get(key) if isinstance(key, int) else None
@@ -277,18 +441,32 @@ def _drill(
 def block_view(
     page: LoggedPage,
     state: State,
-    f: service.Filters,
     config: ReportConfig,
-    data: service.Facts,
     block: Block,
     index: int,
-    before: service.Facts | None = None,
+    scope: Scope,
     page_number: int = 1,
 ) -> dict[str, Any]:
     """Um bloco pronto para o template: os números já formatados e os links de detalhar.
-    `before`: os dados do período comparado, para a variação (cartões e tabelas) e a série de
-    antes (colunas e linha por período); `page_number`: a página da lista de tarefas."""
-    base = {**state.query, "aba": state.choice.slug}
+    `scope`: o período, os filtros e os dados do bloco (`scopes`), com os do período comparado
+    para a variação (cartões e tabelas) e a série de antes (colunas e linha por período);
+    `page_number`: a página da lista de tarefas."""
+    # O CSV e as páginas da lista são da tela (a rota acha o bloco de novo); o detalhar e a
+    # lista de chamados, do período e dos filtros do bloco.
+    screen = {**state.query, "aba": state.choice.slug}
+    base = {**scope.query, "aba": state.choice.slug}
+    view: dict[str, Any] = {
+        "index": index,
+        "visual": block.visual,
+        "csv": with_query("/relatorios/csv", {**screen, "bloco": str(index)}),
+        "own": block.period is not None or block.filters is not None,
+        "warning": scope.warning,
+    }
+    f, data, before = scope.filters, scope.data, scope.before
+    if f is None or data is None:
+        view.update(title=block_title(page, block, block.dimension), message=scope.message)
+        view["period"] = " · ".join(p for p in (scope.period, scope.filtered) if p)
+        return view
     long = (f.end - f.start).days >= DAILY_LIMIT
     weekly = (
         block.visual in ("columns", "stacked", "line", "combo")
@@ -300,7 +478,7 @@ def block_view(
 
     # O mesmo bloco no período comparado, agrupado do mesmo jeito.
     previous = None
-    compared_period = state.comparison()
+    compared_period = scope.comparison
     if before is not None and compared_period and block.visual in COMPARED:
         first, last = compared_period
         previous = builder.run(before, block, first, last, dimension=dimension)
@@ -323,30 +501,32 @@ def block_view(
     can_drill = not (dimension == "status" and "backlog" in block.measures)
 
     def drill_of(row: builder.Row) -> dict[str, Any] | None:
-        return _drill(state, data, dimension, row.key) if can_drill else None
+        return _drill(state, scope, dimension, row.key) if can_drill else None
 
     def apply(row: builder.Row) -> str | None:
         drill = drill_of(row)
         return with_query("/relatorios", {**base, **drill}) if drill else None
 
-    view: dict[str, Any] = {
-        "index": index,
-        "visual": block.visual,
-        "title": block_title(page, block, dimension),
-        "csv": with_query("/relatorios/csv", {**base, "bloco": str(index)}),
-    }
-    # O subtítulo: o período e, quando o bloco mostra a comparação, o de antes.
-    view["period"] = page.t(
-        "relatorios.intervalo",
-        de=format_day(page.locale, f.start),
-        ate=format_day(page.locale, f.end),
-    )
+    view["title"] = block_title(page, block, dimension)
+    # O subtítulo: o período (com o nome do próprio), quando o bloco mostra a comparação, o de
+    # antes, e o filtro próprio.
+    subtitle = [
+        scope.period,
+        page.t(
+            "relatorios.intervalo",
+            de=format_day(page.locale, f.start),
+            ate=format_day(page.locale, f.end),
+        ),
+    ]
     if previous is not None and (block.visual in ("cards", "table") or dimension in ORDERED):
-        view["period"] += " · " + page.t(
-            "relatorios.comparacao.com",
-            de=format_day(page.locale, first),
-            ate=format_day(page.locale, last),
+        subtitle.append(
+            page.t(
+                "relatorios.comparacao.com",
+                de=format_day(page.locale, first),
+                ate=format_day(page.locale, last),
+            )
         )
+    view["period"] = " · ".join(p for p in (*subtitle, scope.filtered) if p)
     if block.visual == "cards":
         cards = []
         # A tendência no período, por dia (por semana num período longo, como os gráficos).
@@ -494,7 +674,7 @@ def block_view(
         def page_url(n: int) -> str | None:
             if not 1 <= n <= pages:
                 return None
-            return with_query("/relatorios", {**base, f"pagina{index}": str(n)})
+            return with_query("/relatorios", {**screen, f"pagina{index}": str(n)})
 
         view.update(
             page=current,

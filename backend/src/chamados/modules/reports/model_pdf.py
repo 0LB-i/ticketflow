@@ -41,6 +41,7 @@ class Cards:
     title: str
     items: list[tuple[str, str, str]]  # rótulo, valor, nota (a comparação; vazia sem ela)
     big: bool = False  # o número grande (uma medida só)
+    subtitle: str = ""  # o período e o filtro próprios do bloco (vazio sem eles)
 
 
 @dataclass
@@ -59,6 +60,7 @@ class Chart:
     before: list[int | None] = field(default_factory=list)
     reference: tuple[int, str] | None = None  # a linha de referência: o valor e o nome
     area: bool = False  # a linha com a área preenchida
+    subtitle: str = ""
 
 
 @dataclass
@@ -72,6 +74,7 @@ class Grid:
     total_label: str = ""
     empty: str = ""
     note: str = ""
+    subtitle: str = ""
 
 
 @dataclass
@@ -84,6 +87,7 @@ class Heatmap:
     days: list[tuple[str, list[int]]]
     legend: list[tuple[int, str]]
     empty: str = ""
+    subtitle: str = ""
 
 
 Block = Cards | Chart | Grid | Heatmap
@@ -126,10 +130,16 @@ def _p(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(_sanitize(text)), style)
 
 
+def _head(block: Block, st: dict[str, ParagraphStyle]) -> list[Flowable]:
+    """O título do bloco e, quando ele tem período ou filtro próprio, o subtítulo que os diz."""
+    flow: list[Flowable] = [_p(block.title, st["h2"])] if block.title else []
+    if block.subtitle:
+        flow.append(_p(block.subtitle, st["muted"]))
+    return flow
+
+
 def _grid(block: Grid, st: dict[str, ParagraphStyle]) -> list[Flowable]:
-    flow: list[Flowable] = []
-    if block.title:
-        flow.append(_p(block.title, st["h2"]))
+    flow = _head(block, st)
     if not block.rows:
         return [*flow, _p(block.empty, st["muted"])]
     data = [[_p(c, st["muted"]) for c in block.columns]]
@@ -177,8 +187,7 @@ def _cards(block: Cards, st: dict[str, ParagraphStyle]) -> list[Flowable]:
             ]
         )
     )
-    title = [_p(block.title, st["h2"])] if block.title else [Spacer(1, 6)]
-    return [*title, table]
+    return [*(_head(block, st) or [Spacer(1, 6)]), table]
 
 
 def _rect(x: float, y: float, width: float, height: float, color: colors.Color) -> Rect:
@@ -289,7 +298,7 @@ def _columns(block: Chart, series: Series) -> Drawing:
 
 
 def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[Flowable]:
-    flow: list[Flowable] = [_p(block.title, st["h2"])]
+    flow = _head(block, st)
     if not block.points:
         return [*flow, _p(block.empty, st["muted"])]
     flow.append(_bars(block, series.first) if block.kind == "bars" else _columns(block, series))
@@ -306,7 +315,7 @@ def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[
 
 
 def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> list[Flowable]:
-    flow: list[Flowable] = [_p(block.title, st["h2"])]
+    flow = _head(block, st)
     if not block.legend:
         return [*flow, _p(block.empty, st["muted"])]
     label = 10 * mm
