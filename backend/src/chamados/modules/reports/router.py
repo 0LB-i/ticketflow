@@ -11,7 +11,7 @@ from chamados.core.i18n import Locale, request_locale
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import CurrentAuth
-from chamados.modules.reports import csv_export, pdf, service
+from chamados.modules.reports import csv_export, model_pdf, service
 from chamados.modules.reports.schemas import Report, ReportOptions
 
 router = APIRouter(prefix="/reports", tags=["relatórios"])
@@ -102,7 +102,7 @@ async def report_pdf(
 ) -> Response:
     data = await service.build(db, auth, f)
     content = await run_in_threadpool(
-        pdf.render, data, f, auth.user.display_name, locale or request_locale(request)
+        model_pdf.render_hours, data, f, auth.user.display_name, locale or request_locale(request)
     )
     record_export(db, request, auth, f, format="pdf")
     await db.commit()

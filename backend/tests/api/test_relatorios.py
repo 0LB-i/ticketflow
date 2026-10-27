@@ -15,7 +15,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
-from chamados.modules.reports import pdf
+from chamados.modules.reports import model_pdf
 from chamados.modules.reports.service import TZ, outside_minutes
 from chamados.modules.system.work_hours import DEFAULT, WorkHours
 from chamados.modules.tickets.models import Ticket
@@ -323,7 +323,7 @@ def test_pdf_no_idioma_pedido(
         idiomas.append(args[-1])
         return b"%PDF"
 
-    monkeypatch.setattr(pdf, "render", render)
+    monkeypatch.setattr(model_pdf, "render_hours", render)
     dia = dia_util_passado().isoformat()
     for params in ({}, {"locale": "en"}, {"locale": "pt-BR"}):
         r = client.get(

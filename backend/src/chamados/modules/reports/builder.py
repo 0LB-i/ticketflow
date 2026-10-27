@@ -284,6 +284,18 @@ class Block(BaseModel):
     # As colunas da lista de tarefas (None: as de sempre, DEFAULT_COLUMNS e, no CSV, CSV_COLUMNS),
     # sempre na ordem de TASK_COLUMNS.
     columns: list[TaskColumn] | None = Field(default=None, min_length=1)
+    in_pdf: bool = True  # False: o bloco fica na tela e no CSV, mas sai do PDF
+
+
+class PdfSpec(BaseModel):
+    """O PDF de um modelo interno (§14.8.6): A4 em pé ou deitado, o título (vazio: o nome do
+    modelo) e um texto livre no rodapé de cada página (vazio: só o "Gerado em…")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    orientation: Literal["portrait", "landscape"] = "portrait"
+    title: str = Field(default="", max_length=120)
+    footer: str = Field(default="", max_length=200)
 
 
 class ReportConfig(BaseModel):
@@ -302,6 +314,7 @@ class ReportConfig(BaseModel):
     # aparecem; `show_people`, mostrar quem atendeu (os responsáveis).
     audience: Literal["internal", "client"] = "internal"
     show_people: bool = False
+    pdf: PdfSpec = PdfSpec()
     blocks: list[Block] = Field(max_length=12)
 
     @model_validator(mode="after")

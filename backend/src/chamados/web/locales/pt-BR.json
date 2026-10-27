@@ -629,7 +629,18 @@
       "subirMedida": "Subir {medida}",
       "descerMedida": "Descer {medida}",
       "descricao": "Descrição",
-      "descricaoDica": "Uma frase sobre o que o modelo mostra: aparece abaixo do título, na tela e no PDF, e na dica da aba."
+      "descricaoDica": "Uma frase sobre o que o modelo mostra: aparece abaixo do título, na tela e no PDF, e na dica da aba.",
+      "pdf": "PDF",
+      "orientacao": "Orientação",
+      "orientacoes": {
+        "portrait": "Retrato (A4 em pé)",
+        "landscape": "Paisagem (A4 deitado)"
+      },
+      "tituloPdf": "Título do PDF",
+      "tituloPdfVazio": "O nome do modelo",
+      "rodape": "Rodapé",
+      "rodapeDica": "Um texto em cada página, acima da data de geração e do número da página. Vazio: só a data e o número.",
+      "foraDoPdf": "Deixar fora do PDF (continua na tela e no CSV)"
     },
     "idades": {
       "0": "até 1 dia",
@@ -702,7 +713,8 @@
     "pdf": {
       "periodo": "Período: {de} a {ate}",
       "gerado": "Gerado em {quando} por {quem}",
-      "comparado": "Comparado com {de} a {ate}"
+      "comparado": "Comparado com {de} a {ate}",
+      "pagina": "Página {n} de {total}"
     },
     "filtroNaoCombina": "O filtro deste bloco ({filtro}) não combina com o da tela.",
     "filtroDoBlocoInvalido": "Partes do filtro deste bloco não valem mais para você e ficaram de fora: {filtros}.",

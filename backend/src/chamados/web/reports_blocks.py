@@ -787,8 +787,19 @@ def _heatmap(
     }
 
 
-def uses_overtime(config: ReportConfig) -> bool:
-    return any("overtime" in b.measures or b.only_overtime for b in config.blocks)
+def uses_overtime(blocks: Sequence[Block]) -> bool:
+    return any("overtime" in b.measures or b.only_overtime for b in blocks)
+
+
+def work_hours_line(page: LoggedPage, state: State) -> str:
+    """O expediente usado na hora extra (a tela e o cabeçalho do PDF, quando algum bloco a usa)."""
+    wh = state.lookups.work_hours
+    return page.t(
+        "relatorios.expedienteUsado",
+        dias=", ".join(page.t(f"expediente.diasCurtos.{WEEKDAYS[d]}") for d in wh.weekdays),
+        inicio=f"{wh.start:%H:%M}",
+        fim=f"{wh.end:%H:%M}",
+    )
 
 
 def single_client(state: State) -> str | None:

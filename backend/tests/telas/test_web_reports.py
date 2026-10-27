@@ -34,8 +34,9 @@ def _um_dia(dia: date, **extra: str | list[str]) -> dict[str, str | list[str]]:
     return {"periodo": "personalizado", "de": dia.isoformat(), "ate": dia.isoformat(), **extra}
 
 
-def _pdf(html: str, arquivo: str = "pdf") -> dict[str, list[str]]:
-    """Os parâmetros de um link do menu Baixar (o PDF ou um CSV)."""
+def _pdf(html: str, arquivo: str = "csv") -> dict[str, list[str]]:
+    """Os parâmetros de um link da API no menu Baixar (o primeiro CSV; o PDF é o do modelo, da
+    tela, e os CSV levam os mesmos filtros)."""
     achado = re.search(rf'<a href="(/api/v1/reports/{arquivo}\?[^"]+)" download', html)
     assert achado, f"sem o link do {arquivo}"
     return parse_qs(urlsplit(achado.group(1).replace("&amp;", "&")).query)
@@ -64,7 +65,9 @@ def test_relatorio_do_mes(client: TestClient, cenario: dict[str, Any]) -> None:
     pdf = _pdf(r.text)
     assert pdf["start"] == [hoje.replace(day=1).isoformat()]
     assert pdf["locale"] == ["pt-BR"]
-    # O menu Baixar: o CSV da tabela da aba e o de todas as tarefas, com os mesmos filtros.
+    # O menu Baixar: o PDF do modelo, o CSV da tabela da aba e o de todas as tarefas, com os
+    # mesmos filtros.
+    assert "/relatorios/pdf?periodo=mes-atual&amp;aba=produtividade" in r.text
     assert _pdf(r.text, "csv")["table"] == ["people"]
     assert "CSV de todas as tarefas" in r.text and "table=tasks" in r.text
     # A Ana só vê o próprio trabalho: não escolhe grupo nem pessoa. Cliente e status, sim.
@@ -147,9 +150,8 @@ def test_supervisor_escolhe_pessoa(
     assert '<dd class="mt-1 text-2xl font-semibold">30min</dd>' in r.text
     pdf = _pdf(r.text)
     assert pdf["person"] == [cenario["ana"]] and pdf["team"] == [cenario["ti"]]
-    # O link leva ao PDF com os mesmos números.
-    url = re.search(r'<a href="(/api/v1/reports/pdf\?[^"]+)"', r.text).group(1)  # type: ignore[union-attr]
-    resposta = client.get(url.replace("&amp;", "&"))
+    # O link leva ao PDF do modelo, com os mesmos filtros.
+    resposta = client.get(_link_pdf(r.text))
     assert resposta.status_code == 200
     assert resposta.content.startswith(b"%PDF")
 
@@ -744,16 +746,17 @@ def test_pdf_do_modelo(
     r = client.post("/relatorios/modelos", data=dados, follow_redirects=False)
     modelo = parse_qs(urlsplit(r.headers["location"]).query)["aba"][0]
 
-    # As abas de horas continuam com o PDF da API; a Chamados e os modelos, com o do modelo.
-    assert "/relatorios/pdf?" not in client.get("/relatorios/blocos").text
-    assert "/relatorios/pdf?" in client.get("/relatorios/blocos", params={"aba": "chamados"}).text
+    # Todas as abas, inclusive as de horas, baixam o PDF do modelo (a API continua com o dela).
+    for aba in ("produtividade", "chamados"):
+        r = client.get("/relatorios/blocos", params={"aba": aba})
+        assert "/relatorios/pdf?" in r.text and "/api/v1/reports/pdf" not in r.text
     r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo, comparar="1"))
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
     chamadas = _capturar(monkeypatch, "render_model")
     r = client.get(_link_pdf(r.text))
     assert r.status_code == 200 and r.content == b"%PDF-teste"
     assert r.headers["content-type"] == "application/pdf"
-    titulo, linhas, blocos, rodape, cores, calor = chamadas[0]
+    titulo, linhas, blocos, pagina, cores, calor = chamadas[0]
     assert calor == ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C")
     assert titulo == "Mensal"
     assert cores == {
@@ -772,7 +775,9 @@ def test_pdf_do_modelo(
     # Comparando, a tabela tem a variação (sem base: vazia), com uma abreviatura no lugar do Δ.
     assert blocos[2].columns == ["Pessoa", "Horas", "Var."]
     assert blocos[2].rows == [["Ana", "1h30", ""]] and blocos[2].total == ["1h30", ""]
-    assert rodape.endswith("por Ana")
+    # O rodapé de cada página: quando e quem gerou, e o número da página.
+    assert pagina.generated.endswith("por Ana") and pagina.numbering == "Página {n} de {total}"
+    assert (pagina.footer, pagina.landscape) == ("", False)
     registro = db.scalars(
         select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
     ).all()[-1]
@@ -833,13 +838,13 @@ def test_relatorio_para_o_cliente(
     chamadas = _capturar(monkeypatch, "render_client")
     r = client.get(_link_pdf(r.text))
     assert r.status_code == 200
-    logo, titulo, linhas, totais, chamados, rodape = chamadas[0]
+    logo, titulo, linhas, totais, chamados, pagina = chamadas[0]
     assert logo == b"hello" and titulo == "Relatório de atendimento"
     assert linhas[0] == "Padaria Pão Quente" and linhas[1].startswith("Período:")
     assert totais[0] == ("Horas", "1h30")
     assert chamados.columns[-1] == "Atendido por"
     assert chamados.rows[0][0] == f"#{numero}" and chamados.rows[0][-1] == "Ana"
-    assert "Ana" not in rodape  # sem o nome de quem gerou
+    assert "Ana" not in pagina.generated  # sem o nome de quem gerou
     # A prévia: os mesmos textos, e o logotipo como nas Configurações.
     folha = _folha(client.get("/relatorios/blocos", params=filtros).text)
     assert f"<p>{linhas[1]}</p>" in folha and f">{titulo}</h2>" in folha
@@ -2372,3 +2377,59 @@ def test_descricao_do_modelo(
     r = client.get(_link_pdf(client.get("/relatorios/blocos", params={"aba": modelo}).text))
     assert r.status_code == 200
     assert chamadas[0][1][0] == "Horas & <b>chamados</b>"
+
+
+def test_pdf_configuravel(
+    client: TestClient, cenario: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A orientação, o título e o rodapé do PDF, e o bloco fora do PDF (que fica na tela)."""
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 90, em(dia, 19))
+    campos = {
+        "b0-visual": "cards",
+        "b0-medidas": ["hours"],
+        "b1-visual": "bars",
+        "b1-agrupar": "person",
+        "b1-medida": "overtime",
+        "b1-foraDoPdf": "1",
+        "pdf-orientacao": "landscape",
+        "pdf-titulo": "Horas do mês",
+        "pdf-rodape": "Uso interno",
+    }
+    dados = formulario(client, nome="Mensal", horas="hm", blocos="2", acao="salvar", **campos)
+    r = client.post("/relatorios/modelos", data=dados, follow_redirects=False)
+    modelo = parse_qs(urlsplit(r.headers["location"]).query)["aba"][0]
+    # O editor guarda as escolhas.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert '<option value="landscape" selected>Paisagem (A4 deitado)</option>' in r.text
+    assert 'name="pdf-titulo" type="text" value="Horas do mês"' in r.text
+    assert 'name="pdf-rodape" type="text" value="Uso interno"' in r.text
+    assert 'name="b1-foraDoPdf" value="1" checked' in r.text
+    assert 'name="b0-foraDoPdf" value="1" class' in r.text  # o outro continua no PDF
+
+    # Na tela, os dois blocos (e o expediente, porque o de fora usa a hora extra).
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
+    assert 'id="bloco-1"' in r.text and "Hora extra é o tempo de tarefa" in r.text
+    assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
+    chamadas = _capturar(monkeypatch, "render_model")
+    client.get(_link_pdf(r.text))
+    titulo, linhas, blocos, pagina, _, _ = chamadas[0]
+    assert titulo == "Horas do mês"
+    assert [type(b).__name__ for b in blocos] == ["Cards"]
+    assert (pagina.footer, pagina.landscape) == ("Uso interno", True)
+    # O bloco que usa a hora extra ficou fora: o PDF não traz o expediente.
+    assert not any(linha.startswith("Hora extra é") for linha in linhas)
+
+    # Os prontos de horas usam o PDF do modelo, com os blocos de cada um e o expediente.
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba="horas-extras"))
+    client.get(_link_pdf(r.text))
+    titulo, linhas, blocos, pagina, _, _ = chamadas[1]
+    assert titulo == "Horas extras"
+    assert (
+        linhas[0]
+        == "O tempo de tarefa fora do expediente, por dia e por pessoa, e as tarefas que o tiveram."
+    )
+    assert linhas[-1].startswith("Hora extra é o tempo de tarefa fora do expediente: Seg, Ter")
+    assert [type(b).__name__ for b in blocos] == ["Cards", "Chart", "Chart", "Grid"]
+    assert blocos[3].rows[0][2] == f"#{numero} Impressora não imprime"

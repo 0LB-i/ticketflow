@@ -22,13 +22,13 @@ from chamados.modules.reports.builder import CUSTOM
 from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.reports_blocks import (
-    WEEKDAYS,
     block_view,
     client_preview,
     scopes,
     single_client,
     uses_overtime,
     wide,
+    work_hours_line,
 )
 from chamados.web.reports_state import (
     NO_CLIENT,
@@ -49,8 +49,7 @@ from chamados.web.reports_state import (
 router = APIRouter()
 
 
-# A tabela de cada modelo pronto de horas no CSV da API (`reports/csv_export.Table`); esses
-# também têm o PDF.
+# A tabela de cada modelo pronto de horas no CSV da API (`reports/csv_export.Table`).
 CSV_TABLES = {"produtividade": "people", "clientes": "clients", "horas-extras": "overtime"}
 
 
@@ -165,16 +164,10 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         for view, span in zip(blocks, spans, strict=True):
             view["wide"] = span
     if f is not None and config is not None and config.audience != "client":
-        if uses_overtime(config):
-            wh = state.lookups.work_hours
-            work_hours = page.t(
-                "relatorios.expedienteUsado",
-                dias=", ".join(page.t(f"expediente.diasCurtos.{WEEKDAYS[d]}") for d in wh.weekdays),
-                inicio=f"{wh.start:%H:%M}",
-                fim=f"{wh.end:%H:%M}",
-            )
-        # Os downloads da API levam os mesmos filtros, com o idioma da pessoa (um link não
-        # escolhe o Accept-Language). O PDF e a tabela da aba, só nos modelos prontos.
+        if uses_overtime(config.blocks):
+            work_hours = work_hours_line(page, state)
+        # Os CSV da API levam os mesmos filtros, com o idioma da pessoa (um link não escolhe o
+        # Accept-Language). A tabela da aba, só nos modelos prontos de horas.
         api = {
             "start": f.start.isoformat(),
             "end": f.end.isoformat(),
@@ -185,12 +178,13 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             "status": query["status"],
             "locale": page.locale,
         }
-        downloads = {"tarefas": with_query("/api/v1/reports/csv", {**api, "table": "tasks"})}
+        # O PDF é sempre o do modelo, com os blocos (§14.8.6), inclusive nos prontos de horas.
+        downloads = {
+            "pdf": with_query("/relatorios/pdf", {**query, "aba": slug}),
+            "tarefas": with_query("/api/v1/reports/csv", {**api, "table": "tasks"}),
+        }
         if slug in CSV_TABLES and choice.model is None:
-            downloads["pdf"] = with_query("/api/v1/reports/pdf", api)
             downloads["csv"] = with_query("/api/v1/reports/csv", {**api, "table": CSV_TABLES[slug]})
-        else:  # o PDF do modelo, com os blocos (§14.8.6)
-            downloads["pdf"] = with_query("/relatorios/pdf", {**query, "aba": slug})
 
     # "Salvar filtros": num modelo da pessoa, quando os da tela não são os guardados.
     filters_changed = False

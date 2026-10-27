@@ -62,6 +62,16 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
     {{ checkbox("atendeu", t("relatorios.editor.atendeu"), checked=form.show_people) }}
     {%- endif %}
     {{ checkbox("inicial", t("relatorios.editor.inicial"), checked=form.is_default) }}
+    {#- O PDF do modelo interno: a orientação, o título e o rodapé. Escondido (e guardado) no
+        modelo para o cliente, que tem um PDF fixo. #}
+    <fieldset class="flex flex-col gap-3 rounded-md border border-border p-3"{% if form.audience == "client" %} hidden{% endif %}>
+      <legend class="px-1 font-medium">{{ t("relatorios.editor.pdf") }}</legend>
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{ select("pdf-orientacao", t("relatorios.editor.orientacao"), orientation_options, form.pdf.orientation) }}
+        {{ field("pdf-titulo", t("relatorios.editor.tituloPdf"), value=form.pdf.title, placeholder=t("relatorios.editor.tituloPdfVazio"), maxlength="120") }}
+      </div>
+      {{ field("pdf-rodape", t("relatorios.editor.rodape"), value=form.pdf.footer, hint=t("relatorios.editor.rodapeDica"), maxlength="200") }}
+    </fieldset>
     <p class="text-muted">{{ t("relatorios.editor.filtrosEditar" if model else "relatorios.editor.filtrosNovo") }}</p>
 
     {#- No modelo para o cliente, os blocos ficam escondidos (e guardados): o PDF é fixo. #}
@@ -125,6 +135,8 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {{ select("b" ~ i ~ "-ordem", t("relatorios.editor.ordem"), order_options, b.order, refresh("atualizar", "change")) }}
         {%- endif %}
       </div>
+      {#- O bloco pode ficar fora do PDF (continua na tela e no CSV). #}
+      <div>{{ checkbox("b" ~ i ~ "-foraDoPdf", t("relatorios.editor.foraDoPdf"), checked=not b.in_pdf, id="campo-b" ~ i ~ "-foraDoPdf") }}</div>
       {#- Com só os maiores, esconder a linha "Outros" (o total continua com todos). #}
       {%- if b.top %}
       <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-semOutros", t("relatorios.editor.semOutros"), checked=b.hide_others, id="campo-b" ~ i ~ "-semOutros") }}</div>

@@ -79,7 +79,7 @@ Tela `/relatorios` no menu lateral (não é a tela inicial). Decisões do usuár
 
 **Quem vê o quê:** admin e auditor (`report.view_all`), tudo; quem supervisiona um grupo (`report.view_team`), as tarefas e os chamados dos grupos supervisionados e o próprio trabalho, e pode filtrar pelos membros desses grupos; os demais, só as próprias tarefas e os chamados em que são responsáveis. Sempre em cima do filtro de visibilidade dos chamados. Pedir grupo ou pessoa fora disso responde 403.
 
-**PDF:** A4, no idioma da interface: totais, por pessoa, por cliente e a lista das tarefas fora do expediente. Cada download vai para a auditoria (`report.exported`, com o período e os filtros).
+**PDF:** desde 2026-10-27, o menu Baixar das abas Produtividade, Clientes e Horas extras gera o PDF do modelo (§14.8.6), com os blocos de cada uma. A API (`GET /api/v1/reports/pdf`) continua igual por fora (endereço, parâmetros, `locale`, auditoria), porque é contrato para integrações: A4 em pé, no idioma pedido, com o período, os filtros e o expediente no cabeçalho, os totais, por pessoa, por cliente e as tarefas fora do expediente, **as 200 primeiras** (como a tela), com a nota "Mostrando as 200 primeiras de N tarefas. O CSV traz todas." (antes vinha a lista inteira: um mês cheio passava de 140 páginas); em cada página, o "Gerado em… por…" e o número da página. Cada download vai para a auditoria (`report.exported`, com o período e os filtros).
 
 ## 14.8 Relatórios personalizados (pedido do usuário, 2026-10-24)
 
@@ -102,6 +102,7 @@ O modelo guarda a **configuração**, nunca os números. Ao abrir, tudo é calcu
 | **Filtros** | §14.8.2 |
 | **Blocos** | Lista ordenada de cartões, gráficos e tabelas (§14.8.3) |
 | **Público** | Interno ou cliente (§14.8.5) |
+| **PDF** | Do modelo interno (§14.8.6): A4 em pé (padrão) ou deitado, o título (vazio: o nome do modelo) e um texto livre de rodapé, até 200 caracteres (vazio: só o "Gerado em…"); e, em cada bloco, "Deixar fora do PDF" |
 
 - **Período relativo:** é o que torna um modelo salvo útil. "Horas por cliente, mês anterior" serve todo mês. A semana vai de segunda a domingo e, como o mês e o trimestre, até o último dia; os últimos 12 meses são o mês atual e os 11 anteriores, inteiros; os últimos N dias (N de 1 a 366, padrão 30, num campo que só aparece com essa opção) terminam hoje.
 - **Modelos prontos:** Produtividade, Clientes e Horas extras (os painéis da §14.7), Chamados (os indicadores da §14.3: contagens, tempos, reabertura, registrados e concluídos por semana, em aberto por idade e por status, e por grupo) e, quando existirem, os painéis da §14.4. Não podem ser apagados, mas dá para duplicar e ajustar.
@@ -186,7 +187,12 @@ O modelo de público "cliente" é feito para enviar ao cliente, em PDF.
 
 ### 14.8.6 PDF do modelo
 
-O PDF segue o modelo: título, período (e o de comparação), filtros usados e os blocos na ordem, com os mesmos números e formatos da tela (as listas de tarefas, com as 200 primeiras, a primeira página da tela). Os gráficos são desenhados no próprio ReportLab, em vetor, na cor da instalação. Os modelos prontos de horas da §14.7 continuam com o PDF de hoje; o modelo pronto Chamados e os da pessoa usam este. O download vai para a auditoria (`report.exported`, com `format=pdf`).
+O PDF segue o modelo: título, descrição, período (e o de comparação), filtros usados, o expediente usado (quando algum bloco do PDF usa a hora extra, a mesma frase da tela) e os blocos na ordem, com os mesmos números e formatos da tela (as listas de tarefas, com as 200 primeiras, a primeira página da tela). Os gráficos são desenhados no próprio ReportLab, em vetor, na cor da instalação. Todos os modelos usam este, inclusive os prontos de horas da §14.7 (desde 2026-10-27). O download vai para a auditoria (`report.exported`, com `format=pdf`).
+
+- **Página** (2026-10-27): A4 em pé ou deitado, escolhido no modelo; deitado, os blocos ocupam a largura maior. As colunas das tabelas têm a largura do texto mais longo delas (as estreitas, como datas e horas, ficam com o que precisam; as largas dividem o resto).
+- **Título e rodapé:** o título do PDF (vazio, o nome do modelo); em cada página, embaixo, o texto livre do modelo (até três linhas), o "Gerado em… por…" e "Página 2 de 5".
+- **Blocos fora do PDF:** um bloco marcado "Deixar fora do PDF" continua na tela e no CSV dele; o PDF nem o calcula. O expediente do cabeçalho só entra quando um bloco do PDF usa a hora extra.
+- **O relatório para o cliente** (§14.8.5) tem o mesmo rodapé de cada página (sem o nome de quem gerou), mas sempre em pé, sem o título e o rodapé livres (ele tem os textos próprios).
 
 ### 14.8.7 Fases
 

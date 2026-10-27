@@ -1,22 +1,30 @@
-"""PDF de um modelo de relatório e o relatório para o cliente (docs/14 §14.8.5 e §14.8.6).
+"""PDF de um modelo de relatório, o relatório para o cliente (docs/14 §14.8.5 e §14.8.6) e o
+relatório de horas da API (§14.7, `render_hours`).
 
-Este módulo só desenha: os textos chegam prontos, já traduzidos e formatados por quem chama (a
-tela, web/reports.py, que é quem sabe o idioma e o formato das horas). Os gráficos são desenhados
-no próprio ReportLab, em vetor, como os da tela e com as mesmas cores de série do modo claro
-(`Series`, web/palette.py). Fontes padrão do PDF, sem pacotes do sistema.
+O desenho recebe os textos prontos, já traduzidos e formatados por quem chama (a tela,
+web/reports_downloads.py, que é quem sabe o idioma e o formato das horas). A exceção é o PDF da
+API (`GET /reports/pdf`), que não passa pela tela: `render_hours` monta os blocos fixos dele a
+partir do `service.build`, com os textos de `HOURS_TEXTS` (os módulos não dependem de web/, onde
+estão os catálogos da tela). Os gráficos são desenhados no próprio ReportLab, em vetor, como os
+da tela e com as mesmas cores de série do modo claro (`Series`, web/palette.py). Fontes padrão do
+PDF, sem pacotes do sistema. A página (A4 em pé ou deitado) e o rodapé de cada uma, com o número
+dela, vêm em `Page`.
 """
 
 import io
 from dataclasses import dataclass, field, replace
+from datetime import date, datetime
 from typing import Any, Literal
 from xml.sax.saxutils import escape
 
 from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, PolyLine, Rect, String
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.lib.utils import ImageReader
+from reportlab.lib.utils import ImageReader, simpleSplit
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (
     Flowable,
     Image,
@@ -28,12 +36,47 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from chamados.core.i18n import Locale
+from chamados.modules.reports.schemas import Report
+from chamados.modules.reports.service import TZ, Filters
+
 INK = colors.HexColor("#171717")
 MUTED = colors.HexColor("#525252")
 RULE = colors.HexColor("#E5E5E5")
 HEAD = colors.HexColor("#F5F5F5")
-WIDTH = A4[0] - 30 * mm
+MARGIN = 15 * mm
 CHART_HEIGHT = 48 * mm
+FOOT_SIZE = 7.5  # o corpo do rodapé de cada página
+FOOT_LEADING = 9
+FOOT_BASE = 10 * mm  # a linha de baixo do rodapé, a partir da borda da folha
+FOOT_LINES = 3  # o texto livre do rodapé, no máximo em três linhas
+
+
+@dataclass
+class Page:
+    """A página e o rodapé de cada uma: `generated` ("Gerado em…") à esquerda e `numbering` à
+    direita ("Página {n} de {total}", com os marcadores), e, acima deles, o texto livre do
+    modelo (`footer`; vazio, nada)."""
+
+    generated: str
+    numbering: str
+    footer: str = ""
+    landscape: bool = False
+
+    @property
+    def size(self) -> tuple[float, float]:
+        return landscape(A4) if self.landscape else A4
+
+    @property
+    def width(self) -> float:
+        """A largura útil (sem as margens): a dos blocos."""
+        return self.size[0] - 2 * MARGIN
+
+    def footer_lines(self) -> list[str]:
+        if not self.footer.strip():
+            return []
+        lines = simpleSplit(_sanitize(self.footer), "Helvetica", FOOT_SIZE, self.width)
+        return list(lines[:FOOT_LINES])
 
 
 @dataclass
@@ -143,21 +186,50 @@ def _head(block: Block, st: dict[str, ParagraphStyle]) -> list[Flowable]:
     return flow
 
 
-def _grid(block: Grid, st: dict[str, ParagraphStyle]) -> list[Flowable]:
+PADDING = 12  # o respiro de uma célula da tabela (6 pt de cada lado, o padrão do ReportLab)
+
+
+def _widths(texts: list[list[str]], width: float, size: float) -> list[float]:
+    """A largura de cada coluna pelo texto mais longo dela: as que cabem na parte igual
+    (`width` / colunas) ficam com o que precisam e as outras dividem o resto, na proporção do
+    que precisariam; se todas cabem, crescem na proporção até a largura toda."""
+    columns = zip(*texts, strict=True)
+    need = [max(stringWidth(c, "Helvetica", size) for c in col) + PADDING for col in columns]
+    fair = width / len(need)
+    narrow = sum(n for n in need if n <= fair)
+    wide = sum(n for n in need if n > fair)
+    if not wide:
+        return [n * width / narrow for n in need]
+    return [n if n <= fair else n / wide * (width - narrow) for n in need]
+
+
+def _cell(text: str, style: ParagraphStyle, width: float) -> str | Paragraph:
+    """O texto que cabe numa linha vai como texto simples (no corpo da tabela); só o que precisa
+    quebrar vira Paragraph: um Paragraph por célula levava segundos numa tabela longa."""
+    text = _sanitize(text)
+    if "\n" not in text and stringWidth(text, style.fontName, style.fontSize) <= width - PADDING:
+        return text
+    return Paragraph(escape(text), style)
+
+
+def _grid(block: Grid, st: dict[str, ParagraphStyle], width: float) -> list[Flowable]:
     flow = _head(block, st)
     if not block.rows:
         return [*flow, _p(block.empty, st["muted"])]
-    data = [[_p(c, st["muted"]) for c in block.columns]]
-    data += [[_p(c, st["body"]) for c in row] for row in block.rows]
+    body = st["body"]
+    texts = [block.columns, *block.rows]
     if block.total is not None:
-        data.append([_p(block.total_label, st["body"]), *(_p(c, st["body"]) for c in block.total)])
-    first = WIDTH * (0.4 if len(block.columns) > 2 else 0.6)
-    rest = (WIDTH - first) / max(1, len(block.columns) - 1)
-    table = Table(data, colWidths=[first] + [rest] * (len(block.columns) - 1), repeatRows=1)
+        texts.append([block.total_label, *block.total])
+    widths = _widths([[_sanitize(c) for c in row] for row in texts], width, body.fontSize)
+    data: list[list[str | Paragraph]] = [[_p(c, st["muted"]) for c in block.columns]]
+    data += [[_cell(c, body, w) for c, w in zip(row, widths, strict=True)] for row in texts[1:]]
+    table = Table(data, colWidths=widths, repeatRows=1)
     style: list[Any] = [
         ("BACKGROUND", (0, 0), (-1, 0), HEAD),
         ("LINEBELOW", (0, 0), (-1, -1), 0.5, RULE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONT", (0, 1), (-1, -1), body.fontName, body.fontSize, body.leading),
+        ("TEXTCOLOR", (0, 1), (-1, -1), INK),
     ]
     if block.total is not None:
         style.append(("LINEABOVE", (0, -1), (-1, -1), 1, INK))
@@ -168,7 +240,7 @@ def _grid(block: Grid, st: dict[str, ParagraphStyle]) -> list[Flowable]:
     return flow
 
 
-def _cards(block: Cards, st: dict[str, ParagraphStyle]) -> list[Flowable]:
+def _cards(block: Cards, st: dict[str, ParagraphStyle], width: float) -> list[Flowable]:
     cells = [
         [
             _p(label, st["muted"]),
@@ -180,7 +252,7 @@ def _cards(block: Cards, st: dict[str, ParagraphStyle]) -> list[Flowable]:
     per_row = min(4, len(cells)) or 1
     rows = [cells[i : i + per_row] for i in range(0, len(cells), per_row)]
     rows[-1] += [[]] * (per_row - len(rows[-1]))
-    table = Table(rows, colWidths=[WIDTH / per_row] * per_row)
+    table = Table(rows, colWidths=[width / per_row] * per_row)
     table.setStyle(
         TableStyle(
             [
@@ -212,34 +284,34 @@ def _short(text: str, size: int = 28) -> str:
     return text if len(text) <= size else text[: size - 1] + "…"
 
 
-def _bars(block: Chart, primary: colors.Color) -> Drawing:
+def _bars(block: Chart, primary: colors.Color, width: float) -> Drawing:
     row = 14
     label_width = 45 * mm
-    area = WIDTH - label_width - 22 * mm
+    area = width - label_width - 22 * mm
     top = max([1, *(p[1] for p in block.points)])
-    drawing = Drawing(WIDTH, row * len(block.points) + 2)
+    drawing = Drawing(width, row * len(block.points) + 2)
     for i, (label, value, _, text) in enumerate(block.points):
         y = drawing.height - (i + 1) * row
         drawing.add(_text(0, y + 3, _short(label)))
-        width = value / top * area
-        if width > 0:
-            drawing.add(_rect(label_width, y + 1, width, row - 4, primary))
-        drawing.add(_text(label_width + width + 3, y + 3, text, color=INK))
+        length = value / top * area
+        if length > 0:
+            drawing.add(_rect(label_width, y + 1, length, row - 4, primary))
+        drawing.add(_text(label_width + length + 3, y + 3, text, color=INK))
     return drawing
 
 
-def _columns(block: Chart, series: Series) -> Drawing:
+def _columns(block: Chart, series: Series, page_width: float) -> Drawing:
     primary = series.first
     axis = 16 * mm
     bottom = 10
     full = CHART_HEIGHT * block.scale
     height = full - bottom
-    area = WIDTH - axis
-    drawing = Drawing(WIDTH, full)
+    area = page_width - axis
+    drawing = Drawing(page_width, full)
     top = max([1, *(value for value, _ in block.ticks)])
     for value, text in block.ticks:
         y = bottom + value / top * height
-        drawing.add(Line(axis, y, WIDTH, y, strokeColor=RULE, strokeWidth=0.5))
+        drawing.add(Line(axis, y, page_width, y, strokeColor=RULE, strokeWidth=0.5))
         drawing.add(_text(axis - 3, y - 2, text, anchor="end"))
     count = max(1, len(block.points))
     slot = area / count
@@ -277,10 +349,10 @@ def _columns(block: Chart, series: Series) -> Drawing:
         value, text = block.reference
         y = bottom + value / top * height
         drawing.add(
-            Line(axis, y, WIDTH, y, strokeColor=MUTED, strokeWidth=1, strokeDashArray=[4, 3])
+            Line(axis, y, page_width, y, strokeColor=MUTED, strokeWidth=1, strokeDashArray=[4, 3])
         )
         # O nome acima da linha; no topo do gráfico, abaixo dela, para não sair do desenho.
-        drawing.add(_text(WIDTH, y + 2 if y + 10 < full else y - 8, text, anchor="end"))
+        drawing.add(_text(page_width, y + 2 if y + 10 < full else y - 8, text, anchor="end"))
     if line and block.area:
         fill = colors.Color(primary.red, primary.green, primary.blue, alpha=0.15)
         drawing.add(
@@ -303,14 +375,19 @@ def _columns(block: Chart, series: Series) -> Drawing:
     return drawing
 
 
-def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[Flowable]:
+def _chart(
+    block: Chart, st: dict[str, ParagraphStyle], series: Series, width: float
+) -> list[Flowable]:
     flow = _head(block, st)
     if not block.points:
         return [*flow, _p(block.empty, st["muted"])]
     series = replace(series, first=series.named.get(block.color, series.first))
-    flow.append(_bars(block, series.first) if block.kind == "bars" else _columns(block, series))
+    if block.kind == "bars":
+        flow.append(_bars(block, series.first, width))
+    else:
+        flow.append(_columns(block, series, width))
     if block.legend:
-        legend = Drawing(WIDTH, 12)
+        legend = Drawing(width, 12)
         x = 0.0
         second = series.second if block.kind in ("stacked", "combo") else series.before
         for color, label in zip((series.first, second), block.legend, strict=True):
@@ -321,15 +398,17 @@ def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[
     return [KeepTogether(flow)]
 
 
-def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> list[Flowable]:
+def _heatmap(
+    block: Heatmap, st: dict[str, ParagraphStyle], series: Series, width: float
+) -> list[Flowable]:
     flow = _head(block, st)
     if not block.legend:
         return [*flow, _p(block.empty, st["muted"])]
     label = 10 * mm
-    cell = (WIDTH - label) / len(block.hours)
+    cell = (width - label) / len(block.hours)
     row = 5 * mm * block.scale
     tones = [colors.white, *series.heat]  # sem nada, a célula vazia, só com a borda
-    drawing = Drawing(WIDTH, row * (len(block.days) + 1))
+    drawing = Drawing(width, row * (len(block.days) + 1))
     for i, hour in enumerate(block.hours):
         if i % 3 == 0:
             drawing.add(
@@ -343,7 +422,7 @@ def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> l
             if not level:
                 box.strokeColor, box.strokeWidth = RULE, 0.5
             drawing.add(box)
-    legend = Drawing(WIDTH, 12)
+    legend = Drawing(width, 12)
     x = 0.0
     for level, text in block.legend:
         swatch = _rect(x, 2, 7, 7, tones[level])
@@ -355,18 +434,56 @@ def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> l
     return [KeepTogether([*flow, drawing, legend])]
 
 
-def _document(story: list[Flowable], title: str) -> bytes:
+def _footer(canvas: Canvas, page: Page, number: int, total: int) -> None:
+    """O rodapé de uma página: o texto livre do modelo, o "Gerado em…" e o número da página."""
+    canvas.saveState()
+    canvas.setFont("Helvetica", FOOT_SIZE)
+    canvas.setFillColor(MUTED)
+    canvas.drawString(MARGIN, FOOT_BASE, _sanitize(page.generated))
+    numbering = page.numbering.replace("{n}", str(number)).replace("{total}", str(total))
+    canvas.drawRightString(MARGIN + page.width, FOOT_BASE, _sanitize(numbering))
+    for k, line in enumerate(reversed(page.footer_lines()), 1):
+        canvas.drawString(MARGIN, FOOT_BASE + k * FOOT_LEADING, line)
+    canvas.restoreState()
+
+
+def _numbered(page: Page) -> type[Canvas]:
+    """O canvas que guarda cada página e só a desenha no fim, quando já sabe o total (o "de 5"
+    do "Página 2 de 5")."""
+
+    class Numbered(Canvas):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self._pages: list[dict[str, Any]] = []
+
+        def showPage(self) -> None:
+            self._pages.append(dict(self.__dict__))
+            self._startPage()  # type: ignore[attr-defined]  # fora dos stubs do ReportLab
+
+        def save(self) -> None:
+            for number, state in enumerate(self._pages, 1):
+                self.__dict__.update(state)
+                _footer(self, page, number, len(self._pages))
+                super().showPage()
+            super().save()
+
+    return Numbered
+
+
+def _document(story: list[Flowable], title: str, page: Page) -> bytes:
     buffer = io.BytesIO()
+    # O rodapé ocupa a linha do "Gerado em…" e as do texto livre, com um respiro acima.
+    footer = FOOT_BASE + FOOT_LEADING * (len(page.footer_lines()) + 1) + 4 * mm
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=A4,
-        leftMargin=15 * mm,
-        rightMargin=15 * mm,
-        topMargin=15 * mm,
-        bottomMargin=15 * mm,
+        pagesize=page.size,
+        leftMargin=MARGIN,
+        rightMargin=MARGIN,
+        topMargin=MARGIN,
+        bottomMargin=max(MARGIN, footer),
         title=_sanitize(title),
     )
-    doc.build(story)
+    doc.build(story, canvasmaker=_numbered(page))
     return buffer.getvalue()
 
 
@@ -374,14 +491,15 @@ def render_model(
     title: str,
     lines: list[str],
     blocks: list[Block],
-    footer: str,
+    page: Page,
     series: dict[str, str],
     heat: tuple[str, ...],
 ) -> bytes:
-    """O PDF de um modelo: o título, as linhas de cabeçalho (período, filtros), os blocos na
-    ordem e o rodapé (quando e quem gerou). `series`: as cores da paleta por token (`chart-1` a
-    `chart-4` e `chart-before`); `heat`, as do mapa de calor."""
+    """O PDF de um modelo: o título, as linhas de cabeçalho (descrição, período, filtros,
+    expediente), os blocos na ordem e, em cada página, o rodapé (`page`). `series`: as cores da
+    paleta por token (`chart-1` a `chart-4` e `chart-before`); `heat`, as do mapa de calor."""
     st = _styles()
+    width = page.width
     named = {token: colors.HexColor(c) for token, c in series.items()}
     palette = Series(
         named["chart-1"],
@@ -394,15 +512,14 @@ def render_model(
     story += [_p(line, st["muted"]) for line in lines]
     for block in blocks:
         if isinstance(block, Cards):
-            story += _cards(block, st)
+            story += _cards(block, st, width)
         elif isinstance(block, Chart):
-            story += _chart(block, st, palette)
+            story += _chart(block, st, palette, width)
         elif isinstance(block, Heatmap):
-            story += _heatmap(block, st, palette)
+            story += _heatmap(block, st, palette, width)
         else:
-            story += _grid(block, st)
-    story += [Spacer(1, 10), _p(footer, st["muted"])]
-    return _document(story, title)
+            story += _grid(block, st, width)
+    return _document(story, title, page)
 
 
 def render_client(
@@ -411,23 +528,198 @@ def render_client(
     lines: list[str],
     totals: list[tuple[str, str]],
     tickets: Grid,
-    footer: str,
+    page: Page,
 ) -> bytes:
     """O relatório para o cliente: o logotipo da instalação, o título, o cliente e o período, os
     totais e os chamados. Nada de organização interna (quem chama já deixou de fora)."""
     st = _styles()
+    width = page.width
     head: list[Flowable] = [_p(title, st["h1"]), *(_p(line, st["body"]) for line in lines)]
     story: list[Flowable]
     if logo:
         image = ImageReader(io.BytesIO(logo))
-        width, height = image.getSize()
-        scale = min(40 * mm / width, 18 * mm / height)
-        picture = Image(io.BytesIO(logo), width=width * scale, height=height * scale)
-        header = Table([[picture, head]], colWidths=[45 * mm, WIDTH - 45 * mm])
+        natural, tall = image.getSize()
+        scale = min(40 * mm / natural, 18 * mm / tall)
+        picture = Image(io.BytesIO(logo), width=natural * scale, height=tall * scale)
+        header = Table([[picture, head]], colWidths=[45 * mm, width - 45 * mm])
         header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
         story = [header]
     else:
         story = head
-    story += _cards(Cards("", [(label, value, "") for label, value in totals]), st)
-    story += [Spacer(1, 4), *_grid(tickets, st), Spacer(1, 10), _p(footer, st["muted"])]
-    return _document(story, title)
+    story += _cards(Cards("", [(label, value, "") for label, value in totals]), st, width)
+    story += [Spacer(1, 4), *_grid(tickets, st, width)]
+    return _document(story, title, page)
+
+
+# --- O PDF da API (§14.7) --------------------------------------------------------------------
+
+# Os textos do PDF da API, no idioma do `locale` (ou do Accept-Language). Ficam aqui, e não nos
+# catálogos da tela (web/locales), porque os módulos não dependem de web/; são poucos e só deste
+# PDF.
+HOURS_TEXTS: dict[Locale, dict[str, str]] = {
+    "pt-BR": {
+        "title": "Relatório de horas",
+        "period": "{start} a {end}",
+        "team": "Grupo",
+        "person": "Pessoa",
+        "client": "Cliente",
+        "status": "Status",
+        "all": "Todos",
+        "work_hours": "Expediente",
+        "holidays": "{n} feriado(s) cadastrado(s)",
+        "generated": "Gerado em {when} por {who}",
+        "page": "Página {n} de {total}",
+        "hours": "Horas",
+        "overtime": "Horas extras",
+        "tasks": "Tarefas",
+        "opened": "Chamados registrados",
+        "closed": "Chamados concluídos",
+        "by_person": "Por pessoa",
+        "by_client": "Por cliente",
+        "overtime_tasks": "Tarefas fora do expediente",
+        "no_client": "Sem cliente",
+        "when": "Quando",
+        "ticket": "Chamado",
+        "time": "Tempo",
+        "outside": "Fora do expediente",
+        "empty": "Nada no período.",
+        "cut": "Mostrando as {n} primeiras de {total} tarefas. O CSV traz todas.",
+        "weekdays": "seg,ter,qua,qui,sex,sáb,dom",
+    },
+    "en": {
+        "title": "Hours report",
+        "period": "{start} to {end}",
+        "team": "Team",
+        "person": "Person",
+        "client": "Client",
+        "status": "Status",
+        "all": "All",
+        "work_hours": "Working hours",
+        "holidays": "{n} holiday(s) registered",
+        "generated": "Generated on {when} by {who}",
+        "page": "Page {n} of {total}",
+        "hours": "Hours",
+        "overtime": "Overtime",
+        "tasks": "Tasks",
+        "opened": "Tickets opened",
+        "closed": "Tickets closed",
+        "by_person": "By person",
+        "by_client": "By client",
+        "overtime_tasks": "Tasks outside working hours",
+        "no_client": "No client",
+        "when": "When",
+        "ticket": "Ticket",
+        "time": "Time",
+        "outside": "Outside working hours",
+        "empty": "Nothing in this period.",
+        "cut": "Showing the first {n} of {total} tasks. The CSV has all of them.",
+        "weekdays": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+    },
+}
+HOURS_LISTED = 200  # as tarefas fora do expediente no PDF, como a lista da tela
+
+
+def _hours(minutes: int) -> str:
+    return f"{minutes // 60}:{minutes % 60:02d}"
+
+
+def _day(d: date, locale: Locale) -> str:
+    return d.strftime("%d/%m/%Y" if locale == "pt-BR" else "%Y-%m-%d")
+
+
+def _moment(dt: datetime, locale: Locale) -> str:
+    local = dt.astimezone(TZ)
+    return f"{_day(local.date(), locale)} {local:%H:%M}"
+
+
+def render_hours(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
+    """O PDF de `GET /reports/pdf`, um modelo fixo com o conteúdo de sempre: o período, os
+    filtros e o expediente no cabeçalho, os totais, por pessoa, por cliente e as tarefas fora do
+    expediente (as `HOURS_LISTED` primeiras, com a nota), em A4 em pé."""
+    t = HOURS_TEXTS[locale]
+    weekdays = t["weekdays"].split(",")
+    wh = report.work_hours
+    work = f"{', '.join(weekdays[d] for d in wh.weekdays)} · {wh.start:%H:%M}–{wh.end:%H:%M}"
+    if wh.holidays:
+        work += f" · {t['holidays'].format(n=len(wh.holidays))}"
+    filters = " · ".join(
+        f"{t[k]}: {', '.join(v) or t['all']}"
+        for k, v in (
+            ("team", [x.name for x in f.teams]),
+            ("person", [x.display_name for x in f.people]),
+            ("client", [x.label for x in f.clients] + ([t["no_client"]] if f.no_client else [])),
+            ("status", [x.name for x in f.statuses]),
+        )
+    )
+    tot = report.totals
+    listed = report.overtime_tasks[:HOURS_LISTED]
+    total = len(report.overtime_tasks)
+    blocks: list[Block] = [
+        Cards(
+            "",
+            [
+                (t["hours"], _hours(tot.minutes), ""),
+                (t["overtime"], _hours(tot.overtime_minutes), ""),
+                (t["tasks"], str(tot.tasks), ""),
+                (t["opened"], str(tot.tickets_opened), ""),
+                (t["closed"], str(tot.tickets_closed), ""),
+            ],
+        ),
+        Grid(
+            t["by_person"],
+            [t["person"], t["hours"], t["overtime"], t["tasks"], t["closed"]],
+            [
+                [
+                    r.name,
+                    _hours(r.minutes),
+                    _hours(r.overtime_minutes),
+                    str(r.tasks),
+                    str(r.tickets_closed),
+                ]
+                for r in report.people
+            ],
+            empty=t["empty"],
+        ),
+        Grid(
+            t["by_client"],
+            [t["client"], t["hours"], t["opened"], t["closed"]],
+            [
+                [
+                    r.name or t["no_client"],
+                    _hours(r.minutes),
+                    str(r.tickets_opened),
+                    str(r.tickets_closed),
+                ]
+                for r in report.clients
+            ],
+            empty=t["empty"],
+        ),
+        Grid(
+            t["overtime_tasks"],
+            [t["when"], t["person"], t["ticket"], t["time"], t["outside"]],
+            [
+                [
+                    _moment(r.done_at, locale),
+                    r.person,
+                    f"#{r.ticket_number} {r.ticket_title}",
+                    _hours(r.minutes),
+                    _hours(r.overtime_minutes),
+                ]
+                for r in listed
+            ],
+            empty=t["empty"],
+            note=t["cut"].format(n=len(listed), total=total) if total > len(listed) else "",
+        ),
+    ]
+    lines = [
+        t["period"].format(start=_day(report.start, locale), end=_day(report.end, locale)),
+        filters,
+        f"{t['work_hours']}: {work}",
+    ]
+    page = Page(
+        t["generated"].format(when=_moment(datetime.now(TZ), locale), who=who),
+        t["page"],
+    )
+    # As cores não importam: o PDF da API não tem gráficos.
+    black = {token: "#000000" for token in ("chart-1", "chart-2", "chart-before")}
+    return render_model(t["title"], lines, blocks, page, black, ())

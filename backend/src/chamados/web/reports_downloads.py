@@ -29,6 +29,8 @@ from chamados.web.reports_blocks import (
     block_view,
     client_preview,
     scopes,
+    uses_overtime,
+    work_hours_line,
 )
 from chamados.web.reports_state import (
     ParamsDep,
@@ -186,6 +188,8 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         raise HTTPException(422, "Não foi possível gerar o PDF com estes filtros.")
     locale = page.locale
     now = format_datetime(locale, datetime.now(TIMEZONE))
+    # O número da página, com os marcadores {n} e {total} (o `model_pdf` os preenche).
+    numbering = page.t("relatorios.pdf.pagina")
     period = page.t(
         "relatorios.pdf.periodo", de=format_date(locale, f.start), ate=format_date(locale, f.end)
     )
@@ -202,14 +206,16 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             view["lines"],
             view["totals"],
             model_pdf.Grid("", view["columns"], view["rows"], empty=page.t("relatorios.nada")),
-            view["footer"],
+            model_pdf.Page(view["footer"], numbering),
         )
         table = "client"
     else:
-        found = await scopes(page, db, state, config.blocks)
+        # Só os blocos do PDF (`Block.in_pdf`); os de fora nem são calculados.
+        blocks = [b for b in config.blocks if b.in_pdf]
+        found = await scopes(page, db, state, blocks)
         views = [
             block_view(page, state, config, block, i, scope)
-            for i, (block, scope) in enumerate(zip(config.blocks, found, strict=True))
+            for i, (block, scope) in enumerate(zip(blocks, found, strict=True))
         ]
         # A descrição do modelo, logo abaixo do título.
         lines = [description_of(page, state.choice), period]
@@ -223,6 +229,8 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
                 )
             )
         lines.append(_filters_line(page, state))
+        if uses_overtime(blocks):  # o expediente usado, como na tela
+            lines.append(work_hours_line(page, state))
         colors = page.branding.colors
         light = palette(colors.model_dump() if colors else None)["light"]
         # As séries do modo claro, pelo nome do token (a `chart-1` é a primary).
@@ -231,12 +239,18 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             **{t: light[t] for t in ("chart-2", "chart-3", "chart-4", "chart-before")},
         }
         heat = tuple(light[f"heat-{k}"] for k in range(1, 6))
+        spec = config.pdf
         content = await run_in_threadpool(
             model_pdf.render_model,
-            state.choice.name,
+            spec.title or state.choice.name,
             [line for line in lines if line],
             _pdf_blocks(page, views),
-            page.t("relatorios.pdf.gerado", quando=now, quem=page.auth.user.display_name),
+            model_pdf.Page(
+                page.t("relatorios.pdf.gerado", quando=now, quem=page.auth.user.display_name),
+                numbering,
+                spec.footer,
+                spec.orientation == "landscape",
+            ),
             series,
             heat,
         )

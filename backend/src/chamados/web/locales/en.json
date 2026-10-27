@@ -629,7 +629,18 @@
       "subirMedida": "Move {medida} up",
       "descerMedida": "Move {medida} down",
       "descricao": "Description",
-      "descricaoDica": "One sentence about what the template shows: it appears below the title, on screen and in the PDF, and as the tab tooltip."
+      "descricaoDica": "One sentence about what the template shows: it appears below the title, on screen and in the PDF, and as the tab tooltip.",
+      "pdf": "PDF",
+      "orientacao": "Orientation",
+      "orientacoes": {
+        "portrait": "Portrait (A4 upright)",
+        "landscape": "Landscape (A4 sideways)"
+      },
+      "tituloPdf": "PDF title",
+      "tituloPdfVazio": "The template name",
+      "rodape": "Footer",
+      "rodapeDica": "Text on every page, above the generation date and the page number. Empty: just the date and the number.",
+      "foraDoPdf": "Leave out of the PDF (still on screen and in the CSV)"
     },
     "idades": {
       "0": "up to 1 day",
@@ -702,7 +713,8 @@
     "pdf": {
       "periodo": "Period: {de} to {ate}",
       "gerado": "Generated on {quando} by {quem}",
-      "comparado": "Compared with {de} to {ate}"
+      "comparado": "Compared with {de} to {ate}",
+      "pagina": "Page {n} of {total}"
     },
     "filtroNaoCombina": "This block's filter ({filtro}) doesn't match the page's.",
     "filtroDoBlocoInvalido": "Parts of this block's filter no longer apply to you and were left out: {filtros}.",

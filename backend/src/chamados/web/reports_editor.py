@@ -30,6 +30,7 @@ from chamados.modules.reports.builder import (
     Block,
     BlockPeriod,
     FilterSpec,
+    PdfSpec,
     PeriodSpec,
     ReportConfig,
 )
@@ -127,6 +128,7 @@ class EditorForm:
     is_default: bool = False
     audience: str = "internal"  # ou "client": o relatório para o cliente (§14.8.5)
     show_people: bool = False
+    pdf: PdfSpec = field(default_factory=PdfSpec)
     blocks: list[Block] = field(default_factory=list)
     errors: dict[int, str] = field(default_factory=dict)  # bloco → erro
     error: str | None = None
@@ -244,6 +246,8 @@ def _read_block(form: FormData, i: int) -> Block:
         decimals=next((d for d in (0, 1, 2) if str(d) == one("casas") and fractional), None),
         # As colunas da lista de tarefas, na ordem fixa; as de sempre (ou nenhuma) ficam None.
         columns=columns if columns and tuple(columns) != builder.DEFAULT_COLUMNS else None,
+        # Marcado "Deixar fora do PDF" (o padrão, sem o campo, é ficar no PDF).
+        in_pdf=one("foraDoPdf") != "1",
     )
 
 
@@ -259,6 +263,11 @@ def _read_editor(form: FormData) -> tuple[EditorForm, str]:
         is_default=form.get("inicial") == "1",
         audience="client" if form.get("publico") == "client" else "internal",
         show_people=form.get("atendeu") == "1",
+        pdf=PdfSpec(
+            orientation="landscape" if form.get("pdf-orientacao") == "landscape" else "portrait",
+            title=str(form.get("pdf-titulo", "")).strip()[:120],
+            footer=str(form.get("pdf-rodape", "")).strip()[:200],
+        ),
         blocks=[_read_block(form, i) for i in range(total)],
     )
     return editor, str(form.get("acao", "salvar"))
@@ -464,6 +473,9 @@ async def _editor_page(
             ("full", page.t("relatorios.editor.larguras.full")),
         ],
         height_options=[(h, page.t(f"relatorios.editor.alturas.{h}")) for h in ("s", "m", "l")],
+        orientation_options=[
+            (o, page.t(f"relatorios.editor.orientacoes.{o}")) for o in ("portrait", "landscape")
+        ],
         chosen=chosen,
         placeholders=[
             block_title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")
@@ -488,6 +500,7 @@ def _base(page: LoggedPage, base: str | None, models: list[ReportModel]) -> Edit
         hours=config.hours,
         audience=config.audience,
         show_people=config.show_people,
+        pdf=config.pdf,
         blocks=list(config.blocks),
     )
 
@@ -532,6 +545,7 @@ async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLRe
             is_default=model.is_default,
             audience=config.audience,
             show_people=config.show_people,
+            pdf=config.pdf,
             blocks=list(config.blocks),
         )
     previews = await _previews(page, db, editor, Params(aba=str(model_id)))
@@ -612,6 +626,7 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
                 hours=editor.hours,
                 audience=editor.audience,
                 show_people=editor.show_people,
+                pdf=editor.pdf,
                 blocks=editor.blocks,
             )
         else:
@@ -622,6 +637,7 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
                     "hours": editor.hours,
                     "audience": editor.audience,
                     "show_people": editor.show_people,
+                    "pdf": editor.pdf,
                     "blocks": editor.blocks,
                 }
             )
