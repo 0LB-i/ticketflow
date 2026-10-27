@@ -8,7 +8,7 @@ from chamados.modules.identity.models import AuthToken, User, UserSession
 from chamados.modules.jobs.models import Job, OutboxEvent
 from chamados.modules.organization.models import Role, Team, TeamMember
 from chamados.modules.reports.models import ReportModel, ReportPreference
-from chamados.modules.system.models import SystemSetting
+from chamados.modules.system.models import SystemSetting, WorkSchedule
 from chamados.modules.tickets.models import (
     Ticket,
     TicketComment,
@@ -40,4 +40,5 @@ __all__ = [
     "TicketWatcher",
     "User",
     "UserSession",
+    "WorkSchedule",
 ]

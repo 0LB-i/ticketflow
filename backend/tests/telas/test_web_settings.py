@@ -1,6 +1,7 @@
 """Tela do servidor das Configurações (ADR 0011)."""
 
 import re
+from datetime import time
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -8,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from chamados.modules.catalog.models import TicketStatus
-from chamados.modules.system.models import SystemSetting
+from chamados.modules.system.models import SystemSetting, WorkSchedule
 from tests.conftest import consultas, criar_usuario, entrar
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
@@ -130,12 +131,14 @@ def test_expediente(client: TestClient, db: Session) -> None:
     }
     r = client.post(f"{URL}/expediente", data=_form(client, **dados))
     assert _aviso(r.text) == "Alterações salvas"
-    assert _valor(db, "work_hours") == {
-        "weekdays": [0, 1, 2, 3],
-        "start": "09:00:00",
-        "end": "17:30:00",
-        "holidays": ["2026-11-20", "2026-12-25"],
-    }
+    # O horário vira uma vigência da instalação a partir de hoje; os feriados ficam na chave.
+    assert _valor(db, "work_hours") == {"holidays": ["2026-11-20", "2026-12-25"]}
+    vigencia = db.scalars(select(WorkSchedule)).one()
+    assert (vigencia.weekdays, vigencia.start, vigencia.end) == (
+        [0, 1, 2, 3],
+        time(9),
+        time(17, 30),
+    )
     assert "25/12/2026" in r.text
     r = client.post(f"{URL}/expediente", data=_form(client, **{**dados, "end": "08:00"}))
     assert _aviso(r.text) == "O fim precisa ser depois do início."

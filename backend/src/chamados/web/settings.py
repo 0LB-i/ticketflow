@@ -20,7 +20,7 @@ from chamados.modules.catalog import router as catalog_api
 from chamados.modules.catalog.router import StatusCreate, StatusOrder, StatusOut, StatusUpdate
 from chamados.modules.system import router as system_api
 from chamados.modules.system.router import LOGO_MAX_BYTES, LogoIn, SettingsUpdate
-from chamados.modules.system.work_hours import WorkHours, get_work_hours
+from chamados.modules.system.work_hours import WorkHoursIn, get_work_hours
 from chamados.web.page import LoggedPage, check_csrf, requires
 from chamados.web.palette import DEFAULT_COLORS, PRESETS, TOKENS, Colors, palette
 
@@ -315,7 +315,7 @@ async def save_work_hours(
         page,
         back,
         lambda: system_api.set_work_hours(
-            WorkHours.model_validate(
+            WorkHoursIn.model_validate(
                 {
                     "weekdays": weekdays or [],
                     "start": start,

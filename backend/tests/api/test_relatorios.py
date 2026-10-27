@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.service import TZ, outside_minutes
+from chamados.modules.system.models import WorkSchedule
 from chamados.modules.system.work_hours import DEFAULT, WorkHours
 from chamados.modules.tickets.models import Ticket
 from tests.apoio import API, base, dia_util_passado, em, registrar, tarefa
@@ -363,9 +364,68 @@ def test_expediente(client: TestClient, cenario: dict[str, Any], db: Session) ->
     assert r.status_code == 422
     assert db.scalar(select(AuditLog).where(AuditLog.action == "settings.updated")) is not None
 
-    # O relatório usa o expediente novo: 17:30–19:00 fica todo fora
-    entrar(client, "ana@x.com")
+    # O relatório usa o expediente novo a partir do dia dele: 17:30–19:00 fica todo fora
     dia = dia_util_passado()
+    r = client.put(
+        "/api/v1/admin/settings/work-hours", json={**novo, "valid_from": dia.isoformat()}
+    )
+    assert r.status_code == 200, r.text
+    entrar(client, "ana@x.com")
     t = registrar(client, cenario, assignee="me")["number"]
     tarefa(client, t, 90, em(dia, 19))
     assert relatorio(client, dia)["totals"]["overtime_minutes"] == 90
+
+
+def test_expediente_vigencias(client: TestClient, db: Session) -> None:
+    """O PUT grava uma vigência da instalação a partir de hoje (ou de `valid_from`); o GET
+    responde a de hoje. Uma vigência igual à anterior não é gravada, e a da mesma data é
+    substituída."""
+    criar_usuario(db, "admin@x.com", "admin", nome="Admin")
+    entrar(client, "admin@x.com")
+    hoje = datetime.now(TZ).date()
+    amanha = hoje + timedelta(days=1)
+    url = "/api/v1/admin/settings/work-hours"
+    novo = {"weekdays": [0, 1, 2, 3, 4], "start": "07:00", "end": "17:00", "holidays": []}
+
+    def vigencias() -> list[tuple[date | None, str | None]]:
+        db.expire_all()
+        linhas = db.scalars(select(WorkSchedule).order_by(WorkSchedule.valid_from))
+        return [(v.valid_from, f"{v.start:%H:%M}" if v.start else None) for v in linhas]
+
+    assert client.put(url, json=novo).status_code == 200
+    assert vigencias() == [(hoje, "07:00")]
+    assert client.get("/api/v1/work-hours").json()["start"] == "07:00:00"
+
+    # Só os feriados mudam: nenhuma vigência nova, e a auditoria registra só eles.
+    novo["holidays"] = ["2026-12-25"]
+    assert client.put(url, json=novo).status_code == 200
+    assert vigencias() == [(hoje, "07:00")]
+    ultimo = db.scalars(select(AuditLog).order_by(AuditLog.id.desc())).first()
+    assert ultimo is not None
+    assert ultimo.before == {"holidays": []}
+    assert ultimo.after == {"holidays": ["2026-12-25"]}
+
+    # Uma vigência futura não muda o de hoje; trocar a mesma data a substitui, e voltar ao
+    # anterior a tira.
+    futuro = {**novo, "start": "09:00", "valid_from": amanha.isoformat()}
+    assert client.put(url, json=futuro).status_code == 200
+    assert vigencias() == [(hoje, "07:00"), (amanha, "09:00")]
+    assert client.get("/api/v1/work-hours").json()["start"] == "07:00:00"
+    ultimo = db.scalars(select(AuditLog).order_by(AuditLog.id.desc())).first()
+    assert ultimo is not None
+    assert ultimo.before == {
+        "work_hours": {
+            "valid_from": amanha.isoformat(),
+            "weekdays": [0, 1, 2, 3, 4],
+            "start": "07:00",
+            "end": "17:00",
+        }
+    }
+    assert ultimo.after == {"work_hours": {**ultimo.before["work_hours"], "start": "09:00"}}
+    r = client.put(url, json={**futuro, "start": "10:00"})
+    assert r.status_code == 200
+    assert vigencias() == [(hoje, "07:00"), (amanha, "10:00")]
+    assert client.put(url, json={**novo, "valid_from": amanha.isoformat()}).status_code == 200
+    assert vigencias() == [(hoje, "07:00")]
+    # Os feriados continuam na chave de sempre.
+    assert client.get("/api/v1/work-hours").json()["holidays"] == ["2026-12-25"]

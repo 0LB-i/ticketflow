@@ -7,6 +7,7 @@ Alterar exige admin.settings, e toda mudança vai para a auditoria (docs/08 §8.
 import base64
 import binascii
 import hashlib
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -21,7 +22,17 @@ from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, CurrentAuth, require
 from chamados.modules.system.models import SystemSetting
 from chamados.modules.system.service import get_value, set_value
-from chamados.modules.system.work_hours import WorkHours, get_work_hours
+from chamados.modules.system.work_hours import (
+    TZ,
+    Schedule,
+    WorkHours,
+    WorkHoursIn,
+    get_holidays,
+    get_work_hours,
+    save_vigency,
+    set_holidays,
+    snapshot,
+)
 
 router = APIRouter(tags=["configurações"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_SETTINGS))]
@@ -185,23 +196,37 @@ async def remove_logo(auth: Admin, request: Request, db: DB) -> Branding:
 
 @router.get("/work-hours", response_model=WorkHours)
 async def work_hours(auth: CurrentAuth, db: DB) -> WorkHours:
-    """Expediente: o relatório de horas extras mostra a regra usada."""
+    """O expediente da instalação de hoje: o relatório de horas extras mostra a regra usada."""
     return await get_work_hours(db)
 
 
 @router.put("/admin/settings/work-hours", response_model=WorkHours)
-async def set_work_hours(data: WorkHours, auth: Admin, request: Request, db: DB) -> WorkHours:
+async def set_work_hours(data: WorkHoursIn, auth: Admin, request: Request, db: DB) -> WorkHours:
+    """Grava o horário da instalação a partir de `valid_from` (sem ele, hoje: os dias de antes
+    continuam com o de antes) e os feriados, que valem sempre."""
     if data.end <= data.start:
         raise HTTPException(422, "O fim do expediente precisa ser depois do início.")
-    data = WorkHours(
-        weekdays=sorted(set(data.weekdays)),
-        start=data.start.replace(second=0, microsecond=0),
-        end=data.end.replace(second=0, microsecond=0),
-        holidays=sorted(set(data.holidays)),
+    valid_from = data.valid_from or datetime.now(TZ).date()
+    schedule = Schedule(
+        tuple(sorted(set(data.weekdays))),
+        data.start.replace(second=0, microsecond=0),
+        data.end.replace(second=0, microsecond=0),
     )
-    before = (await get_work_hours(db)).model_dump(mode="json")
-    after = data.model_dump(mode="json")
-    await set_value(db, "work_hours", after, auth.user.id)
+    holidays = sorted(set(data.holidays))
+    before_holidays = await get_holidays(db)
+    changed = await save_vigency(db, valid_from, schedule)
+    await set_holidays(db, holidays, auth.user.id)
+    before: dict[str, Any] = {}
+    after: dict[str, Any] = {}
+    if changed is not None:
+        before["work_hours"] = {
+            "valid_from": valid_from.isoformat(),
+            **(snapshot(changed[0]) or {}),
+        }
+        after["work_hours"] = {"valid_from": valid_from.isoformat(), **(snapshot(changed[1]) or {})}
+    if before_holidays != holidays:
+        before["holidays"] = [d.isoformat() for d in before_holidays]
+        after["holidays"] = [d.isoformat() for d in holidays]
     if before != after:
         record(
             db,
@@ -209,8 +234,10 @@ async def set_work_hours(data: WorkHours, auth: Admin, request: Request, db: DB)
             request=request,
             actor_user_id=auth.user.id,
             target_type="settings",
-            before={"work_hours": before},
-            after={"work_hours": after},
+            before=before,
+            after=after,
         )
     await db.commit()
-    return data
+    return WorkHours(
+        weekdays=list(schedule.weekdays), start=schedule.start, end=schedule.end, holidays=holidays
+    )

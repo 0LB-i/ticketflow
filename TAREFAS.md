@@ -113,6 +113,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F2-S8-10 | Relatórios, extensão 3: mapa de calor (dia da semana × hora), área, barras + linha, número grande e linha de referência (média ou mediana) | feito | |
 | F2-S8-11 | Relatórios, extensão 4 (ajustes por bloco): filtro e período próprios do bloco, largura e altura, cor da série, formato das horas e casas decimais, ocultar "Outros", colunas da lista de tarefas e ordem das colunas da tabela | feito | |
 | F2-S8-12 | Relatórios, extensão 5 (modelos, abas, PDF e cliente): esconder e reordenar as abas (preferência da pessoa, migração 0039), descrição do modelo, PDF configurável (orientação, título, rodapé com o número da página, blocos fora do PDF) e os prontos de horas no PDF do modelo, textos e colunas do relatório para o cliente. PDF do mês na API: p95 7,5 → 1,1 s (as 200 primeiras tarefas fora do expediente) | feito | |
+| F2-S8-13 | Relatórios, extensão 6 (expediente por pessoa ou por grupo, [14.7](docs/14-relatorios-e-indicadores.md#147-relatórios-de-horas-pedido-do-usuário-2026-10-15)): vigências do expediente da instalação, dos grupos e das pessoas (migração 0040), hora extra pelo expediente de cada pessoa em cada dia, telas de administração, "Expediente usado" na tela, no PDF e no CSV | em andamento | |
 
 ## Migração da interface para o servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md))
 
