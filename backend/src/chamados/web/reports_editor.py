@@ -122,6 +122,7 @@ NEW_BLOCK = Block(visual="table", dimension="person", measures=["hours"])
 @dataclass
 class EditorForm:
     name: str = ""
+    description: str = ""
     hours: str = "hm"
     is_default: bool = False
     audience: str = "internal"  # ou "client": o relatório para o cliente (§14.8.5)
@@ -253,6 +254,7 @@ def _read_editor(form: FormData) -> tuple[EditorForm, str]:
     hours = form.get("horas")
     editor = EditorForm(
         name=str(form.get("nome", "")),
+        description=str(form.get("descricao", "")).strip()[:200],
         hours=hours if hours in ("hm", "decimal") else "hm",
         is_default=form.get("inicial") == "1",
         audience="client" if form.get("publico") == "client" else "internal",
@@ -482,6 +484,7 @@ def _base(page: LoggedPage, base: str | None, models: list[ReportModel]) -> Edit
         name = ""
     return EditorForm(
         name=name,
+        description=config.description,
         hours=config.hours,
         audience=config.audience,
         show_people=config.show_people,
@@ -524,6 +527,7 @@ async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLRe
     else:
         editor = EditorForm(
             name=model.name,
+            description=config.description,
             hours=config.hours,
             is_default=model.is_default,
             audience=config.audience,
@@ -604,6 +608,7 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
             config = ReportConfig(
                 period=period or PeriodSpec(),
                 filters=filters or FilterSpec(),
+                description=editor.description,
                 hours=editor.hours,
                 audience=editor.audience,
                 show_people=editor.show_people,
@@ -613,6 +618,7 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
             config = ReportConfig.model_validate(
                 {
                     **saved.config_of(model).model_dump(),
+                    "description": editor.description,
                     "hours": editor.hours,
                     "audience": editor.audience,
                     "show_people": editor.show_people,

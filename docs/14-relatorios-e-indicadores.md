@@ -97,6 +97,7 @@ O modelo guarda a **configuração**, nunca os números. Ao abrir, tudo é calcu
 | Parte | Conteúdo |
 |-------|----------|
 | **Nome** | Livre |
+| **Descrição** | Uma frase livre, até 200 caracteres (2026-10-27): abaixo do título na tela (também na impressão) e no PDF, e na dica da aba. Os modelos prontos têm uma, do catálogo de idiomas (dizem o que cada um mostra); duplicar um pronto não a leva. O CSV não tem descrição (é a tabela de um bloco) |
 | **Período** | Relativo (semana atual, semana anterior, mês atual, mês anterior, últimos 7, 30 ou 90 dias, últimos N dias, trimestre atual, trimestre anterior, ano até hoje, ano anterior, últimos 12 meses) ou duas datas fixas. Até 366 dias, como hoje |
 | **Filtros** | §14.8.2 |
 | **Blocos** | Lista ordenada de cartões, gráficos e tabelas (§14.8.3) |

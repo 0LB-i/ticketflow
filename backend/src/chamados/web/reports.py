@@ -37,6 +37,7 @@ from chamados.web.reports_state import (
     Params,
     ParamsDep,
     Values,
+    description_of,
     interval_text,
     last_months,
     load_state,
@@ -102,11 +103,18 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     # que ele guarda.
     tab_names = {s: page.t(f"relatorios.abas.{key}") for s, key in TABS.items()}
     tab_names.update({str(m.public_id): m.name for m in state.models})
+    # A descrição vai na dica da aba; a dos modelos da pessoa, como foi salva (sem converter a
+    # configuração de cada um).
+    tips = {s: page.t(f"relatorios.descricoes.{key}") for s, key in TABS.items()}
+    for m in state.models:
+        tip = m.config.get("description")
+        tips[str(m.public_id)] = tip if isinstance(tip, str) else ""
     tabs = [
         (
             s,
             tab_names[s],
             with_query("/relatorios", {**query, "aba": s} if s in TABS else {"aba": s}),
+            tips[s],
         )
         for s, shown in state.tabs
         if shown or s == slug
@@ -263,7 +271,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     # Na impressão, no lugar das abas e dos filtros: o nome do modelo e o período.
     printed = None
     if start and end and start <= end:
-        model_name = next(label for s, label, _ in tabs if s == slug)
+        model_name = next(label for s, label, _, _ in tabs if s == slug)
         period_text = page.t(
             "relatorios.intervalo",
             de=format_day(page.locale, start),
@@ -327,6 +335,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         "reports/index.html",
         tabs=tabs,
         tab=slug,
+        description=description_of(page, choice),
         arranged=arranged,
         # Depois de mover uma aba, o diálogo volta aberto; ao fechar, o endereço sem o pedido.
         organize=page.request.query_params.get("organizar") == "1",

@@ -241,6 +241,13 @@ def _choice(page: LoggedPage, aba: str | None, models: list[ReportModel], initia
     return Choice(str(model.public_id), model.name, config, model)
 
 
+def description_of(page: LoggedPage, choice: Choice) -> str:
+    """A descrição do modelo aberto: a do catálogo nos prontos, a salva nos da pessoa."""
+    if choice.model is None:
+        return page.t(f"relatorios.descricoes.{TABS[choice.slug]}")
+    return choice.config.description if choice.config else ""
+
+
 async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     auth = page.auth
     today = datetime.now(TIMEZONE).date()

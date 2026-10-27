@@ -627,7 +627,9 @@
       "colunas": "Colunas",
       "ordemDasMedidas": "Ordem das medidas",
       "subirMedida": "Subir {medida}",
-      "descerMedida": "Descer {medida}"
+      "descerMedida": "Descer {medida}",
+      "descricao": "Descrição",
+      "descricaoDica": "Uma frase sobre o que o modelo mostra: aparece abaixo do título, na tela e no PDF, e na dica da aba."
     },
     "idades": {
       "0": "até 1 dia",
@@ -715,6 +717,12 @@
       "subir": "Subir a aba {nome}",
       "descer": "Descer a aba {nome}",
       "inicial": "O modelo inicial sempre aparece."
+    },
+    "descricoes": {
+      "produtividade": "Horas, horas extras, tarefas e chamados concluídos de cada pessoa.",
+      "clientes": "Horas e chamados registrados e concluídos de cada cliente.",
+      "horasExtras": "O tempo de tarefa fora do expediente, por dia e por pessoa, e as tarefas que o tiveram.",
+      "chamados": "Registrados, concluídos e em aberto, tempos até a conclusão, reabertura e o em aberto por idade, status e grupo."
     }
   },
   "expediente": {

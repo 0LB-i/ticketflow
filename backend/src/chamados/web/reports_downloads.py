@@ -30,7 +30,14 @@ from chamados.web.reports_blocks import (
     client_preview,
     scopes,
 )
-from chamados.web.reports_state import ParamsDep, State, interval_text, load_state, with_query
+from chamados.web.reports_state import (
+    ParamsDep,
+    State,
+    description_of,
+    interval_text,
+    load_state,
+    with_query,
+)
 
 router = APIRouter()
 
@@ -204,7 +211,8 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             block_view(page, state, config, block, i, scope)
             for i, (block, scope) in enumerate(zip(config.blocks, found, strict=True))
         ]
-        lines = [period]
+        # A descrição do modelo, logo abaixo do título.
+        lines = [description_of(page, state.choice), period]
         if compared_period := state.comparison():
             first, last = compared_period
             lines.append(

@@ -2347,3 +2347,28 @@ def test_abas_de_cada_pessoa(client: TestClient, cenario: dict[str, Any]) -> Non
     ]  # fmt: skip
     entrar(client, "ana@x.com")
     assert _abas(client.get("/relatorios/blocos").text) == ["Chamados", "Alfa"]
+
+
+def test_descricao_do_modelo(
+    client: TestClient, cenario: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Os prontos têm a descrição do catálogo, na dica da aba e abaixo dela.
+    r = client.get("/relatorios/blocos", params={"aba": "clientes"})
+    descricao = "Horas e chamados registrados e concluídos de cada cliente."
+    assert f'title="{descricao}"' in r.text and f'<p class="text-muted">{descricao}</p>' in r.text
+
+    # A do modelo da pessoa: texto livre (escapado), até 200 caracteres, editada no editor.
+    modelo = _criar(client, "Com descrição", descricao="  Horas & <b>chamados</b>  ")
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert 'name="descricao" type="text" value="Horas &amp; &lt;b&gt;chamados&lt;/b&gt;"' in r.text
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
+    escapada = "Horas &amp; &lt;b&gt;chamados&lt;/b&gt;"
+    assert f'title="{escapada}"' in r.text and f'<p class="text-muted">{escapada}</p>' in r.text
+    longo = _criar(client, "Longo", descricao="x" * 300)
+    assert "x" * 200 + '"' in client.get(f"/relatorios/modelos/{longo}/editar").text
+
+    # No PDF, abaixo do título.
+    chamadas = _capturar(monkeypatch, "render_model")
+    r = client.get(_link_pdf(client.get("/relatorios/blocos", params={"aba": modelo}).text))
+    assert r.status_code == 200
+    assert chamadas[0][1][0] == "Horas & <b>chamados</b>"

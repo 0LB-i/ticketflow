@@ -119,10 +119,15 @@
 
   {#- Os modelos prontos e os da pessoa. #}
   <nav aria-label="{{ t('relatorios.modelos') }}" hx-boost="true" class="flex flex-wrap gap-1 border-b border-border print:hidden">
-    {%- for slug, label, url in tabs %}
-    <a href="{{ url }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
+    {%- for slug, label, url, tip in tabs %}
+    <a href="{{ url }}"{% if tip %} title="{{ tip }}"{% endif %} class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
     {%- endfor %}
   </nav>
+
+  {#- A descrição do modelo aberto (também na impressão). #}
+  {%- if description %}
+  <p class="text-muted">{{ description }}</p>
+  {%- endif %}
 
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
       continua. Pelo HTMX, esperando as escolhas seguidas (600 ms), com o endereço na barra (o

@@ -53,6 +53,7 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
       {{ field("nome", t("relatorios.editor.nome"), value=form.name, required=True, maxlength="80") }}
       {{ select("horas", t("relatorios.editor.horas"), [("hm", t("relatorios.editor.formatoHm")), ("decimal", t("relatorios.editor.formatoDecimal"))], form.hours, refresh("atualizar", "change")) }}
     </div>
+    {{ field("descricao", t("relatorios.editor.descricao"), value=form.description, hint=t("relatorios.editor.descricaoDica"), maxlength="200") }}
     <div class="grid gap-3 sm:grid-cols-2">
       {{ select("publico", t("relatorios.editor.publico"), [("internal", t("relatorios.editor.publicos.internal")), ("client", t("relatorios.editor.publicos.client"))], form.audience, refresh("atualizar", "change")) }}
     </div>
