@@ -23,6 +23,13 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
         model_pdf.Chart("Vazio", "bars", [], empty="Nada no período."),
         model_pdf.Grid("Por pessoa", ["Pessoa", "Horas"], [["Ana", "3h30"]], ["3h30"], "Total"),
         model_pdf.Grid("Tarefas", ["Quando"], [], empty="Nenhuma tarefa no período."),
+        model_pdf.Heatmap(
+            "Horas por dia da semana e hora",
+            [f"{h}h" for h in range(24)],
+            [(dia, [(d + h) % 6 for h in range(24)]) for d, dia in enumerate(["Seg", "Ter"])],
+            [(0, "Nada"), *((k, f"até {k}h") for k in range(1, 6))],
+        ),
+        model_pdf.Heatmap("Vazio", [], [], [], empty="Nada no período."),
     ]
     conteudo = model_pdf.render_model(
         "Mensal & <cia>",
@@ -30,6 +37,7 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
         blocos,
         "Gerado",
         ("#C2410C", "#1D4ED8", "#D3785C"),
+        ("#FFDCD0", "#F7B5A0", "#E79074", "#D56A48", "#C2410C"),
     )
     assert conteudo.startswith(b"%PDF")
 

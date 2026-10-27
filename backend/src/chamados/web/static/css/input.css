@@ -69,6 +69,13 @@
   --tf-chart-1: var(--tf-primary);
   --tf-chart-2: #1d4ed8;
   --tf-chart-before: #d3785c;
+  /* A escala do mapa de calor: o matiz da primary, do tom quase do fundo até ela (o "sem nada" é
+     o surface-raised); web/palette.py deriva com outras cores */
+  --tf-heat-1: #ffdcd0;
+  --tf-heat-2: #f7b5a0;
+  --tf-heat-3: #e79074;
+  --tf-heat-4: #d56a48;
+  --tf-heat-5: #c2410c;
 
   /* A folha da prévia do relatório para o cliente: papel branco também no modo escuro, com as
      cores do PDF (modules/reports/model_pdf.py: INK, MUTED, RULE e HEAD) */
@@ -111,6 +118,11 @@
     --tf-danger: #dc2626;
     --tf-chart-2: #3b82f6;
     --tf-chart-before: #be7844;
+    --tf-heat-1: #412816;
+    --tf-heat-2: #6c4120;
+    --tf-heat-3: #995b2a;
+    --tf-heat-4: #c97633;
+    --tf-heat-5: #fb923c;
 
     --tf-blue-fg: #93c5fd;
     --tf-violet-fg: #c4b5fd;
@@ -154,6 +166,11 @@
   --color-chart-1: var(--tf-chart-1);
   --color-chart-2: var(--tf-chart-2);
   --color-chart-before: var(--tf-chart-before);
+  --color-heat-1: var(--tf-heat-1);
+  --color-heat-2: var(--tf-heat-2);
+  --color-heat-3: var(--tf-heat-3);
+  --color-heat-4: var(--tf-heat-4);
+  --color-heat-5: var(--tf-heat-5);
   --color-paper: var(--tf-paper);
   --color-paper-fg: var(--tf-paper-fg);
   --color-paper-muted: var(--tf-paper-muted);

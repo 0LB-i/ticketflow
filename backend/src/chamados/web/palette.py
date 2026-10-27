@@ -30,6 +30,11 @@ TOKENS = (
     "border-input",
     "chart-2",
     "chart-before",
+    "heat-1",
+    "heat-2",
+    "heat-3",
+    "heat-4",
+    "heat-5",
 )
 
 DEFAULT_COLORS: Colors = {"brand": "#F97316", "neutral": "#737373", "background": "#FFFFFF"}
@@ -64,6 +69,11 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "border-input": "#737373",
         "chart-2": "#1D4ED8",
         "chart-before": "#D3785C",
+        "heat-1": "#FFDCD0",
+        "heat-2": "#F7B5A0",
+        "heat-3": "#E79074",
+        "heat-4": "#D56A48",
+        "heat-5": "#C2410C",
     },
     "dark": {
         "brand": "#F97316",
@@ -81,6 +91,11 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "border-input": "#737373",
         "chart-2": "#3B82F6",
         "chart-before": "#BE7844",
+        "heat-1": "#412816",
+        "heat-2": "#6C4120",
+        "heat-3": "#995B2A",
+        "heat-4": "#C97633",
+        "heat-5": "#FB923C",
     },
 }
 
@@ -271,6 +286,23 @@ def _before_series(primary: str, backgrounds: list[str], light: bool) -> str:
     return _readable(faded, backgrounds, 3)
 
 
+HEAT_STEPS = 5
+
+
+def _heat_scale(primary: str, surface: str, light: bool) -> list[str]:
+    """A escala sequencial do mapa de calor (`heat-1` a `heat-5`): o matiz da `primary`, do tom
+    quase do fundo (pouco saturado) até a própria `primary`, com a luminosidade e a saturação
+    andando em passos iguais. Cada tom se afasta mais do fundo que o anterior, e o último tem o
+    contraste da `primary` (o "sem nada" é a `surface-raised`, fora da escala)."""
+    big_l, c, h = _rgb_to_oklch(_hex_to_rgb(primary))
+    start = _rgb_to_oklch(_hex_to_rgb(surface))[0] + (-0.08 if light else 0.1)
+    last = HEAT_STEPS - 1
+    return [
+        _oklch_to_hex((start + (big_l - start) * k / last, c * (0.3 + 0.7 * k / last), h))
+        for k in range(HEAT_STEPS)
+    ]
+
+
 DARK_TEXT = "#0A0A0A"
 WHITE = "#FFFFFF"
 
@@ -309,6 +341,7 @@ def _derive(colors: Colors, mode: Mode) -> Tokens:
     hover = _readable(_shift(primary, -0.07 if light_bgs else 0.07), [on_primary], 4.5)
     focus = _readable(brand, [surface, bg], 3)
 
+    heat = _heat_scale(primary, surface, light_bgs)
     return {
         "brand": brand,
         "primary": primary,
@@ -325,6 +358,7 @@ def _derive(colors: Colors, mode: Mode) -> Tokens:
         "border-input": border_input,
         "chart-2": _second_series(primary, [surface, bg], mode),
         "chart-before": _before_series(primary, [surface, bg], light_bgs),
+        **{f"heat-{k + 1}": color for k, color in enumerate(heat)},
     }
 
 

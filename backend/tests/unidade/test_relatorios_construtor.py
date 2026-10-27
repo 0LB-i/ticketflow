@@ -706,6 +706,30 @@ def test_media_dos_tempos_ate_a_conclusao() -> None:
         check_block(Block(visual="cards", measures=["hours"], aggregate="mean"))
 
 
+def test_mapa_de_calor() -> None:
+    quinta = INICIO  # 1º de outubro de 2026, às 10h (`_tarefa`)
+    dados = _dados([_tarefa(ANA, 60, quinta), _tarefa(BIA, 30, quinta + timedelta(days=1))])
+    bloco = Block(visual="heatmap", dimension="weekday_hour", measures=["hours"])
+    check_block(bloco)
+    mapa = run(dados, bloco, INICIO, FIM)
+    assert len(mapa.rows) == 168
+    assert mapa.rows[3 * 24 + 10].values["hours"] == 60  # quinta, 10h
+    assert mapa.rows[4 * 24 + 10].values["hours"] == 30  # sexta, 10h
+    assert sum(r.values["hours"] or 0 for r in mapa.rows) == mapa.total["hours"] == 90
+    assert needs([bloco]).sums == {"hours": {"weekday_hour"}}
+    # O mapa é só dia da semana × hora, de uma medida; o cruzamento não vai para outro visual.
+    assert dimensions_for("heatmap") == ("weekday_hour",)
+    assert "weekday_hour" not in dimensions_for("table")
+    for errado in (
+        Block(visual="heatmap", dimension="hour", measures=["hours"]),
+        Block(visual="heatmap", dimension="weekday_hour", measures=["hours", "tasks"]),
+        Block(visual="table", dimension="weekday_hour", measures=["hours"]),
+        Block(visual="heatmap", dimension="weekday_hour", measures=["backlog"]),
+    ):
+        with pytest.raises(HTTPException):
+            check_block(errado)
+
+
 def test_periodo_anterior() -> None:
     assert previous_period(date(2026, 10, 1), date(2026, 10, 31)) == (
         date(2026, 9, 1),

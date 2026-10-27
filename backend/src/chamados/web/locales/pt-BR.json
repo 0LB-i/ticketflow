@@ -497,7 +497,8 @@
       "month": "mês",
       "age": "idade",
       "weekday": "dia da semana",
-      "hour": "hora do dia"
+      "hour": "hora do dia",
+      "weekday_hour": "dia da semana e hora"
     },
     "diasDaSemana": {
       "seg": "Segunda-feira",
@@ -509,12 +510,18 @@
       "dom": "Domingo"
     },
     "hora": "{h}h",
+    "mapa": {
+      "nada": "Nada",
+      "ate": "até {valor}",
+      "legenda": "Legenda do mapa de calor"
+    },
     "visuais": {
       "cards": "Cartões",
       "bars": "Barras",
       "columns": "Colunas",
       "line": "Linha",
       "table": "Tabela",
+      "heatmap": "Mapa de calor (dia da semana × hora)",
       "tasks": "Lista de tarefas",
       "stacked": "Colunas empilhadas (horas)"
     },

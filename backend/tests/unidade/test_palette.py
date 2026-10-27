@@ -35,6 +35,10 @@ def _conferir(t: Tokens) -> None:
         assert contrast(t["chart-2"], fundo) >= 3, f"horas extras sobre {fundo}"
         assert contrast(t["chart-before"], fundo) >= 3, f"período anterior sobre {fundo}"
     assert distinct(t["chart-2"], t["primary"]), "horas extras × série"
+    # O mapa de calor: cada tom mais longe do fundo que o anterior, e o mais forte com 3:1.
+    calor = [contrast(t[f"heat-{k}"], t["surface"]) for k in range(1, 6)]
+    assert calor == sorted(calor) and len(set(calor)) == 5, "escala do mapa de calor"
+    assert calor[-1] >= 3, "o tom mais forte do mapa de calor"
 
 
 COMBINACOES: dict[str, Colors] = {
@@ -103,7 +107,7 @@ def test_series_dos_graficos_no_css_sao_as_da_paleta_original() -> None:
         (".dark", DEFAULT_PALETTE["dark"]),
     ):
         do_css = _tokens_do_css(css, seletor)
-        for token in ("chart-2", "chart-before"):
+        for token in ("chart-2", "chart-before", *(f"heat-{k}" for k in range(1, 6))):
             assert do_css[token].upper() == tokens[token], (seletor, token)
 
 

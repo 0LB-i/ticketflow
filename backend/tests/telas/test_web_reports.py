@@ -753,7 +753,8 @@ def test_pdf_do_modelo(
     r = client.get(_link_pdf(r.text))
     assert r.status_code == 200 and r.content == b"%PDF-teste"
     assert r.headers["content-type"] == "application/pdf"
-    titulo, linhas, blocos, rodape, cores = chamadas[0]
+    titulo, linhas, blocos, rodape, cores, calor = chamadas[0]
+    assert calor == ("#FFDCD0", "#F7B5A0", "#E79074", "#D56A48", "#C2410C")
     assert titulo == "Mensal" and cores == ("#C2410C", "#1D4ED8", "#D3785C")
     anterior = (dia - timedelta(days=1)).strftime("%d/%m/%Y")
     assert linhas[0] == f"Período: {dia:%d/%m/%Y} a {dia:%d/%m/%Y}"
@@ -1642,3 +1643,50 @@ def test_media_dos_tempos_no_editor_e_na_tela(client: TestClient, cenario: dict[
     r = client.get("/relatorios/csv", params={"aba": modelo, "bloco": "0"})
     cabecalho = r.content.decode("utf-8-sig").splitlines()[0]
     assert cabecalho == "Grupo;Média até a conclusão;Média até a conclusão (min)"
+
+
+def test_mapa_de_calor(client: TestClient, cenario: dict[str, Any]) -> None:
+    segunda = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(segunda, 10))
+    tarefa(client, numero, 15, em(segunda + timedelta(days=7), 10, 30))
+    tarefa(client, numero, 20, em(segunda + timedelta(days=1), 15))
+    modelo = _criar(
+        client,
+        "Calor",
+        **{"b0-visual": "heatmap", "b0-agrupar": "weekday_hour", "b0-medida": "hours"},
+    )
+    filtros = {
+        "aba": modelo,
+        "periodo": "personalizado",
+        "de": segunda.isoformat(),
+        "ate": (segunda + timedelta(days=7)).isoformat(),
+    }
+    r = client.get("/relatorios/blocos", params=filtros)
+    assert "Horas por dia da semana e hora" in r.text
+    # O maior valor no tom mais forte; os outros pela fração dele; sem nada, o fundo.
+    assert (
+        'aria-label="Segunda-feira, 10h: 1h15" class="group relative h-6 rounded-sm bg-heat-5"'
+        in r.text
+    )
+    assert (
+        'aria-label="Terça-feira, 15h: 20min" class="group relative h-6 rounded-sm bg-heat-2"'
+        in r.text
+    )
+    assert r.text.count('bg-surface-raised"') >= 160
+    # A legenda e a tabela para o leitor de tela.
+    assert "até 1h15" in r.text and ">Nada</li>" in r.text
+    assert '<table class="sr-only">' in r.text and '<th scope="row">Domingo</th>' in r.text
+
+    # No editor, o mapa só agrupa por dia da semana e hora.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    agrupar = re.search(r'name="b0-agrupar".*?</select>', r.text, re.S)
+    assert agrupar and agrupar.group(0).count("<option") == 1
+
+    # O CSV: uma linha por dia e hora; o PDF desenha o mapa com a escala da paleta.
+    r = client.get("/relatorios/csv", params={**filtros, "bloco": "0"})
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[0][0] == "Dia da semana e hora" and len(linhas) == 170
+    assert linhas[11] == ["segunda 10:00", "1,25", "75"]
+    pdf = client.get("/relatorios/pdf", params=filtros)
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")

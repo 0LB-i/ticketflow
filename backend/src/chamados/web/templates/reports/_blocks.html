@@ -3,7 +3,7 @@
     `inert`, para um clique não sair dele). -#}
 {% from "_icons.html" import icon %}
 {% from "_ui.html" import button_class %}
-{% from "reports/_charts.html" import bar_chart, column_chart, line_chart, stacked_chart %}
+{% from "reports/_charts.html" import bar_chart, column_chart, heat_map, line_chart, stacked_chart %}
 
 {#- O menu de ações de um bloco (hoje, só o CSV), no padrão dos menus da tela (`data-menu`, que
     o app.js fecha ao clicar fora e com o Esc). #}
@@ -198,6 +198,10 @@
   {%- else %}
   {{ line_chart(b.points, b.fmt, b.step, b.legend) }}
   {%- endif %}
+{% endcall %}
+{%- elif b.visual == "heatmap" %}
+{% call frame(b, preview, figure=True) %}
+  {{ heat_map(b) }}
 {% endcall %}
 {%- elif b.visual == "table" %}
 {% call frame(b, preview) %}

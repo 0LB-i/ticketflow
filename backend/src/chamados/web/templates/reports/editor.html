@@ -87,7 +87,7 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {%- if b.visual in dimensions %}
         {{ select("b" ~ i ~ "-agrupar", t("relatorios.editor.agrupar"), dimension_options[b.visual], b.dimension, refresh("atualizar", "change")) }}
         {%- endif %}
-        {%- if b.visual in charts and b.visual != "stacked" %}
+        {%- if b.visual in charts and b.visual != "stacked" or b.visual == "heatmap" %}
         {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medida"), measure_options[i], b.measures[0], refresh("atualizar", "change")) }}
         {%- endif %}
         {%- if b.visual in ("bars", "columns", "stacked", "table") and b.dimension in categories %}

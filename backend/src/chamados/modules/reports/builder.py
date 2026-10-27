@@ -35,9 +35,19 @@ from chamados.modules.reports.service import (
 )
 from chamados.modules.system.work_hours import WorkHours
 
-Visual = Literal["cards", "bars", "columns", "stacked", "line", "table", "tasks"]
+Visual = Literal["cards", "bars", "columns", "stacked", "line", "table", "tasks", "heatmap"]
 Dimension = Literal[
-    "person", "client", "team", "status", "age", "day", "week", "month", "weekday", "hour"
+    "person",
+    "client",
+    "team",
+    "status",
+    "age",
+    "day",
+    "week",
+    "month",
+    "weekday",
+    "hour",
+    "weekday_hour",
 ]
 Measure = Literal[
     "hours",
@@ -59,7 +69,16 @@ Order = Literal["desc", "asc", "name"]
 # Comparar com nada, com o período imediatamente anterior ou com o mesmo período do ano anterior.
 Compare = Literal["none", "previous", "year"]
 
-VISUALS: tuple[Visual, ...] = ("cards", "bars", "columns", "stacked", "line", "table", "tasks")
+VISUALS: tuple[Visual, ...] = (
+    "cards",
+    "bars",
+    "columns",
+    "stacked",
+    "line",
+    "table",
+    "heatmap",
+    "tasks",
+)
 DIMENSIONS: tuple[Dimension, ...] = (
     "person",
     "client",
@@ -71,12 +90,15 @@ DIMENSIONS: tuple[Dimension, ...] = (
     "month",
     "weekday",
     "hour",
+    "weekday_hour",
 )
 CATEGORIES: tuple[Dimension, ...] = ("person", "client", "team", "status")
 TIMES: tuple[Dimension, ...] = ("day", "week", "month")
-# O dia da semana (0 = segunda) e a hora do dia (0 a 23), no fuso da máquina: todos aparecem, na
-# ordem, como os períodos; não detalham (não há filtro por dia da semana nem por hora).
-CYCLES: tuple[Dimension, ...] = ("weekday", "hour")
+# O dia da semana (0 = segunda), a hora do dia (0 a 23) e os dois juntos (o mapa de calor: dia ×
+# 24 + hora), no fuso da máquina: todos aparecem, na ordem, como os períodos; não detalham (não há
+# filtro por dia da semana nem por hora).
+CYCLES: tuple[Dimension, ...] = ("weekday", "hour", "weekday_hour")
+CYCLE_SIZE: dict[Dimension, int] = {"weekday": 7, "hour": 24, "weekday_hour": 7 * 24}
 MEASURES: tuple[Measure, ...] = (
     "hours",
     "overtime",
@@ -292,13 +314,15 @@ def dimensions_for(visual: Visual) -> tuple[Dimension, ...]:
     tarefas não agrupam."""
     if visual in ("cards", "tasks"):
         return ()
+    if visual == "heatmap":  # o dia da semana × a hora, e só ele
+        return ("weekday_hour",)
     if visual == "bars":
         return (*CATEGORIES, "age")
     if visual == "line":
         return TIMES
     if visual == "stacked":
-        return tuple(d for d in DIMENSIONS if d != "age")
-    return DIMENSIONS
+        return tuple(d for d in DIMENSIONS if d not in ("age", "weekday_hour"))
+    return tuple(d for d in DIMENSIONS if d != "weekday_hour")
 
 
 def measures_for(visual: Visual, dimension: Dimension | None) -> tuple[Measure, ...]:
@@ -323,8 +347,12 @@ def check_block(block: Block) -> None:
         raise HTTPException(422, "Escolha o que agrupar.")
     if not block.measures:
         raise HTTPException(422, "Escolha ao menos uma medida.")
-    if block.visual in CHARTS and block.visual != "stacked" and len(block.measures) != 1:
+    if (
+        (block.visual in CHARTS and block.visual != "stacked") or block.visual == "heatmap"
+    ) and len(block.measures) != 1:
         raise HTTPException(422, "Um gráfico mostra uma medida só.")
+    if (block.visual == "heatmap") != (block.dimension == "weekday_hour"):
+        raise HTTPException(422, "O mapa de calor cruza o dia da semana com a hora, e só ele.")
     if block.visual == "line" and block.dimension not in TIMES:
         raise HTTPException(422, "A linha agrupa por dia, semana ou mês.")
     if block.visual == "bars" and block.dimension not in (*CATEGORIES, "age"):
@@ -745,8 +773,8 @@ def run(
     elif dim == "age":  # as quatro faixas, na ordem
         for band in range(len(AGE_LIMITS) + 1):
             amounts[band] = empty()
-    elif dim in CYCLES:  # os 7 dias da semana ou as 24 horas, na ordem
-        for cycle in range(7 if dim == "weekday" else 24):
+    elif dim in CYCLES:  # os 7 dias da semana, as 24 horas ou as 168 do mapa, na ordem
+        for cycle in range(CYCLE_SIZE[dim]):
             amounts[cycle] = empty()
     for m in plain:
         for key, amount in _amounts(data, m, dim):

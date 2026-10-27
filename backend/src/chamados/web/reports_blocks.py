@@ -4,6 +4,7 @@ variação sobre o período comparado e os links de detalhar; e a prévia do rel
 cliente (§14.8.5).
 """
 
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -42,6 +43,7 @@ from chamados.web.formatting import (
     format_tenths,
 )
 from chamados.web.page import LoggedPage
+from chamados.web.palette import HEAT_STEPS
 from chamados.web.reports_state import NO_CLIENT, State, origin_of, with_query
 
 DAILY_LIMIT = 62  # um gráfico por dia de um período mais longo agrupa por semana
@@ -408,6 +410,8 @@ def block_view(
                 page.t("relatorios.comparacao.atual"),
                 page.t(f"relatorios.comparacao.legenda.{state.compare}"),
             )
+    elif block.visual == "heatmap":
+        view.update(_heatmap(page, config, block.measures[0], result))
     elif block.visual == "table":
         formats = [formatter(page, config, m) for m in block.measures]
         names = [measure_label(page, block, m) for m in block.measures]
@@ -478,6 +482,43 @@ def block_view(
             empty=page.t("relatorios.semExtras" if block.only_overtime else "relatorios.vazio"),
         )
     return view
+
+
+def _heatmap(
+    page: LoggedPage, config: ReportConfig, measure: builder.Measure, result: builder.Result
+) -> dict[str, Any]:
+    """O mapa de calor: uma linha por dia da semana, uma célula por hora, cada uma no tom da
+    escala (`heat-1` a `heat-5`, 0 sem nada) pela fração do maior valor; a legenda, o limite de
+    cima de cada tom."""
+    fmt = formatter(page, config, measure)
+    values = [r.values[measure] for r in result.rows]  # dia × 24 + hora
+    top = max((v or 0 for v in values), default=0)
+
+    def level(value: builder.Value) -> int:
+        return math.ceil(value / top * HEAT_STEPS) if value and top else 0
+
+    days = []
+    for weekday, key in enumerate(WEEKDAYS):
+        name = page.t(f"relatorios.diasDaSemana.{key}")
+        cells = []
+        for hour in range(24):
+            value = values[weekday * 24 + hour]
+            when = f"{name}, {page.t('relatorios.hora', h=hour)}"
+            cells.append({"label": when, "value": fmt(value), "level": level(value)})
+        days.append((page.t(f"expediente.diasCurtos.{key}"), name, cells))
+    legend = [(0, page.t("relatorios.mapa.nada"))]
+    legend += [
+        (k, page.t("relatorios.mapa.ate", valor=fmt(round(top * k / HEAT_STEPS))))
+        for k in range(1, HEAT_STEPS + 1)
+    ]
+    return {
+        "hours": [page.t("relatorios.hora", h=h) for h in range(24)],
+        "days": days,
+        "legend": legend if top else [],
+        "legend_label": page.t("relatorios.mapa.legenda"),
+        "weekday_label": page.t("relatorios.dimensoes.weekday").capitalize(),
+        "empty": page.t("relatorios.semExtras" if measure == "overtime" else "relatorios.nada"),
+    }
 
 
 def uses_overtime(config: ReportConfig) -> bool:

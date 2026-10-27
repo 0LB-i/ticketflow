@@ -95,7 +95,7 @@ def _read_block(form: FormData, i: int) -> Block:
     measures = [m for m in offered if m in checked]
     if visual == "stacked":
         measures = list(offered)
-    elif visual in CHARTS:
+    elif visual in (*CHARTS, "heatmap"):
         chosen = single if single in offered else (measures or list(offered))[0]
         measures = [chosen]
     elif not measures and single in offered:

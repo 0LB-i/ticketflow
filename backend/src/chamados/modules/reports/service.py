@@ -419,7 +419,10 @@ COUNTED: tuple[Counted, ...] = ("opened", "closed", "canceled", "backlog")
 # Os agrupamentos das somas; a semana, o mês e o dia da semana saem do dia (menos no `worked`,
 # que os pede). A hora é a do dia, no fuso da máquina (0 a 23): a de término da tarefa, a do
 # registro, da conclusão ou do cancelamento.
-Group = Literal["person", "client", "team", "status", "day", "hour", "week", "month", "weekday"]
+# `weekday_hour` (o mapa de calor): dia da semana × 24 + hora, de 0 a 167.
+Group = Literal[
+    "person", "client", "team", "status", "day", "hour", "week", "month", "weekday", "weekday_hour"
+]
 GROUPS: tuple[Group, ...] = (
     "person",
     "client",
@@ -430,6 +433,7 @@ GROUPS: tuple[Group, ...] = (
     "week",
     "month",
     "weekday",
+    "weekday_hour",
 )
 
 
@@ -492,6 +496,8 @@ def group_keys(fact: TaskFact | TicketFact, group: Group) -> Iterable[Any]:
         return (fact.day.replace(day=1),)
     if group == "weekday":
         return (fact.day.weekday(),)
+    if group == "weekday_hour":
+        return (fact.day.weekday() * 24 + fact.hour,)
     return (fact.day,)
 
 
@@ -555,6 +561,13 @@ def _local_hour(moment: Any) -> ColumnElement[int]:
     return cast(func.extract("hour", func.timezone(TZ.key, moment)), Integer)
 
 
+def _local_weekday_hour(moment: Any) -> ColumnElement[int]:
+    """O dia da semana × 24 + a hora de um instante no fuso da máquina (o `weekday_hour`)."""
+    local = func.timezone(TZ.key, moment)
+    weekday = cast(func.extract("isodow", local), Integer) - 1  # 0 = segunda
+    return weekday * 24 + _local_hour(moment)
+
+
 def _task_group(group: Group) -> Any:
     if group == "person":
         return TicketComment.author_id
@@ -566,6 +579,8 @@ def _task_group(group: Group) -> Any:
         return Ticket.status_id
     if group == "hour":
         return _local_hour(TicketComment.done_at)
+    if group == "weekday_hour":
+        return _local_weekday_hour(TicketComment.done_at)
     local = func.timezone(TZ.key, TicketComment.done_at)
     if group in ("week", "month"):  # a segunda-feira ou o dia 1º, como o `group_keys`
         return cast(func.date_trunc(group, local), Date)
@@ -714,7 +729,11 @@ async def _ticket_sums(
     if "person" in groups:
         targets.append(("person", None))
         exprs.append(Ticket.assignee_id)
-    locals_: tuple[tuple[Group, Any], ...] = (("day", _local_day), ("hour", _local_hour))
+    locals_: tuple[tuple[Group, Any], ...] = (
+        ("day", _local_day),
+        ("hour", _local_hour),
+        ("weekday_hour", _local_weekday_hour),
+    )
     for group, local in locals_:
         if group in groups:
             for part in parts:

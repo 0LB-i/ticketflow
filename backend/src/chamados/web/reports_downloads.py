@@ -80,6 +80,16 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     before=[p.before for p in v["points"]] if "legend" in v else [],
                 )
             )
+        elif visual == "heatmap":
+            blocks.append(
+                model_pdf.Heatmap(
+                    v["title"],
+                    v["hours"],
+                    [(short, [c["level"] for c in cells]) for short, _, cells in v["days"]],
+                    v["legend"],
+                    empty=v["empty"],
+                )
+            )
         elif visual == "table":
             # As fontes padrão do PDF não têm o Δ: a coluna da variação vira uma abreviatura.
             delta = page.t("relatorios.comparacao.colunaPdf")
@@ -202,6 +212,7 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         colors = page.branding.colors
         light = palette(colors.model_dump() if colors else None)["light"]
         series = (light["primary"], light["chart-2"], light["chart-before"])
+        heat = tuple(light[f"heat-{k}"] for k in range(1, 6))
         content = await run_in_threadpool(
             model_pdf.render_model,
             state.choice.name,
@@ -209,6 +220,7 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             _pdf_blocks(page, views),
             page.t("relatorios.pdf.gerado", quando=now, quem=page.auth.user.display_name),
             series,
+            heat,
         )
         table = "model"
     reports_api.record_export(

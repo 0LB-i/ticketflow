@@ -71,7 +71,19 @@ class Grid:
     note: str = ""
 
 
-Block = Cards | Chart | Grid
+@dataclass
+class Heatmap:
+    """O mapa de calor: as horas (rótulos de cima), cada dia (rótulo e o tom de cada hora, de 0,
+    sem nada, a 5) e a legenda (tom, texto)."""
+
+    title: str
+    hours: list[str]
+    days: list[tuple[str, list[int]]]
+    legend: list[tuple[int, str]]
+    empty: str = ""
+
+
+Block = Cards | Chart | Grid | Heatmap
 
 
 @dataclass
@@ -82,6 +94,7 @@ class Series:
     first: colors.Color
     second: colors.Color
     before: colors.Color
+    heat: list[colors.Color] = field(default_factory=list)  # `heat-1` a `heat-5`
 
 
 def _sanitize(text: str) -> str:
@@ -262,6 +275,34 @@ def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[
     return [KeepTogether(flow)]
 
 
+def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> list[Flowable]:
+    flow: list[Flowable] = [_p(block.title, st["h2"])]
+    if not block.legend:
+        return [*flow, _p(block.empty, st["muted"])]
+    label = 10 * mm
+    cell = (WIDTH - label) / len(block.hours)
+    row = 5 * mm
+    tones = [HEAD, *series.heat]  # sem nada, o cinza do cabeçalho das tabelas
+    drawing = Drawing(WIDTH, row * (len(block.days) + 1))
+    for i, hour in enumerate(block.hours):
+        if i % 3 == 0:
+            drawing.add(
+                _text(label + i * cell + cell / 2, drawing.height - 8, hour, anchor="middle")
+            )
+    for d, (name, levels) in enumerate(block.days):
+        y = drawing.height - (d + 2) * row
+        drawing.add(_text(0, y + 4, name))
+        for i, level in enumerate(levels):
+            drawing.add(_rect(label + i * cell + 0.4, y + 0.4, cell - 0.8, row - 0.8, tones[level]))
+    legend = Drawing(WIDTH, 12)
+    x = 0.0
+    for level, text in block.legend:
+        legend.add(_rect(x, 2, 7, 7, tones[level]))
+        legend.add(_text(x + 10, 3, text, size=8))
+        x += 10 + len(text) * 4.5 + 12
+    return [KeepTogether([*flow, drawing, legend])]
+
+
 def _document(story: list[Flowable], title: str) -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -278,13 +319,19 @@ def _document(story: list[Flowable], title: str) -> bytes:
 
 
 def render_model(
-    title: str, lines: list[str], blocks: list[Block], footer: str, series: tuple[str, str, str]
+    title: str,
+    lines: list[str],
+    blocks: list[Block],
+    footer: str,
+    series: tuple[str, str, str],
+    heat: tuple[str, ...] = (),
 ) -> bytes:
     """O PDF de um modelo: o título, as linhas de cabeçalho (período, filtros), os blocos na
     ordem e o rodapé (quando e quem gerou). `series`: as cores `chart-1`, `chart-2` e
-    `chart-before` da paleta."""
+    `chart-before` da paleta; `heat`, as do mapa de calor."""
     st = _styles()
-    palette = Series(*(colors.HexColor(c) for c in series))
+    first, second, before = (colors.HexColor(c) for c in series)
+    palette = Series(first, second, before, [colors.HexColor(c) for c in heat])
     story: list[Flowable] = [_p(title, st["h1"])]
     story += [_p(line, st["muted"]) for line in lines]
     for block in blocks:
@@ -292,6 +339,8 @@ def render_model(
             story += _cards(block, st)
         elif isinstance(block, Chart):
             story += _chart(block, st, palette)
+        elif isinstance(block, Heatmap):
+            story += _heatmap(block, st, palette)
         else:
             story += _grid(block, st)
     story += [Spacer(1, 10), _p(footer, st["muted"])]
