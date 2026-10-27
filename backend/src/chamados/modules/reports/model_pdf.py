@@ -61,6 +61,7 @@ class Chart:
     reference: tuple[int, str] | None = None  # a linha de referência: o valor e o nome
     area: bool = False  # a linha com a área preenchida
     subtitle: str = ""
+    scale: float = 1.0  # a altura escolhida no bloco, sobre a média (CHART_HEIGHT)
 
 
 @dataclass
@@ -88,6 +89,7 @@ class Heatmap:
     legend: list[tuple[int, str]]
     empty: str = ""
     subtitle: str = ""
+    scale: float = 1.0  # a altura das linhas, sobre a média
 
 
 Block = Cards | Chart | Grid | Heatmap
@@ -227,9 +229,10 @@ def _columns(block: Chart, series: Series) -> Drawing:
     primary = series.first
     axis = 16 * mm
     bottom = 10
-    height = CHART_HEIGHT - bottom
+    full = CHART_HEIGHT * block.scale
+    height = full - bottom
     area = WIDTH - axis
-    drawing = Drawing(WIDTH, CHART_HEIGHT)
+    drawing = Drawing(WIDTH, full)
     top = max([1, *(value for value, _ in block.ticks)])
     for value, text in block.ticks:
         y = bottom + value / top * height
@@ -274,7 +277,7 @@ def _columns(block: Chart, series: Series) -> Drawing:
             Line(axis, y, WIDTH, y, strokeColor=MUTED, strokeWidth=1, strokeDashArray=[4, 3])
         )
         # O nome acima da linha; no topo do gráfico, abaixo dela, para não sair do desenho.
-        drawing.add(_text(WIDTH, y + 2 if y + 10 < CHART_HEIGHT else y - 8, text, anchor="end"))
+        drawing.add(_text(WIDTH, y + 2 if y + 10 < full else y - 8, text, anchor="end"))
     if line and block.area:
         fill = colors.Color(primary.red, primary.green, primary.blue, alpha=0.15)
         drawing.add(
@@ -320,7 +323,7 @@ def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> l
         return [*flow, _p(block.empty, st["muted"])]
     label = 10 * mm
     cell = (WIDTH - label) / len(block.hours)
-    row = 5 * mm
+    row = 5 * mm * block.scale
     tones = [colors.white, *series.heat]  # sem nada, a célula vazia, só com a borda
     drawing = Drawing(WIDTH, row * (len(block.days) + 1))
     for i, hour in enumerate(block.hours):

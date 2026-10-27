@@ -124,7 +124,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             downloads = {"pdf": with_query("/relatorios/pdf", {**query, "aba": slug})}
     elif f is not None and config is not None and lazy:
         visuals = [b.visual for b in config.blocks]
-        skeleton = list(zip(range(len(visuals)), visuals, wide(visuals), strict=True))
+        spans = wide(visuals, [b.width for b in config.blocks])
+        skeleton = list(zip(range(len(visuals)), visuals, spans, strict=True))
     elif f is not None and config is not None:
         # A página de cada lista de tarefas (`pagina<i>`); sem ela, a primeira.
         numbers = page.request.query_params
@@ -144,7 +145,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
                 zip(config.blocks, await scopes(page, db, state, config.blocks), strict=True)
             )
         ]
-        for view, span in zip(blocks, wide([b.visual for b in config.blocks]), strict=True):
+        spans = wide([b.visual for b in config.blocks], [b.width for b in config.blocks])
+        for view, span in zip(blocks, spans, strict=True):
             view["wide"] = span
     if f is not None and config is not None and config.audience != "client":
         if uses_overtime(config):

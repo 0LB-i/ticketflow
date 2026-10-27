@@ -78,19 +78,19 @@
     `step` (120: horas cheias e pares; 2 nas contagens), e o de baixo, o primeiro rótulo e mais
     uns cinco. A dica abre com o foco só pelo teclado: um clique não a deixa presa. A coluna ocupa
     3/5 da faixa dela, até 2,5rem (comparando, as duas ficam com metade disso cada uma). -#}
-{% macro column_chart(points, fmt, step=120, legend=None, reference=None) -%}
+{% macro column_chart(points, fmt, step=120, legend=None, reference=None, height="h-40") -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
 {%- set step = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
 <div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
+    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
       <span class="-my-2 text-right">{{ fmt(m) }}</span>
       {%- endfor %}
     </div>
-    <div class="relative h-40">
+    <div class="relative {{ height }}">
       <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         {%- for m in ticks %}
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
@@ -138,7 +138,7 @@
 
 {#- Linha ao longo do tempo: os mesmos eixos e dicas das colunas; cada ponto fica no meio da sua
     faixa, e a linha (em viewBox de 0 a 100, sem engrossar ao esticar) liga os centros. -#}
-{% macro line_chart(points, fmt, step=120, legend=None, reference=None, area=False) -%}
+{% macro line_chart(points, fmt, step=120, legend=None, reference=None, area=False, height="h-40") -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
@@ -146,12 +146,12 @@
 {%- set count = [1, points | length] | max %}
 <div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
+    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
       <span class="-my-2 text-right">{{ fmt(m) }}</span>
       {%- endfor %}
     </div>
-    <div class="relative h-40">
+    <div class="relative {{ height }}">
       <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         {%- for m in ticks %}
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
@@ -200,19 +200,19 @@
 
 {#- Colunas empilhadas: as horas no expediente embaixo (chart-1) e as extras em cima (chart-2),
     com a legenda; os eixos e as dicas das colunas. `labels`: os nomes das duas partes. -#}
-{% macro stacked_chart(points, fmt, step, labels) -%}
+{% macro stacked_chart(points, fmt, step, labels, height="h-40") -%}
 {%- set highest = ([0] + points | map(attribute="value") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
 {%- set step_label = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
 <div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
+    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
       <span class="-my-2 text-right">{{ fmt(m) }}</span>
       {%- endfor %}
     </div>
-    <div class="relative h-40">
+    <div class="relative {{ height }}">
       <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         {%- for m in ticks %}
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
@@ -255,6 +255,8 @@
     inteiro: o Tailwind só gera as que encontra. -#}
 {% macro heat_map(b) -%}
 {%- set tones = {0: "border border-border", 1: "bg-heat-1", 2: "bg-heat-2", 3: "bg-heat-3", 4: "bg-heat-4", 5: "bg-heat-5"} %}
+{#- A altura das células (`Block.height`): baixa, média ou alta. #}
+{%- set cell = {"s": "h-4", "m": "h-6", "l": "h-8"}[b.height] %}
 {%- if b.legend %}
 <div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_repeat(24,minmax(0,1fr))] gap-0.5 text-xs text-muted" aria-hidden="true">
@@ -265,7 +267,7 @@
     {%- for short, name, cells in b.days %}
     <span class="pr-1" title="{{ name }}">{{ short }}</span>
     {%- for c in cells %}
-    <span class="group relative h-6 rounded-sm {{ tones[c.level] }}">
+    <span class="group relative {{ cell }} rounded-sm {{ tones[c.level] }}">
       <span class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap text-fg shadow-lg group-hover:block print:hidden"><strong class="tabular-nums">{{ c.value }}</strong><span class="text-muted"> · {{ c.label }}</span></span>
     </span>
     {%- endfor %}
@@ -295,7 +297,7 @@
 {#- Barras + linha: as colunas da primeira medida (chart-1) e a linha da segunda (chart-2, `p.extra`),
     da mesma unidade, no mesmo eixo (sem eixo duplo), com a legenda; os eixos e as dicas das
     colunas. `labels`: os nomes das duas medidas. -#}
-{% macro combo_chart(points, fmt, step, labels) -%}
+{% macro combo_chart(points, fmt, step, labels, height="h-40") -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="extra") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
@@ -303,12 +305,12 @@
 {%- set count = [1, points | length] | max %}
 <div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
+    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
       <span class="-my-2 text-right">{{ fmt(m) }}</span>
       {%- endfor %}
     </div>
-    <div class="relative h-40">
+    <div class="relative {{ height }}">
       <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         {%- for m in ticks %}
         {%- set y = "%.2f" | format(100 - m / top * 100) %}

@@ -596,7 +596,19 @@
       "periodoDaTela": "The page's",
       "filtroDoBloco": "Block filter",
       "filtroDoBlocoAjuda": "Narrows the page's filter: with values in both, what they have in common applies; with none here, the page's applies.",
-      "comoNaTela": "Same as the page"
+      "comoNaTela": "Same as the page",
+      "largura": "Width",
+      "larguras": {
+        "auto": "Automatic",
+        "half": "Half row",
+        "full": "Full row"
+      },
+      "altura": "Height",
+      "alturas": {
+        "s": "Short",
+        "m": "Medium",
+        "l": "Tall"
+      }
     },
     "idades": {
       "0": "up to 1 day",

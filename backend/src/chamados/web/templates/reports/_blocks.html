@@ -198,19 +198,21 @@
 {% endcall %}
 {%- elif b.visual in ("bars", "columns", "stacked", "line", "combo") %}
 {% call frame(b, preview, figure=True) %}
+  {#- A altura escolhida no bloco (`Block.height`); a média é a de sempre. #}
+  {%- set height = {"s": "h-28", "m": "h-40", "l": "h-56"}[b.height] %}
   {%- if b.visual == "bars" %}
   {{ bar_chart(b.points, b.fmt) }}
   {%- if not b.points %}
   <p class="text-muted">{{ b.empty }}</p>
   {%- endif %}
   {%- elif b.visual == "columns" %}
-  {{ column_chart(b.points, b.fmt, b.step, b.legend, b.reference) }}
+  {{ column_chart(b.points, b.fmt, b.step, b.legend, b.reference, height) }}
   {%- elif b.visual == "stacked" %}
-  {{ stacked_chart(b.points, b.fmt, b.step, b.labels) }}
+  {{ stacked_chart(b.points, b.fmt, b.step, b.labels, height) }}
   {%- elif b.visual == "combo" %}
-  {{ combo_chart(b.points, b.fmt, b.step, b.labels) }}
+  {{ combo_chart(b.points, b.fmt, b.step, b.labels, height) }}
   {%- else %}
-  {{ line_chart(b.points, b.fmt, b.step, b.legend, b.reference, b.area) }}
+  {{ line_chart(b.points, b.fmt, b.step, b.legend, b.reference, b.area, height) }}
   {%- endif %}
 {% endcall %}
 {%- elif b.visual == "heatmap" %}

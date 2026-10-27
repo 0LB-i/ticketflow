@@ -596,7 +596,19 @@
       "periodoDaTela": "O da tela",
       "filtroDoBloco": "Filtro do bloco",
       "filtroDoBlocoAjuda": "Restringe o filtro da tela: com valores nos dois, vale o que eles têm em comum; sem nenhum aqui, vale o da tela.",
-      "comoNaTela": "Como na tela"
+      "comoNaTela": "Como na tela",
+      "largura": "Largura",
+      "larguras": {
+        "auto": "Automática",
+        "half": "Meia linha",
+        "full": "Linha inteira"
+      },
+      "altura": "Altura",
+      "alturas": {
+        "s": "Baixa",
+        "m": "Média",
+        "l": "Alta"
+      }
     },
     "idades": {
       "0": "até 1 dia",

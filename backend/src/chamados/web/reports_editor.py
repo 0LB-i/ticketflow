@@ -24,6 +24,7 @@ from chamados.modules.reports.builder import (
     DEFAULT_DAYS,
     LAST_DAYS,
     REFERENCED,
+    SIZED,
     Block,
     BlockPeriod,
     FilterSpec,
@@ -161,6 +162,9 @@ def _read_block(form: FormData, i: int) -> Block:
         ),
         period=period,
         filters=own if own != FilterSpec() else None,
+        width=next((w for w in ("half", "full") if w == one("largura")), None),
+        # A altura só nos que a têm; fora deles (ex.: depois de trocar o visual), a média.
+        height=next((h for h in ("s", "l") if h == one("altura") and visual in SIZED), "m"),
     )
 
 
@@ -329,6 +333,13 @@ async def _editor_page(
         period_options=[("", page.t("relatorios.editor.periodoDaTela"))]
         + [(s, page.t(f"relatorios.periodos.{key}")) for s, key in RELATIVE_KEYS.items()],
         block_filters=block_filters,
+        sized=SIZED,
+        width_options=[
+            ("", page.t("relatorios.editor.larguras.auto")),
+            ("half", page.t("relatorios.editor.larguras.half")),
+            ("full", page.t("relatorios.editor.larguras.full")),
+        ],
+        height_options=[(h, page.t(f"relatorios.editor.alturas.{h}")) for h in ("s", "m", "l")],
         chosen=chosen,
         placeholders=[
             block_title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")

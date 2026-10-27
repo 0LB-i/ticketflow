@@ -93,6 +93,12 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {%- if b.visual == "combo" %}
         {{ select("b" ~ i ~ "-medida2", t("relatorios.editor.medidaLinha"), partner_options[i], b.measures[1] if b.measures | length > 1 else "", refresh("atualizar", "change")) }}
         {%- endif %}
+        {#- Na grade da tela: a largura (automática, meia linha ou a linha inteira) e, nos
+            gráficos de colunas e de linha e no mapa de calor, a altura. #}
+        {{ select("b" ~ i ~ "-largura", t("relatorios.editor.largura"), width_options, b.width or "", refresh("atualizar", "change")) }}
+        {%- if b.visual in sized %}
+        {{ select("b" ~ i ~ "-altura", t("relatorios.editor.altura"), height_options, b.height, refresh("atualizar", "change")) }}
+        {%- endif %}
         {#- O período próprio do bloco (vazio: o da tela), com os N dias no "ultimos-n-dias". #}
         {{ select("b" ~ i ~ "-periodo", t("relatorios.editor.periodo"), period_options, b.period.kind if b.period else "", refresh("atualizar", "change")) }}
         {%- if b.period and b.period.kind == "ultimos-n-dias" %}

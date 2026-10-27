@@ -938,3 +938,9 @@ def test_filtro_do_bloco_restringe_o_da_tela() -> None:
     # Um modelo salvo antes do filtro e do período do bloco abre com os da tela.
     bloco = Block.model_validate({"visual": "cards", "measures": ["hours"]})
     assert bloco.period is None and bloco.filters is None
+
+
+def test_altura_so_nos_graficos_que_a_tem() -> None:
+    check_block(Block(visual="line", dimension="day", measures=["hours"], height="s"))
+    with pytest.raises(HTTPException, match="A altura vale"):
+        check_block(Block(visual="bars", dimension="person", measures=["hours"], height="l"))

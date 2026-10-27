@@ -5,6 +5,7 @@ tipo de bloco, com os textos já formatados. O que entra em cada um é conferido
 import io
 
 from PIL import Image
+from reportlab.lib import colors
 
 from chamados.modules.reports import model_pdf
 
@@ -67,3 +68,22 @@ def test_relatorio_para_o_cliente_com_logotipo() -> None:
             chamados, "Gerado em 24/10/2026",
         )  # fmt: skip
         assert conteudo.startswith(b"%PDF")
+
+
+def test_altura_e_subtitulo_do_bloco() -> None:
+    """A altura escolhida muda o desenho na mesma proporção da tela; o subtítulo é texto."""
+    cor = colors.HexColor("#C2410C")
+    serie = model_pdf.Series(cor, cor, cor)
+    ponto = [("seg", 60, 0, "1h")]
+    medio = model_pdf._columns(model_pdf.Chart("Horas", "columns", ponto), serie)
+    alto = model_pdf._columns(model_pdf.Chart("Horas", "columns", ponto, scale=1.4), serie)
+    assert alto.height == medio.height * 1.4
+    pdf = model_pdf.render_model(
+        "M",
+        [],
+        [model_pdf.Grid("T", [], [], empty="vazio", subtitle="Pessoa: Ana")],
+        "",
+        ("#000000",) * 3,
+        (),
+    )
+    assert pdf.startswith(b"%PDF")

@@ -33,6 +33,9 @@ from chamados.web.reports_state import ParamsDep, State, interval_text, load_sta
 
 router = APIRouter()
 
+# A altura escolhida no bloco (`Block.height`) sobre a média, como na tela (h-28, h-40, h-56).
+SCALE = {"s": 0.7, "m": 1.0, "l": 1.4}
+
 
 def _ticks(points: list[Point], step: int, fmt: Format) -> list[tuple[int, str]]:
     """As marcas do eixo, como as do _charts.html: o topo, a metade e o zero."""
@@ -84,6 +87,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     reference=v.get("reference"),
                     area=v.get("area", False),
                     subtitle=subtitle,
+                    scale=SCALE[v["height"]],
                 )
             )
         elif visual == "heatmap":
@@ -95,6 +99,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     v["legend"],
                     empty=v["empty"],
                     subtitle=subtitle,
+                    scale=SCALE[v["height"]],
                 )
             )
         elif visual == "table":

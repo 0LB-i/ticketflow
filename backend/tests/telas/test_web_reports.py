@@ -1998,3 +1998,52 @@ def test_filtro_do_bloco_no_editor(client: TestClient, cenario: dict[str, Any]) 
     salvar = {**dados, "acao": "salvar", "b0-grupo": cenario["infra"]}
     r = client.post("/relatorios/modelos", data=salvar)
     assert r.status_code == 422 and "Você não tem permissão para esta ação." in r.text
+
+
+def test_largura_e_altura_do_bloco(
+    client: TestClient, cenario: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A largura escolhida vale mais que a grade sem buraco (também no esqueleto); a altura muda
+    os gráficos de colunas e de linha e o mapa de calor, e o PDF na mesma proporção."""
+    # Um gráfico de meia linha fica sozinho; a tabela, na meia linha; um de linha inteira.
+    assert wide(["table", "columns"], ["half", "half"]) == [False, False]
+    assert wide(["columns", "line", "columns"], [None, None, "half"]) == [False, False, False]
+    assert wide(["columns", "line"], ["full"]) == [True, True]
+    campos = {
+        "blocos": "3",
+        "b0-visual": "table",
+        "b0-agrupar": "person",
+        "b0-medidas": "hours",
+        "b0-largura": "half",
+        "b1-visual": "columns",
+        "b1-agrupar": "day",
+        "b1-medida": "hours",
+        "b1-altura": "l",
+        "b2-visual": "heatmap",
+        "b2-medida": "tasks",
+        "b2-altura": "s",
+        "b2-largura": "full",
+    }
+    modelo = _criar(client, "Tamanhos", **campos)
+    # A tabela de meia linha faz par com as colunas; o mapa, na linha inteira.
+    for url in ("/relatorios/blocos", "/relatorios"):
+        larguras = _largura(client.get(url, params={"aba": modelo}).text)
+        assert larguras == {0: False, 1: False, 2: True}
+    dia = dia_util_passado()
+    tarefa(client, registrar(client, cenario)["number"], 60, em(dia, 10))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
+    assert '<div class="relative h-56">' in _bloco(r.text, 1)
+    assert 'class="group relative h-4 rounded-sm' in _bloco(r.text, 2)
+    # O editor só oferece a altura onde ela vale; trocar o visual volta à média.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert 'name="b1-altura"' in r.text and 'name="b0-altura"' not in r.text
+    assert '<option value="half" selected>Meia linha</option>' in r.text
+    dados = formulario(client, nome="X", horas="hm", acao="atualizar", **campos)
+    r = client.post(
+        "/relatorios/modelos", data={**dados, "b1-visual": "bars", "b1-agrupar": "person"}
+    )
+    assert 'name="b1-altura"' not in r.text
+    pdf = _capturar(monkeypatch, "render_model")
+    client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
+    blocos = pdf[0][2]
+    assert blocos[1].scale == 1.4 and blocos[2].scale == 0.7

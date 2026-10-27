@@ -255,20 +255,26 @@ async def scopes(
     return found
 
 
-def wide(visuals: Sequence[str]) -> list[bool]:
+def wide(visuals: Sequence[str], widths: Sequence[str | None] = ()) -> list[bool]:
     """Quais blocos ocupam a linha inteira da grade (os gráficos ocupam meia): os que não são
     gráficos e o último de uma sequência ímpar de gráficos, que ficaria sozinho com a outra
-    metade vazia. Um seletor CSS não conta a sequência entre dois blocos de linha inteira."""
+    metade vazia. Um seletor CSS não conta a sequência entre dois blocos de linha inteira.
+    `widths`: a largura escolhida em cada bloco (`Block.width`), que vale mais que a regra: um
+    de meia linha conta na sequência, mas não cresce."""
+    chosen = [*widths, *[None] * (len(visuals) - len(widths))]
+    half = [
+        w == "half" or (w is None and v in CHARTS) for v, w in zip(visuals, chosen, strict=True)
+    ]
     result = []
-    run = 0  # os gráficos seguidos até aqui
-    for i, visual in enumerate(visuals):
-        if visual not in CHARTS:
+    run = 0  # os blocos de meia linha seguidos até aqui
+    for i, width in enumerate(chosen):
+        if not half[i]:
             run = 0
             result.append(True)
             continue
         run += 1
-        last = i + 1 == len(visuals) or visuals[i + 1] not in CHARTS
-        result.append(last and run % 2 == 1)
+        last = i + 1 == len(visuals) or not half[i + 1]
+        result.append(width is None and last and run % 2 == 1)
     return result
 
 
@@ -460,6 +466,7 @@ def block_view(
         "visual": block.visual,
         "csv": with_query("/relatorios/csv", {**screen, "bloco": str(index)}),
         "own": block.period is not None or block.filters is not None,
+        "height": block.height,
         "warning": scope.warning,
     }
     f, data, before = scope.filters, scope.data, scope.before

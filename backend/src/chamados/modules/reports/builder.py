@@ -173,6 +173,8 @@ TICKET_SETS: dict[Measure, Part] = {
 }
 CHARTS: tuple[Visual, ...] = ("bars", "columns", "stacked", "line", "combo")
 REFERENCED: tuple[Visual, ...] = ("columns", "line")  # com a linha de referência
+# Os que têm a altura escolhida (as barras crescem com as linhas, uma por valor).
+SIZED: tuple[Visual, ...] = ("columns", "stacked", "line", "combo", "heatmap")
 # Idade do em aberto no fim do período (§14.3): até 1 dia, 1 a 3, 3 a 7, mais de 7 (em minutos).
 AGE_LIMITS = (24 * 60, 3 * 24 * 60, 7 * 24 * 60)
 STACKED: list[Measure] = ["hours", "overtime"]  # no expediente (horas − extras) e extras
@@ -258,6 +260,9 @@ class Block(BaseModel):
     # campo a campo (`narrow`).
     period: BlockPeriod | None = None
     filters: FilterSpec | None = None
+    # Na grade da tela: None, a automática (`reports_blocks.wide`); meia linha ou a linha inteira.
+    width: Literal["half", "full"] | None = None
+    height: Literal["s", "m", "l"] = "m"  # colunas, linha e mapa de calor (SIZED)
 
 
 class ReportConfig(BaseModel):
@@ -459,6 +464,8 @@ def check_block(block: Block) -> None:
         raise HTTPException(422, "A área é uma opção da linha.")
     if block.reference != "none" and block.visual not in REFERENCED:
         raise HTTPException(422, "A linha de referência vale nas colunas e na linha.")
+    if block.height != "m" and block.visual not in SIZED:
+        raise HTTPException(422, "A altura vale nas colunas, na linha e no mapa de calor.")
     if block.aggregate == "mean" and not set(block.measures) & set(ELAPSED):
         raise HTTPException(422, "A média só vale para os tempos até a conclusão.")
     if block.dimension in (*TIMES, *CYCLES) and "tasks_per_workday" in block.measures:
