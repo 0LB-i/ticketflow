@@ -98,6 +98,15 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
       {%- if b.visual == "stacked" %}
       <p class="text-muted">{{ t("relatorios.editor.empilhadasAjuda") }}</p>
       {%- endif %}
+      {#- Colunas e linha: a linha de referência (média ou mediana dos pontos); a linha, a área. #}
+      {%- if b.visual in referenced %}
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{ select("b" ~ i ~ "-referencia", t("relatorios.editor.referencia"), reference_options, b.reference, refresh("atualizar", "change")) }}
+        {%- if b.visual == "line" %}
+        <div class="mt-7" {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-area", t("relatorios.editor.area"), checked=b.area, id="campo-b" ~ i ~ "-area") }}</div>
+        {%- endif %}
+      </div>
+      {%- endif %}
       {#- Os tempos até a conclusão pela mediana (o padrão, §14.1) ou pela média. #}
       {%- if b.measures | select("in", elapsed) | list %}
       <div class="grid gap-3 sm:grid-cols-2">

@@ -20,6 +20,7 @@ from chamados.modules.reports.builder import (
     BUILTINS,
     CATEGORIES,
     CHARTS,
+    REFERENCED,
     Block,
     FilterSpec,
     PeriodSpec,
@@ -114,6 +115,11 @@ def _read_block(form: FormData, i: int) -> Block:
         aggregate="mean"
         if one("agregacao") == "mean" and set(measures) & set(builder.ELAPSED)
         else "median",
+        area=visual == "line" and one("area") == "1",
+        reference=next(
+            (r for r in ("mean", "median") if r == one("referencia") and visual in REFERENCED),
+            "none",
+        ),
     )
 
 
@@ -228,6 +234,10 @@ def _editor_page(
         ],
         order_options=[(o, page.t(f"relatorios.ordens.{o}")) for o in ("desc", "asc", "name")],
         elapsed=builder.ELAPSED,
+        referenced=REFERENCED,
+        reference_options=[
+            (r, page.t(f"relatorios.editor.referencias.{r}")) for r in ("none", "mean", "median")
+        ],
         aggregate_options=[
             (a, page.t(f"relatorios.editor.agregacoes.{a}")) for a in ("median", "mean")
         ],

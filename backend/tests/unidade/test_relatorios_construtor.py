@@ -730,6 +730,18 @@ def test_mapa_de_calor() -> None:
             check_block(errado)
 
 
+def test_area_e_linha_de_referencia_so_onde_cabem() -> None:
+    check_block(Block(visual="line", dimension="day", measures=["hours"], area=True))
+    check_block(Block(visual="columns", dimension="person", measures=["hours"], reference="mean"))
+    for errado in (
+        Block(visual="columns", dimension="day", measures=["hours"], area=True),
+        Block(visual="bars", dimension="person", measures=["hours"], reference="median"),
+        Block(visual="table", dimension="person", measures=["hours"], reference="mean"),
+    ):
+        with pytest.raises(HTTPException):
+            check_block(errado)
+
+
 def test_periodo_anterior() -> None:
     assert previous_period(date(2026, 10, 1), date(2026, 10, 31)) == (
         date(2026, 9, 1),

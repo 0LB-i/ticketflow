@@ -20,6 +20,17 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
             "Empilhadas", "stacked", pontos, ticks=marcas, legend=("No exp.", "Extras")
         ),
         model_pdf.Chart("Linha", "line", pontos, ticks=marcas),
+        model_pdf.Chart(
+            "Área com a média",
+            "line",
+            pontos,
+            ticks=marcas,
+            reference=(70, "Média: 1h10"),
+            area=True,
+        ),
+        model_pdf.Chart(
+            "Colunas com a mediana", "columns", pontos, ticks=marcas, reference=(90, "x")
+        ),
         model_pdf.Chart("Vazio", "bars", [], empty="Nada no período."),
         model_pdf.Grid("Por pessoa", ["Pessoa", "Horas"], [["Ana", "3h30"]], ["3h30"], "Total"),
         model_pdf.Grid("Tarefas", ["Quando"], [], empty="Nenhuma tarefa no período."),

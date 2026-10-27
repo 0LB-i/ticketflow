@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 from xml.sax.saxutils import escape
 
-from reportlab.graphics.shapes import Circle, Drawing, Line, PolyLine, Rect, String
+from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, PolyLine, Rect, String
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -56,6 +56,8 @@ class Chart:
     legend: tuple[str, str] | None = None
     empty: str = ""
     before: list[int | None] = field(default_factory=list)
+    reference: tuple[int, str] | None = None  # a linha de referência: o valor e o nome
+    area: bool = False  # a linha com a área preenchida
 
 
 @dataclass
@@ -247,6 +249,18 @@ def _columns(block: Chart, series: Series) -> Drawing:
             drawing.add(_rect(left, bottom + lower, width, h - lower, series.second))
         elif value:
             drawing.add(_rect(left, bottom, width, h, primary))
+    if block.reference is not None:
+        value, text = block.reference
+        y = bottom + value / top * height
+        drawing.add(
+            Line(axis, y, WIDTH, y, strokeColor=MUTED, strokeWidth=1, strokeDashArray=[4, 3])
+        )
+        drawing.add(_text(WIDTH, y + 2, text, anchor="end"))
+    if line and block.area:
+        fill = colors.Color(primary.red, primary.green, primary.blue, alpha=0.15)
+        drawing.add(
+            Polygon([line[0], bottom, *line, line[-2], bottom], fillColor=fill, strokeWidth=0)
+        )
     if len(old) >= 4:
         drawing.add(
             PolyLine(old, strokeColor=series.before, strokeWidth=1.5, strokeDashArray=[3, 2])

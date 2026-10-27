@@ -187,6 +187,10 @@ EN: dict[str, str] = {
     "O mapa de calor cruza o dia da semana com a hora, e só ele.": (
         "The heat map crosses the weekday with the hour, and only it."
     ),
+    "A área é uma opção da linha.": "The area is an option of the line chart.",
+    "A linha de referência vale nas colunas e na linha.": (
+        "The reference line applies to column and line charts."
+    ),
     "A média só vale para os tempos até a conclusão.": (
         "The mean only applies to the times to close."
     ),

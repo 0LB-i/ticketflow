@@ -515,6 +515,10 @@
       "ate": "up to {valor}",
       "legenda": "Heat map legend"
     },
+    "referencia": {
+      "mean": "Mean: {valor}",
+      "median": "Median: {valor}"
+    },
     "visuais": {
       "cards": "Cards",
       "bars": "Bars",
@@ -576,7 +580,14 @@
       "agregacoes": {
         "median": "Median",
         "mean": "Mean"
-      }
+      },
+      "referencia": "Reference line",
+      "referencias": {
+        "none": "None",
+        "mean": "Mean of the points",
+        "median": "Median of the points"
+      },
+      "area": "Fill the area under the line"
     },
     "idades": {
       "0": "up to 1 day",

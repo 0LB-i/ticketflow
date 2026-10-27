@@ -515,6 +515,10 @@
       "ate": "até {valor}",
       "legenda": "Legenda do mapa de calor"
     },
+    "referencia": {
+      "mean": "Média: {valor}",
+      "median": "Mediana: {valor}"
+    },
     "visuais": {
       "cards": "Cartões",
       "bars": "Barras",
@@ -576,7 +580,14 @@
       "agregacoes": {
         "median": "Mediana",
         "mean": "Média"
-      }
+      },
+      "referencia": "Linha de referência",
+      "referencias": {
+        "none": "Nenhuma",
+        "mean": "Média dos pontos",
+        "median": "Mediana dos pontos"
+      },
+      "area": "Preencher a área sob a linha"
     },
     "idades": {
       "0": "até 1 dia",

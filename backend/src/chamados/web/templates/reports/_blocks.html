@@ -192,11 +192,11 @@
   <p class="text-muted">{{ b.empty }}</p>
   {%- endif %}
   {%- elif b.visual == "columns" %}
-  {{ column_chart(b.points, b.fmt, b.step, b.legend) }}
+  {{ column_chart(b.points, b.fmt, b.step, b.legend, b.reference) }}
   {%- elif b.visual == "stacked" %}
   {{ stacked_chart(b.points, b.fmt, b.step, b.labels) }}
   {%- else %}
-  {{ line_chart(b.points, b.fmt, b.step, b.legend) }}
+  {{ line_chart(b.points, b.fmt, b.step, b.legend, b.reference, b.area) }}
   {%- endif %}
 {% endcall %}
 {%- elif b.visual == "heatmap" %}

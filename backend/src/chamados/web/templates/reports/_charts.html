@@ -24,6 +24,21 @@
 </{{ tag }}>
 {%- endmacro %}
 
+{#- A linha de referência (média ou mediana dos pontos), tracejada, na altura do valor. -#}
+{% macro reference_line(reference, top) -%}
+{%- if reference %}
+{%- set y = "%.2f" | format(100 - reference[0] / top * 100) %}
+<line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-muted" stroke-width="1.5" stroke-dasharray="6 4"/>
+{%- endif %}
+{%- endmacro %}
+
+{#- O nome da linha de referência, com o valor, ao lado da legenda. -#}
+{% macro reference_label(reference) -%}
+{%- if reference %}
+<p class="inline-flex items-center gap-2 text-sm text-muted"><svg width="20" height="4" aria-hidden="true"><line x1="0" x2="20" y1="2" y2="2" class="stroke-muted" stroke-width="1.5" stroke-dasharray="6 4"/></svg>{{ reference[1] }}</p>
+{%- endif %}
+{%- endmacro %}
+
 {#- A legenda da comparação: a série de agora e a de antes, mais clara. -#}
 {% macro compare_legend(legend) -%}
 <ul class="flex flex-wrap gap-4 text-sm text-muted">
@@ -63,7 +78,7 @@
     `step` (120: horas cheias e pares; 2 nas contagens), e o de baixo, o primeiro rótulo e mais
     uns cinco. A dica abre com o foco só pelo teclado: um clique não a deixa presa. A coluna ocupa
     3/5 da faixa dela, até 2,5rem (comparando, as duas ficam com metade disso cada uma). -#}
-{% macro column_chart(points, fmt, step=120, legend=None) -%}
+{% macro column_chart(points, fmt, step=120, legend=None, reference=None) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
@@ -81,6 +96,7 @@
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
         <line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-border" stroke-width="1" shape-rendering="crispEdges"/>
         {%- endfor %}
+        {{ reference_line(reference, top) }}
       </svg>
       <ul class="absolute inset-0 flex items-end gap-0.5">
         {%- for p in points %}
@@ -114,13 +130,14 @@
   {%- if legend %}
   {{ compare_legend(legend) }}
   {%- endif %}
+  {{ reference_label(reference) }}
 </div>
 {%- endmacro %}
 
 
 {#- Linha ao longo do tempo: os mesmos eixos e dicas das colunas; cada ponto fica no meio da sua
     faixa, e a linha (em viewBox de 0 a 100, sem engrossar ao esticar) liga os centros. -#}
-{% macro line_chart(points, fmt, step=120, legend=None) -%}
+{% macro line_chart(points, fmt, step=120, legend=None, reference=None, area=False) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
@@ -139,12 +156,18 @@
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
         <line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-border" stroke-width="1" shape-rendering="crispEdges"/>
         {%- endfor %}
+        {{ reference_line(reference, top) }}
       </svg>
       <svg class="absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {%- if legend %}
         {#- A de antes, tracejada e mais clara, na posição de cada ponto. #}
         <polyline fill="none" class="stroke-chart-before" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="
           {%- for p in points if p.before is not none %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.before / top * 100) }} {% endfor %}"/>
+        {%- endif %}
+        {%- if area and points %}
+        {#- A área sob a linha, na cor da série e bem clara. #}
+        <polygon class="fill-chart-1" fill-opacity="0.15" points="{{ '%.2f' | format(0.5 / count * 100) }},100 
+          {%- for p in points %} {{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.value / top * 100) }}{% endfor %} {{ '%.2f' | format((points | length - 0.5) / count * 100) }},100"/>
         {%- endif %}
         <polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
           {%- for p in points %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.value / top * 100) }} {% endfor %}"/>
@@ -169,6 +192,7 @@
   {%- if legend %}
   {{ compare_legend(legend) }}
   {%- endif %}
+  {{ reference_label(reference) }}
 </div>
 {%- endmacro %}
 

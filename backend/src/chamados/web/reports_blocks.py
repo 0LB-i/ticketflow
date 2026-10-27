@@ -5,6 +5,7 @@ cliente (§14.8.5).
 """
 
 import math
+import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -409,6 +410,17 @@ def block_view(
             view["legend"] = (
                 page.t("relatorios.comparacao.atual"),
                 page.t(f"relatorios.comparacao.legenda.{state.compare}"),
+            )
+        view["area"] = block.area
+        # A linha de referência: a média ou a mediana dos pontos com valor (um ponto sem base,
+        # como a mediana de nada, fica de fora).
+        values = [v for r in result.rows if (v := r.values[m]) is not None]
+        if block.reference != "none" and values:
+            average = statistics.fmean if block.reference == "mean" else statistics.median
+            reference = round(average(values))
+            view["reference"] = (
+                reference,
+                page.t(f"relatorios.referencia.{block.reference}", valor=fmt(reference)),
             )
     elif block.visual == "heatmap":
         view.update(_heatmap(page, config, block.measures[0], result))

@@ -154,6 +154,7 @@ TICKET_SETS: dict[Measure, Part] = {
     "reopen_rate": "closed",
 }
 CHARTS: tuple[Visual, ...] = ("bars", "columns", "stacked", "line")
+REFERENCED: tuple[Visual, ...] = ("columns", "line")  # com a linha de referência
 # Idade do em aberto no fim do período (§14.3): até 1 dia, 1 a 3, 3 a 7, mais de 7 (em minutos).
 AGE_LIMITS = (24 * 60, 3 * 24 * 60, 7 * 24 * 60)
 STACKED: list[Measure] = ["hours", "overtime"]  # no expediente (horas − extras) e extras
@@ -199,6 +200,9 @@ class Block(BaseModel):
     # Os tempos até a conclusão pela mediana (§14.1) ou, escolhida no bloco, pela média, com o
     # nome dizendo qual é.
     aggregate: Literal["median", "mean"] = "median"
+    area: bool = False  # linha: a área sob ela preenchida
+    # Colunas e linha: uma linha tracejada na média ou na mediana dos pontos (não é meta: §14.1).
+    reference: Literal["none", "mean", "median"] = "none"
 
 
 class PeriodSpec(BaseModel):
@@ -372,6 +376,10 @@ def check_block(block: Block) -> None:
             422,
             "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.",
         )
+    if block.area and block.visual != "line":
+        raise HTTPException(422, "A área é uma opção da linha.")
+    if block.reference != "none" and block.visual not in REFERENCED:
+        raise HTTPException(422, "A linha de referência vale nas colunas e na linha.")
     if block.aggregate == "mean" and not set(block.measures) & set(ELAPSED):
         raise HTTPException(422, "A média só vale para os tempos até a conclusão.")
     if block.dimension in (*TIMES, *CYCLES) and "tasks_per_workday" in block.measures:

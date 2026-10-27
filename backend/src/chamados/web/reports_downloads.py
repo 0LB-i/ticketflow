@@ -78,6 +78,8 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     legend=v.get("labels") or v.get("legend"),
                     empty=v.get("empty", ""),
                     before=[p.before for p in v["points"]] if "legend" in v else [],
+                    reference=v.get("reference"),
+                    area=v.get("area", False),
                 )
             )
         elif visual == "heatmap":

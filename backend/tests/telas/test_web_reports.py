@@ -1690,3 +1690,54 @@ def test_mapa_de_calor(client: TestClient, cenario: dict[str, Any]) -> None:
     assert linhas[11] == ["segunda 10:00", "1,25", "75"]
     pdf = client.get("/relatorios/pdf", params=filtros)
     assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+
+
+def test_area_e_linha_de_referencia(client: TestClient, cenario: dict[str, Any]) -> None:
+    segunda = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(segunda, 10))
+    tarefa(client, numero, 30, em(segunda + timedelta(days=1), 10))
+    modelo = _criar(
+        client,
+        "Referência",
+        blocos="2",
+        **{
+            "b0-visual": "line",
+            "b0-agrupar": "day",
+            "b0-medida": "hours",
+            "b0-area": "1",
+            "b0-referencia": "mean",
+            "b1-visual": "columns",
+            "b1-agrupar": "day",
+            "b1-medida": "hours",
+            "b1-referencia": "median",
+        },
+    )
+    filtros = {
+        "aba": modelo,
+        "periodo": "personalizado",
+        "de": segunda.isoformat(),
+        "ate": (segunda + timedelta(days=2)).isoformat(),
+    }
+    r = client.get("/relatorios/blocos", params=filtros)
+    # A média de 60, 30 e 0 é 30 min; a mediana, também. A linha é tracejada, com o nome.
+    assert r.text.count('stroke-dasharray="6 4"') == 4  # as duas linhas e os dois nomes
+    assert "Média: 30min</p>" in r.text and "Mediana: 30min</p>" in r.text
+    assert 'class="fill-chart-1" fill-opacity="0.15"' in r.text  # a área, só na linha
+    assert r.text.count('fill-opacity="0.15"') == 1
+    assert client.get("/relatorios/pdf", params=filtros).content.startswith(b"%PDF")
+
+    # No editor: a referência nas colunas e na linha; a área, só na linha.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert 'name="b0-area"' in r.text and 'name="b1-area"' not in r.text
+    assert 'name="b0-referencia"' in r.text and 'name="b1-referencia"' in r.text
+    dados = formulario(
+        client,
+        nome="X",
+        horas="hm",
+        blocos="1",
+        acao="atualizar",
+        **{"b0-visual": "bars", "b0-agrupar": "person", "b0-referencia": "mean", "b0-area": "1"},
+    )
+    r = client.post("/relatorios/modelos", data=dados)
+    assert 'name="b0-referencia"' not in r.text and 'name="b0-area"' not in r.text
