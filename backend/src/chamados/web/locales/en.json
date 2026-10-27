@@ -365,6 +365,8 @@
     "baixar": {
       "menu": "Download",
       "pdf": "PDF",
+      "simplificado": "Summary PDF",
+      "detalhado": "Detailed PDF (tasks of each client)",
       "csv": "CSV of this tab",
       "tarefas": "CSV of all tasks"
     },
@@ -734,7 +736,8 @@
       "periodo": "Period: {de} to {ate}",
       "gerado": "Generated on {quando} by {quem}",
       "comparado": "Compared with {de} to {ate}",
-      "pagina": "Page {n} of {total}"
+      "pagina": "Page {n} of {total}",
+      "resumo": "Period summary"
     },
     "filtroNaoCombina": "This block's filter ({filtro}) doesn't match the page's.",
     "filtroDoBlocoInvalido": "Parts of this block's filter no longer apply to you and were left out: {filtros}.",

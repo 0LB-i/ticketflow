@@ -71,7 +71,7 @@
       <details data-menu class="relative">
         <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden {{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }} {{ icon("chevron-down", "size-4") }}</summary>
         <div role="menu" class="absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
-          {%- for key in ("pdf", "csv", "tarefas") if key in downloads %}
+          {%- for key in ("pdf", "simplificado", "detalhado", "csv", "tarefas") if key in downloads %}
           <a href="{{ downloads[key] }}" download role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("file-text", "size-4") }} {{ t("relatorios.baixar." ~ key) }}</a>
           {%- endfor %}
         </div>

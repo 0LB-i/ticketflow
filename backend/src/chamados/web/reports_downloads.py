@@ -28,6 +28,7 @@ from chamados.web.reports_blocks import (
     Point,
     block_view,
     client_preview,
+    formatter,
     scopes,
     uses_overtime,
     work_hours_line,
@@ -178,10 +179,51 @@ def _filters_line(page: LoggedPage, state: State) -> str:
     return " · ".join(parts)
 
 
+async def _client_tasks(
+    page: LoggedPage, db: DB, state: State, f: service.Filters, config: builder.ReportConfig
+) -> list[model_pdf.Block]:
+    """O PDF detalhado da aba Clientes: uma tabela por cliente (pelo nome, "Sem cliente" no
+    fim) com cada tarefa do período (o dia, o chamado e o tempo) e o total dele. Da tarefa, só o
+    chamado: o texto dela pode ter anotações internas."""
+    data = await service.facts(db, page.auth, f, service.Want(rows={"tasks"}), state.lookups)
+    hours = formatter(page, config, "hours")
+    by_client: dict[int | None, list[service.TaskFact]] = {}
+    for t in data.tasks:
+        by_client.setdefault(t.client_id, []).append(t)
+
+    def name(client_id: int | None) -> str:
+        found = data.clients.get(client_id) if client_id else None
+        return found.label if found else page.t("relatorios.semCliente")
+
+    columns = [page.t(f"relatorios.colunas.{c}") for c in ("quando", "chamado", "tempo")]
+    return [
+        model_pdf.Grid(
+            name(client_id),
+            columns,
+            [
+                [
+                    format_date(page.locale, t.done_at),
+                    f"#{t.ticket_number} {t.ticket_title}",
+                    hours(t.minutes),
+                ]
+                for t in tasks
+            ],
+            total=["", hours(sum(t.minutes for t in tasks))],
+            total_label=page.t("relatorios.total"),
+        )
+        for client_id, tasks in sorted(
+            by_client.items(), key=lambda item: (item[0] is None, name(item[0]).casefold())
+        )
+    ]
+
+
 @router.get("/relatorios/pdf")
-async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response:
+async def report_pdf(
+    page: LoggedPageDep, db: DB, params: ParamsDep, detalhado: bool = False
+) -> Response:
     """O PDF do modelo aberto (§14.8.6) ou, num modelo para o cliente, o relatório para ele
-    (§14.8.5); com os filtros da tela, e vai para a auditoria."""
+    (§14.8.5); com os filtros da tela, e vai para a auditoria. Na aba Clientes, `detalhado`
+    põe as tarefas de cada cliente antes dos blocos, que ficam como o resumo."""
     state = await load_state(page, db, params)
     f, config = state.filters, state.choice.config
     if state.error or f is None or config is None:
@@ -242,11 +284,21 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         }
         heat = tuple(light[f"heat-{k}"] for k in range(1, 6))
         spec = config.pdf
+        pdf_blocks = _pdf_blocks(page, views)
+        table = "model"
+        if detalhado and state.choice.slug == "clientes" and state.choice.model is None:
+            # Os blocos, depois das tarefas, são o resumo (os cartões, que vêm primeiro, não
+            # têm título).
+            summary = pdf_blocks[0]
+            if not summary.title:
+                summary.title = page.t("relatorios.pdf.resumo")
+            pdf_blocks = [*await _client_tasks(page, db, state, f, config), *pdf_blocks]
+            table = "detailed"
         content = await run_in_threadpool(
             model_pdf.render_model,
             spec.title or state.choice.name,
             [line for line in lines if line],
-            _pdf_blocks(page, views),
+            pdf_blocks,
             model_pdf.Page(
                 page.t("relatorios.pdf.gerado", quando=now, quem=page.auth.user.display_name),
                 numbering,
@@ -256,7 +308,6 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             series,
             heat,
         )
-        table = "model"
     reports_api.record_export(
         db, page.request, page.auth, f, format="pdf", table=table, model=state.choice.name
     )

@@ -37,6 +37,7 @@ from chamados.web.reports_state import (
     Params,
     ParamsDep,
     Values,
+    closed_statuses,
     description_of,
     interval_text,
     last_months,
@@ -108,13 +109,17 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     for m in state.models:
         tip = m.config.get("description")
         tips[str(m.public_id)] = tip if isinstance(tip, str) else ""
+
+    def tab_query(s: str) -> dict[str, Any]:
+        if s not in TABS:
+            return {"aba": s}
+        # A aba Clientes, sem um status na tela, abre com os concluídos (o filtro dela).
+        if s == "clientes" and not query["status"]:
+            return {**query, "aba": s, "status": closed_statuses(state.lookups)}
+        return {**query, "aba": s}
+
     tabs = [
-        (
-            s,
-            tab_names[s],
-            with_query("/relatorios", {**query, "aba": s} if s in TABS else {"aba": s}),
-            tips[s],
-        )
+        (s, tab_names[s], with_query("/relatorios", tab_query(s)), tips[s])
         for s, shown in state.tabs
         if shown or s == slug
     ]
@@ -178,11 +183,17 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             "status": query["status"],
             "locale": page.locale,
         }
-        # O PDF é sempre o do modelo, com os blocos (§14.8.6), inclusive nos prontos de horas.
-        downloads = {
-            "pdf": with_query("/relatorios/pdf", {**query, "aba": slug}),
-            "tarefas": with_query("/api/v1/reports/csv", {**api, "table": "tasks"}),
-        }
+        # O PDF é sempre o do modelo, com os blocos (§14.8.6), inclusive nos prontos de horas. Na
+        # aba Clientes, ele é o simplificado, e o detalhado traz antes as tarefas de cada cliente.
+        pdf = with_query("/relatorios/pdf", {**query, "aba": slug})
+        downloads = {"tarefas": with_query("/api/v1/reports/csv", {**api, "table": "tasks"})}
+        if slug == "clientes" and choice.model is None:
+            downloads["simplificado"] = pdf
+            downloads["detalhado"] = with_query(
+                "/relatorios/pdf", {**query, "aba": slug, "detalhado": "1"}
+            )
+        else:
+            downloads["pdf"] = pdf
         if slug in CSV_TABLES and choice.model is None:
             downloads["csv"] = with_query("/api/v1/reports/csv", {**api, "table": CSV_TABLES[slug]})
 

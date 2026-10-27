@@ -858,6 +858,90 @@ def test_relatorio_para_o_cliente(
     assert sem_cliente.status_code == 422
 
 
+def test_aba_clientes(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A aba Clientes abre só com os concluídos; o PDF é o simplificado (os blocos) ou o
+    detalhado (as tarefas de cada cliente, e os blocos como o resumo)."""
+    dia = dia_util_passado()
+    padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
+    mercado = criar_cliente(db, "Mercado Bom Preço", "11444777000161")
+    numeros = {
+        titulo: registrar(client, cenario, title=titulo, client_id=cliente)["number"]
+        for titulo, cliente in (
+            ("Forno parado", padaria),
+            ("Caixa travado", mercado),
+            ("Ainda aberto", padaria),
+        )
+    }
+    tarefa(client, numeros["Forno parado"], 90, em(dia, 10))
+    tarefa(client, numeros["Forno parado"], 30, em(dia + timedelta(days=1), 10))
+    tarefa(client, numeros["Caixa travado"], 45, em(dia, 11))
+    tarefa(client, numeros["Ainda aberto"], 60, em(dia, 14))
+    for titulo in ("Forno parado", "Caixa travado"):
+        r = client.post(
+            f"{API}/{numeros[titulo]}/transitions",
+            json={"action": "close", "comment": "Pronto", "resolution_code_id": 1},
+        )
+        assert r.status_code == 200, r.text
+    fechado = status_id(client, "Concluído")
+
+    # Sem filtro na URL, valem os concluídos (o filtro salvo da aba); o link da aba, vindo de
+    # outra sem status, também os leva. Com um filtro na URL, vale o dela.
+    r = client.get("/relatorios/blocos", params={"aba": "clientes"})
+    assert parse_qs(urlsplit(_link_pdf(r.text)).query)["status"] == [fechado]
+    r = client.get("/relatorios/blocos", params={"aba": "produtividade"})
+    assert "PDF simplificado" not in r.text and "PDF detalhado" not in r.text
+    achado = re.search(r'<a href="(/relatorios\?[^"]*aba=clientes[^"]*)"', r.text)
+    assert achado, "sem a aba Clientes"
+    aba = parse_qs(urlsplit(achado.group(1).replace("&amp;", "&")).query)
+    assert aba["status"] == [fechado]
+    r = client.get("/relatorios/blocos", params={"aba": "clientes", "periodo": "mes-atual"})
+    assert "status" not in parse_qs(urlsplit(_link_pdf(r.text)).query)
+
+    # O menu Baixar: o PDF simplificado e o detalhado, com os mesmos filtros.
+    filtros = {
+        "aba": "clientes",
+        "periodo": "personalizado",
+        "de": dia.isoformat(),
+        "ate": (dia + timedelta(days=1)).isoformat(),
+        "status": fechado,
+    }
+    r = client.get("/relatorios/blocos", params=filtros)
+    (simplificado,) = _links(r.text, "PDF simplificado")
+    (detalhado,) = _links(r.text, "PDF detalhado (tarefas de cada cliente)")
+    assert parse_qs(urlsplit(detalhado).query) == {
+        **parse_qs(urlsplit(simplificado).query),
+        "detalhado": ["1"],
+    }
+    assert client.get(detalhado).content.startswith(b"%PDF-1")  # desenhado de verdade
+    registro = db.scalars(
+        select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
+    ).all()[-1]
+    assert (registro.after or {})["table"] == "detailed"
+
+    chamadas = _capturar(monkeypatch, "render_model")
+    client.get(simplificado)
+    client.get(detalhado)
+    (_, _, simples, *_), (_, _, blocos, *_) = chamadas
+    assert isinstance(simples[0], model_pdf.Cards) and simples[0].title == ""
+    # Um cliente por tabela, pelo nome; cada tarefa com o dia, o chamado e o tempo, e o total.
+    # O chamado em aberto fica de fora, como no resumo.
+    (mercado_, padaria_), resumo = blocos[:2], blocos[2:]
+    assert isinstance(mercado_, model_pdf.Grid) and isinstance(padaria_, model_pdf.Grid)
+    assert (mercado_.title, padaria_.title) == ("Mercado Bom Preço", "Padaria Pão Quente")
+    assert mercado_.columns == ["Quando", "Chamado", "Tempo"]
+    um, dois = dia.strftime("%d/%m/%Y"), (dia + timedelta(days=1)).strftime("%d/%m/%Y")
+    assert mercado_.rows == [[um, f"#{numeros['Caixa travado']} Caixa travado", "45min"]]
+    assert padaria_.rows == [
+        [um, f"#{numeros['Forno parado']} Forno parado", "1h30"],
+        [dois, f"#{numeros['Forno parado']} Forno parado", "30min"],
+    ]
+    assert (padaria_.total_label, padaria_.total) == ("Total", ["", "2h"])
+    # No fim, os blocos do simplificado, com o título do resumo.
+    assert len(resumo) == len(simples) and resumo[0].title == "Resumo do período"
+
+
 def _com_blocos(client: TestClient, url: str) -> Any:
     """Um link da tela, como o navegador o segue: a página e, nela, o pedido dos números."""
     pagina = client.get(url)
@@ -950,7 +1034,8 @@ def test_filtros_pelo_htmx(client: TestClient, cenario: dict[str, Any], db: Sess
     padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     numero = registrar(client, cenario, client_id=padaria)["number"]
     tarefa(client, numero, 30, em(dia_util_passado(), 10))
-    r = client.get("/relatorios/blocos", params={"aba": "clientes"})
+    # Com o período na URL, sem o filtro salvo da aba (só os concluídos): o chamado está aberto.
+    r = client.get("/relatorios/blocos", params={"aba": "clientes", "periodo": "mes-atual"})
     # O formulário troca o #relatorio (cabeçalho, filtros, abas e blocos) esperando as escolhas
     # seguidas, com o endereço na barra; um pedido novo cancela o anterior.
     assert (

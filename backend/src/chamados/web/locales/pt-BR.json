@@ -365,6 +365,8 @@
     "baixar": {
       "menu": "Baixar",
       "pdf": "PDF",
+      "simplificado": "PDF simplificado",
+      "detalhado": "PDF detalhado (tarefas de cada cliente)",
       "csv": "CSV desta aba",
       "tarefas": "CSV de todas as tarefas"
     },
@@ -734,7 +736,8 @@
       "periodo": "Período: {de} a {ate}",
       "gerado": "Gerado em {quando} por {quem}",
       "comparado": "Comparado com {de} a {ate}",
-      "pagina": "Página {n} de {total}"
+      "pagina": "Página {n} de {total}",
+      "resumo": "Resumo do período"
     },
     "filtroNaoCombina": "O filtro deste bloco ({filtro}) não combina com o da tela.",
     "filtroDoBlocoInvalido": "Partes do filtro deste bloco não valem mais para você e ficaram de fora: {filtros}.",

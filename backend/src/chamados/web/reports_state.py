@@ -241,6 +241,11 @@ def _choice(page: LoggedPage, aba: str | None, models: list[ReportModel], initia
     return Choice(str(model.public_id), model.name, config, model)
 
 
+def closed_statuses(lookups: service.Lookups) -> list[int]:
+    """Os status de situação concluída: o filtro de status com que a aba Clientes abre."""
+    return [s.id for s in lookups.statuses if s.kind == "closed"]
+
+
 def description_of(page: LoggedPage, choice: Choice) -> str:
     """A descrição do modelo aberto: a do catálogo nos prontos, a salva nos da pessoa."""
     if choice.model is None:
@@ -264,6 +269,11 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     comparar = params.comparar
     lookups = await service.lookups(db)
     options = await service.choices(db, auth, lookups.statuses)
+    # A aba Clientes abre com os chamados concluídos: é o filtro salvo dela.
+    if choice.model is None and choice.slug == "clientes" and choice.config is not None:
+        choice.config = choice.config.model_copy(
+            update={"filters": FilterSpec(statuses=closed_statuses(lookups))}
+        )
 
     # Sem filtro na URL, valem os do modelo. Os salvos que deixaram de valer para a pessoa
     # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
