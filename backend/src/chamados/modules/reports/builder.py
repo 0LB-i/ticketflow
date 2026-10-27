@@ -325,7 +325,7 @@ class ReportConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: Literal[2] = 2
-    # O que o modelo mostra, em uma frase: abaixo do título na tela e no PDF, e na dica da aba.
+    # O que o modelo mostra, em uma frase: abaixo do título no PDF e na dica da aba.
     description: str = Field(default="", max_length=200)
     period: PeriodSpec = PeriodSpec()
     filters: FilterSpec = FilterSpec()

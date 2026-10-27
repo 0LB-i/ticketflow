@@ -117,10 +117,7 @@ def test_numeros_graficos_e_abas(client: TestClient, cenario: dict[str, Any], db
     assert f"de={dia.isoformat()}" in r.text
 
     r = client.get("/relatorios/blocos", params={**filtros, "aba": "horas-extras"})
-    assert (
-        "Hora extra é o tempo de tarefa fora do expediente: o da instalação"
-        " (seg–sex 08:00–18:00), sem contar os feriados." in r.text
-    )
+    assert "Hora extra é o tempo de tarefa" not in r.text  # o expediente usado, só no PDF
     assert f'<a href="/chamados/{numero}" class="text-primary underline tabular-nums">' in r.text
     assert "Tarefas fora do expediente" in r.text
 
@@ -2448,10 +2445,10 @@ def test_abas_de_cada_pessoa(client: TestClient, cenario: dict[str, Any]) -> Non
 def test_descricao_do_modelo(
     client: TestClient, cenario: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Os prontos têm a descrição do catálogo, na dica da aba e abaixo dela.
+    # Os prontos têm a descrição do catálogo, na dica da aba (e no PDF); abaixo dela, não.
     r = client.get("/relatorios/blocos", params={"aba": "clientes"})
     descricao = "Horas e chamados registrados e concluídos de cada cliente."
-    assert f'title="{descricao}"' in r.text and f'<p class="text-muted">{descricao}</p>' in r.text
+    assert f'title="{descricao}"' in r.text and f">{descricao}</p>" not in r.text
 
     # A do modelo da pessoa: texto livre (escapado), até 200 caracteres, editada no editor.
     modelo = _criar(client, "Com descrição", descricao="  Horas & <b>chamados</b>  ")
@@ -2459,7 +2456,7 @@ def test_descricao_do_modelo(
     assert 'name="descricao" type="text" value="Horas &amp; &lt;b&gt;chamados&lt;/b&gt;"' in r.text
     r = client.get("/relatorios/blocos", params={"aba": modelo})
     escapada = "Horas &amp; &lt;b&gt;chamados&lt;/b&gt;"
-    assert f'title="{escapada}"' in r.text and f'<p class="text-muted">{escapada}</p>' in r.text
+    assert f'title="{escapada}"' in r.text and f">{escapada}</p>" not in r.text
     longo = _criar(client, "Longo", descricao="x" * 300)
     assert "x" * 200 + '"' in client.get(f"/relatorios/modelos/{longo}/editar").text
 
@@ -2499,9 +2496,9 @@ def test_pdf_configuravel(
     assert 'name="b1-foraDoPdf" value="1" checked' in r.text
     assert 'name="b0-foraDoPdf" value="1" class' in r.text  # o outro continua no PDF
 
-    # Na tela, os dois blocos (e o expediente, porque o de fora usa a hora extra).
+    # Na tela, os dois blocos.
     r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
-    assert 'id="bloco-1"' in r.text and "Hora extra é o tempo de tarefa" in r.text
+    assert 'id="bloco-1"' in r.text
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
     chamadas = _capturar(monkeypatch, "render_model")
     client.get(_link_pdf(r.text))
@@ -2578,9 +2575,11 @@ def test_textos_e_colunas_do_relatorio_para_o_cliente(
     assert chamados.rows[0][0] == f"#{numero}" and len(chamados.rows[0]) == 2
 
 
-def test_expediente_usado_so_de_quem_a_pessoa_ve(client: TestClient, db: Session) -> None:
-    """O "Expediente usado" cita os expedientes próprios e de grupo que valeram no período, só
-    das pessoas e dos grupos ao alcance de quem vê (docs/14 §14.7)."""
+def test_expediente_usado_so_de_quem_a_pessoa_ve(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O "Expediente usado" (no PDF) cita os expedientes próprios e de grupo que valeram no
+    período, só das pessoas e dos grupos ao alcance de quem vê (docs/14 §14.7)."""
     ana = criar_usuario(db, "ana@x.com", nome="Ana", grupos={"TI": "member"})
     criar_usuario(db, "bia@x.com", nome="Bia", grupos={"TI": "supervisor"})
     caio = criar_usuario(db, "caio@x.com", nome="Caio", grupos={"Infra": "member"})
@@ -2605,7 +2604,10 @@ def test_expediente_usado_so_de_quem_a_pessoa_ve(client: TestClient, db: Session
         "admin@x.com": " 08:00–18:00), o do grupo TI (1 pessoa) e o próprio de 2 pessoas"
         " (Ana, Caio), sem",
     }
+    chamadas = _capturar(monkeypatch, "render_model")
     for email, texto in esperado.items():
         entrar(client, email)
         r = client.get("/relatorios/blocos", params=_um_dia(dia, aba="horas-extras"))
-        assert inicio + texto in r.text, email
+        assert "Hora extra é o tempo de tarefa" not in r.text, email  # só no PDF
+        client.get(_link_pdf(r.text))
+        assert (inicio + texto) in chamadas[-1][1][-1], email

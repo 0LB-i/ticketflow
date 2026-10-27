@@ -26,9 +26,7 @@ from chamados.web.reports_blocks import (
     client_preview,
     scopes,
     single_client,
-    uses_overtime,
     wide,
-    work_hours_line,
 )
 from chamados.web.reports_state import (
     NO_CLIENT,
@@ -38,7 +36,6 @@ from chamados.web.reports_state import (
     ParamsDep,
     Values,
     closed_statuses,
-    description_of,
     interval_text,
     last_months,
     load_state,
@@ -128,7 +125,6 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
 
     blocks: list[dict[str, Any]] = []
     downloads = None
-    work_hours = None
     client_view = None
     # Na página sem os números: os blocos que o esqueleto imita (o índice, que é o id para onde
     # a paginação da lista rola, o visual e se ocupa a linha inteira).
@@ -169,8 +165,6 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         for view, span in zip(blocks, spans, strict=True):
             view["wide"] = span
     if f is not None and config is not None and config.audience != "client":
-        if uses_overtime(config.blocks):
-            work_hours = await work_hours_line(page, db, state, f)
         # Os CSV da API levam os mesmos filtros, com o idioma da pessoa (um link não escolhe o
         # Accept-Language). A tabela da aba, só nos modelos prontos de horas.
         api = {
@@ -340,7 +334,6 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         "reports/index.html",
         tabs=tabs,
         tab=slug,
-        description=description_of(page, choice),
         arranged=arranged,
         # Depois de mover uma aba, o diálogo volta aberto; ao fechar, o endereço sem o pedido.
         organize=page.request.query_params.get("organizar") == "1",
@@ -388,7 +381,6 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         # A mesma consulta, inclusive a falta de filtros (que vale os salvos) e as páginas.
         blocks_url=f"/relatorios/blocos?{page.request.url.query}".rstrip("?"),
         client_view=client_view,
-        work_hours=work_hours,
         error=state.error,
         warning=state.warning,
         downloads=downloads,

@@ -124,11 +124,6 @@
     {%- endfor %}
   </nav>
 
-  {#- A descrição do modelo aberto (também na impressão). #}
-  {%- if description %}
-  <p class="text-muted">{{ description }}</p>
-  {%- endif %}
-
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
       continua. Pelo HTMX, esperando as escolhas seguidas (600 ms), com o endereço na barra (o
       link continua valendo e o Voltar, também); um pedido novo cancela o anterior. #}
@@ -247,9 +242,6 @@
   {{ client_sheet(client_view) }}
   {%- endif %}
   {%- elif blocks %}
-  {%- if work_hours %}
-  <p class="text-muted">{{ work_hours }}</p>
-  {%- endif %}
   <div class="grid gap-4 lg:grid-cols-2">
     {%- for b in blocks %}
     {{ block(b) }}

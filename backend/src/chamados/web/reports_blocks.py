@@ -804,7 +804,7 @@ def uses_overtime(blocks: Sequence[Block]) -> bool:
 
 
 async def work_hours_line(page: LoggedPage, db: DB, state: State, f: service.Filters) -> str:
-    """O expediente usado na hora extra (a tela e o cabeçalho do PDF, quando algum bloco a usa):
+    """O expediente usado na hora extra (o cabeçalho do PDF, quando algum bloco a usa):
     o da instalação, os dos grupos e os próprios que valeram no período, só de quem a pessoa vê."""
     use = await service.schedule_use(db, page.auth, f, state.lookups.calendar)
 
