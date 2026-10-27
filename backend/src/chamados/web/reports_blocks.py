@@ -399,6 +399,7 @@ def block_view(
                 _row_label(page, dimension, r, short=True),
                 r.values[bars] or 0,
                 extra=r.values[line] or 0,
+                href=apply(r),
             )
             point.before_tip = f"{labels[1]}: {fmt(r.values[line])}"
             points.append(point)
@@ -529,14 +530,18 @@ def _heatmap(
     page: LoggedPage, config: ReportConfig, measure: builder.Measure, result: builder.Result
 ) -> dict[str, Any]:
     """O mapa de calor: uma linha por dia da semana, uma célula por hora, cada uma no tom da
-    escala (`heat-1` a `heat-5`, 0 sem nada) pela fração do maior valor; a legenda, o limite de
-    cima de cada tom."""
+    escala (`heat-1` a `heat-5`, 0 sem nada) pelo primeiro limite que ela não passa; a legenda,
+    os mesmos limites. Cada limite é a fração do maior valor arredondada para cima, e um limite
+    igual ao anterior (poucos valores, ex.: até 2 tarefas por hora) fica sem tom."""
     fmt = formatter(page, config, measure)
     values = [r.values[measure] for r in result.rows]  # dia × 24 + hora
     top = max((v or 0 for v in values), default=0)
+    bounds = [math.ceil(top * k / HEAT_STEPS) for k in range(1, HEAT_STEPS + 1)]
 
     def level(value: builder.Value) -> int:
-        return math.ceil(value / top * HEAT_STEPS) if value and top else 0
+        if not value:
+            return 0
+        return next(k for k, bound in enumerate(bounds, 1) if value <= bound)
 
     days = []
     for weekday, key in enumerate(WEEKDAYS):
@@ -549,8 +554,9 @@ def _heatmap(
         days.append((page.t(f"expediente.diasCurtos.{key}"), name, cells))
     legend = [(0, page.t("relatorios.mapa.nada"))]
     legend += [
-        (k, page.t("relatorios.mapa.ate", valor=fmt(round(top * k / HEAT_STEPS))))
-        for k in range(1, HEAT_STEPS + 1)
+        (k, page.t("relatorios.mapa.ate", valor=fmt(bound)))
+        for k, bound in enumerate(bounds, 1)
+        if k == 1 or bound != bounds[k - 2]
     ]
     return {
         "hours": [page.t("relatorios.hora", h=h) for h in range(24)],

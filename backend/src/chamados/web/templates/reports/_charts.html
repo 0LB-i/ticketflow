@@ -96,7 +96,6 @@
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
         <line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-border" stroke-width="1" shape-rendering="crispEdges"/>
         {%- endfor %}
-        {{ reference_line(reference, top) }}
       </svg>
       <ul class="absolute inset-0 flex items-end gap-0.5">
         {%- for p in points %}
@@ -119,6 +118,8 @@
         </li>
         {%- endfor %}
       </ul>
+      {#- A referência por cima das colunas (sem receber o mouse), como no PDF. #}
+      <svg class="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden="true">{{ reference_line(reference, top) }}</svg>
     </div>
     <div></div>
     <div class="flex gap-0.5 pt-1 text-xs text-muted" aria-hidden="true">
@@ -247,29 +248,28 @@
 
 
 {#- Mapa de calor: uma linha por dia da semana, uma célula por hora, no tom da escala sequencial
-    da primary (`heat-1` a `heat-5`, mais forte quanto mais perto do maior valor; sem nada, o
-    `surface-raised`), com a legenda do limite de cada tom. Cada célula diz o dia, a hora e o
-    valor na dica e no `aria-label`; para o leitor de tela, a mesma grade também numa tabela
-    (`sr-only`). As classes estão escritas por inteiro: o Tailwind só gera as que encontra. -#}
+    da primary (`heat-1` a `heat-5`, mais forte quanto mais perto do maior valor; sem nada, a
+    célula vazia, só com a borda), com a legenda do limite de cada tom. A dica de cada célula diz
+    o dia, a hora e o valor; o leitor de tela lê a mesma grade numa tabela (`sr-only`), e a grade
+    fica escondida dele para não ouvir os 168 valores duas vezes. As classes estão escritas por
+    inteiro: o Tailwind só gera as que encontra. -#}
 {% macro heat_map(b) -%}
-{%- set tones = {0: "bg-surface-raised", 1: "bg-heat-1", 2: "bg-heat-2", 3: "bg-heat-3", 4: "bg-heat-4", 5: "bg-heat-5"} %}
+{%- set tones = {0: "border border-border", 1: "bg-heat-1", 2: "bg-heat-2", 3: "bg-heat-3", 4: "bg-heat-4", 5: "bg-heat-5"} %}
 {%- if b.legend %}
 <div class="flex flex-col gap-3">
-  <div class="overflow-x-auto">
-    <div class="grid min-w-[36rem] grid-cols-[auto_repeat(24,minmax(0,1fr))] gap-0.5 text-xs text-muted">
-      <span></span>
-      {%- for hour in b.hours %}
-      <span class="text-center tabular-nums" aria-hidden="true">{% if loop.index0 % 3 == 0 %}{{ hour }}{% endif %}</span>
-      {%- endfor %}
-      {%- for short, name, cells in b.days %}
-      <span class="pr-1" aria-hidden="true" title="{{ name }}">{{ short }}</span>
-      {%- for c in cells %}
-      <span role="img" aria-label="{{ c.label }}: {{ c.value }}" class="group relative h-6 rounded-sm {{ tones[c.level] }}">
-        <span role="tooltip" class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap text-fg shadow-lg group-hover:block print:hidden"><strong class="tabular-nums">{{ c.value }}</strong><span class="text-muted"> · {{ c.label }}</span></span>
-      </span>
-      {%- endfor %}
-      {%- endfor %}
-    </div>
+  <div class="grid grid-cols-[auto_repeat(24,minmax(0,1fr))] gap-0.5 text-xs text-muted" aria-hidden="true">
+    <span></span>
+    {%- for hour in b.hours %}
+    <span class="text-center tabular-nums">{% if loop.index0 % 3 == 0 %}{{ hour }}{% endif %}</span>
+    {%- endfor %}
+    {%- for short, name, cells in b.days %}
+    <span class="pr-1" title="{{ name }}">{{ short }}</span>
+    {%- for c in cells %}
+    <span class="group relative h-6 rounded-sm {{ tones[c.level] }}">
+      <span class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap text-fg shadow-lg group-hover:block print:hidden"><strong class="tabular-nums">{{ c.value }}</strong><span class="text-muted"> · {{ c.label }}</span></span>
+    </span>
+    {%- endfor %}
+    {%- endfor %}
   </div>
   <ul class="flex flex-wrap gap-4 text-sm text-muted" aria-label="{{ b.legend_label }}">
     {%- for level, text in b.legend %}
@@ -322,6 +322,8 @@
           {%- if p.value %}
           <svg width="60%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-10 fill-chart-1 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- endif %}
+          {#- O ponto da linha, no meio da faixa (com um ponto só, a linha não aparece sem ele). #}
+          <svg class="pointer-events-none absolute inset-0 size-full overflow-visible fill-chart-2" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.extra / top * 100) }}%" r="3"/></svg>
           {%- endcall %}
         </li>
         {%- endfor %}

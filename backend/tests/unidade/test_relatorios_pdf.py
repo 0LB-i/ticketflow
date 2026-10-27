@@ -52,7 +52,7 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
         blocos,
         "Gerado",
         ("#C2410C", "#1D4ED8", "#D3785C"),
-        ("#FFDCD0", "#F7B5A0", "#E79074", "#D56A48", "#C2410C"),
+        ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C"),
     )
     assert conteudo.startswith(b"%PDF")
 

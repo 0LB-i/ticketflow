@@ -69,12 +69,12 @@
   --tf-chart-1: var(--tf-primary);
   --tf-chart-2: #1d4ed8;
   --tf-chart-before: #d3785c;
-  /* A escala do mapa de calor: o matiz da primary, do tom quase do fundo até ela (o "sem nada" é
-     o surface-raised); web/palette.py deriva com outras cores */
-  --tf-heat-1: #ffdcd0;
-  --tf-heat-2: #f7b5a0;
-  --tf-heat-3: #e79074;
-  --tf-heat-4: #d56a48;
+  /* A escala do mapa de calor: o matiz da primary, de um tom claro até ela (o "sem nada" é a
+     célula vazia, só com a borda); web/palette.py deriva com outras cores */
+  --tf-heat-1: #edc3b5;
+  --tf-heat-2: #e5a490;
+  --tf-heat-3: #db856a;
+  --tf-heat-4: #cf6543;
   --tf-heat-5: #c2410c;
 
   /* A folha da prévia do relatório para o cliente: papel branco também no modo escuro, com as
@@ -118,10 +118,10 @@
     --tf-danger: #dc2626;
     --tf-chart-2: #3b82f6;
     --tf-chart-before: #be7844;
-    --tf-heat-1: #412816;
-    --tf-heat-2: #6c4120;
-    --tf-heat-3: #995b2a;
-    --tf-heat-4: #c97633;
+    --tf-heat-1: #4f3523;
+    --tf-heat-2: #774b2b;
+    --tf-heat-3: #a16232;
+    --tf-heat-4: #cd7a37;
     --tf-heat-5: #fb923c;
 
     --tf-blue-fg: #93c5fd;

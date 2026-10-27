@@ -39,6 +39,7 @@ def _conferir(t: Tokens) -> None:
     calor = [contrast(t[f"heat-{k}"], t["surface"]) for k in range(1, 6)]
     assert calor == sorted(calor) and len(set(calor)) == 5, "escala do mapa de calor"
     assert calor[-1] >= 3, "o tom mais forte do mapa de calor"
+    assert calor[0] >= 1.4, "o tom mais fraco do mapa de calor se vê sobre o fundo"
 
 
 COMBINACOES: dict[str, Colors] = {

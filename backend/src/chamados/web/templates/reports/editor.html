@@ -91,11 +91,7 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {{ select("b" ~ i ~ "-medida", t("relatorios.editor.medidaBarras" if b.visual == "combo" else "relatorios.editor.medida"), measure_options[i], b.measures[0], refresh("atualizar", "change")) }}
         {%- endif %}
         {%- if b.visual == "combo" %}
-        {%- if partner_options[i] %}
         {{ select("b" ~ i ~ "-medida2", t("relatorios.editor.medidaLinha"), partner_options[i], b.measures[1] if b.measures | length > 1 else "", refresh("atualizar", "change")) }}
-        {%- else %}
-        <p class="text-muted sm:col-span-2">{{ t("relatorios.editor.semPar") }}</p>
-        {%- endif %}
         {%- endif %}
         {%- if b.visual in ("bars", "columns", "stacked", "table") and b.dimension in categories %}
         <div {{ refresh("atualizar", "change") }}>{{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}</div>

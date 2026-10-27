@@ -754,7 +754,7 @@ def test_pdf_do_modelo(
     assert r.status_code == 200 and r.content == b"%PDF-teste"
     assert r.headers["content-type"] == "application/pdf"
     titulo, linhas, blocos, rodape, cores, calor = chamadas[0]
-    assert calor == ("#FFDCD0", "#F7B5A0", "#E79074", "#D56A48", "#C2410C")
+    assert calor == ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C")
     assert titulo == "Mensal" and cores == ("#C2410C", "#1D4ED8", "#D3785C")
     anterior = (dia - timedelta(days=1)).strftime("%d/%m/%Y")
     assert linhas[0] == f"Período: {dia:%d/%m/%Y} a {dia:%d/%m/%Y}"
@@ -1664,19 +1664,37 @@ def test_mapa_de_calor(client: TestClient, cenario: dict[str, Any]) -> None:
     }
     r = client.get("/relatorios/blocos", params=filtros)
     assert "Horas por dia da semana e hora" in r.text
-    # O maior valor no tom mais forte; os outros pela fração dele; sem nada, o fundo.
-    assert (
-        'aria-label="Segunda-feira, 10h: 1h15" class="group relative h-6 rounded-sm bg-heat-5"'
-        in r.text
-    )
-    assert (
-        'aria-label="Terça-feira, 15h: 20min" class="group relative h-6 rounded-sm bg-heat-2"'
-        in r.text
-    )
-    assert r.text.count('bg-surface-raised"') >= 160
-    # A legenda e a tabela para o leitor de tela.
-    assert "até 1h15" in r.text and ">Nada</li>" in r.text
+
+    # O maior valor no tom mais forte; os outros pelo primeiro limite que não passam (os limites
+    # são quintos de 1h15: 15min, 30min…); sem nada, a célula vazia, só com a borda.
+    def celula(texto: str) -> str:
+        achado = re.search(
+            rf'<span class="group relative h-6 rounded-sm ([^"]+)">\s*<span[^>]*><strong[^>]*>'
+            rf"[^<]*</strong><span[^>]*> · {re.escape(texto)}</span>",
+            r.text,
+        )
+        assert achado, texto
+        return achado.group(1)
+
+    assert celula("Segunda-feira, 10h") == "bg-heat-5"
+    assert celula("Terça-feira, 15h") == "bg-heat-2"  # 20 min: até 30min
+    assert celula("Domingo, 0h") == "border border-border"
+    assert "até 15min</li>" in r.text and "até 1h15</li>" in r.text and ">Nada</li>" in r.text
+    # O leitor de tela lê a tabela; a grade fica escondida dele.
     assert '<table class="sr-only">' in r.text and '<th scope="row">Domingo</th>' in r.text
+    assert 'gap-0.5 text-xs text-muted" aria-hidden="true">' in r.text
+
+    # Poucos valores (no máximo 2 tarefas na hora): só os limites que existem, sem repetir, e a
+    # cor de cada célula é a do limite dela.
+    tarefas = _criar(
+        client,
+        "Calor de tarefas",
+        **{"b0-visual": "heatmap", "b0-agrupar": "weekday_hour", "b0-medida": "tasks"},
+    )
+    r = client.get("/relatorios/blocos", params={**filtros, "aba": tarefas})
+    assert re.findall(r"(até \d+)</li>", r.text) == ["até 1", "até 2"]
+    assert celula("Terça-feira, 15h") == "bg-heat-1"  # 1 tarefa
+    assert celula("Segunda-feira, 10h") == "bg-heat-3"  # 2 tarefas: o tom do limite "até 2"
 
     # No editor, o mapa só agrupa por dia da semana e hora.
     r = client.get(f"/relatorios/modelos/{modelo}/editar")
@@ -1723,6 +1741,10 @@ def test_area_e_linha_de_referencia(client: TestClient, cenario: dict[str, Any])
     # A média de 60, 30 e 0 é 30 min; a mediana, também. A linha é tracejada, com o nome.
     assert r.text.count('stroke-dasharray="6 4"') == 4  # as duas linhas e os dois nomes
     assert "Média: 30min</p>" in r.text and "Mediana: 30min</p>" in r.text
+    # Nas colunas, a referência vem depois delas (por cima), como no PDF.
+    assert re.search(
+        r'</ul>\s*<svg class="pointer-events-none[^>]*>\s*<line[^>]*stroke-dasharray="6 4"', r.text
+    )
     assert 'class="fill-chart-1" fill-opacity="0.15"' in r.text  # a área, só na linha
     assert r.text.count('fill-opacity="0.15"') == 1
     assert client.get("/relatorios/pdf", params=filtros).content.startswith(b"%PDF")
@@ -1763,6 +1785,8 @@ def test_barras_e_linha(client: TestClient, cenario: dict[str, Any]) -> None:
     assert 'class="stroke-chart-2"' in r.text  # a linha da segunda medida
     assert f'aria-label="{format_day("pt-BR", segunda)}: 1h30 · Horas extras: 1h"' in r.text
     assert "Horas extras</li>" in r.text  # a legenda
+    assert 'fill-chart-2" aria-hidden="true"><circle' in r.text  # o ponto da linha (um dia só)
+    assert re.search(r'<a href="/relatorios\?[^"]*periodo=personalizado[^"]*" hx-boost', r.text)
     assert client.get("/relatorios/pdf", params=filtros).content.startswith(b"%PDF")
     linhas = client.get("/relatorios/csv", params={**filtros, "bloco": "0"}).content
     assert "Horas;Horas (min);Horas extras" in linhas.decode("utf-8-sig")

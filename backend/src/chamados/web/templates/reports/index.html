@@ -191,7 +191,7 @@
     <noscript><p><a href="{{ blocks_url }}" class="text-primary underline">{{ t("relatorios.verNumeros") }}</a></p></noscript>
     <div class="grid gap-4 lg:grid-cols-2" aria-hidden="true">
       {%- for index, visual, span in skeleton %}
-      <div id="bloco-{{ index }}" class="scroll-mt-4 animate-pulse rounded-lg bg-surface-raised {{ 'h-44' if visual == 'cards' else 'h-72' if visual in ('bars', 'columns', 'stacked', 'line') else 'h-96' }}{% if span %} lg:col-span-2{% endif %}"></div>
+      <div id="bloco-{{ index }}" class="scroll-mt-4 animate-pulse rounded-lg bg-surface-raised {{ 'h-44' if visual == 'cards' else 'h-72' if visual in ('bars', 'columns', 'stacked', 'line', 'combo', 'heatmap') else 'h-96' }}{% if span %} lg:col-span-2{% endif %}"></div>
       {%- endfor %}
     </div>
   </div>

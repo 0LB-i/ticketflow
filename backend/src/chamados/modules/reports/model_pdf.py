@@ -264,7 +264,8 @@ def _columns(block: Chart, series: Series) -> Drawing:
         drawing.add(
             Line(axis, y, WIDTH, y, strokeColor=MUTED, strokeWidth=1, strokeDashArray=[4, 3])
         )
-        drawing.add(_text(WIDTH, y + 2, text, anchor="end"))
+        # O nome acima da linha; no topo do gráfico, abaixo dela, para não sair do desenho.
+        drawing.add(_text(WIDTH, y + 2 if y + 10 < CHART_HEIGHT else y - 8, text, anchor="end"))
     if line and block.area:
         fill = colors.Color(primary.red, primary.green, primary.blue, alpha=0.15)
         drawing.add(
@@ -311,7 +312,7 @@ def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> l
     label = 10 * mm
     cell = (WIDTH - label) / len(block.hours)
     row = 5 * mm
-    tones = [HEAD, *series.heat]  # sem nada, o cinza do cabeçalho das tabelas
+    tones = [colors.white, *series.heat]  # sem nada, a célula vazia, só com a borda
     drawing = Drawing(WIDTH, row * (len(block.days) + 1))
     for i, hour in enumerate(block.hours):
         if i % 3 == 0:
@@ -322,11 +323,17 @@ def _heatmap(block: Heatmap, st: dict[str, ParagraphStyle], series: Series) -> l
         y = drawing.height - (d + 2) * row
         drawing.add(_text(0, y + 4, name))
         for i, level in enumerate(levels):
-            drawing.add(_rect(label + i * cell + 0.4, y + 0.4, cell - 0.8, row - 0.8, tones[level]))
+            box = _rect(label + i * cell + 0.4, y + 0.4, cell - 0.8, row - 0.8, tones[level])
+            if not level:
+                box.strokeColor, box.strokeWidth = RULE, 0.5
+            drawing.add(box)
     legend = Drawing(WIDTH, 12)
     x = 0.0
     for level, text in block.legend:
-        legend.add(_rect(x, 2, 7, 7, tones[level]))
+        swatch = _rect(x, 2, 7, 7, tones[level])
+        if not level:
+            swatch.strokeColor, swatch.strokeWidth = RULE, 0.5
+        legend.add(swatch)
         legend.add(_text(x + 10, 3, text, size=8))
         x += 10 + len(text) * 4.5 + 12
     return [KeepTogether([*flow, drawing, legend])]
@@ -353,7 +360,7 @@ def render_model(
     blocks: list[Block],
     footer: str,
     series: tuple[str, str, str],
-    heat: tuple[str, ...] = (),
+    heat: tuple[str, ...],
 ) -> bytes:
     """O PDF de um modelo: o título, as linhas de cabeçalho (período, filtros), os blocos na
     ordem e o rodapé (quando e quem gerou). `series`: as cores `chart-1`, `chart-2` e

@@ -69,10 +69,10 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "border-input": "#737373",
         "chart-2": "#1D4ED8",
         "chart-before": "#D3785C",
-        "heat-1": "#FFDCD0",
-        "heat-2": "#F7B5A0",
-        "heat-3": "#E79074",
-        "heat-4": "#D56A48",
+        "heat-1": "#EDC3B5",
+        "heat-2": "#E5A490",
+        "heat-3": "#DB856A",
+        "heat-4": "#CF6543",
         "heat-5": "#C2410C",
     },
     "dark": {
@@ -91,10 +91,10 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "border-input": "#737373",
         "chart-2": "#3B82F6",
         "chart-before": "#BE7844",
-        "heat-1": "#412816",
-        "heat-2": "#6C4120",
-        "heat-3": "#995B2A",
-        "heat-4": "#C97633",
+        "heat-1": "#4F3523",
+        "heat-2": "#774B2B",
+        "heat-3": "#A16232",
+        "heat-4": "#CD7A37",
         "heat-5": "#FB923C",
     },
 }
@@ -292,10 +292,11 @@ HEAT_STEPS = 5
 def _heat_scale(primary: str, surface: str, light: bool) -> list[str]:
     """A escala sequencial do mapa de calor (`heat-1` a `heat-5`): o matiz da `primary`, do tom
     quase do fundo (pouco saturado) até a própria `primary`, com a luminosidade e a saturação
-    andando em passos iguais. Cada tom se afasta mais do fundo que o anterior, e o último tem o
-    contraste da `primary` (o "sem nada" é a `surface-raised`, fora da escala)."""
+    andando em passos iguais. Cada tom se afasta mais do fundo que o anterior (o primeiro já se
+    vê sobre ele), e o último tem o contraste da `primary`. O "sem nada" fica fora da escala: a
+    célula vazia, só com a borda."""
     big_l, c, h = _rgb_to_oklch(_hex_to_rgb(primary))
-    start = _rgb_to_oklch(_hex_to_rgb(surface))[0] + (-0.08 if light else 0.1)
+    start = _rgb_to_oklch(_hex_to_rgb(surface))[0] + (-0.15 if light else 0.15)
     last = HEAT_STEPS - 1
     return [
         _oklch_to_hex((start + (big_l - start) * k / last, c * (0.3 + 0.7 * k / last), h))
