@@ -130,6 +130,9 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
           {%- endfor %}
         </div>
       </fieldset>
+      {%- if b.visual == "cards" and b.measures | length == 1 %}
+      <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-grande", t("relatorios.editor.grande"), checked=b.big, id="campo-b" ~ i ~ "-grande") }}</div>
+      {%- endif %}
       {%- elif b.visual == "tasks" %}
       <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-extras", t("relatorios.editor.soExtras"), checked=b.only_overtime, id="campo-b" ~ i ~ "-extras") }}</div>
       {%- endif %}

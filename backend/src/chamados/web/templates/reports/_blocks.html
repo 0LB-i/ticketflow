@@ -164,7 +164,8 @@
       {%- for card in b.cards %}
       <div class="flex-1 basis-40 border-t border-l border-border px-4 py-3">
         <dt class="text-muted">{{ card.label }}</dt>
-        <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
+        {#- O número grande: uma medida só, em destaque, com a tendência mais alta. #}
+        <dd class="mt-1 {{ 'text-5xl tracking-tight' if b.big else 'text-2xl' }} font-semibold">{{ linked(card.value, card.href) }}</dd>
         {%- if card.hint %}
         <dd class="mt-1 text-sm text-muted">{{ card.hint }}</dd>
         {%- endif %}
@@ -177,7 +178,7 @@
         {%- endif %}
         {%- if card.spark %}
         {#- A tendência no período (reports_blocks._spark): sem eixo nem rótulos, só a linha. #}
-        <dd class="mt-2" aria-hidden="true"><svg viewBox="0 0 100 32" preserveAspectRatio="none" class="block h-8 w-full overflow-visible"><polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="{{ card.spark }}"/></svg></dd>
+        <dd class="mt-2" aria-hidden="true"><svg viewBox="0 0 100 32" preserveAspectRatio="none" class="block {{ 'h-16' if b.big else 'h-8' }} w-full overflow-visible"><polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="{{ card.spark }}"/></svg></dd>
         {%- endif %}
       </div>
       {%- endfor %}

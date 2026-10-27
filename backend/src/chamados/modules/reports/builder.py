@@ -219,6 +219,7 @@ class Block(BaseModel):
     # nome dizendo qual é.
     aggregate: Literal["median", "mean"] = "median"
     area: bool = False  # linha: a área sob ela preenchida
+    big: bool = False  # cartões com uma medida: o número grande, com a variação e a tendência
     # Colunas e linha: uma linha tracejada na média ou na mediana dos pontos (não é meta: §14.1).
     reference: Literal["none", "mean", "median"] = "none"
 
@@ -406,6 +407,8 @@ def check_block(block: Block) -> None:
             422,
             "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.",
         )
+    if block.big and (block.visual != "cards" or len(block.measures) != 1):
+        raise HTTPException(422, "O número grande é um cartão de uma medida só.")
     if block.area and block.visual != "line":
         raise HTTPException(422, "A área é uma opção da linha.")
     if block.reference != "none" and block.visual not in REFERENCED:

@@ -1789,3 +1789,40 @@ def test_barras_e_linha(client: TestClient, cenario: dict[str, Any]) -> None:
     r = client.post("/relatorios/modelos", data=dados)
     linha = re.search(r'name="b0-medida2".*?</select>', r.text, re.S)
     assert linha and 'value="tasks" selected' in linha.group(0)
+
+
+def test_numero_grande(client: TestClient, cenario: dict[str, Any]) -> None:
+    segunda = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(segunda, 10))
+    tarefa(client, numero, 30, em(segunda + timedelta(days=1), 10))
+    tarefa(client, numero, 45, em(segunda - timedelta(days=7), 10))
+    modelo = _criar(
+        client, "Grande", **{"b0-visual": "cards", "b0-medidas": ["hours"], "b0-grande": "1"}
+    )
+    semana = {
+        "aba": modelo,
+        "periodo": "personalizado",
+        "de": segunda.isoformat(),
+        "ate": (segunda + timedelta(days=6)).isoformat(),
+        "comparar": "anterior",
+    }
+    r = client.get("/relatorios/blocos", params=semana)
+    assert '<dd class="mt-1 text-5xl tracking-tight font-semibold">1h30</dd>' in r.text
+    assert "+100% · antes: 45min" in r.text  # a variação
+    assert "block h-16 w-full" in r.text  # a tendência, mais alta
+    assert client.get("/relatorios/pdf", params=semana).content.startswith(b"%PDF")
+
+    # No editor, a opção só aparece com uma medida; com duas, sai.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert 'name="b0-grande" value="1" checked' in r.text
+    dados = formulario(
+        client,
+        nome="X",
+        horas="hm",
+        blocos="1",
+        acao="atualizar",
+        **{"b0-visual": "cards", "b0-medidas": ["hours", "tasks"], "b0-grande": "1"},
+    )
+    r = client.post("/relatorios/modelos", data=dados)
+    assert 'name="b0-grande"' not in r.text and "text-5xl" not in r.text

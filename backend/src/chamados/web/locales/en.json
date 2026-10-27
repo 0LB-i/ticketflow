@@ -591,7 +591,8 @@
       "area": "Fill the area under the line",
       "medidaBarras": "Bar measure",
       "medidaLinha": "Line measure",
-      "semPar": "No other measure has the same unit as this one: choose another for the bars."
+      "semPar": "No other measure has the same unit as this one: choose another for the bars.",
+      "grande": "Big number (with the change and the trend)"
     },
     "idades": {
       "0": "up to 1 day",

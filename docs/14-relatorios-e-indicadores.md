@@ -143,6 +143,7 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 - **Períodos vazios:** agrupado por dia, semana ou mês, todos os períodos aparecem, mesmo sem nada. Um gráfico por dia de um período de mais de dois meses agrupa por semana (a tabela e o CSV continuam por dia).
 
 - **Sem linha de meta:** a §14.1 não tem metas. A **linha de referência** é outra coisa: nas colunas e na linha, uma linha tracejada na média ou na mediana dos próprios pontos (os sem base ficam de fora), com o nome e o valor ao lado da legenda ("Média: 7h30"), também no PDF.
+- **Número grande:** uma opção dos cartões com uma medida só: o número em destaque, com a variação (ao comparar) e a tendência mais alta; no PDF, o número maior. O CSV é o do cartão.
 - **Barras + linha:** duas medidas da mesma unidade (horas com horas, contagens com contagens, porcentagens com porcentagens), no mesmo eixo, sem eixo duplo: as colunas da primeira na cor da instalação e a linha da segunda na segunda cor dos gráficos, com a legenda; agrupa por período, dia da semana ou hora (a linha liga pontos em ordem). Sem a série de antes ao comparar (já são duas séries). O editor só oferece para a linha as medidas da mesma unidade das barras.
 - **Área:** uma opção da linha, que preenche a área sob ela na cor da série, bem clara (também no PDF).
 - **No CSV:** a área e a linha de referência não entram (o CSV traz os pontos; a média e a mediana saem deles).

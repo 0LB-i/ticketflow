@@ -66,7 +66,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                 if card.get("hint"):
                     note = f"{note} · {card['hint']}" if note else card["hint"]
                 items.append((card["label"], card["value"], note))
-            blocks.append(model_pdf.Cards(v["title"], items))
+            blocks.append(model_pdf.Cards(v["title"], items, big=v.get("big", False)))
         elif visual in CHARTS:
             fmt = v["fmt"]
             blocks.append(

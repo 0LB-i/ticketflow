@@ -14,6 +14,7 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
     marcas = [(240, "4h"), (120, "2h"), (0, "0min")]
     blocos: list[model_pdf.Block] = [
         model_pdf.Cards("", [("Horas", "3h30", "−12% · antes: 4h"), ("Tarefas", "3", "")]),
+        model_pdf.Cards("", [("Horas", "3h30", "−12% · antes: 4h")], big=True),
         model_pdf.Chart("Horas por pessoa", "bars", [("Ana Maria de Souza Lima", 210, 0, "3h30")]),
         model_pdf.Chart("Horas por dia", "columns", pontos, ticks=marcas),
         model_pdf.Chart(

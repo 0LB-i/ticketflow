@@ -122,6 +122,7 @@ def _read_block(form: FormData, i: int) -> Block:
         if one("agregacao") == "mean" and set(measures) & set(builder.ELAPSED)
         else "median",
         area=visual == "line" and one("area") == "1",
+        big=visual == "cards" and len(measures) == 1 and one("grande") == "1",
         reference=next(
             (r for r in ("mean", "median") if r == one("referencia") and visual in REFERENCED),
             "none",

@@ -188,6 +188,7 @@ EN: dict[str, str] = {
         "The heat map crosses the weekday with the hour, and only it."
     ),
     "A área é uma opção da linha.": "The area is an option of the line chart.",
+    "O número grande é um cartão de uma medida só.": "The big number is a card with one measure.",
     "As barras + linha mostram duas medidas da mesma unidade.": (
         "Bars + line show two measures of the same unit."
     ),

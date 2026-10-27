@@ -766,6 +766,16 @@ def test_barras_e_linha() -> None:
     assert run(dados, bloco, INICIO, FIM).rows[0].values == {"hours": 60, "overtime": 20}
 
 
+def test_numero_grande() -> None:
+    check_block(Block(visual="cards", measures=["hours"], big=True))
+    for errado in (
+        Block(visual="cards", measures=["hours", "tasks"], big=True),
+        Block(visual="table", dimension="person", measures=["hours"], big=True),
+    ):
+        with pytest.raises(HTTPException):
+            check_block(errado)
+
+
 def test_periodo_anterior() -> None:
     assert previous_period(date(2026, 10, 1), date(2026, 10, 31)) == (
         date(2026, 9, 1),

@@ -369,6 +369,7 @@ def block_view(
                     card.update(_trend(m, result.total[m], previous.total[m]))
             cards.append(card)
         view["cards"] = cards
+        view["big"] = block.big
     elif block.visual == "stacked":
         points = [
             Point(

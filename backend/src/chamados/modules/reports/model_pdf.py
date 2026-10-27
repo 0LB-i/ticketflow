@@ -40,6 +40,7 @@ CHART_HEIGHT = 48 * mm
 class Cards:
     title: str
     items: list[tuple[str, str, str]]  # rótulo, valor, nota (a comparação; vazia sem ela)
+    big: bool = False  # o número grande (uma medida só)
 
 
 @dataclass
@@ -111,6 +112,7 @@ def _styles() -> dict[str, ParagraphStyle]:
         "body": body,
         "muted": ParagraphStyle("muted", parent=body, textColor=MUTED),
         "value": ParagraphStyle("value", parent=body, fontSize=14, leading=18),
+        "big": ParagraphStyle("big", parent=body, fontSize=32, leading=38),
         "h1": ParagraphStyle(
             "h1", parent=sheet["Heading1"], fontSize=16, textColor=INK, spaceAfter=2
         ),
@@ -153,7 +155,11 @@ def _grid(block: Grid, st: dict[str, ParagraphStyle]) -> list[Flowable]:
 
 def _cards(block: Cards, st: dict[str, ParagraphStyle]) -> list[Flowable]:
     cells = [
-        [_p(label, st["muted"]), _p(value, st["value"]), *([_p(note, st["muted"])] if note else [])]
+        [
+            _p(label, st["muted"]),
+            _p(value, st["big" if block.big else "value"]),
+            *([_p(note, st["muted"])] if note else []),
+        ]
         for label, value, note in block.items
     ]
     per_row = min(4, len(cells)) or 1

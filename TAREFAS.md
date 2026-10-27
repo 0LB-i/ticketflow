@@ -110,7 +110,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F2-S8-07 | Relatórios, fase 4: PDF do modelo com gráficos e relatório para o cliente | feito | |
 | F2-S8-08 | Relatórios, extensão 1 ([14.8](docs/14-relatorios-e-indicadores.md#148-relatórios-personalizados-pedido-do-usuário-2026-10-24)): períodos de semana, ano anterior, últimos 12 meses e últimos N dias; comparar com o período anterior ou com o mesmo período do ano anterior | feito | |
 | F2-S8-09 | Relatórios, extensão 2: agrupar por dia da semana e hora do dia; medidas derivadas (% de hora extra, horas por chamado, taxa de conclusão, tarefas por dia útil); média como opção dos tempos até a conclusão (o papel da pessoa no agrupamento foi descartado) | feito | |
-| F2-S8-10 | Relatórios, extensão 3: mapa de calor (dia da semana × hora), área, barras + linha, número grande e linha de referência (média ou mediana) | em andamento | |
+| F2-S8-10 | Relatórios, extensão 3: mapa de calor (dia da semana × hora), área, barras + linha, número grande e linha de referência (média ou mediana) | feito | |
 
 ## Migração da interface para o servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md))
 
