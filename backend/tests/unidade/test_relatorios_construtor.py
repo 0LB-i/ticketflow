@@ -639,6 +639,33 @@ def test_medidas_derivadas() -> None:
         "hours": {"day"},
         "worked": {"week"},
     }
+    assert needs(
+        [Block(visual="columns", dimension="day", measures=["hours_per_ticket"])]
+    ).sums == {
+        "hours": {"day"},
+        "worked": {"day", "week"},  # a tela agrupa por semana um período longo
+    }
+    tabela = Block(visual="table", dimension="day", measures=["hours_per_ticket"])
+    assert needs([tabela]).sums == {"hours": {"day"}, "worked": {"day"}}  # fica por dia
+    # O gráfico por dia agrupado por semana (como a tela faz num período longo).
+    semanas = run(
+        dados,
+        Block(visual="columns", dimension="day", measures=["hours_per_ticket"]),
+        INICIO,
+        FIM,
+        dimension="week",
+    )
+    assert [r.values["hours_per_ticket"] for r in semanas.rows] == [120, None, None, None]
+    # Num período que ainda não acabou, os dias úteis contam até hoje.
+    hoje = datetime.now(TZ).date()
+    futuro = run(
+        _dados([_tarefa(ANA, 30, hoje)]),
+        Block(visual="cards", measures=["tasks_per_workday"]),
+        hoje - timedelta(days=13),
+        hoje + timedelta(days=20),
+    )
+    uteis = workdays(hoje - timedelta(days=13), hoje, DEFAULT)
+    assert futuro.total["tasks_per_workday"] == round(100 / uteis)
     assert needs([Block(visual="cards", measures=["completion_rate"])]).sums == {
         "closed": {"day"},
         "opened": {"day"},

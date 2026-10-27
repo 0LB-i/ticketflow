@@ -1621,6 +1621,11 @@ def test_media_dos_tempos_no_editor_e_na_tela(client: TestClient, cenario: dict[
     assert '<option value="mean" selected>Média</option>' in r.text
     assert 'name="b1-agregacao"' not in r.text
     assert '<dt class="text-muted">Média até a conclusão</dt>' in r.text
+    # O número abre a lista dos concluídos, com o nome da média.
+    listas = re.findall(r'href="(/relatorios/chamados\?[^"]+medida=lead_time[^"]*)"', r.text)
+    assert listas and all("agregacao=media" in u for u in listas)
+    html = client.get(listas[0].replace("&amp;", "&")).text
+    assert "Média até a conclusão" in html
 
     modelo = _criar(
         client,

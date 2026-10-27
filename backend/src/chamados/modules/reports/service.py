@@ -26,7 +26,6 @@ from sqlalchemy import (
     cast,
     distinct,
     func,
-    literal,
     not_,
     or_,
     select,
@@ -658,9 +657,11 @@ async def _task_sums(
     names = list(groups)
     exprs = [_task_group(g) for g in names]
     minutes = func.coalesce(func.sum(TicketComment.time_spent_minutes), 0)
-    tickets_count = func.count(distinct(TicketComment.ticket_id)) if worked else literal(0)
+    counts = [func.count(), minutes]
+    if worked:
+        counts.append(func.count(distinct(TicketComment.ticket_id)))
     query = (
-        select(*exprs, *(func.grouping(e) for e in exprs), func.count(), minutes, tickets_count)
+        select(*exprs, *(func.grouping(e) for e in exprs), *counts)
         .select_from(TicketComment)
         .join(Ticket, Ticket.id == TicketComment.ticket_id)
         .where(*conds)
@@ -670,7 +671,8 @@ async def _task_sums(
     n = len(names)
     for row in await db.execute(query):
         keys, flags = row[:n], row[n : 2 * n]
-        count, total, distinct_count = row[2 * n], row[2 * n + 1], row[2 * n + 2]
+        count, total = row[2 * n], row[2 * n + 1]
+        distinct_count = row[2 * n + 2] if worked else 0
         # A linha de um agrupamento tem o GROUPING() dele em 0; a do total, todos em 1.
         i = next((i for i, flag in enumerate(flags) if flag == 0), None)
         if i is None:
@@ -824,7 +826,7 @@ async def facts(
         if "tasks" in parts:  # as linhas já vieram
             sums["hours"] = add_up(((t, t.minutes) for t in tasks), task_groups)
             sums["tasks"] = add_up(((t, 1) for t in tasks), task_groups)
-            worked = distinct_tickets(tasks, task_groups)
+            worked = distinct_tickets(tasks, task_groups) if "worked" in want.sums else Sums()
         else:
             sums["hours"], sums["tasks"], worked = await _task_sums(
                 db, task_conds, task_groups, worked="worked" in want.sums

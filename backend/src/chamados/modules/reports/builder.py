@@ -14,7 +14,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal, get_args
 
 from fastapi import HTTPException
@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from chamados.modules.reports.service import (
     MAX_DAYS,
+    TZ,
     Facts,
     Group,
     Part,
@@ -530,6 +531,10 @@ def needs(blocks: Iterable[Block]) -> Want:
                 groups = want.sums.setdefault(c, set())
                 if dimension is not None:
                     groups.add(_group(dimension, c))
+                    if c == "worked" and dimension == "day" and block.visual in CHARTS:
+                        # Num período longo, a tela agrupa por semana o gráfico por dia
+                        # (`reports_blocks.DAILY_LIMIT`), e o `worked` não sai do dia.
+                        groups.add("week")
                 elif block.visual == "cards" and m not in UNTRENDED:  # a tendência (`trend`)
                     # Por dia; num período longo, por semana (só o `worked` não sai do dia).
                     groups.update({"day", "week"} if c == "worked" else {"day"})
@@ -705,7 +710,10 @@ def run(
     mean = block.aggregate == "mean"
     plain = [m for m in measures if m not in DERIVED]
     parts = sorted({c for m in measures if m in DERIVED for c in DERIVED[m] if c})
-    days = workdays(start, end, data.work_hours) if "tasks_per_workday" in measures else 0
+    # Os dias úteis até hoje: o mês, a semana e o trimestre em curso vão até o último dia, e os
+    # dias que ainda não chegaram não têm tarefa.
+    last = min(end, datetime.now(TZ).date())
+    days = workdays(start, last, data.work_hours) if "tasks_per_workday" in measures else 0
 
     def values(
         plain_values: dict[Measure, Value], part_sums: dict[Summed, int | None]

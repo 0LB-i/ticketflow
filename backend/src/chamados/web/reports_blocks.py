@@ -298,7 +298,12 @@ def block_view(
         """A lista dos chamados por trás de um número (medidas de chamado)."""
         if measure not in TICKET_SETS:
             return None
-        return with_query("/relatorios/chamados", {**base, **(drill or {}), "medida": measure})
+        # A lista diz se o número era a média (o título dela é o nome da medida).
+        mean = "media" if block.aggregate == "mean" and measure in ELAPSED else None
+        return with_query(
+            "/relatorios/chamados",
+            {**base, **(drill or {}), "medida": measure, "agregacao": mean},
+        )
 
     # O em aberto agrupa pelo status do fim do período; o filtro de status é o atual.
     can_drill = not (dimension == "status" and "backlog" in block.measures)

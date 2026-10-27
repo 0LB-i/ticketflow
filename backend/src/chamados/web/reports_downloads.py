@@ -17,7 +17,7 @@ from chamados.core.i18n import Locale
 from chamados.db.session import DB
 from chamados.modules.reports import builder, csv_export, model_pdf, service
 from chamados.modules.reports import router as reports_api
-from chamados.modules.reports.builder import CHARTS, TICKET_SETS
+from chamados.modules.reports.builder import CHARTS, ELAPSED, TICKET_SETS
 from chamados.modules.system.service import get_value
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_elapsed
 from chamados.web.page import LoggedPage, LoggedPageDep
@@ -269,6 +269,7 @@ async def ticket_list(
     params: ParamsDep,
     medida: str,
     formato: str | None = None,
+    agregacao: str | None = None,
 ) -> Response:
     """Os chamados por trás de um número (detalhar, docs/14 §14.8.3), com os filtros da tela, e
     o CSV deles (`formato=csv`, que vai para a auditoria)."""
@@ -280,7 +281,11 @@ async def ticket_list(
     f = state.filters
     base = {**state.query, "aba": state.choice.slug}
     context: dict[str, Any] = {
-        "title": page.t(f"relatorios.medidas.{measure}"),
+        "title": page.t(
+            f"relatorios.medias.{measure}"
+            if agregacao == "media" and measure in ELAPSED
+            else f"relatorios.medidas.{measure}"
+        ),
         "kind": kind,
         "back": with_query("/relatorios", base),
         "interval": interval_text(page, state),
