@@ -1,6 +1,7 @@
 """Paleta derivada das 3 cores (docs/17 §17.2) e os contrastes da WCAG 2.1 AA (§17.3)."""
 
 import re
+from itertools import combinations
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from chamados.web.palette import (
     DEFAULT_PALETTE,
     PRESETS,
     Colors,
+    Mode,
     Tokens,
     contrast,
     distinct,
@@ -108,8 +110,30 @@ def test_series_dos_graficos_no_css_sao_as_da_paleta_original() -> None:
         (".dark", DEFAULT_PALETTE["dark"]),
     ):
         do_css = _tokens_do_css(css, seletor)
-        for token in ("chart-2", "chart-before", *(f"heat-{k}" for k in range(1, 6))):
+        tokens_series = ("chart-2", "chart-3", "chart-4", "chart-before")
+        for token in (*tokens_series, *(f"heat-{k}" for k in range(1, 6))):
             assert do_css[token].upper() == tokens[token], (seletor, token)
+
+
+@pytest.mark.parametrize(
+    "paleta",
+    [
+        DEFAULT_PALETTE,
+        *(palette(c) for c in COMBINACOES.values()),
+        *(palette(c) for c in PRESETS.values()),
+    ],
+    ids=["original", *COMBINACOES, *(f"pronta {p}" for p in PRESETS)],
+)
+def test_series_dos_graficos_se_distinguem_duas_a_duas(paleta: dict[Mode, Tokens]) -> None:
+    """As séries 1 (a primary) a 4: marcas com 3:1 sobre os fundos e distintas duas a duas, também
+    para quem não enxerga vermelho ou verde."""
+    for modo, t in paleta.items():
+        series = {"chart-1": t["primary"], **{s: t[s] for s in ("chart-2", "chart-3", "chart-4")}}
+        for nome, cor in series.items():
+            for fundo in ("surface", "bg"):
+                assert contrast(cor, t[fundo]) >= 3, (modo, nome, fundo)
+        for (a, x), (b, y) in combinations(series.items(), 2):
+            assert distinct(x, y), (modo, a, b)
 
 
 def test_horas_extras_mudam_de_matiz_quando_a_marca_e_azul() -> None:
