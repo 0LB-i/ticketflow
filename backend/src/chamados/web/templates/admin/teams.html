@@ -2,6 +2,7 @@
 {% extends "app.html" %}
 {% from "_ui.html" import alert, badge, button_class, checkbox, field, panel_link, select_field, side_panel with context %}
 {% from "_icons.html" import icon %}
+{% from "admin/_expediente.html" import form_tag, panel_section with context %}
 
 {% block title %}{{ t("grupos.titulo") }}{% endblock %}
 
@@ -96,6 +97,10 @@
       </form>
       {%- endif %}
     </section>
+    {%- if hours %}
+    {{ form_tag("form-expediente", "/admin/grupos/" ~ edited.id ~ "/expediente") }}
+    {{ panel_section(hours, "form-expediente", t("expediente.semProprioGrupo")) }}
+    {%- endif %}
   </div>
   <div class="flex justify-end gap-2 border-t border-border p-4">
     <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.fechar") }}</button>

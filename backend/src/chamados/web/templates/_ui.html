@@ -222,9 +222,11 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
 <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium {{ colors[color] }}">{{ text }}</span>
 {%- endmacro %}
 
+{#- Atributos extras (form="id"…) vão para o input, como no field(). -#}
 {% macro checkbox(name, label, checked=False, value="1", id=None) -%}
 <label class="inline-flex cursor-pointer items-center gap-2">
-  <input type="checkbox"{% if id %} id="{{ id }}"{% endif %} name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %} class="size-4 accent-(--tf-primary)">
+  <input type="checkbox"{% if id %} id="{{ id }}"{% endif %} name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}
+    {%- for attr, attr_value in kwargs.items() %} {{ attr }}="{{ attr_value }}"{% endfor %} class="size-4 accent-(--tf-primary)">
   {{ label }}
 </label>
 {%- endmacro %}

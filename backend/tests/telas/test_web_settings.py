@@ -1,7 +1,7 @@
 """Tela do servidor das Configurações (ADR 0011)."""
 
 import re
-from datetime import time
+from datetime import datetime, time
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.system.models import SystemSetting, WorkSchedule
+from chamados.modules.system.work_hours import TZ
 from tests.conftest import consultas, criar_usuario, entrar
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
@@ -123,7 +124,13 @@ def test_status(client: TestClient, db: Session) -> None:
 
 def test_expediente(client: TestClient, db: Session) -> None:
     _admin(client, db)
+    hoje = datetime.now(TZ).date()
+    # Sem vigência gravada, a lista mostra o padrão desde sempre.
+    r = client.get(URL)
+    assert "Desde sempre</span>" in r.text and "Seg–Sex 08:00–18:00" in r.text
+    assert f'name="valid_from" type="date" value="{hoje.isoformat()}"' in r.text
     dados = {
+        "valid_from": hoje.isoformat(),
         "weekdays": ["0", "1", "2", "3"],
         "start": "09:00",
         "end": "17:30",
@@ -139,9 +146,21 @@ def test_expediente(client: TestClient, db: Session) -> None:
         time(9),
         time(17, 30),
     )
+    assert vigencia.valid_from == hoje
     assert "25/12/2026" in r.text
+    assert "Seg–Qui 09:00–17:30" in r.text
     r = client.post(f"{URL}/expediente", data=_form(client, **{**dados, "end": "08:00"}))
     assert _aviso(r.text) == "O fim precisa ser depois do início."
+    r = client.post(f"{URL}/expediente", data=_form(client, **{**dados, "valid_from": "x"}))
+    assert _aviso(r.text) == "Informe uma data válida."
+    # Uma vigência futura entra na lista, sem a marca de "Vale hoje".
+    # Igual à anterior: nada a gravar.
+    client.post(f"{URL}/expediente", data=_form(client, **{**dados, "valid_from": "2099-01-01"}))
+    assert len(db.scalars(select(WorkSchedule)).all()) == 1
+    futura = {**dados, "valid_from": "2099-01-01", "weekdays": ["0"]}
+    r = client.post(f"{URL}/expediente", data=_form(client, **futura))
+    assert "A partir de 01/01/2099" in r.text
+    assert r.text.count(">Vale hoje</span>") == 1
 
 
 def test_marca_lida_numa_consulta(client: TestClient, db: Session) -> None:

@@ -777,7 +777,29 @@
       "sex": "Fri",
       "sab": "Sat",
       "dom": "Sun"
-    }
+    },
+    "descricaoPaineis": "Teams and people can have their own working hours, in each one's panel (Teams and Users). Holidays apply to everyone.",
+    "semProprio": "No own working hours",
+    "semProprioUsuario": "No own working hours (follows the team's or the installation's)",
+    "semProprioGrupo": "No own working hours (follows the installation's)",
+    "desdeSempre": "Since the beginning",
+    "aPartirDe": "From {data}",
+    "valeHoje": "In effect today",
+    "novaVigencia": "New period starting on",
+    "novaVigenciaDica": "The days before it keep the previous working hours.",
+    "dataInvalida": "Enter a valid date.",
+    "semDias": "Check at least one working day.",
+    "vigenciaSalva": "Working hours saved",
+    "conflito": "In more than one team with working hours ({grupos}): set this person's own working hours. Until then, the installation's apply.",
+    "conflitoCurto": "Set working hours",
+    "origem": {
+      "proprio": "Own ({expediente})",
+      "grupo": "Follows team {grupo} ({expediente})",
+      "instalacao": "Follows the installation's ({expediente})"
+    },
+    "membrosSeguem0": "No member follows the team's working hours today.",
+    "membrosSeguem1": "1 member follows the team's working hours today.",
+    "membrosSeguem2": "{n} members follow the team's working hours today."
   },
   "configuracoes": {
     "titulo": "Settings",

@@ -777,7 +777,29 @@
       "sex": "Sex",
       "sab": "Sáb",
       "dom": "Dom"
-    }
+    },
+    "descricaoPaineis": "Grupos e pessoas podem ter um expediente próprio, no painel de cada um (Grupos e Usuários). Os feriados valem para todos.",
+    "semProprio": "Sem expediente próprio",
+    "semProprioUsuario": "Sem expediente próprio (segue o do grupo ou o da instalação)",
+    "semProprioGrupo": "Sem expediente próprio (segue o da instalação)",
+    "desdeSempre": "Desde sempre",
+    "aPartirDe": "A partir de {data}",
+    "valeHoje": "Vale hoje",
+    "novaVigencia": "Nova vigência a partir de",
+    "novaVigenciaDica": "Os dias antes dela continuam com o expediente de antes.",
+    "dataInvalida": "Informe uma data válida.",
+    "semDias": "Marque pelo menos um dia de trabalho.",
+    "vigenciaSalva": "Expediente salvo",
+    "conflito": "Está em mais de um grupo com expediente ({grupos}): defina um expediente próprio. Até lá, vale o da instalação.",
+    "conflitoCurto": "Defina o expediente",
+    "origem": {
+      "proprio": "Próprio ({expediente})",
+      "grupo": "Segue o do grupo {grupo} ({expediente})",
+      "instalacao": "Segue o da instalação ({expediente})"
+    },
+    "membrosSeguem0": "Nenhum membro segue o expediente do grupo hoje.",
+    "membrosSeguem1": "1 membro segue o expediente do grupo hoje.",
+    "membrosSeguem2": "{n} membros seguem o expediente do grupo hoje."
   },
   "configuracoes": {
     "titulo": "Configurações",

@@ -90,6 +90,8 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 
 Futuro: `admin.roles` (papéis personalizados), `admin.integrations` (tokens de API e webhooks) e `admin.ai` (endpoints e funcionalidades de IA).
 
+**Expediente** (a hora extra dos relatórios, [docs/14 §14.7](14-relatorios-e-indicadores.md)): não tem permissão própria. O da instalação e os feriados ficam em Configurações (`admin.settings`); o de um grupo, no painel do grupo (`admin.organization`); o de uma pessoa, no painel do usuário (`admin.users`). Toda mudança vai para o `audit_log` com antes e depois (`settings.updated`, `team.work_hours_set`, `user.work_hours_set`).
+
 ### Permissões de cada papel padrão
 
 | Permissão | Agente | Admin | Auditor |

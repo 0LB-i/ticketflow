@@ -23,13 +23,16 @@ from chamados.modules.identity.admin_router import LinkOut, UserCreate, UserOut,
 from chamados.modules.identity.deps import SettingsDep
 from chamados.modules.identity.models import User
 from chamados.modules.organization import router as organization_api
+from chamados.modules.organization.models import Team
 from chamados.modules.organization.router import (
     MemberIn,
     TeamCreate,
     TeamOut,
     TeamUpdate,
 )
+from chamados.modules.system.work_hours import set_schedule
 from chamados.modules.tickets import service as tickets_service
+from chamados.web import work_hours
 from chamados.web.formatting import format_datetime
 from chamados.web.page import FlashKind, LoggedPage, check_csrf, requires, safe_next
 
@@ -39,6 +42,7 @@ UsersAdmin = Annotated[LoggedPage, requires(P.ADMIN_USERS)]
 OrganizationAdmin = Annotated[LoggedPage, requires(P.ADMIN_ORGANIZATION)]
 Field = Annotated[str, Form()]
 Ids = Annotated[list[str] | None, Form()]
+Weekdays = Annotated[list[int] | None, Form()]
 UUID = TypeAdapter(uuid.UUID)
 
 ROLES = ("agent", "admin", "auditor")
@@ -127,6 +131,28 @@ def _left_with(
     return warning
 
 
+async def _save_work_hours(
+    page: LoggedPage,
+    request: Request,
+    db: DB,
+    owner: User | Team,
+    form: dict[str, Any],
+    back: str,
+    error_page: Callable[[str], Awaitable[HTMLResponse]],
+) -> Response:
+    """Nova vigência do expediente de um grupo ou de uma pessoa (`set_schedule` grava com a
+    auditoria). Com erro, a página volta com o painel aberto e o que foi digitado."""
+    found = work_hours.read_form(page, form)
+    if isinstance(found, str):
+        return await error_page(found)
+    changed = await set_schedule(db, request, page.auth.user.id, owner, *found)
+    await db.commit()
+    response = RedirectResponse(back, status_code=303)
+    if changed:
+        page.flash(response, ("success", page.t("expediente.vigenciaSalva")))
+    return response
+
+
 # --- usuários --------------------------------------------------------------------------------
 
 
@@ -151,6 +177,8 @@ async def _users_page(
     error: str | None = None,
     link: LinkOut | None = None,
     link_name: str = "",
+    hours_form: dict[str, Any] | None = None,
+    hours_error: str | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
     filters = {k: (filters or {}).get(k, "") for k in USER_FILTERS}
@@ -166,6 +194,7 @@ async def _users_page(
             "username": edited.username or "",
             "role": edited.role,
         }
+    owner = await db.scalar(select(User).where(User.public_id == edited.id)) if edited else None
     return page.render(
         "admin/users.html",
         status_code=status_code,
@@ -183,6 +212,8 @@ async def _users_page(
         error=error,
         link=link,
         link_name=link_name,
+        hours=await work_hours.panel(page, db, owner, hours_form, hours_error) if owner else None,
+        conflicts=await work_hours.conflicts(db),
         me=str(page.auth.user.public_id),
         last_login=lambda u: (
             format_datetime(page.locale, u.last_login_at)
@@ -383,6 +414,44 @@ async def send_link(
     return response
 
 
+@router.post("/admin/usuarios/{user_id}/expediente")
+async def set_user_work_hours(
+    user_id: uuid.UUID,
+    page: UsersAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    volta: Field = "",
+    valid_from: Field = "",
+    weekdays: Weekdays = None,
+    start: Field = "",
+    end: Field = "",
+    sem_proprio: Field = "",
+) -> Response:
+    check_csrf(page, csrf_token)
+    user = await db.scalar(select(User).where(User.public_id == user_id, User.deleted_at.is_(None)))
+    if user is None:
+        raise HTTPException(404, "Usuário não encontrado.")
+    form = work_hours.typed(valid_from, weekdays, start, end, sem_proprio == "1")
+    return await _save_work_hours(
+        page,
+        request,
+        db,
+        user,
+        form,
+        _with(_back(volta, "/admin/usuarios"), editar=user_id),
+        lambda error: _users_page(
+            page,
+            db,
+            filters=_user_filters(volta),
+            editing=str(user_id),
+            hours_form=form,
+            hours_error=error,
+            status_code=422,
+        ),
+    )
+
+
 # --- grupos ----------------------------------------------------------------------------------
 
 
@@ -395,6 +464,8 @@ async def _teams_page(
     creating: bool = False,
     form: dict[str, Any] | None = None,
     error: str | None = None,
+    hours_form: dict[str, Any] | None = None,
+    hours_error: str | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
     teams = (await organization_api.list_teams(page.auth, db)).items
@@ -415,6 +486,7 @@ async def _teams_page(
             for u in (await users_api.list_users(page.auth, db)).items
             if u.status != "inativo" and u.id not in members
         ]
+    owner = await db.scalar(select(Team).where(Team.public_id == edited.id)) if edited else None
     return page.render(
         "admin/teams.html",
         status_code=status_code,
@@ -430,6 +502,7 @@ async def _teams_page(
         ],
         role_options=[(r, page.t(f"grupos.funcoes.{r}")) for r in ("member", "supervisor")],
         candidates=candidates,
+        hours=await work_hours.panel(page, db, owner, hours_form, hours_error) if owner else None,
     )
 
 
@@ -573,4 +646,42 @@ async def remove_member(
         lambda: organization_api.remove_member(team_id, user_id, page.auth, request, db),
         None,
         _left_with(page, db, user_id, team_id),
+    )
+
+
+@router.post("/admin/grupos/{team_id}/expediente")
+async def set_team_work_hours(
+    team_id: uuid.UUID,
+    page: OrganizationAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    volta: Field = "",
+    valid_from: Field = "",
+    weekdays: Weekdays = None,
+    start: Field = "",
+    end: Field = "",
+    sem_proprio: Field = "",
+) -> Response:
+    check_csrf(page, csrf_token)
+    team = await db.scalar(select(Team).where(Team.public_id == team_id))
+    if team is None:
+        raise HTTPException(404, "Grupo não encontrado.")
+    form = work_hours.typed(valid_from, weekdays, start, end, sem_proprio == "1")
+    return await _save_work_hours(
+        page,
+        request,
+        db,
+        team,
+        form,
+        _with(_back(volta, "/admin/grupos"), editar=team_id),
+        lambda error: _teams_page(
+            page,
+            db,
+            inactive=_inactive(volta, "/admin/grupos"),
+            editing=str(team_id),
+            hours_form=form,
+            hours_error=error,
+            status_code=422,
+        ),
     )

@@ -2,6 +2,7 @@
 {% extends "app.html" %}
 {% from "_ui.html" import alert, badge, button_class, checkbox, field, panel_link, select_field, side_panel with context %}
 {% from "_fields.html" import dialog with context %}
+{% from "admin/_expediente.html" import form_tag, panel_section with context %}
 
 {% block title %}{{ t("usuarios.titulo") }}{% endblock %}
 
@@ -43,6 +44,8 @@
           <td class="px-3 py-2">
             {%- if u.teams %}{{ u.teams | map(attribute="name") | join(", ") }}
             {%- elif u.role != "auditor" %}<span class="text-muted">{{ t("usuarios.semGrupo") }}</span>{% endif -%}
+            {#- Em dois ou mais grupos com expediente: falta definir o dela (o painel explica). #}
+            {%- if u.id in conflicts %} {{ badge(t("expediente.conflitoCurto"), "red") }}{% endif -%}
           </td>
           <td class="px-3 py-2">{{ badge(t("usuarios.status." ~ u.status), status_colors[u.status]) }}</td>
           <td class="px-3 py-2 tabular-nums">{{ last_login(u) }}</td>
@@ -95,6 +98,9 @@
         <button type="button" data-abre-dialogo="confirmar-exclusao" class="{{ button_class('danger') }}">{{ t("usuarios.excluir") }}</button>
         {%- endif %}
       </div>
+      {%- if hours %}
+      {{ panel_section(hours, "form-expediente", t("expediente.semProprioUsuario")) }}
+      {%- endif %}
       {%- endif %}
     </div>
     <div class="flex justify-end gap-2 border-t border-border p-4">
@@ -105,6 +111,7 @@
   {%- if edited %}
   <form id="enviar-link" method="post" action="/admin/usuarios/{{ edited.id }}/link"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}"></form>
   <form id="reativar" method="post" action="/admin/usuarios/{{ edited.id }}/reativar"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}"></form>
+  {{ form_tag("form-expediente", "/admin/usuarios/" ~ edited.id ~ "/expediente") }}
   {%- endif %}
   {% endcall %}
 

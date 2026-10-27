@@ -1,0 +1,75 @@
+{#- Expediente (docs/14 §14.7): a lista de vigências e os campos de "Nova vigência a partir de",
+    nas Configurações (a instalação) e nos painéis de grupo e de usuário. Os campos levam
+    form="<id>" porque, no painel do usuário, ficam dentro do formulário do usuário, e um
+    formulário não pode ficar dentro de outro: o <form> vazio (form_tag) fica fora dele. -#}
+{% from "_ui.html" import alert, badge, button_class, checkbox, field with context %}
+
+{%- set DAYS = ("seg", "ter", "qua", "qui", "sex", "sab", "dom") %}
+
+{#- As vigências em ordem: o início, o expediente e a marca na que vale hoje. -#}
+{% macro vigencies(rows) -%}
+<ul class="flex flex-col divide-y divide-border rounded-md border border-border">
+  {%- for row in rows %}
+  <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+    <span class="min-w-32 text-muted">{{ row.start }}</span>
+    <span class="flex-1">{{ row.text }}</span>
+    {%- if row.current %}
+    {{ badge(t("expediente.valeHoje"), "green") }}
+    {%- endif %}
+  </li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- A data de início, os dias e o horário; `none_label`: a opção "sem expediente próprio" (só
+    grupo e pessoa: a instalação sempre tem um). -#}
+{% macro schedule_fields(form, form_id, none_label=None) -%}
+{{ field("valid_from", t("expediente.novaVigencia"), type="date", value=form.valid_from, hint=t("expediente.novaVigenciaDica"), required=True, form=form_id) }}
+{%- if none_label %}
+{{ checkbox("sem_proprio", none_label, form.none, form=form_id) }}
+{%- endif %}
+<fieldset class="flex flex-col gap-2">
+  <legend class="pb-2 font-medium">{{ t("expediente.dias") }}</legend>
+  <div class="flex flex-wrap gap-4">
+    {%- for day in DAYS %}
+    {{ checkbox("weekdays", t("expediente.diasCurtos." ~ day), loop.index0 in form.weekdays, loop.index0, form=form_id) }}
+    {%- endfor %}
+  </div>
+</fieldset>
+<div class="grid max-w-md gap-4 sm:grid-cols-2">
+  {{ field("start", t("expediente.inicio"), type="time", value=form.start, required=True, form=form_id) }}
+  {{ field("end", t("expediente.fim"), type="time", value=form.end, hint=t("expediente.horarioInvalido"), required=True, form=form_id) }}
+</div>
+{%- endmacro %}
+
+{#- O formulário da seção do painel: vazio, com o token e a volta; os campos o apontam. -#}
+{% macro form_tag(form_id, action) -%}
+<form id="{{ form_id }}" method="post" action="{{ action }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}"></form>
+{%- endmacro %}
+
+{#- A seção Expediente do painel de um grupo ou de uma pessoa (`hours`: web/work_hours.panel). -#}
+{% macro panel_section(hours, form_id, none_label) -%}
+<section class="flex flex-col gap-3 border-t border-border pt-4" aria-labelledby="expediente-titulo">
+  <h3 id="expediente-titulo" class="font-semibold">{{ t("expediente.titulo") }}</h3>
+  {%- if hours.error %}
+  {{ alert(hours.error) }}
+  {%- endif %}
+  <div>
+    <p class="text-muted">{{ t("expediente.valeHoje") }}</p>
+    <p>{{ hours.today }}</p>
+  </div>
+  {%- if hours.conflict %}
+  {{ alert(hours.conflict) }}
+  {%- endif %}
+  {%- if hours.following %}
+  <p class="text-muted">{{ hours.following }}</p>
+  {%- endif %}
+  {%- if hours.rows %}
+  {{ vigencies(hours.rows) }}
+  {%- endif %}
+  <div class="flex flex-col gap-4 rounded-md bg-surface-raised p-3">
+    {{ schedule_fields(hours.form, form_id, none_label) }}
+    <button type="submit" form="{{ form_id }}" class="{{ button_class('secondary') }}">{{ t("expediente.salvar") }}</button>
+  </div>
+</section>
+{%- endmacro %}

@@ -20,7 +20,8 @@ from chamados.modules.catalog import router as catalog_api
 from chamados.modules.catalog.router import StatusCreate, StatusOrder, StatusOut, StatusUpdate
 from chamados.modules.system import router as system_api
 from chamados.modules.system.router import LOGO_MAX_BYTES, LogoIn, SettingsUpdate
-from chamados.modules.system.work_hours import WorkHoursIn, get_work_hours
+from chamados.modules.system.work_hours import Schedule, WorkHoursIn, get_work_hours
+from chamados.web import work_hours
 from chamados.web.page import LoggedPage, check_csrf, requires
 from chamados.web.palette import DEFAULT_COLORS, PRESETS, TOKENS, Colors, palette
 
@@ -31,7 +32,6 @@ Field = Annotated[str, Form()]
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 COLOR_FIELDS = ("brand", "neutral", "background")
 KINDS = ("open", "waiting", "delivered", "closed", "canceled")
-DAYS = ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
 LOGO_TYPES = ("image/png", "image/jpeg", "image/webp")
 HOME = "/admin/configuracoes"
 
@@ -103,8 +103,8 @@ async def settings_page(
         removal={s.id: _removal_notice(page, s, statuses) for s in statuses},
         renaming=renomear,
         kind_options=[(k, page.t(f"statusConfig.comportamentos.{k}")) for k in KINDS],
-        days=DAYS,
-        hours=hours,
+        installation_rows=await work_hours.installation(page, db),
+        hours_form=work_hours.form_values(Schedule(tuple(hours.weekdays), hours.start, hours.end)),
         holidays=[(h.isoformat(), format_date(page.locale, h)) for h in hours.holidays],
     )
 
@@ -299,18 +299,25 @@ async def save_work_hours(
     request: Request,
     db: DB,
     csrf_token: Field = "",
+    valid_from: Field = "",
     weekdays: Annotated[list[int] | None, Form()] = None,
     start: Field = "",
     end: Field = "",
     holidays: Annotated[list[str] | None, Form()] = None,
 ) -> Response:
-    """Dias, horário e feriados: o tempo de tarefa fora deles é hora extra nos relatórios."""
+    """Uma vigência da instalação (dias e horário a partir de uma data: os dias antes continuam
+    com o de antes) e os feriados, que valem sempre: o tempo de tarefa fora deles é hora extra
+    nos relatórios."""
     check_csrf(page, csrf_token)
     back = f"{HOME}#expediente"
-    if not start or not end or end <= start:
+    found = work_hours.read_form(
+        page, work_hours.typed(valid_from, weekdays, start, end, none=False)
+    )
+    if isinstance(found, str):
         response = RedirectResponse(back, status_code=303)
-        page.flash(response, ("error", page.t("expediente.horarioInvalido")))
+        page.flash(response, ("error", found))
         return response
+    day = found[0]
     return await _run(
         page,
         back,
@@ -321,6 +328,7 @@ async def save_work_hours(
                     "start": start,
                     "end": end,
                     "holidays": [h for h in holidays or [] if h],
+                    "valid_from": day,
                 }
             ),
             page.auth,

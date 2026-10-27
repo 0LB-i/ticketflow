@@ -1,9 +1,10 @@
 {#- Configurações da instalação: idioma, cores, logotipo, status dos chamados e expediente. O
     comportamento (combinações prontas, seletor de cor, feriados) está no static/js/configuracoes.js. -#}
 {% extends "app.html" %}
-{% from "_ui.html" import badge, button_class, checkbox, field, logo, select_field, status_badge with context %}
+{% from "_ui.html" import badge, button_class, field, logo, select_field, status_badge with context %}
 {% from "_fields.html" import dialog with context %}
 {% from "_icons.html" import icon %}
+{% from "admin/_expediente.html" import schedule_fields, vigencies with context %}
 
 {% block title %}{{ t("configuracoes.titulo") }}{% endblock %}
 
@@ -184,25 +185,18 @@
     {%- endfor %}
   </section>
 
-  {#- Expediente: dias, horário e feriados. #}
+  {#- Expediente da instalação: as vigências, uma nova a partir de uma data (os dias antes continuam
+      com o de antes) e os feriados, que valem sempre. Os grupos e as pessoas com expediente
+      próprio são configurados nos painéis deles. #}
   <form id="expediente" method="post" action="/admin/configuracoes/expediente" aria-labelledby="expediente-titulo" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div>
       <h2 id="expediente-titulo" class="font-semibold">{{ t("expediente.titulo") }}</h2>
       <p class="mt-1 text-muted">{{ t("expediente.descricao") }}</p>
+      <p class="mt-1 text-muted">{{ t("expediente.descricaoPaineis") }}</p>
     </div>
-    <fieldset class="flex flex-col gap-2">
-      <legend class="pb-2 font-medium">{{ t("expediente.dias") }}</legend>
-      <div class="flex flex-wrap gap-4">
-        {%- for day in days %}
-        {{ checkbox("weekdays", t("expediente.diasCurtos." ~ day), loop.index0 in hours.weekdays, loop.index0) }}
-        {%- endfor %}
-      </div>
-    </fieldset>
-    <div class="grid max-w-md gap-4 sm:grid-cols-2">
-      {{ field("start", t("expediente.inicio"), type="time", value=hours.start.strftime("%H:%M"), required=True) }}
-      {{ field("end", t("expediente.fim"), type="time", value=hours.end.strftime("%H:%M"), hint=t("expediente.horarioInvalido"), required=True) }}
-    </div>
+    {{ vigencies(installation_rows) }}
+    {{ schedule_fields(hours_form, "expediente") }}
     <div data-feriados data-remover="{{ t('expediente.removerFeriado', data='{data}') }}" class="flex flex-col gap-2">
       <p class="font-medium">{{ t("expediente.feriados") }}</p>
       <p class="text-muted">{{ t("expediente.feriadosDica") }}</p>
