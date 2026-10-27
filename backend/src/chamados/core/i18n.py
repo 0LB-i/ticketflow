@@ -188,6 +188,12 @@ EN: dict[str, str] = {
         "The heat map crosses the weekday with the hour, and only it."
     ),
     "A área é uma opção da linha.": "The area is an option of the line chart.",
+    "As barras + linha mostram duas medidas da mesma unidade.": (
+        "Bars + line show two measures of the same unit."
+    ),
+    "As barras + linha agrupam por dia, semana, mês, dia da semana ou hora.": (
+        "Bars + line group by day, week, month, weekday or hour."
+    ),
     "A linha de referência vale nas colunas e na linha.": (
         "The reference line applies to column and line charts."
     ),

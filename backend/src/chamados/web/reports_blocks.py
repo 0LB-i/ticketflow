@@ -179,6 +179,13 @@ def block_title(page: LoggedPage, block: Block, dimension: str | None) -> str:
         title = page.t("relatorios.tituloTabela", dimensao=what)
     elif block.visual == "stacked":
         title = page.t("relatorios.tituloEmpilhado", dimensao=what)
+    elif block.visual == "combo":
+        title = page.t(
+            "relatorios.tituloCombo",
+            primeira=measure_label(page, block, block.measures[0]),
+            segunda=measure_label(page, block, block.measures[-1]).lower(),
+            dimensao=what,
+        )
     else:
         measure = measure_label(page, block, block.measures[0])
         title = page.t("relatorios.tituloAuto", medida=measure, dimensao=what)
@@ -283,7 +290,11 @@ def block_view(
     antes (colunas e linha por período); `page_number`: a página da lista de tarefas."""
     base = {**state.query, "aba": state.choice.slug}
     long = (f.end - f.start).days >= DAILY_LIMIT
-    weekly = block.visual in ("columns", "stacked", "line") and block.dimension == "day" and long
+    weekly = (
+        block.visual in ("columns", "stacked", "line", "combo")
+        and block.dimension == "day"
+        and long
+    )
     result = builder.run(data, block, f.start, f.end, dimension="week" if weekly else None)
     dimension = result.dimension
 
@@ -375,6 +386,23 @@ def block_view(
             step=120,
             labels=(page.t("relatorios.noExpediente"), page.t("relatorios.medidas.overtime")),
         )
+    elif block.visual == "combo":
+        # As colunas da primeira medida e a linha da segunda (`extra`), no mesmo eixo.
+        bars, line = block.measures
+        fmt = formatter(page, config, bars)
+        labels = (measure_label(page, block, bars), measure_label(page, block, line))
+        points = []
+        for r in result.rows:
+            point = Point(
+                str(r.key),
+                _row_label(page, dimension, r, short=True),
+                r.values[bars] or 0,
+                extra=r.values[line] or 0,
+            )
+            point.before_tip = f"{labels[1]}: {fmt(r.values[line])}"
+            points.append(point)
+        highest = max((max(p.value, p.extra) for p in points), default=0)
+        view.update(points=points, fmt=fmt, step=_step(bars, highest), labels=labels)
     elif block.visual in CHARTS:
         m = block.measures[0]
         # A série de antes, só agrupada por período, dia da semana ou hora: nos cadastros, a

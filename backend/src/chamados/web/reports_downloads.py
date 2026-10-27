@@ -39,7 +39,7 @@ router = APIRouter()
 
 def _ticks(points: list[Point], step: int, fmt: Format) -> list[tuple[int, str]]:
     """As marcas do eixo, como as do _charts.html: o topo, a metade e o zero."""
-    highest = max((max(p.value, p.before or 0) for p in points), default=0)
+    highest = max((max(p.value, p.before or 0, p.extra) for p in points), default=0)
     top = max(step, -(-highest // step) * step)
     return [(top, fmt(top)), (top // 2, fmt(top // 2)), (0, fmt(0))]
 

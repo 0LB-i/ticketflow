@@ -96,6 +96,12 @@ def _read_block(form: FormData, i: int) -> Block:
     measures = [m for m in offered if m in checked]
     if visual == "stacked":
         measures = list(offered)
+    elif visual == "combo":
+        # As barras e a linha: duas medidas da mesma unidade (a da linha, entre as que cabem).
+        first = single if single in offered else (measures or list(offered))[0]
+        partners = [m for m in offered if m != first and builder.unit(m) == builder.unit(first)]
+        second = one("medida2")
+        measures = [first, second if second in partners else partners[0]] if partners else [first]
     elif visual in (*CHARTS, "heatmap"):
         chosen = single if single in offered else (measures or list(offered))[0]
         measures = [chosen]
@@ -234,6 +240,17 @@ def _editor_page(
         ],
         order_options=[(o, page.t(f"relatorios.ordens.{o}")) for o in ("desc", "asc", "name")],
         elapsed=builder.ELAPSED,
+        # A medida da linha das barras + linha: as da mesma unidade da das barras.
+        partner_options=[
+            [
+                (m, page.t(f"relatorios.medidas.{m}"))
+                for m in builder.measures_for(b.visual, b.dimension)
+                if m != b.measures[0] and builder.unit(m) == builder.unit(b.measures[0])
+            ]
+            if b.visual == "combo"
+            else []
+            for b in editor.blocks
+        ],
         referenced=REFERENCED,
         reference_options=[
             (r, page.t(f"relatorios.editor.referencias.{r}")) for r in ("none", "mean", "median")

@@ -524,6 +524,7 @@
       "bars": "Bars",
       "columns": "Columns",
       "line": "Line",
+      "combo": "Bars + line",
       "table": "Table",
       "heatmap": "Heat map (weekday × hour)",
       "tasks": "Task list",
@@ -587,7 +588,10 @@
         "mean": "Mean of the points",
         "median": "Median of the points"
       },
-      "area": "Fill the area under the line"
+      "area": "Fill the area under the line",
+      "medidaBarras": "Bar measure",
+      "medidaLinha": "Line measure",
+      "semPar": "No other measure has the same unit as this one: choose another for the bars."
     },
     "idades": {
       "0": "up to 1 day",
@@ -597,6 +601,7 @@
     },
     "noExpediente": "Within working hours",
     "tituloEmpilhado": "Hours per {dimensao}: within working hours and overtime",
+    "tituloCombo": "{primeira} and {segunda} per {dimensao}",
     "comparacao": {
       "campo": "Compare with",
       "opcoes": {

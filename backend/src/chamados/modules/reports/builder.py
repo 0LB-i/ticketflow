@@ -35,7 +35,9 @@ from chamados.modules.reports.service import (
 )
 from chamados.modules.system.work_hours import WorkHours
 
-Visual = Literal["cards", "bars", "columns", "stacked", "line", "table", "tasks", "heatmap"]
+Visual = Literal[
+    "cards", "bars", "columns", "stacked", "line", "combo", "table", "tasks", "heatmap"
+]
 Dimension = Literal[
     "person",
     "client",
@@ -75,6 +77,7 @@ VISUALS: tuple[Visual, ...] = (
     "columns",
     "stacked",
     "line",
+    "combo",
     "table",
     "heatmap",
     "tasks",
@@ -121,6 +124,21 @@ ELAPSED: tuple[Measure, ...] = ("lead_time", "net_lead_time")  # minutos, pela m
 # mais do que se registra.
 PERCENT: tuple[Measure, ...] = ("reopen_rate", "overtime_rate", "completion_rate")
 RATES: tuple[Measure, ...] = ("tasks_per_workday",)  # em centésimos (250 = 2,5 por dia)
+
+
+def unit(measure: Measure) -> str:
+    """A unidade de uma medida: as barras + linha só juntam duas da mesma, no mesmo eixo."""
+    for name, group in (
+        ("duration", DURATIONS),
+        ("elapsed", ELAPSED),
+        ("percent", PERCENT),
+        ("rate", RATES),
+    ):
+        if measure in group:
+            return name
+    return "count"
+
+
 # As medidas derivadas: uma conta entre duas somas que já existem (`service.Sums`), em cada
 # linha e no total; sem base (o divisor zero), None. As tarefas por dia útil dividem pelos dias
 # do expediente no período (`workdays`), e por isso não se agrupam por período, dia da semana nem
@@ -153,7 +171,7 @@ TICKET_SETS: dict[Measure, Part] = {
     "net_lead_time": "closed",
     "reopen_rate": "closed",
 }
-CHARTS: tuple[Visual, ...] = ("bars", "columns", "stacked", "line")
+CHARTS: tuple[Visual, ...] = ("bars", "columns", "stacked", "line", "combo")
 REFERENCED: tuple[Visual, ...] = ("columns", "line")  # com a linha de referência
 # Idade do em aberto no fim do período (§14.3): até 1 dia, 1 a 3, 3 a 7, mais de 7 (em minutos).
 AGE_LIMITS = (24 * 60, 3 * 24 * 60, 7 * 24 * 60)
@@ -320,6 +338,8 @@ def dimensions_for(visual: Visual) -> tuple[Dimension, ...]:
         return ()
     if visual == "heatmap":  # o dia da semana × a hora, e só ele
         return ("weekday_hour",)
+    if visual == "combo":  # a linha liga pontos em ordem: períodos, dias da semana, horas
+        return (*TIMES, "weekday", "hour")
     if visual == "bars":
         return (*CATEGORIES, "age")
     if visual == "line":
@@ -352,11 +372,21 @@ def check_block(block: Block) -> None:
     if not block.measures:
         raise HTTPException(422, "Escolha ao menos uma medida.")
     if (
-        (block.visual in CHARTS and block.visual != "stacked") or block.visual == "heatmap"
+        (block.visual in CHARTS and block.visual not in ("stacked", "combo"))
+        or block.visual == "heatmap"
     ) and len(block.measures) != 1:
         raise HTTPException(422, "Um gráfico mostra uma medida só.")
     if (block.visual == "heatmap") != (block.dimension == "weekday_hour"):
         raise HTTPException(422, "O mapa de calor cruza o dia da semana com a hora, e só ele.")
+    if block.visual == "combo" and not (
+        len(set(block.measures)) == len(block.measures) == 2
+        and unit(block.measures[0]) == unit(block.measures[1])
+    ):
+        raise HTTPException(422, "As barras + linha mostram duas medidas da mesma unidade.")
+    if block.visual == "combo" and block.dimension not in dimensions_for("combo"):
+        raise HTTPException(
+            422, "As barras + linha agrupam por dia, semana, mês, dia da semana ou hora."
+        )
     if block.visual == "line" and block.dimension not in TIMES:
         raise HTTPException(422, "A linha agrupa por dia, semana ou mês.")
     if block.visual == "bars" and block.dimension not in (*CATEGORIES, "age"):

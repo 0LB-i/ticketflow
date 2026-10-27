@@ -1741,3 +1741,51 @@ def test_area_e_linha_de_referencia(client: TestClient, cenario: dict[str, Any])
     )
     r = client.post("/relatorios/modelos", data=dados)
     assert 'name="b0-referencia"' not in r.text and 'name="b0-area"' not in r.text
+
+
+def test_barras_e_linha(client: TestClient, cenario: dict[str, Any]) -> None:
+    segunda = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 90, em(segunda, 19))  # 60 min fora do expediente
+    modelo = _criar(
+        client,
+        "Combo",
+        **{
+            "b0-visual": "combo",
+            "b0-agrupar": "day",
+            "b0-medida": "hours",
+            "b0-medida2": "overtime",
+        },
+    )
+    filtros = _um_dia(segunda, aba=modelo)
+    r = client.get("/relatorios/blocos", params=filtros)
+    assert "Horas e horas extras por dia" in r.text
+    assert 'class="stroke-chart-2"' in r.text  # a linha da segunda medida
+    assert f'aria-label="{format_day("pt-BR", segunda)}: 1h30 · Horas extras: 1h"' in r.text
+    assert "Horas extras</li>" in r.text  # a legenda
+    assert client.get("/relatorios/pdf", params=filtros).content.startswith(b"%PDF")
+    linhas = client.get("/relatorios/csv", params={**filtros, "bloco": "0"}).content
+    assert "Horas;Horas (min);Horas extras" in linhas.decode("utf-8-sig")
+
+    # No editor: a medida da linha só entre as da mesma unidade das barras.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    linha = re.search(r'name="b0-medida2".*?</select>', r.text, re.S)
+    assert linha and 'value="overtime" selected' in linha.group(0)
+    assert 'value="hours_per_ticket"' in linha.group(0) and 'value="tasks"' not in linha.group(0)
+    # Trocar a das barras para uma contagem leva a linha para outra contagem.
+    dados = formulario(
+        client,
+        nome="X",
+        horas="hm",
+        blocos="1",
+        acao="atualizar",
+        **{
+            "b0-visual": "combo",
+            "b0-agrupar": "week",
+            "b0-medida": "opened",
+            "b0-medida2": "overtime",
+        },
+    )
+    r = client.post("/relatorios/modelos", data=dados)
+    linha = re.search(r'name="b0-medida2".*?</select>', r.text, re.S)
+    assert linha and 'value="tasks" selected' in linha.group(0)

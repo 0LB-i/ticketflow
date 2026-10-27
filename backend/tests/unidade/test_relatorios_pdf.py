@@ -21,6 +21,9 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
         ),
         model_pdf.Chart("Linha", "line", pontos, ticks=marcas),
         model_pdf.Chart(
+            "Barras + linha", "combo", pontos, ticks=marcas, legend=("Horas", "Horas extras")
+        ),
+        model_pdf.Chart(
             "Área com a média",
             "line",
             pontos,

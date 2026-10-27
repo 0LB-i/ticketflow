@@ -35,6 +35,7 @@ from chamados.modules.reports.builder import (
     relative_period,
     run,
     trend,
+    unit,
     upgrade,
     workdays,
     year_before,
@@ -332,9 +333,16 @@ def test_o_editor_oferece_so_o_que_o_check_block_aceita() -> None:
             offered = dimension in allowed or (visual == "cards" and dimension is None)
             if visual == "cards" and dimension is not None:
                 continue
-            for measures in [STACKED] if visual == "stacked" else [[m] for m in MEASURES]:
+            if visual == "stacked":
+                candidates = [STACKED]
+            elif visual == "combo":  # os pares de medidas
+                candidates = [[a, b] for a in MEASURES for b in MEASURES if a != b]
+            else:
+                candidates = [[m] for m in MEASURES]
+            for measures in candidates:
                 bloco = Block(visual=visual, dimension=dimension, measures=measures)
-                if offered and set(measures) <= set(measures_for(visual, dimension)):
+                pair_ok = visual != "combo" or unit(measures[0]) == unit(measures[1])
+                if offered and pair_ok and set(measures) <= set(measures_for(visual, dimension)):
                     check_block(bloco)
                 else:
                     with pytest.raises(HTTPException):
@@ -740,6 +748,22 @@ def test_area_e_linha_de_referencia_so_onde_cabem() -> None:
     ):
         with pytest.raises(HTTPException):
             check_block(errado)
+
+
+def test_barras_e_linha() -> None:
+    check_block(Block(visual="combo", dimension="day", measures=["hours", "overtime"]))
+    check_block(Block(visual="combo", dimension="hour", measures=["opened", "closed"]))
+    for errado in (
+        Block(visual="combo", dimension="day", measures=["hours", "tasks"]),  # outra unidade
+        Block(visual="combo", dimension="day", measures=["hours"]),
+        Block(visual="combo", dimension="day", measures=["hours", "hours"]),
+        Block(visual="combo", dimension="person", measures=["hours", "overtime"]),
+    ):
+        with pytest.raises(HTTPException):
+            check_block(errado)
+    dados = _dados([_tarefa(ANA, 60, INICIO, extra=20)])
+    bloco = Block(visual="combo", dimension="day", measures=["hours", "overtime"])
+    assert run(dados, bloco, INICIO, FIM).rows[0].values == {"hours": 60, "overtime": 20}
 
 
 def test_periodo_anterior() -> None:

@@ -524,6 +524,7 @@
       "bars": "Barras",
       "columns": "Colunas",
       "line": "Linha",
+      "combo": "Barras + linha",
       "table": "Tabela",
       "heatmap": "Mapa de calor (dia da semana × hora)",
       "tasks": "Lista de tarefas",
@@ -587,7 +588,10 @@
         "mean": "Média dos pontos",
         "median": "Mediana dos pontos"
       },
-      "area": "Preencher a área sob a linha"
+      "area": "Preencher a área sob a linha",
+      "medidaBarras": "Medida das barras",
+      "medidaLinha": "Medida da linha",
+      "semPar": "Nenhuma outra medida tem a mesma unidade desta: escolha outra para as barras."
     },
     "idades": {
       "0": "até 1 dia",
@@ -597,6 +601,7 @@
     },
     "noExpediente": "No expediente",
     "tituloEmpilhado": "Horas por {dimensao}: no expediente e extras",
+    "tituloCombo": "{primeira} e {segunda} por {dimensao}",
     "comparacao": {
       "campo": "Comparar com",
       "opcoes": {

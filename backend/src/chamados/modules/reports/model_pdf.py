@@ -44,10 +44,10 @@ class Cards:
 
 @dataclass
 class Chart:
-    """Um gráfico: `kind` é bars, columns, stacked ou line. Cada ponto é (rótulo, valor, parte de
-    cima nas empilhadas, valor escrito); `ticks`, as marcas do eixo (valor, texto); `before`, o
-    valor do período comparado na posição de cada ponto (comparar; None onde não há), desenhado
-    mais claro."""
+    """Um gráfico: `kind` é bars, columns, stacked, line ou combo. Cada ponto é (rótulo, valor,
+    parte de cima nas empilhadas ou o valor da linha nas barras + linha, valor escrito);
+    `ticks`, as marcas do eixo (valor, texto); `before`, o valor do período comparado na
+    posição de cada ponto (comparar; None onde não há), desenhado mais claro."""
 
     title: str
     kind: str
@@ -225,6 +225,7 @@ def _columns(block: Chart, series: Series) -> Drawing:
     every = max(1, -(-count // 6))  # uns seis rótulos embaixo
     line: list[float] = []
     old: list[float] = []  # a linha de antes
+    second: list[float] = []  # a linha das barras + linha
     for i, (label, value, extra, _) in enumerate(block.points):
         x = axis + i * slot
         if i % every == 0:
@@ -243,6 +244,8 @@ def _columns(block: Chart, series: Series) -> Drawing:
             if before:
                 drawing.add(_rect(left, bottom, width, before / top * height, series.before))
             left += width
+        if block.kind == "combo":
+            second += [x + slot / 2, bottom + extra / top * height]
         if block.kind == "stacked" and value:
             lower = (value - extra) / top * height
             drawing.add(_rect(left, bottom, width, lower, primary))
@@ -265,6 +268,12 @@ def _columns(block: Chart, series: Series) -> Drawing:
         drawing.add(
             PolyLine(old, strokeColor=series.before, strokeWidth=1.5, strokeDashArray=[3, 2])
         )
+    if second:
+        drawing.add(PolyLine(second, strokeColor=series.second, strokeWidth=1.5))
+        for j in range(0, len(second), 2):
+            drawing.add(
+                Circle(second[j], second[j + 1], 1.8, fillColor=series.second, strokeWidth=0)
+            )
     if line:
         drawing.add(PolyLine(line, strokeColor=primary, strokeWidth=1.5))
         for j in range(0, len(line), 2):
@@ -280,7 +289,7 @@ def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[
     if block.legend:
         legend = Drawing(WIDTH, 12)
         x = 0.0
-        second = series.second if block.kind == "stacked" else series.before
+        second = series.second if block.kind in ("stacked", "combo") else series.before
         for color, label in zip((series.first, second), block.legend, strict=True):
             legend.add(_rect(x, 2, 7, 7, color))
             legend.add(_text(x + 10, 3, label, size=8))
