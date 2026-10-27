@@ -170,6 +170,9 @@ EN: dict[str, str] = {
     "Escolha o que agrupar.": "Choose what to group by.",
     "Escolha ao menos uma medida.": "Choose at least one measure.",
     "Um gráfico mostra uma medida só.": "A chart shows a single measure.",
+    "A cor vale nas barras, nas colunas e na linha.": (
+        "The color applies to bars, columns and lines."
+    ),
     "A altura vale nas colunas, na linha e no mapa de calor.": (
         "The height applies to columns, lines and the heat map."
     ),

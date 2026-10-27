@@ -467,6 +467,7 @@ def block_view(
         "csv": with_query("/relatorios/csv", {**screen, "bloco": str(index)}),
         "own": block.period is not None or block.filters is not None,
         "height": block.height,
+        "color": block.color or "chart-1",
         "warning": scope.warning,
     }
     f, data, before = scope.filters, scope.data, scope.before

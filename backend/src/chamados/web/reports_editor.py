@@ -21,9 +21,11 @@ from chamados.modules.reports.builder import (
     BUILTINS,
     CATEGORIES,
     CHARTS,
+    COLORED,
     DEFAULT_DAYS,
     LAST_DAYS,
     REFERENCED,
+    SERIES,
     SIZED,
     Block,
     BlockPeriod,
@@ -165,6 +167,8 @@ def _read_block(form: FormData, i: int) -> Block:
         width=next((w for w in ("half", "full") if w == one("largura")), None),
         # A altura só nos que a têm; fora deles (ex.: depois de trocar o visual), a média.
         height=next((h for h in ("s", "l") if h == one("altura") and visual in SIZED), "m"),
+        # A cor da série, das que a paleta tem; vazia (ou fora deles), a da instalação.
+        color=next((c for c in SERIES if c == one("cor") and visual in COLORED), None),
     )
 
 
@@ -334,6 +338,9 @@ async def _editor_page(
         + [(s, page.t(f"relatorios.periodos.{key}")) for s, key in RELATIVE_KEYS.items()],
         block_filters=block_filters,
         sized=SIZED,
+        colored=COLORED,
+        color_options=[("", page.t("relatorios.editor.cores.chart-1"))]
+        + [(c, page.t(f"relatorios.editor.cores.{c}")) for c in SERIES[1:]],
         width_options=[
             ("", page.t("relatorios.editor.larguras.auto")),
             ("half", page.t("relatorios.editor.larguras.half")),

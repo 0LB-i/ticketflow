@@ -7,7 +7,7 @@ no próprio ReportLab, em vetor, como os da tela e com as mesmas cores de série
 """
 
 import io
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 from xml.sax.saxutils import escape
 
@@ -62,6 +62,7 @@ class Chart:
     area: bool = False  # a linha com a área preenchida
     subtitle: str = ""
     scale: float = 1.0  # a altura escolhida no bloco, sobre a média (CHART_HEIGHT)
+    color: str = "chart-1"  # o token da cor da série (`Series.named`)
 
 
 @dataclass
@@ -97,13 +98,15 @@ Block = Cards | Chart | Grid | Heatmap
 
 @dataclass
 class Series:
-    """As cores dos gráficos: a série (`chart-1`, a primary), as horas extras das colunas
-    empilhadas (`chart-2`) e o período comparado (`chart-before`)."""
+    """As cores dos gráficos: a série (`chart-1`, a primary, ou a cor do bloco), as horas extras
+    das colunas empilhadas e a linha das barras + linha (`chart-2`) e o período comparado
+    (`chart-before`); `named`, as de cada token, para a cor escolhida no bloco (`Chart.color`)."""
 
     first: colors.Color
     second: colors.Color
     before: colors.Color
     heat: list[colors.Color] = field(default_factory=list)  # `heat-1` a `heat-5`
+    named: dict[str, colors.Color] = field(default_factory=dict)
 
 
 def _sanitize(text: str) -> str:
@@ -304,6 +307,7 @@ def _chart(block: Chart, st: dict[str, ParagraphStyle], series: Series) -> list[
     flow = _head(block, st)
     if not block.points:
         return [*flow, _p(block.empty, st["muted"])]
+    series = replace(series, first=series.named.get(block.color, series.first))
     flow.append(_bars(block, series.first) if block.kind == "bars" else _columns(block, series))
     if block.legend:
         legend = Drawing(WIDTH, 12)
@@ -371,15 +375,21 @@ def render_model(
     lines: list[str],
     blocks: list[Block],
     footer: str,
-    series: tuple[str, str, str],
+    series: dict[str, str],
     heat: tuple[str, ...],
 ) -> bytes:
     """O PDF de um modelo: o título, as linhas de cabeçalho (período, filtros), os blocos na
-    ordem e o rodapé (quando e quem gerou). `series`: as cores `chart-1`, `chart-2` e
-    `chart-before` da paleta; `heat`, as do mapa de calor."""
+    ordem e o rodapé (quando e quem gerou). `series`: as cores da paleta por token (`chart-1` a
+    `chart-4` e `chart-before`); `heat`, as do mapa de calor."""
     st = _styles()
-    first, second, before = (colors.HexColor(c) for c in series)
-    palette = Series(first, second, before, [colors.HexColor(c) for c in heat])
+    named = {token: colors.HexColor(c) for token, c in series.items()}
+    palette = Series(
+        named["chart-1"],
+        named["chart-2"],
+        named["chart-before"],
+        [colors.HexColor(c) for c in heat],
+        named,
+    )
     story: list[Flowable] = [_p(title, st["h1"])]
     story += [_p(line, st["muted"]) for line in lines]
     for block in blocks:

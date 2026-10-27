@@ -96,6 +96,13 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {#- Na grade da tela: a largura (automática, meia linha ou a linha inteira) e, nos
             gráficos de colunas e de linha e no mapa de calor, a altura. #}
         {{ select("b" ~ i ~ "-largura", t("relatorios.editor.largura"), width_options, b.width or "", refresh("atualizar", "change")) }}
+        {#- A cor da série (os tokens da paleta), com a amostra da escolhida. #}
+        {%- if b.visual in colored %}
+        <div class="flex items-end gap-2">
+          <div class="flex-1">{{ select("b" ~ i ~ "-cor", t("relatorios.editor.cor"), color_options, b.color or "", refresh("atualizar", "change")) }}</div>
+          <span class="mb-2 size-6 shrink-0 rounded-sm {{ {'chart-2': 'bg-chart-2', 'chart-3': 'bg-chart-3', 'chart-4': 'bg-chart-4'}.get(b.color, 'bg-chart-1') }}" aria-hidden="true"></span>
+        </div>
+        {%- endif %}
         {%- if b.visual in sized %}
         {{ select("b" ~ i ~ "-altura", t("relatorios.editor.altura"), height_options, b.height, refresh("atualizar", "change")) }}
         {%- endif %}

@@ -608,6 +608,13 @@
         "s": "Baixa",
         "m": "Média",
         "l": "Alta"
+      },
+      "cor": "Cor",
+      "cores": {
+        "chart-1": "A da instalação",
+        "chart-2": "Segunda cor dos gráficos",
+        "chart-3": "Terceira cor dos gráficos",
+        "chart-4": "Quarta cor dos gráficos"
       }
     },
     "idades": {

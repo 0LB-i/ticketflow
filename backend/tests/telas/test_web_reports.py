@@ -755,7 +755,14 @@ def test_pdf_do_modelo(
     assert r.headers["content-type"] == "application/pdf"
     titulo, linhas, blocos, rodape, cores, calor = chamadas[0]
     assert calor == ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C")
-    assert titulo == "Mensal" and cores == ("#C2410C", "#1D4ED8", "#D3785C")
+    assert titulo == "Mensal"
+    assert cores == {
+        "chart-1": "#C2410C",
+        "chart-2": "#1D4ED8",
+        "chart-3": "#0F766E",
+        "chart-4": "#172554",
+        "chart-before": "#D3785C",
+    }
     anterior = (dia - timedelta(days=1)).strftime("%d/%m/%Y")
     assert linhas[0] == f"Período: {dia:%d/%m/%Y} a {dia:%d/%m/%Y}"
     assert linhas[1] == f"Comparado com {anterior} a {anterior}"
@@ -2047,3 +2054,40 @@ def test_largura_e_altura_do_bloco(
     client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     blocos = pdf[0][2]
     assert blocos[1].scale == 1.4 and blocos[2].scale == 0.7
+
+
+def test_cor_da_serie_do_bloco(
+    client: TestClient, cenario: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Barras, colunas e linha escolhem a cor entre as séries da paleta (o nome do token); a
+    série de antes continua a `chart-before`, e o PDF usa a mesma cor."""
+    campos = {
+        "blocos": "2",
+        "b0-visual": "line",
+        "b0-agrupar": "day",
+        "b0-medida": "hours",
+        "b0-cor": "chart-3",
+        "b0-area": "1",
+        "b1-visual": "table",
+        "b1-agrupar": "person",
+        "b1-medidas": "hours",
+        "b1-cor": "chart-4",  # a tabela não tem cor: fica sem
+    }
+    modelo = _criar(client, "Cores", **campos)
+    dia = dia_util_passado()
+    tarefa(client, registrar(client, cenario)["number"], 60, em(dia, 10))
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo, comparar="anterior"))
+    linha = _bloco(r.text, 0)
+    assert 'class="stroke-chart-3"' in linha and 'class="fill-chart-3" fill-opacity="0.15"' in linha
+    assert "stroke-chart-1" not in linha and "stroke-chart-before" in linha
+    assert '<span class="size-3 rounded-sm bg-chart-3"' in linha  # a legenda da comparação
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert '<option value="chart-3" selected>Terceira cor dos gráficos</option>' in r.text
+    assert 'name="b1-cor"' not in r.text
+    pdf = _capturar(monkeypatch, "render_model")
+    client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
+    assert pdf[0][2][0].color == "chart-3"
+    # Um valor fora da lista fechada vira a cor da instalação.
+    dados = formulario(client, nome="X", horas="hm", acao="atualizar", **campos)
+    r = client.post("/relatorios/modelos", data={**dados, "b0-cor": "red"})
+    assert '<option value="" selected>A da instalação</option>' in r.text

@@ -88,6 +88,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     area=v.get("area", False),
                     subtitle=subtitle,
                     scale=SCALE[v["height"]],
+                    color=v["color"],
                 )
             )
         elif visual == "heatmap":
@@ -215,7 +216,11 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
         lines.append(_filters_line(page, state))
         colors = page.branding.colors
         light = palette(colors.model_dump() if colors else None)["light"]
-        series = (light["primary"], light["chart-2"], light["chart-before"])
+        # As séries do modo claro, pelo nome do token (a `chart-1` é a primary).
+        series = {
+            "chart-1": light["primary"],
+            **{t: light[t] for t in ("chart-2", "chart-3", "chart-4", "chart-before")},
+        }
         heat = tuple(light[f"heat-{k}"] for k in range(1, 6))
         content = await run_in_threadpool(
             model_pdf.render_model,

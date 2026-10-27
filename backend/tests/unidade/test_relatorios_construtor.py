@@ -944,3 +944,11 @@ def test_altura_so_nos_graficos_que_a_tem() -> None:
     check_block(Block(visual="line", dimension="day", measures=["hours"], height="s"))
     with pytest.raises(HTTPException, match="A altura vale"):
         check_block(Block(visual="bars", dimension="person", measures=["hours"], height="l"))
+
+
+def test_cor_so_nos_graficos_de_uma_serie() -> None:
+    check_block(Block(visual="bars", dimension="person", measures=["hours"], color="chart-2"))
+    with pytest.raises(HTTPException, match="A cor vale"):
+        check_block(Block(visual="stacked", dimension="day", measures=STACKED, color="chart-2"))
+    with pytest.raises(ValidationError):
+        Block.model_validate({"visual": "bars", "measures": ["hours"], "color": "red"})

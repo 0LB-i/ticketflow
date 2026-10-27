@@ -201,18 +201,18 @@
   {#- A altura escolhida no bloco (`Block.height`); a média é a de sempre. #}
   {%- set height = {"s": "h-28", "m": "h-40", "l": "h-56"}[b.height] %}
   {%- if b.visual == "bars" %}
-  {{ bar_chart(b.points, b.fmt) }}
+  {{ bar_chart(b.points, b.fmt, b.color) }}
   {%- if not b.points %}
   <p class="text-muted">{{ b.empty }}</p>
   {%- endif %}
   {%- elif b.visual == "columns" %}
-  {{ column_chart(b.points, b.fmt, b.step, b.legend, b.reference, height) }}
+  {{ column_chart(b.points, b.fmt, b.step, b.legend, b.reference, height, b.color) }}
   {%- elif b.visual == "stacked" %}
   {{ stacked_chart(b.points, b.fmt, b.step, b.labels, height) }}
   {%- elif b.visual == "combo" %}
   {{ combo_chart(b.points, b.fmt, b.step, b.labels, height) }}
   {%- else %}
-  {{ line_chart(b.points, b.fmt, b.step, b.legend, b.reference, b.area, height) }}
+  {{ line_chart(b.points, b.fmt, b.step, b.legend, b.reference, b.area, height, b.color) }}
   {%- endif %}
 {% endcall %}
 {%- elif b.visual == "heatmap" %}

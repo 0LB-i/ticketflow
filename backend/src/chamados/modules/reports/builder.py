@@ -173,6 +173,11 @@ TICKET_SETS: dict[Measure, Part] = {
 }
 CHARTS: tuple[Visual, ...] = ("bars", "columns", "stacked", "line", "combo")
 REFERENCED: tuple[Visual, ...] = ("columns", "line")  # com a linha de referência
+# As cores das séries (os tokens da paleta, web/palette.py) que um bloco pode escolher, e os
+# visuais de uma série só, que a usam (as empilhadas e as barras + linha já têm duas cores).
+Series = Literal["chart-1", "chart-2", "chart-3", "chart-4"]
+SERIES: tuple[Series, ...] = get_args(Series)
+COLORED: tuple[Visual, ...] = ("bars", "columns", "line")
 # Os que têm a altura escolhida (as barras crescem com as linhas, uma por valor).
 SIZED: tuple[Visual, ...] = ("columns", "stacked", "line", "combo", "heatmap")
 # Idade do em aberto no fim do período (§14.3): até 1 dia, 1 a 3, 3 a 7, mais de 7 (em minutos).
@@ -263,6 +268,7 @@ class Block(BaseModel):
     # Na grade da tela: None, a automática (`reports_blocks.wide`); meia linha ou a linha inteira.
     width: Literal["half", "full"] | None = None
     height: Literal["s", "m", "l"] = "m"  # colunas, linha e mapa de calor (SIZED)
+    color: Series | None = None  # a cor da série nas barras, colunas e linha (None: `chart-1`)
 
 
 class ReportConfig(BaseModel):
@@ -464,6 +470,8 @@ def check_block(block: Block) -> None:
         raise HTTPException(422, "A área é uma opção da linha.")
     if block.reference != "none" and block.visual not in REFERENCED:
         raise HTTPException(422, "A linha de referência vale nas colunas e na linha.")
+    if block.color is not None and block.visual not in COLORED:
+        raise HTTPException(422, "A cor vale nas barras, nas colunas e na linha.")
     if block.height != "m" and block.visual not in SIZED:
         raise HTTPException(422, "A altura vale nas colunas, na linha e no mapa de calor.")
     if block.aggregate == "mean" and not set(block.measures) & set(ELAPSED):

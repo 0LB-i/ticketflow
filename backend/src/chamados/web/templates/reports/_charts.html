@@ -1,10 +1,20 @@
 {#- Gráficos dos relatórios em SVG, de uma série só (como o BarChart.vue e o ColumnChart.vue da
-    SPA), mais a linha, só com os tokens de série (`chart-1`, `chart-2`, `chart-before`); ao
+    SPA), mais a linha, só com os tokens de série (`chart-1` a `chart-4`, a cor do bloco, e `chart-before`); ao
     comparar, as colunas e a linha por período ganham a série de antes, mais clara
     (`chart-before`, `p.before`), com a legenda (`legend`). O CSV de cada bloco traz os mesmos
     números. Cada barra é um <svg> com a ponta arredondada (4px) e o lado da base reto: o
     retângulo arredondado inteiro mais um reto cobrindo a metade da base. `fmt`: formata o
     valor. -#}
+
+{#- A classe da cor de uma série (`Block.color`), escrita por inteiro (o Tailwind só gera as que
+    encontra): `kind` é fill, stroke ou bg. -#}
+{% macro series(kind, color) -%}
+{{- {
+  "fill": {"chart-1": "fill-chart-1", "chart-2": "fill-chart-2", "chart-3": "fill-chart-3", "chart-4": "fill-chart-4"},
+  "stroke": {"chart-1": "stroke-chart-1", "chart-2": "stroke-chart-2", "chart-3": "stroke-chart-3", "chart-4": "stroke-chart-4"},
+  "bg": {"chart-1": "bg-chart-1", "chart-2": "bg-chart-2", "chart-3": "bg-chart-3", "chart-4": "bg-chart-4"},
+}[kind][color] -}}
+{%- endmacro %}
 
 {#- Uma coluna ou um ponto: um link quando clicar aplica o valor como filtro (`p.href`, trocando o
     #relatorio pelo HTMX, como os filtros da tela); sem ele, um elemento que recebe o foco, para
@@ -40,9 +50,9 @@
 {%- endmacro %}
 
 {#- A legenda da comparação: a série de agora e a de antes, mais clara. -#}
-{% macro compare_legend(legend) -%}
+{% macro compare_legend(legend, color="chart-1") -%}
 <ul class="flex flex-wrap gap-4 text-sm text-muted">
-  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-1" aria-hidden="true"></span>{{ legend[0] }}</li>
+  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm {{ series('bg', color) }}" aria-hidden="true"></span>{{ legend[0] }}</li>
   <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-before" aria-hidden="true"></span>{{ legend[1] }}</li>
 </ul>
 {%- endmacro %}
@@ -50,7 +60,7 @@
 {#- Barras horizontais (horas por pessoa, por cliente): o rótulo à esquerda, em até duas linhas
     (mais larga nas telas largas; o nome inteiro também no `title` e, no link, no `aria-label`), e
     o valor na ponta. -#}
-{% macro bar_chart(items, fmt) -%}
+{% macro bar_chart(items, fmt, color="chart-1") -%}
 {%- set top = ([1] + items | map(attribute="value") | list) | max %}
 <div class="flex flex-col gap-3">
   <ul class="flex flex-col gap-2">
@@ -63,7 +73,7 @@
       {%- endif %}
       <span class="flex items-center gap-2">
         {%- if item.value %}
-        <svg width="{{ '%.2f' | format(item.value / top * 85) }}%" height="16" class="shrink-0 fill-chart-1" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
+        <svg width="{{ '%.2f' | format(item.value / top * 85) }}%" height="16" class="shrink-0 {{ series('fill', color) }}" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
         {%- endif %}
         <span class="text-sm whitespace-nowrap tabular-nums">{{ fmt(item.value) }}</span>
       </span>
@@ -78,7 +88,7 @@
     `step` (120: horas cheias e pares; 2 nas contagens), e o de baixo, o primeiro rótulo e mais
     uns cinco. A dica abre com o foco só pelo teclado: um clique não a deixa presa. A coluna ocupa
     3/5 da faixa dela, até 2,5rem (comparando, as duas ficam com metade disso cada uma). -#}
-{% macro column_chart(points, fmt, step=120, legend=None, reference=None, height="h-40") -%}
+{% macro column_chart(points, fmt, step=120, legend=None, reference=None, height="h-40", color="chart-1") -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
@@ -110,7 +120,7 @@
           {%- endif %}
           {%- endif %}
           {%- if p.value %}
-          <svg width="{{ '30%' if p.before is not none else '60%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-5' if p.before is not none else 'max-w-10' }} fill-chart-1 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          <svg width="{{ '30%' if p.before is not none else '60%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-5' if p.before is not none else 'max-w-10' }} {{ series('fill', color) }} group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- elif p.before is not none %}
           <span class="w-[30%] max-w-5"></span>
           {%- endif %}
@@ -129,7 +139,7 @@
     </div>
   </div>
   {%- if legend %}
-  {{ compare_legend(legend) }}
+  {{ compare_legend(legend, color) }}
   {%- endif %}
   {{ reference_label(reference) }}
 </div>
@@ -138,7 +148,7 @@
 
 {#- Linha ao longo do tempo: os mesmos eixos e dicas das colunas; cada ponto fica no meio da sua
     faixa, e a linha (em viewBox de 0 a 100, sem engrossar ao esticar) liga os centros. -#}
-{% macro line_chart(points, fmt, step=120, legend=None, reference=None, area=False, height="h-40") -%}
+{% macro line_chart(points, fmt, step=120, legend=None, reference=None, area=False, height="h-40", color="chart-1") -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
@@ -167,17 +177,17 @@
         {%- endif %}
         {%- if area and points %}
         {#- A área sob a linha, na cor da série e bem clara. #}
-        <polygon class="fill-chart-1" fill-opacity="0.15" points="{{ '%.2f' | format(0.5 / count * 100) }},100 
+        <polygon class="{{ series('fill', color) }}" fill-opacity="0.15" points="{{ '%.2f' | format(0.5 / count * 100) }},100 
           {%- for p in points %} {{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.value / top * 100) }}{% endfor %} {{ '%.2f' | format((points | length - 0.5) / count * 100) }},100"/>
         {%- endif %}
-        <polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
+        <polyline fill="none" class="{{ series('stroke', color) }}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
           {%- for p in points %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.value / top * 100) }} {% endfor %}"/>
       </svg>
       <ul class="absolute inset-0 flex">
         {%- for p in points %}
         <li class="flex h-full flex-1">
           {%- call point(p, fmt) %}
-          <svg class="absolute inset-0 size-full overflow-visible fill-chart-1" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.value / top * 100) }}%" r="3" class="group-hover:[r:5px] group-focus-visible:[r:5px]"/></svg>
+          <svg class="absolute inset-0 size-full overflow-visible {{ series('fill', color) }}" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.value / top * 100) }}%" r="3" class="group-hover:[r:5px] group-focus-visible:[r:5px]"/></svg>
           {%- endcall %}
         </li>
         {%- endfor %}
@@ -191,7 +201,7 @@
     </div>
   </div>
   {%- if legend %}
-  {{ compare_legend(legend) }}
+  {{ compare_legend(legend, color) }}
   {%- endif %}
   {{ reference_label(reference) }}
 </div>

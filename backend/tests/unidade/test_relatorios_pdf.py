@@ -3,11 +3,22 @@ tipo de bloco, com os textos já formatados. O que entra em cada um é conferido
 (tests/telas/test_web_reports.py)."""
 
 import io
+from dataclasses import replace
+from typing import Any
 
+import pytest
 from PIL import Image
 from reportlab.lib import colors
 
 from chamados.modules.reports import model_pdf
+
+SERIES = {
+    "chart-1": "#C2410C",
+    "chart-2": "#1D4ED8",
+    "chart-3": "#0F766E",
+    "chart-4": "#172554",
+    "chart-before": "#D3785C",
+}
 
 
 def test_pdf_do_modelo_com_todos_os_blocos() -> None:
@@ -52,7 +63,7 @@ def test_pdf_do_modelo_com_todos_os_blocos() -> None:
         ["Período: 01/10/2026 a 03/10/2026"],
         blocos,
         "Gerado",
-        ("#C2410C", "#1D4ED8", "#D3785C"),
+        SERIES,
         ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C"),
     )
     assert conteudo.startswith(b"%PDF")
@@ -83,7 +94,25 @@ def test_altura_e_subtitulo_do_bloco() -> None:
         [],
         [model_pdf.Grid("T", [], [], empty="vazio", subtitle="Pessoa: Ana")],
         "",
-        ("#000000",) * 3,
+        SERIES,
         (),
     )
     assert pdf.startswith(b"%PDF")
+
+
+def test_cor_da_serie_do_bloco(monkeypatch: pytest.MonkeyPatch) -> None:
+    """O bloco guarda o nome do token; o PDF desenha com a cor dele (a do modo claro)."""
+    azul = colors.HexColor("#1D4ED8")
+    serie = model_pdf.Series(colors.black, colors.black, colors.black, named={"chart-2": azul})
+    usadas: list[colors.Color] = []
+    desenhar = model_pdf._bars
+
+    def guardar(bloco: model_pdf.Chart, cor: colors.Color) -> Any:
+        usadas.append(cor)
+        return desenhar(bloco, cor)
+
+    monkeypatch.setattr(model_pdf, "_bars", guardar)
+    grafico = model_pdf.Chart("Horas", "bars", [("Ana", 60, 0, "1h")], color="chart-2")
+    model_pdf._chart(grafico, model_pdf._styles(), serie)
+    model_pdf._chart(replace(grafico, color="chart-1"), model_pdf._styles(), serie)
+    assert usadas == [azul, colors.black]  # sem a cor na paleta, a da série
