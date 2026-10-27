@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from PIL import Image
 from reportlab.lib import colors
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.schemas import Report, TaskRow, Totals
@@ -156,6 +157,14 @@ def test_largura_das_colunas_pelo_texto() -> None:
     larguras = model_pdf._widths(textos, 500, 9)
     assert sum(larguras) == pytest.approx(500)
     assert larguras[1] > larguras[0] > larguras[2]
+    # Uma coluna longa (o título) não espreme a média (o status) abaixo da parte igual: as sete
+    # colunas do relatório para o cliente, com quem atendeu.
+    linha = ["#1000", "título " * 40, "01/10/2026", "02/10/2026", "Aguardando cliente", "1h30"]
+    larguras = model_pdf._widths([[*linha, "Ana Maria, Bia"]], 510, 9)
+    assert sum(larguras) == pytest.approx(510)
+    assert larguras[4] >= 510 / 7 > larguras[2]  # o status, não menos que a data
+    precisa = stringWidth("Ana Maria, Bia", "Helvetica", 9) + model_pdf.PADDING
+    assert larguras[6] == pytest.approx(precisa)  # cabe na parte igual: fica com o que precisa
     # Tudo cabe: crescem na proporção.
     assert sum(model_pdf._widths([["a", "bb"]], 500, 9)) == pytest.approx(500)
 

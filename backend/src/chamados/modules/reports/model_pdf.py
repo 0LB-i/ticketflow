@@ -191,16 +191,17 @@ PADDING = 12  # o respiro de uma célula da tabela (6 pt de cada lado, o padrão
 
 def _widths(texts: list[list[str]], width: float, size: float) -> list[float]:
     """A largura de cada coluna pelo texto mais longo dela: as que cabem na parte igual
-    (`width` / colunas) ficam com o que precisam e as outras dividem o resto, na proporção do
-    que precisariam; se todas cabem, crescem na proporção até a largura toda."""
+    (`width` / colunas) ficam com o que precisam; as outras ficam com a parte igual e dividem o
+    que sobra na proporção do que passariam dela (uma coluna longa, como o título, não espreme
+    uma média, como o status, abaixo das curtas). Se todas cabem, crescem na proporção."""
     columns = zip(*texts, strict=True)
     need = [max(stringWidth(c, "Helvetica", size) for c in col) + PADDING for col in columns]
     fair = width / len(need)
-    narrow = sum(n for n in need if n <= fair)
-    wide = sum(n for n in need if n > fair)
-    if not wide:
-        return [n * width / narrow for n in need]
-    return [n if n <= fair else n / wide * (width - narrow) for n in need]
+    over = sum(n - fair for n in need if n > fair)
+    if not over:
+        return [n * width / sum(need) for n in need]
+    spare = width - sum(min(n, fair) for n in need)
+    return [n if n <= fair else fair + (n - fair) / over * spare for n in need]
 
 
 def _cell(text: str, style: ParagraphStyle, width: float) -> str | Paragraph:

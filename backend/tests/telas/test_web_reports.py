@@ -2300,8 +2300,9 @@ def test_organizar_abas(client: TestClient, cenario: dict[str, Any]) -> None:
     assert 'aria-current="page">Chamados</a>' in r.text
     assert _abas(r.text) == ["Beta", "Produtividade", "Horas extras", "Chamados", "Alfa"]
 
-    # A seta grava a ordem na hora e o diálogo volta aberto.
-    r = _organizar(client, ordem, [beta, "produtividade", alfa], aba=beta, acao="descer-0")
+    # A seta grava a ordem na hora e o diálogo volta aberto. O Mostrar do inicial (Beta) vem
+    # desativado e não é enviado: ao descer, ele continua aparecendo.
+    r = _organizar(client, ordem, ["produtividade", alfa], aba=beta, acao="descer-0")
     volta = parse_qs(urlsplit(r.headers["location"]).query)
     assert volta == {"aba": [beta], "organizar": ["1"]}
     r = client.get(r.headers["location"])

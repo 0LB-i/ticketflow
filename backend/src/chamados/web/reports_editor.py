@@ -100,6 +100,11 @@ async def organize_tabs(page: LoggedPageDep, db: DB) -> Response:
     shown = {v for v in form.getlist("mostrar") if isinstance(v, str)}
     if not (set(order) | shown) <= set(known):
         raise HTTPException(404, "Modelo não encontrado.")
+    # O inicial não se esconde: o modelo marcado como inicial ou, sem ele, a primeira aba. O
+    # Mostrar dele vem desativado (o navegador não o envia): ele aparecia, e continua aparecendo
+    # depois de mudar de lugar.
+    default = next((str(m.public_id) for m in models if m.is_default), None)
+    shown.add(default or (order or known)[0])
     action = str(form.get("acao", "salvar"))
     verb, _, number = action.partition("-")
     moved = verb in ("subir", "descer") and number.isascii() and number.isdigit()
@@ -108,8 +113,6 @@ async def organize_tabs(page: LoggedPageDep, db: DB) -> Response:
         j = i - 1 if verb == "subir" else i + 1
         if 0 <= i < len(order) and 0 <= j < len(order):
             order[i], order[j] = order[j], order[i]
-    # O inicial não se esconde: o modelo marcado como inicial ou, sem ele, a primeira aba.
-    default = next((str(m.public_id) for m in models if m.is_default), None)
     initial = default or (order or known)[0]
     hidden = [i for i in order if i not in shown and i != initial]
     await saved.save_tabs(db, page.auth, saved.TabPrefs(order=order, hidden=hidden))
