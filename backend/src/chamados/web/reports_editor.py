@@ -38,6 +38,7 @@ from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
 from chamados.web.reports_blocks import TASK_COLUMN_KEYS, block_title, block_view, scopes
 from chamados.web.reports_state import (
+    FILTER_FIELDS,
     NO_CLIENT,
     RELATIVE_KEYS,
     Params,
@@ -73,6 +74,44 @@ async def save_filters(
     )
     await db.commit()
     page.flash(response, ("success", page.t("relatorios.filtrosSalvos")))
+    return response
+
+
+@router.post("/relatorios/abas")
+async def organize_tabs(page: LoggedPageDep, db: DB) -> Response:
+    """Organizar abas: a ordem (`ordem`, as abas na ordem do diálogo) e as que aparecem
+    (`mostrar`) entram na preferência da pessoa. `acao` sobe ou desce uma aba (`subir-<k>`,
+    `descer-<k>`, pela posição) e o diálogo volta aberto; `salvar` só grava. Um id que não é aba
+    da pessoa (um modelo de outra) responde como os modelos: 404."""
+    form = await page.request.form()
+    check_csrf(page, str(form.get("csrf_token", "")))
+    models = await saved.list_mine(db, page.auth)
+    known = [*BUILTINS, *(str(m.public_id) for m in models)]
+    order = list(dict.fromkeys(v for v in form.getlist("ordem") if isinstance(v, str)))
+    shown = {v for v in form.getlist("mostrar") if isinstance(v, str)}
+    if not (set(order) | shown) <= set(known):
+        raise HTTPException(404, "Modelo não encontrado.")
+    action = str(form.get("acao", "salvar"))
+    verb, _, number = action.partition("-")
+    moved = verb in ("subir", "descer") and number.isascii() and number.isdigit()
+    if moved and len(number) <= 2:
+        i = int(number)
+        j = i - 1 if verb == "subir" else i + 1
+        if 0 <= i < len(order) and 0 <= j < len(order):
+            order[i], order[j] = order[j], order[i]
+    # O inicial não se esconde: o modelo marcado como inicial ou, sem ele, a primeira aba.
+    default = next((str(m.public_id) for m in models if m.is_default), None)
+    initial = default or (order or known)[0]
+    hidden = [i for i in order if i not in shown and i != initial]
+    await saved.save_tabs(db, page.auth, saved.TabPrefs(order=order, hidden=hidden))
+    await db.commit()
+    back = form_params(form)
+    query: dict[str, Any] = {name: getattr(back, name) for name in FILTER_FIELDS}
+    aba = form.get("aba")
+    query["aba"] = aba if isinstance(aba, str) else None
+    query["organizar"] = "1" if moved else None
+    response = RedirectResponse(with_query("/relatorios", query), status_code=303)
+    page.flash(response, ("success", page.t("relatorios.abasSalvas")))
     return response
 
 

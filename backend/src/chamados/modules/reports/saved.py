@@ -4,15 +4,23 @@ com quem chama."""
 import uuid
 
 from fastapi import HTTPException
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chamados.modules.identity.deps import Auth
-from chamados.modules.reports.builder import MAX_MODELS, ReportConfig, check_block, upgrade
-from chamados.modules.reports.models import ReportModel
+from chamados.modules.reports.builder import (
+    BUILTINS,
+    MAX_MODELS,
+    ReportConfig,
+    check_block,
+    upgrade,
+)
+from chamados.modules.reports.models import ReportModel, ReportPreference
 
 MAX_NAME = 80
+MAX_TABS = MAX_MODELS + len(BUILTINS)
 
 
 async def list_mine(db: AsyncSession, auth: Auth) -> list[ReportModel]:
@@ -104,3 +112,54 @@ async def save_filters(db: AsyncSession, model: ReportModel, config: ReportConfi
 async def delete(db: AsyncSession, model: ReportModel) -> None:
     await db.delete(model)
     await db.flush()
+
+
+class TabPrefs(BaseModel):
+    """A preferência de abas da pessoa (`report_preferences.tabs`): os ids na ordem (slugs dos
+    prontos e `public_id` dos modelos) e os escondidos."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order: list[str] = Field(default=[], max_length=MAX_TABS)
+    hidden: list[str] = Field(default=[], max_length=MAX_TABS)
+
+
+async def tab_prefs(db: AsyncSession, auth: Auth) -> TabPrefs | None:
+    """A preferência da pessoa; sem ela (ou num formato que não vale mais), None."""
+    stored = await db.scalar(
+        select(ReportPreference.tabs).where(ReportPreference.user_id == auth.user.id)
+    )
+    if stored is None:
+        return None
+    try:
+        return TabPrefs.model_validate(stored)
+    except ValidationError:
+        return None
+
+
+async def save_tabs(db: AsyncSession, auth: Auth, prefs: TabPrefs) -> None:
+    """Grava a preferência da pessoa (cria a linha na primeira vez)."""
+    tabs = prefs.model_dump()
+    await db.execute(
+        insert(ReportPreference)
+        .values(user_id=auth.user.id, tabs=tabs)
+        .on_conflict_do_update(
+            index_elements=[ReportPreference.user_id],
+            set_={"tabs": tabs, "updated_at": func.now()},
+        )
+    )
+
+
+def arrange(ids: list[str], default: str | None, prefs: TabPrefs | None) -> list[tuple[str, bool]]:
+    """As abas na ordem da pessoa, com se aparecem. `ids`: a ordem de sempre (os prontos, depois
+    os modelos pelo nome); um id da preferência que não existe mais fica de fora e um modelo novo,
+    que ela ainda não tem, entra no fim. O inicial (`default`, o modelo marcado como inicial, ou,
+    sem ele, a primeira aba) sempre aparece."""
+    order = list(ids)
+    hidden: set[str] = set()
+    if prefs is not None:
+        known = [i for i in dict.fromkeys(prefs.order) if i in ids]
+        order = known + [i for i in ids if i not in known]
+        hidden = set(prefs.hidden)
+    initial = default if default in order else order[0]
+    return [(i, i == initial or i not in hidden) for i in order]

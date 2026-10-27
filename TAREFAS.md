@@ -112,6 +112,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F2-S8-09 | Relatórios, extensão 2: agrupar por dia da semana e hora do dia; medidas derivadas (% de hora extra, horas por chamado, taxa de conclusão, tarefas por dia útil); média como opção dos tempos até a conclusão (o papel da pessoa no agrupamento foi descartado) | feito | |
 | F2-S8-10 | Relatórios, extensão 3: mapa de calor (dia da semana × hora), área, barras + linha, número grande e linha de referência (média ou mediana) | feito | |
 | F2-S8-11 | Relatórios, extensão 4 (ajustes por bloco): filtro e período próprios do bloco, largura e altura, cor da série, formato das horas e casas decimais, ocultar "Outros", colunas da lista de tarefas e ordem das colunas da tabela | feito | |
+| F2-S8-12 | Relatórios, extensão 5 (modelos, abas, PDF e cliente): esconder e reordenar as abas (preferência da pessoa, migração 0039), descrição do modelo, PDF configurável (orientação, título, rodapé com o número da página, blocos fora do PDF) e os prontos de horas no PDF do modelo, textos e colunas do relatório para o cliente | em andamento | |
 
 ## Migração da interface para o servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md))
 

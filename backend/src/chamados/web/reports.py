@@ -97,14 +97,22 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     choice, query, options = state.choice, state.query, state.options
     slug = choice.slug
 
-    # Os modelos prontos levam os filtros da tela; o da pessoa abre com os que ele guarda.
+    # As abas na ordem da pessoa, sem as escondidas; a escondida aberta pelo link aparece
+    # enquanto está aberta. Os modelos prontos levam os filtros da tela; o da pessoa abre com os
+    # que ele guarda.
+    tab_names = {s: page.t(f"relatorios.abas.{key}") for s, key in TABS.items()}
+    tab_names.update({str(m.public_id): m.name for m in state.models})
     tabs = [
-        (s, page.t(f"relatorios.abas.{key}"), with_query("/relatorios", {**query, "aba": s}))
-        for s, key in TABS.items()
-    ] + [
-        (str(m.public_id), m.name, with_query("/relatorios", {"aba": str(m.public_id)}))
-        for m in state.models
+        (
+            s,
+            tab_names[s],
+            with_query("/relatorios", {**query, "aba": s} if s in TABS else {"aba": s}),
+        )
+        for s, shown in state.tabs
+        if shown or s == slug
     ]
+    # "Organizar abas": todas, com se aparecem e qual é a inicial (que não se esconde).
+    arranged = [(s, tab_names[s], shown, s == state.initial) for s, shown in state.tabs]
 
     blocks: list[dict[str, Any]] = []
     downloads = None
@@ -319,6 +327,10 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         "reports/index.html",
         tabs=tabs,
         tab=slug,
+        arranged=arranged,
+        # Depois de mover uma aba, o diálogo volta aberto; ao fechar, o endereço sem o pedido.
+        organize=page.request.query_params.get("organizar") == "1",
+        here_url=with_query("/relatorios", here),
         model=choice.model,
         period=state.period,
         period_groups=[

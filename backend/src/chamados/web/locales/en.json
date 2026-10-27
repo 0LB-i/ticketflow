@@ -704,7 +704,18 @@
     },
     "filtroNaoCombina": "This block's filter ({filtro}) doesn't match the page's.",
     "filtroDoBlocoInvalido": "Parts of this block's filter no longer apply to you and were left out: {filtros}.",
-    "totalComTodos": "Period total, all included"
+    "totalComTodos": "Period total, all included",
+    "abasSalvas": "Tabs saved.",
+    "organizarAbas": {
+      "menu": "Arrange tabs",
+      "titulo": "Arrange tabs",
+      "ajuda": "The order and the tabs shown in Reports apply only to you. A hidden tab still opens from a link. The default template is always shown.",
+      "mostrar": "Show",
+      "mostrarAba": "Show the {nome} tab",
+      "subir": "Move the {nome} tab up",
+      "descer": "Move the {nome} tab down",
+      "inicial": "The default template is always shown."
+    }
   },
   "expediente": {
     "titulo": "Working hours",

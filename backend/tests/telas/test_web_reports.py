@@ -2232,3 +2232,118 @@ def test_colunas_da_lista_e_ordem_das_medidas(
     r = client.post("/relatorios/modelos", data={**sem, "acao": "atualizar"})
     assert 'id="campo-b0-colunas-person" name="b0-colunas" value="person" checked' in r.text
     assert 'id="campo-b0-colunas-client" name="b0-colunas" value="client" class' in r.text
+
+
+# --- organizar abas (docs/14 §14.8.1) --------------------------------------------------------
+
+
+def _abas(html: str) -> list[str]:
+    """Os nomes na barra de abas, na ordem."""
+    barra = re.search(r'<nav aria-label="Modelos de relatório".*?</nav>', html, re.S)
+    assert barra, "sem a barra de abas"
+    return re.findall(r">([^<>]+)</a>", barra.group(0))
+
+
+def _organizar(
+    client: TestClient, ordem: list[str], mostrar: list[str], acao: str = "salvar", **campos: Any
+) -> Any:
+    dados = formulario(client, ordem=ordem, mostrar=mostrar, acao=acao, **campos)
+    return client.post("/relatorios/abas", data=dados, follow_redirects=False)
+
+
+PRONTOS = ["produtividade", "clientes", "horas-extras", "chamados"]
+
+
+def test_organizar_abas(client: TestClient, cenario: dict[str, Any]) -> None:
+    alfa, beta = _criar(client, "Alfa"), _criar(client, "Beta")
+    r = client.get("/relatorios/blocos")
+    # Sem preferência: os prontos e os da pessoa pelo nome; o item no menu Modelo abre o diálogo.
+    assert _abas(r.text) == [
+        "Produtividade",
+        "Clientes",
+        "Horas extras",
+        "Chamados",
+        "Alfa",
+        "Beta",
+    ]
+    assert 'data-abre-dialogo="organizar-abas"' in r.text
+    # O inicial (sem modelo inicial, a primeira aba) não se esconde.
+    assert 'name="mostrar" value="produtividade" checked disabled' in r.text
+
+    # Beta primeiro; Clientes e Chamados escondidos. Volta à aba e aos filtros, com o aviso.
+    ordem = [beta, *PRONTOS, alfa]
+    r = _organizar(
+        client,
+        ordem,
+        [beta, "produtividade", "horas-extras", alfa],
+        aba="clientes",
+        periodo="mes-anterior",
+    )
+    assert r.status_code == 303
+    volta = parse_qs(urlsplit(r.headers["location"]).query)
+    assert volta == {"aba": ["clientes"], "periodo": ["mes-anterior"]}
+    r = client.get("/relatorios/blocos")
+    assert "Abas salvas." in r.text
+    # Sem aba, a inicial passa a ser a primeira da ordem.
+    assert 'aria-current="page">Beta</a>' in r.text
+    assert _abas(r.text) == ["Beta", "Produtividade", "Horas extras", "Alfa"]
+    assert "data-abre-ao-carregar" not in r.text
+
+    # A escondida abre pelo link e aparece no lugar dela enquanto está aberta.
+    r = client.get("/relatorios/blocos", params={"aba": "chamados"})
+    assert 'aria-current="page">Chamados</a>' in r.text
+    assert _abas(r.text) == ["Beta", "Produtividade", "Horas extras", "Chamados", "Alfa"]
+
+    # A seta grava a ordem na hora e o diálogo volta aberto.
+    r = _organizar(client, ordem, [beta, "produtividade", alfa], aba=beta, acao="descer-0")
+    volta = parse_qs(urlsplit(r.headers["location"]).query)
+    assert volta == {"aba": [beta], "organizar": ["1"]}
+    r = client.get(r.headers["location"])
+    assert 'id="organizar-abas" data-abre-ao-carregar' in r.text
+    assert _abas(r.text) == ["Produtividade", "Beta", "Alfa"]
+
+    # Um modelo novo entra no fim; um apagado sai da ordem.
+    gama = _criar(client, "Gama")
+    client.post(f"/relatorios/modelos/{alfa}/excluir", data=formulario(client))
+    assert _abas(client.get("/relatorios/blocos").text) == ["Produtividade", "Beta", "Gama"]
+
+    # Um id que não é aba da pessoa responde como os modelos de outra: 404.
+    assert _organizar(client, [*PRONTOS, str(uuid.uuid4())], PRONTOS).status_code == 404
+    assert _organizar(client, PRONTOS, ["nada"]).status_code == 404
+    assert _organizar(client, [beta, gama], [beta]).status_code == 303
+
+
+def test_modelo_inicial_nao_fica_escondido(client: TestClient, cenario: dict[str, Any]) -> None:
+    alfa = _criar(client, "Alfa")
+    beta = _criar(client, "Beta", inicial="1")
+    # Esconder o inicial não vale: ele continua na barra, com o Mostrar marcado e travado.
+    _organizar(client, [*PRONTOS, alfa, beta], PRONTOS)
+    r = client.get("/relatorios/blocos")
+    assert 'aria-current="page">Beta</a>' in r.text
+    assert _abas(r.text) == [*["Produtividade", "Clientes", "Horas extras", "Chamados"], "Beta"]
+    assert f'name="mostrar" value="{beta}" checked disabled' in r.text
+    # Marcar como inicial um modelo escondido o faz aparecer de novo.
+    dados = formulario(client, nome="Alfa", horas="hm", blocos="1", acao="salvar", inicial="1")
+    r = client.post(f"/relatorios/modelos/{alfa}", data={**dados, **TABELA}, follow_redirects=False)
+    assert r.status_code == 303
+    r = client.get("/relatorios/blocos")
+    assert 'aria-current="page">Alfa</a>' in r.text
+    # O Beta não ficou guardado como escondido: era o inicial quando a ordem foi salva.
+    assert _abas(r.text)[-2:] == ["Alfa", "Beta"]
+
+
+def test_abas_de_cada_pessoa(client: TestClient, cenario: dict[str, Any]) -> None:
+    """A preferência é da pessoa: a de uma não muda a da outra, e o modelo de outra é 404."""
+    alfa = _criar(client, "Alfa")
+    _organizar(client, ["chamados", alfa, *PRONTOS[:3]], ["chamados", alfa])
+    assert _abas(client.get("/relatorios/blocos").text) == ["Chamados", "Alfa"]
+    entrar(client, "bia@x.com")
+    r = client.get("/relatorios/blocos")
+    assert _abas(r.text) == ["Produtividade", "Clientes", "Horas extras", "Chamados"]
+    assert _organizar(client, [*PRONTOS, alfa], PRONTOS).status_code == 404
+    _organizar(client, PRONTOS[::-1], PRONTOS)
+    assert _abas(client.get("/relatorios/blocos").text) == [
+        "Chamados", "Horas extras", "Clientes", "Produtividade"
+    ]  # fmt: skip
+    entrar(client, "ana@x.com")
+    assert _abas(client.get("/relatorios/blocos").text) == ["Chamados", "Alfa"]

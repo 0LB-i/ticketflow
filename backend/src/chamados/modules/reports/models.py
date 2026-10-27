@@ -37,3 +37,20 @@ class ReportModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class ReportPreference(Base):
+    """A ordem e as abas escondidas de Relatórios (docs/14 §14.8.1), uma linha por pessoa. Sem a
+    linha, vale a ordem de sempre (`saved.arrange`). Só a própria pessoa lê e grava."""
+
+    __tablename__ = "report_preferences"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    # `saved.TabPrefs`: os ids das abas na ordem (slugs dos prontos e `public_id` dos modelos) e
+    # os escondidos.
+    tabs: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

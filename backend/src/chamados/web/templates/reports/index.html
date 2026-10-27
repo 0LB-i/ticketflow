@@ -62,6 +62,7 @@
           <a href="/relatorios/modelos/{{ model.public_id }}/editar" role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("pencil", "size-4") }} {{ t("relatorios.editarModelo") }}</a>
           {%- endif %}
           <a href="{{ new_model_url }}" role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("plus", "size-4") }} {{ t("relatorios.salvarComoModelo") }}</a>
+          <button type="button" data-abre-dialogo="organizar-abas" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("list", "size-4") }} {{ t("relatorios.organizarAbas.menu") }}</button>
         </div>
       </details>
       {#- O PDF e o CSV da tabela (modelos prontos) e o CSV de todas as tarefas, com os mesmos
@@ -80,6 +81,41 @@
       {%- endif %}
     </div>
   </div>
+
+  {#- Organizar abas: a ordem (↑↓) e as que aparecem, uma preferência da pessoa. Cada seta grava
+      e o diálogo volta aberto (data-abre-ao-carregar); o inicial sempre aparece. #}
+  <dialog id="organizar-abas"{% if organize %} data-abre-ao-carregar data-volta="{{ here_url }}"{% endif %} aria-labelledby="organizar-abas-titulo" class="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-lg border border-border bg-surface p-6 text-fg shadow-xl backdrop:bg-black/50">
+    <h2 id="organizar-abas-titulo" class="text-lg font-semibold">{{ t("relatorios.organizarAbas.titulo") }}</h2>
+    <p class="mt-2 text-muted">{{ t("relatorios.organizarAbas.ajuda") }}</p>
+    <form method="post" action="/relatorios/abas" class="mt-4 flex flex-col gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="aba" value="{{ tab }}">
+      {%- for name, value in query_fields if name != "origem" %}
+      <input type="hidden" name="{{ name }}" value="{{ value }}">
+      {%- endfor %}
+      <ol class="flex flex-col gap-1">
+        {%- for slug, label, shown, initial in arranged %}
+        <li class="flex items-center justify-between gap-2 rounded-md bg-surface-raised px-3 py-1">
+          <input type="hidden" name="ordem" value="{{ slug }}">
+          <span class="min-w-0 truncate">{{ label }}</span>
+          <span class="flex shrink-0 items-center gap-1">
+            <label class="mr-2 inline-flex cursor-pointer items-center gap-2 text-sm"{% if initial %} title="{{ t('relatorios.organizarAbas.inicial') }}"{% endif %}>
+              <input type="checkbox" name="mostrar" value="{{ slug }}"{% if shown %} checked{% endif %}{% if initial %} disabled{% endif %} class="size-4 accent-(--tf-primary)" aria-label="{{ t('relatorios.organizarAbas.mostrarAba', nome=label) }}">
+              {{ t("relatorios.organizarAbas.mostrar") }}
+            </label>
+            <button type="submit" name="acao" value="subir-{{ loop.index0 }}"{% if loop.first %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface disabled:opacity-40" aria-label="{{ t('relatorios.organizarAbas.subir', nome=label) }}">{{ icon("arrow-up", "size-4") }}</button>
+            <button type="submit" name="acao" value="descer-{{ loop.index0 }}"{% if loop.last %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface disabled:opacity-40" aria-label="{{ t('relatorios.organizarAbas.descer', nome=label) }}">{{ icon("arrow-down", "size-4") }}</button>
+          </span>
+        </li>
+        {%- endfor %}
+      </ol>
+      <div class="flex justify-end gap-2">
+        <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
+        <button type="submit" name="acao" value="salvar" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
+      </div>
+    </form>
+    <button type="button" data-fecha-dialogo class="absolute top-4 right-4 rounded p-1 text-muted hover:bg-surface-raised" aria-label="{{ t('comum.fechar') }}">{{ icon("x", "size-4") }}</button>
+  </dialog>
 
   {#- Os modelos prontos e os da pessoa. #}
   <nav aria-label="{{ t('relatorios.modelos') }}" hx-boost="true" class="flex flex-wrap gap-1 border-b border-border print:hidden">

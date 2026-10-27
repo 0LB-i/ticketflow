@@ -171,6 +171,10 @@ class State:
 
     choice: Choice
     models: list[ReportModel]
+    # As abas na ordem da pessoa, com se aparecem (`saved.arrange`), e a inicial: o modelo
+    # marcado como inicial ou, sem ele, a primeira.
+    tabs: list[tuple[str, bool]]
+    initial: str
     options: service.Choices
     lookups: service.Lookups  # o expediente e os status, lidos uma vez (`service.facts`)
     period: str
@@ -219,15 +223,15 @@ class State:
         return period, filters
 
 
-def _choice(page: LoggedPage, aba: str | None, models: list[ReportModel]) -> Choice:
+def _choice(page: LoggedPage, aba: str | None, models: list[ReportModel], initial: str) -> Choice:
     def builtin(slug: str) -> Choice:
         return Choice(slug, page.t(f"relatorios.abas.{TABS[slug]}"), BUILTINS[slug])
 
+    # Sem aba, a inicial (pela ordem da pessoa, quando não há modelo inicial).
+    aba = initial if aba is None else aba
     if aba in BUILTINS:
         return builtin(aba)
     model = next((m for m in models if str(m.public_id) == aba), None)
-    if model is None and aba is None:
-        model = next((m for m in models if m.is_default), None)
     if model is None:
         return builtin("produtividade")
     try:
@@ -242,7 +246,12 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     today = datetime.now(TIMEZONE).date()
     months = last_months(page.locale, today)
     models = await saved.list_mine(db, auth)
-    choice = _choice(page, params.aba, models)
+    default = next((str(m.public_id) for m in models if m.is_default), None)
+    tabs = saved.arrange(
+        [*TABS, *(str(m.public_id) for m in models)], default, await saved.tab_prefs(db, auth)
+    )
+    initial = default or tabs[0][0]
+    choice = _choice(page, params.aba, models, initial)
     periodo, de, ate, dias = params.periodo, params.de, params.ate, params.dias
     grupo, pessoa, cliente, status = params.grupo, params.pessoa, params.cliente, params.status
     comparar = params.comparar
@@ -315,6 +324,8 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     state = State(
         choice=choice,
         models=models,
+        tabs=tabs,
+        initial=initial,
         options=options,
         lookups=lookups,
         period=period,

@@ -704,7 +704,18 @@
     },
     "filtroNaoCombina": "O filtro deste bloco ({filtro}) não combina com o da tela.",
     "filtroDoBlocoInvalido": "Partes do filtro deste bloco não valem mais para você e ficaram de fora: {filtros}.",
-    "totalComTodos": "Total do período, com todos"
+    "totalComTodos": "Total do período, com todos",
+    "abasSalvas": "Abas salvas.",
+    "organizarAbas": {
+      "menu": "Organizar abas",
+      "titulo": "Organizar abas",
+      "ajuda": "A ordem e as abas que aparecem em Relatórios valem só para você. Uma aba escondida continua abrindo pelo link. O modelo inicial sempre aparece.",
+      "mostrar": "Mostrar",
+      "mostrarAba": "Mostrar a aba {nome}",
+      "subir": "Subir a aba {nome}",
+      "descer": "Descer a aba {nome}",
+      "inicial": "O modelo inicial sempre aparece."
+    }
   },
   "expediente": {
     "titulo": "Expediente",
