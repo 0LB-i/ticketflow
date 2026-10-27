@@ -1,5 +1,6 @@
 // Formulário de cliente (templates/clients/form.html): campos de pessoa física ou jurídica
-// conforme o tipo, máscaras e as listas de telefones e e-mails. JavaScript puro (ADR 0011).
+// conforme o tipo, as horas conforme o contrato, máscaras e as listas de telefones e e-mails.
+// JavaScript puro (ADR 0011).
 
 const tipo = (form) => form.querySelector('input[name=kind]:checked')?.value ?? 'person'
 
@@ -11,6 +12,18 @@ function mostrarTipo(form) {
   const atual = tipo(form)
   for (const el of form.querySelectorAll('[data-se-tipo]')) {
     el.hidden = el.dataset.seTipo !== atual
+    if (el instanceof HTMLFieldSetElement) el.disabled = el.hidden
+  }
+}
+
+/**
+ * As horas só valem no contrato mensal ou anual; o rótulo diz se são por mês ou por ano. Sem
+ * horas, o campo fica num <fieldset disabled>, como os do outro tipo.
+ */
+function mostrarContrato(form) {
+  const atual = form.querySelector('input[name=contract_type]:checked')?.value
+  for (const el of form.querySelectorAll('[data-se-contrato]')) {
+    el.hidden = !el.dataset.seContrato.split(' ').includes(atual)
     if (el instanceof HTMLFieldSetElement) el.disabled = el.hidden
   }
 }
@@ -66,6 +79,7 @@ document.addEventListener('input', (e) => {
   if (mascara) e.target.value = mascara(e.target.value, e.target.form)
 })
 document.addEventListener('change', (e) => {
+  if (e.target.name === 'contract_type') mostrarContrato(e.target.form)
   if (e.target.name !== 'kind') return
   const form = e.target.form
   mostrarTipo(form)

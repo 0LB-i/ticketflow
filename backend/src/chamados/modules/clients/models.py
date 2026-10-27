@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Identity,
     Index,
+    Integer,
     Text,
     func,
     text,
@@ -36,6 +37,15 @@ class Client(Base):
     __table_args__ = (
         CheckConstraint("kind IN ('person', 'company')", name="kind"),
         CheckConstraint("length(state) = 2", name="state"),
+        CheckConstraint(
+            "contract_type IN ('monthly', 'annual', 'on_demand')", name="contract_type"
+        ),
+        # As horas só no contrato mensal (por mês) ou anual (por ano).
+        CheckConstraint(
+            "contract_hours IS NULL OR (contract_type IN ('monthly', 'annual')"
+            " AND contract_hours > 0)",
+            name="contract_hours",
+        ),
         Index("clients_name_idx", text("lower(name)")),
     )
 
@@ -62,6 +72,8 @@ class Client(Base):
     city: Mapped[str] = mapped_column(Text)
     state: Mapped[str] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
+    contract_type: Mapped[str | None] = mapped_column(Text)  # monthly · annual · on_demand
+    contract_hours: Mapped[int | None] = mapped_column(Integer)  # por mês ou por ano
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

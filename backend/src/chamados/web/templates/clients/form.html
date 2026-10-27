@@ -1,5 +1,7 @@
 {#- Cadastro e edição de cliente, em três colunas (dados, contato, endereço) para caber na tela
-    do computador sem rolar. Sem client.manage, o formulário só mostra os dados. Os campos de
+    do computador sem rolar (o contrato fica abaixo dos dados, na mesma coluna). Dentro de cada bloco, os campos lado a lado seguem a largura do bloco
+    (@container), não a da janela; os <fieldset> levam min-w-0 porque o navegador não os deixa
+    encolher abaixo do conteúdo. Sem client.manage, o formulário só mostra os dados. Os campos de
     pessoa física ou jurídica aparecem conforme o tipo (static/js/clientes.js); os do outro tipo
     ficam num <fieldset disabled>, que o navegador não valida nem envia. -#}
 {% extends "app.html" %}
@@ -31,7 +33,7 @@
 
 {% macro list_line(name, label, number, value, type, remove_key, error) -%}
 <div data-linha class="flex items-start gap-2">
-  <div class="flex flex-1 flex-col gap-1">
+  <div class="flex min-w-0 flex-1 flex-col gap-1">
     <label class="font-medium" data-rotulo="{{ label }}">{{ label }}{% if number %} {{ number }}{% endif %}</label>
     <input name="{{ name }}" type="{{ type }}" value="{{ value }}" autocomplete="off"{% if type == "tel" %} data-mascara="telefone"{% endif %}{% if error %} aria-invalid="true"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg {{ 'border-danger' if error else 'border-border-input' }}">
     {%- if error %}
@@ -62,8 +64,9 @@
     {%- if error %}
     <div class="mb-4">{{ alert(error) }}</div>
     {%- endif %}
-    <fieldset{% if not can_edit %} disabled{% endif %} class="grid items-start gap-4 lg:grid-cols-3">
-      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="dados-titulo">
+    <fieldset{% if not can_edit %} disabled{% endif %} class="grid min-w-0 items-start gap-4 lg:grid-cols-3">
+      <div class="flex min-w-0 flex-col gap-4">
+      <section class="@container flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="dados-titulo">
         <h2 id="dados-titulo" class="font-semibold">{{ t("clientes.dados") }}</h2>
         <fieldset class="flex flex-col gap-1">
           <legend class="mb-1 font-medium">{{ t("clientes.tipo") }}</legend>
@@ -84,8 +87,8 @@
           <p class="text-danger">{{ err("name") }}</p>
           {%- endif %}
         </div>
-        <fieldset data-se-tipo="company"{% if pf %} hidden disabled{% endif %}>{{ field("trade_name", t("clientes.nomeFantasia"), value=form.trade_name, error=err("trade_name") or None, required=True) }}</fieldset>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <fieldset data-se-tipo="company" class="min-w-0"{% if pf %} hidden disabled{% endif %}>{{ field("trade_name", t("clientes.nomeFantasia"), value=form.trade_name, error=err("trade_name") or None, required=True) }}</fieldset>
+        <div class="grid gap-4 @xs:grid-cols-2">
           <div class="flex flex-col gap-1">
             <label for="campo-document" class="font-medium"><span data-se-tipo="person"{% if not pf %} hidden{% endif %}>CPF</span><span data-se-tipo="company"{% if pf %} hidden{% endif %}>CNPJ</span><span class="text-danger" aria-hidden="true"> *</span></label>
             <input id="campo-document" name="document" value="{{ form.document }}" data-mascara="documento"{% if "document" in errors %} aria-invalid="true"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg tabular-nums {{ 'border-danger' if 'document' in errors else 'border-border-input' }}">
@@ -93,11 +96,11 @@
             <p class="text-danger">{{ err("document") }}</p>
             {%- endif %}
           </div>
-          <fieldset data-se-tipo="person"{% if not pf %} hidden disabled{% endif %}>{{ field("id_number", t("clientes.rg"), value=form.id_number, inputmode="numeric", maxlength="14", error=err("id_number") or None, **{"data-mascara": "rg"}) }}</fieldset>
-          <fieldset data-se-tipo="company"{% if pf %} hidden disabled{% endif %}>{{ field("state_registration", t("clientes.inscricaoEstadual"), value=form.state_registration, hint=t("clientes.inscricaoEstadualDica"), error=err("state_registration") or None) }}</fieldset>
+          <fieldset data-se-tipo="person" class="min-w-0"{% if not pf %} hidden disabled{% endif %}>{{ field("id_number", t("clientes.rg"), value=form.id_number, inputmode="numeric", maxlength="14", error=err("id_number") or None, **{"data-mascara": "rg"}) }}</fieldset>
+          <fieldset data-se-tipo="company" class="min-w-0"{% if pf %} hidden disabled{% endif %}>{{ field("state_registration", t("clientes.inscricaoEstadual"), value=form.state_registration, hint=t("clientes.inscricaoEstadualDica"), error=err("state_registration") or None) }}</fieldset>
         </div>
-        <fieldset data-se-tipo="person"{% if not pf %} hidden disabled{% endif %}>{{ field("birth_date", t("clientes.nascimento"), type="date", value=form.birth_date) }}</fieldset>
-        <fieldset data-se-tipo="company" class="grid gap-4 sm:grid-cols-2"{% if pf %} hidden disabled{% endif %}>
+        <fieldset data-se-tipo="person" class="min-w-0"{% if not pf %} hidden disabled{% endif %}>{{ field("birth_date", t("clientes.nascimento"), type="date", value=form.birth_date) }}</fieldset>
+        <fieldset data-se-tipo="company" class="grid min-w-0 gap-4 @xs:grid-cols-2"{% if pf %} hidden disabled{% endif %}>
           {{ field("municipal_registration", t("clientes.inscricaoMunicipal"), value=form.municipal_registration, error=err("municipal_registration") or None) }}
           {{ field("contact_name", t("clientes.pessoaDeContato"), value=form.contact_name, error=err("contact_name") or None) }}
         </fieldset>
@@ -109,7 +112,33 @@
         {%- endif %}
       </section>
 
-      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="contato-titulo">
+      {#- As horas só no contrato mensal (por mês) ou anual (por ano); o rótulo diz qual. #}
+      <section class="@container flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="contrato-titulo">
+        <h2 id="contrato-titulo" class="font-semibold">{{ t("clientes.contrato") }}</h2>
+        <fieldset class="flex min-w-0 flex-col gap-1">
+          <legend class="mb-1 font-medium">{{ t("clientes.modalidade") }}</legend>
+          <div class="flex flex-wrap gap-x-5 gap-y-2">
+            {%- for value in ("monthly", "annual", "on_demand") %}
+            <label class="inline-flex cursor-pointer items-center gap-2">
+              <input type="radio" name="contract_type" value="{{ value }}"{% if form.contract_type == value %} checked{% endif %} class="size-4 accent-(--tf-primary)">
+              {{ t("clientes.modalidades." ~ value) }}
+            </label>
+            {%- endfor %}
+          </div>
+        </fieldset>
+        <fieldset data-se-contrato="monthly annual" class="min-w-0"{% if form.contract_type not in ("monthly", "annual") %} hidden disabled{% endif %}>
+          <div class="flex max-w-40 flex-col gap-1">
+            <label for="campo-contract_hours" class="font-medium"><span data-se-contrato="monthly"{% if form.contract_type != "monthly" %} hidden{% endif %}>{{ t("clientes.horasPorMes") }}</span><span data-se-contrato="annual"{% if form.contract_type != "annual" %} hidden{% endif %}>{{ t("clientes.horasPorAno") }}</span><span class="text-danger" aria-hidden="true"> *</span></label>
+            <input id="campo-contract_hours" name="contract_hours" type="number" min="1" max="10000" step="1" inputmode="numeric" required value="{{ form.contract_hours }}"{% if "contract_hours" in errors %} aria-invalid="true"{% endif %} class="h-10 rounded-md border bg-surface px-3 text-fg tabular-nums {{ 'border-danger' if 'contract_hours' in errors else 'border-border-input' }}">
+            {%- if "contract_hours" in errors %}
+            <p class="text-danger">{{ err("contract_hours") }}</p>
+            {%- endif %}
+          </div>
+        </fieldset>
+      </section>
+      </div>
+
+      <section class="@container flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="contato-titulo">
         <h2 id="contato-titulo" class="font-semibold">{{ t("clientes.contato") }}</h2>
         {{ list_field("phones", t("clientes.telefone"), form.phones, "tel", "clientes.adicionarTelefone", "clientes.removerTelefone") }}
         {{ list_field("emails", t("clientes.email"), form.emails, "email", "clientes.adicionarEmail", "clientes.removerEmail") }}
@@ -122,16 +151,16 @@
         </div>
       </section>
 
-      <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="endereco-titulo">
+      <section class="@container flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="endereco-titulo">
         <h2 id="endereco-titulo" class="font-semibold">{{ t("clientes.endereco") }}</h2>
         <div class="max-w-40">{{ field("postal_code", t("clientes.cep"), value=form.postal_code, error=err("postal_code") or None, required=True, inputmode="numeric", **{"data-mascara": "cep"}) }}</div>
         {{ field("street", t("clientes.logradouro"), value=form.street, error=err("street") or None) }}
-        <div class="grid grid-cols-[8rem_1fr] gap-4">
+        <div class="grid grid-cols-[8rem_minmax(0,1fr)] gap-4">
           {{ field("number", t("clientes.numero"), value=form.number, error=err("number") or None) }}
           {{ field("complement", t("clientes.complemento"), value=form.complement, error=err("complement") or None) }}
         </div>
         {{ field("district", t("clientes.bairro"), value=form.district, error=err("district") or None) }}
-        <div class="grid grid-cols-[1fr_6rem] gap-4">
+        <div class="grid grid-cols-[minmax(0,1fr)_6rem] gap-4">
           {{ field("city", t("clientes.cidade"), value=form.city, error=err("city") or None, required=True) }}
           <div>
             {{ select_field("state", t("clientes.uf"), uf_options, form.state, placeholder="—", required=True) }}

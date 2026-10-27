@@ -216,6 +216,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - Documentos, telefones e CEP são gravados sem pontuação; a interface formata (`web/formatting.py` na tela e `static/js/clientes.js` enquanto se digita). O CNPJ aceita o formato alfanumérico (julho de 2026): mesmo cálculo dos dígitos, com o valor de cada caractere = ASCII − 48.
 - A validação fica no router (`_clean`), com mensagens do catálogo de idiomas. O formulário envia o cadastro inteiro (`PUT`).
 - Permissões: `client.view` e `client.manage`, que nenhum papel tem: valem só para membros do grupo **Administradores** (ativo; nome comparado sem maiúsculas, `CLIENT_MANAGERS_TEAM` em `core/permissions.py`), mesmo com papel Administrador. Renomear o grupo tira a permissão de todos. Os demais só escolhem o cliente pelo nome (`GET /clients/options`). A auditoria registra só **quais campos** mudaram, sem os dados pessoais.
+- Contrato (opcional): `contract_type` mensal, anual ou chamado avulso (`on_demand`); `contract_hours`, as horas contratadas por mês ou por ano, obrigatórias no mensal e no anual e vazias no avulso (restrições no banco). Na tela, o bloco Contrato fica abaixo dos dados, e as horas só aparecem no mensal e no anual.
 - Ligação com os chamados: `tickets.client_id` (3.5).
 
 ### 3.7.2 Relatórios (`modules/reports/`)
@@ -285,6 +286,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0038` | `ticket_presence` e `login_ip_failures` (UNLOGGED): a presença no chamado e o limite de login por IP saem da memória, para valerem com vários workers |
 | `0039` | `report_preferences` (a ordem e as abas escondidas de Relatórios, uma linha por pessoa, em JSONB) |
 | `0040` | `work_schedules` (vigências do expediente da instalação, de um grupo ou de uma pessoa; única por dono e data, com `NULLS NOT DISTINCT`); o expediente da chave `work_hours` vira a vigência da instalação desde sempre, e a chave fica com os feriados (o downgrade devolve o da instalação de hoje à chave) |
+| `0041` | Contrato do cliente: `clients.contract_type` (mensal, anual ou avulso) e `clients.contract_hours` (por mês ou por ano, só no mensal e no anual) |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).

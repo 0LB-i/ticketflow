@@ -953,6 +953,15 @@
     "bairro": "Bairro",
     "cidade": "Cidade",
     "uf": "UF",
+    "contrato": "Contrato",
+    "modalidade": "Modalidade",
+    "modalidades": {
+      "monthly": "Mensal",
+      "annual": "Anual",
+      "on_demand": "Chamado avulso"
+    },
+    "horasPorMes": "Horas por mês",
+    "horasPorAno": "Horas por ano",
     "erros": {
       "cpf": "CPF inválido.",
       "cnpj": "CNPJ inválido.",
@@ -961,7 +970,8 @@
       "cep": "O CEP tem 8 números.",
       "obrigatorio": "Campo obrigatório.",
       "uf": "Escolha a UF.",
-      "longo": "Texto longo demais."
+      "longo": "Texto longo demais.",
+      "horas": "Informe um número inteiro de 1 a 10.000."
     }
   },
   "anexos": {

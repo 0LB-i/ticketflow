@@ -77,6 +77,8 @@ def test_cadastra_pessoa_juridica(client: TestClient, agente: None) -> None:
         ({"state": "XX"}, "UF inválida."),
         ({"city": "  "}, "Informe a cidade."),
         ({"birth_date": "2999-01-01"}, "A data de nascimento não pode ficar no futuro."),
+        ({"contract_type": "monthly"}, "Informe as horas do contrato."),
+        ({"contract_type": "annual", "contract_hours": None}, "Informe as horas do contrato."),
     ],
 )
 def test_validacoes(
@@ -85,6 +87,20 @@ def test_validacoes(
     r = client.post(API, json={**PESSOA, **mudanca})
     assert r.status_code == 422
     assert r.json()["detail"] == mensagem
+
+
+def test_contrato(client: TestClient, agente: None) -> None:
+    """Mensal ou anual com as horas; no avulso (ou sem contrato), as horas ficam vazias."""
+    c = client.post(API, json={**PESSOA, "contract_type": "monthly", "contract_hours": 20}).json()
+    assert (c["contract_type"], c["contract_hours"]) == ("monthly", 20)
+    avulso = {**PESSOA, "contract_type": "on_demand", "contract_hours": 20}
+    c = client.put(f"{API}/{c['id']}", json=avulso).json()
+    assert (c["contract_type"], c["contract_hours"]) == ("on_demand", None)
+    c = client.post(API, json=EMPRESA).json()
+    assert (c["contract_type"], c["contract_hours"]) == (None, None)
+    for horas in (0, 10001):
+        dados = {**PESSOA, "contract_type": "annual", "contract_hours": horas}
+        assert client.post(API, json=dados).status_code == 422, horas
 
 
 def test_email_valido(client: TestClient, agente: None) -> None:

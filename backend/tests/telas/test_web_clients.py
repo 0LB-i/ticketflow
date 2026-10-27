@@ -99,6 +99,33 @@ def test_cadastro_e_edicao(client: TestClient, db: Session) -> None:
     assert not cliente.is_active
 
 
+def test_contrato(client: TestClient, db: Session) -> None:
+    """As horas aparecem e valem só no contrato mensal ou anual."""
+    _admin_de_clientes(client, db)
+    r = client.get("/admin/clientes/novo")
+    assert '<fieldset data-se-contrato="monthly annual" class="min-w-0" hidden disabled>' in r.text
+    dados = {**PESSOA, "contract_type": "annual", "contract_hours": ""}
+    r = client.post("/admin/clientes/novo", data=_form(client, dados))
+    assert r.status_code == 422
+    assert "Campo obrigatório." in r.text
+    assert '<fieldset data-se-contrato="monthly annual" class="min-w-0">' in r.text
+    r = client.post("/admin/clientes/novo", data=_form(client, {**dados, "contract_hours": "2,5"}))
+    assert "Informe um número inteiro de 1 a 10.000." in r.text
+    dados["contract_hours"] = "240"
+    r = client.post("/admin/clientes/novo", data=_form(client, dados), follow_redirects=False)
+    assert r.status_code == 303
+    cliente = db.scalar(select(Client).where(Client.name == "João da Silva"))
+    assert cliente is not None
+    assert (cliente.contract_type, cliente.contract_hours) == ("annual", 240)
+    r = client.get(f"/admin/clientes/{cliente.public_id}")
+    assert 'value="annual" checked' in r.text and 'value="240"' in r.text
+    # Avulso: as horas digitadas antes não vão junto.
+    avulso = {**dados, "contract_type": "on_demand", "is_active": "1"}
+    client.post(f"/admin/clientes/{cliente.public_id}", data=_form(client, avulso))
+    db.refresh(cliente)
+    assert (cliente.contract_type, cliente.contract_hours) == ("on_demand", None)
+
+
 def test_documento_repetido_mostra_o_erro_da_api(client: TestClient, db: Session) -> None:
     _admin_de_clientes(client, db)
     client.post(API, json=PESSOA)
@@ -113,8 +140,8 @@ def test_campos_do_outro_tipo_nao_bloqueiam_o_envio(client: TestClient, db: Sess
     desativado, que o navegador não valida nem envia."""
     _admin_de_clientes(client, db)
     r = client.get("/admin/clientes/novo")
-    assert '<fieldset data-se-tipo="company" hidden disabled>' in r.text
-    assert '<fieldset data-se-tipo="person">' in r.text
+    assert '<fieldset data-se-tipo="company" class="min-w-0" hidden disabled>' in r.text
+    assert '<fieldset data-se-tipo="person" class="min-w-0">' in r.text
 
 
 def test_id_invalido_e_email_recusado(client: TestClient, db: Session) -> None:

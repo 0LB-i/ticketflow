@@ -3,8 +3,10 @@
 Ver exige client.view; cadastrar e alterar, client.manage (as duas só para membros do grupo
 Administradores, ver core/permissions.py). Para escolher o cliente de um chamado, qualquer
 pessoa logada usa GET /clients/options, que devolve só o id e o nome. Só o CEP, a cidade e a UF são
-obrigatórios; telefones e e-mails são listas. Não há exclusão: cliente que não é
-mais atendido fica inativo. A auditoria guarda só quais campos mudaram, não os dados pessoais.
+obrigatórios; telefones e e-mails são listas. O contrato (mensal, anual ou avulso) é opcional; as
+horas contratadas valem só no mensal (por mês) e no anual (por ano), e nesses são obrigatórias.
+Não há exclusão: cliente que não é mais atendido fica inativo. A auditoria guarda só quais
+campos mudaram, não os dados pessoais.
 """
 
 import re
@@ -29,6 +31,7 @@ router = APIRouter(prefix="/clients", tags=["clientes"])
 Viewer = Annotated[Auth, Depends(require(P.CLIENT_VIEW))]
 Manager = Annotated[Auth, Depends(require(P.CLIENT_MANAGE))]
 ClientKind = Literal["person", "company"]
+ContractType = Literal["monthly", "annual", "on_demand"]
 
 Text200 = Annotated[str, Field(max_length=200)]
 Short = Annotated[str, Field(max_length=50)]
@@ -58,6 +61,15 @@ class ClientIn(BaseModel):
     city: Text200
     state: str = Field(min_length=2, max_length=2, description="UF")
     notes: str | None = Field(default=None, max_length=5000)
+    contract_type: ContractType | None = Field(
+        default=None, description="contrato: mensal, anual ou chamado avulso"
+    )
+    contract_hours: int | None = Field(
+        default=None,
+        ge=1,
+        le=10000,
+        description="horas contratadas por mês (mensal) ou por ano (anual)",
+    )
     is_active: bool = True
 
 
@@ -118,6 +130,8 @@ def _clean(data: ClientIn) -> dict[str, Any]:
         "district": optional_text(data.district),
         "city": required_text(data.city, "Informe a cidade."),
         "notes": optional_text(data.notes),
+        "contract_type": data.contract_type,
+        "contract_hours": data.contract_hours,
         "is_active": data.is_active,
     }
     # PF: nome completo e CPF; PJ: razão social, nome fantasia e CNPJ.
@@ -153,6 +167,11 @@ def _clean(data: ClientIn) -> dict[str, Any]:
     v["state"] = data.state.upper()
     if v["state"] not in doc.UFS:
         raise HTTPException(422, "UF inválida.")
+    if data.contract_type in ("monthly", "annual"):
+        if data.contract_hours is None:
+            raise HTTPException(422, "Informe as horas do contrato.")
+    else:
+        v["contract_hours"] = None
 
     for field in COMPANY_ONLY if data.kind == "person" else PERSON_ONLY:
         v[field] = None

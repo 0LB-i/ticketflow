@@ -953,6 +953,15 @@
     "bairro": "District",
     "cidade": "City",
     "uf": "State",
+    "contrato": "Contract",
+    "modalidade": "Contract type",
+    "modalidades": {
+      "monthly": "Monthly",
+      "annual": "Annual",
+      "on_demand": "Per ticket"
+    },
+    "horasPorMes": "Hours per month",
+    "horasPorAno": "Hours per year",
     "erros": {
       "cpf": "Invalid CPF.",
       "cnpj": "Invalid CNPJ.",
@@ -961,7 +970,8 @@
       "cep": "The postal code has 8 digits.",
       "obrigatorio": "Required field.",
       "uf": "Choose the state.",
-      "longo": "Text too long."
+      "longo": "Text too long.",
+      "horas": "Enter a whole number from 1 to 10,000."
     }
   },
   "anexos": {

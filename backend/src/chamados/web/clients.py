@@ -28,6 +28,7 @@ Viewer = Annotated[LoggedPage, requires(P.CLIENT_VIEW)]
 Manager = Annotated[LoggedPage, requires(P.CLIENT_MANAGE)]
 UFS = sorted(doc.UFS)
 EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+WITH_HOURS = ("monthly", "annual")  # contratos com horas (por mês ou por ano)
 
 
 @router.get("/admin/clientes")
@@ -86,6 +87,8 @@ class ClientForm:
     city: str = ""
     state: str = ""
     notes: str = ""
+    contract_type: str = ""
+    contract_hours: str = ""
     is_active: bool = True
     phones: list[str] = field(default_factory=lambda: [""])
     emails: list[str] = field(default_factory=lambda: [""])
@@ -133,6 +136,12 @@ class ClientForm:
         for i, email in enumerate(self.emails):
             if email.strip() and not EMAIL.match(email.strip()):
                 found[f"emails.{i}"] = "clientes.erros.email"
+        if self.contract_type in WITH_HOURS:
+            hours = self.contract_hours.strip()
+            if not hours:
+                found["contract_hours"] = "clientes.erros.obrigatorio"
+            elif not (hours.isdigit() and 1 <= int(hours) <= 10000):
+                found["contract_hours"] = "clientes.erros.horas"
         return found
 
     def payload(self) -> dict[str, Any]:
@@ -162,6 +171,8 @@ class ClientForm:
             "city": self.city.strip(),
             "state": self.state,
             "notes": optional(self.notes),
+            "contract_type": self.contract_type or None,
+            "contract_hours": optional(self.contract_hours, self.contract_type in WITH_HOURS),
             "is_active": self.is_active,
         }
 
@@ -292,6 +303,8 @@ def _fields(
     city: Field = "",
     state: Field = "",
     notes: Field = "",
+    contract_type: Field = "",
+    contract_hours: Field = "",
     is_active: Field = "",
     phones: Lines = None,
     emails: Lines = None,
