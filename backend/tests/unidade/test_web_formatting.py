@@ -10,9 +10,12 @@ from chamados.web.formatting import (
     format_datetime,
     format_document,
     format_duration,
+    format_hours,
+    format_percent,
     format_phone,
     format_postal_code,
     format_size,
+    format_tenths,
     local_parts,
     parse_duration,
     parse_local,
@@ -116,3 +119,11 @@ def test_documentos_dos_clientes() -> None:
     assert format_phone("11987654321") == "(11) 98765-4321"
     assert format_phone("+55 11 3333-4444") == "(11) 3333-4444"
     assert format_postal_code("01310100") == "01310-100"
+
+
+def test_casas_decimais_fixas() -> None:
+    """Sem casas, as de sempre (sem zeros no fim); com elas (um bloco de relatório), fixas."""
+    assert format_hours("pt-BR", 90) == "1,5 h" and format_hours("pt-BR", 90, 2) == "1,50 h"
+    assert format_hours("en", 90, 0) == "2 h"
+    assert format_percent("pt-BR", 3300) == "33%" and format_percent("pt-BR", 3300, 2) == "33,00%"
+    assert format_tenths("pt-BR", 250) == "2,5" and format_tenths("en", 250, 0) == "2"

@@ -48,9 +48,13 @@ def format_duration(minutes: int) -> str:
     return f"{h}h{m:02d}" if m else f"{h}h"
 
 
-def format_hours(locale: str, minutes: int) -> str:
-    """Tempo em horas decimais: "7,5 h", "0,25 h" (vírgula decimal em português)."""
-    text = f"{minutes / 60:.2f}".rstrip("0").rstrip(".")
+def format_hours(locale: str, minutes: int, decimals: int | None = None) -> str:
+    """Tempo em horas decimais: "7,5 h", "0,25 h" (vírgula decimal em português). `decimals`:
+    as casas fixas (um bloco de relatório pode escolher); sem elas, até duas, sem zeros no fim."""
+    if decimals is not None:
+        text = f"{minutes / 60:.{decimals}f}"
+    else:
+        text = f"{minutes / 60:.2f}".rstrip("0").rstrip(".")
     return f"{text if locale == 'en' else text.replace('.', ',')} h"
 
 
@@ -71,16 +75,25 @@ def format_elapsed(minutes: int) -> str:
     return f"{days}d {hours}h" if hours else f"{days}d"
 
 
-def format_percent(locale: str, hundredths: int) -> str:
-    """Porcentagem guardada em centésimos de ponto: 1250 → "12,5%", 3300 → "33%"."""
-    text = f"{hundredths / 100:.1f}".removesuffix(".0")
+def format_percent(locale: str, hundredths: int, decimals: int | None = None) -> str:
+    """Porcentagem guardada em centésimos de ponto: 1250 → "12,5%", 3300 → "33%"; com
+    `decimals`, as casas fixas (2 → "33,00%")."""
+    text = _fixed(hundredths / 100, decimals)
     return f"{text if locale == 'en' else text.replace('.', ',')}%"
 
 
-def format_tenths(locale: str, hundredths: int) -> str:
-    """Um número guardado em centésimos, com uma casa: 250 → "2,5", 300 → "3"."""
-    text = f"{hundredths / 100:.1f}".removesuffix(".0")
+def format_tenths(locale: str, hundredths: int, decimals: int | None = None) -> str:
+    """Um número guardado em centésimos, com uma casa: 250 → "2,5", 300 → "3"; com `decimals`,
+    as casas fixas."""
+    text = _fixed(hundredths / 100, decimals)
     return text if locale == "en" else text.replace(".", ",")
+
+
+def _fixed(number: float, decimals: int | None) -> str:
+    """Com as casas fixas; sem elas, uma, sem o ",0"."""
+    if decimals is None:
+        return f"{number:.1f}".removesuffix(".0")
+    return f"{number:.{decimals}f}"
 
 
 def format_number(locale: str, value: int) -> str:

@@ -212,12 +212,18 @@ def _write(head: list[str], rows: list[list[str | int]], pt: bool) -> bytes:
 
 
 def render_block(
-    data: Facts, result: Result, locale: Locale, previous: Result | None = None
+    data: Facts,
+    result: Result,
+    locale: Locale,
+    previous: Result | None = None,
+    decimals: int | None = None,
 ) -> bytes:
     """Um bloco de um modelo: as linhas agrupadas, como na tela, com o total no fim (a coluna da
     medida tem o nome da do CSV das tabelas); a lista de tarefas, com as colunas do de tarefas.
     `previous`: o bloco no período comparado; cada medida ganha o valor de antes e a variação
-    (em %, ou em pontos nas porcentagens), as mesmas da tela (`builder.matching`)."""
+    (em %, ou em pontos nas porcentagens), as mesmas da tela (`builder.matching`). `decimals`:
+    as casas das porcentagens e das taxas escolhidas no bloco (as horas continuam em horas
+    decimais com duas casas e em minutos, para somar na planilha)."""
     t = TEXTS[locale]
     pt = locale == "pt-BR"
 
@@ -258,8 +264,8 @@ def render_block(
         if previous is not None:
             head.append(t["change_points" if m in PERCENT else "change"].format(column=name))
 
-    def decimal(number: float) -> str:
-        text = f"{number:.1f}"
+    def decimal(number: float, places: int = 1) -> str:
+        text = f"{number:.{places}f}"
         return text.replace(".", ",") if pt else text
 
     def cell(m: Measure, value: Value) -> list[str | int]:
@@ -268,7 +274,7 @@ def render_block(
         if m in timed:
             return hours(value)
         if m in PERCENT or m in RATES:
-            return [decimal(value / 100)]
+            return [decimal(value / 100, 1 if decimals is None else decimals)]
         return [value]
 
     def change(m: Measure, now: Value, before: Value) -> str:

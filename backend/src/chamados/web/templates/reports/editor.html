@@ -96,6 +96,14 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {#- Na grade da tela: a largura (automática, meia linha ou a linha inteira) e, nos
             gráficos de colunas e de linha e no mapa de calor, a altura. #}
         {{ select("b" ~ i ~ "-largura", t("relatorios.editor.largura"), width_options, b.width or "", refresh("atualizar", "change")) }}
+        {#- O formato das horas do bloco (vazio: o do modelo) e as casas decimais das horas em
+            decimal, das porcentagens e das taxas. #}
+        {%- if timed[i] %}
+        {{ select("b" ~ i ~ "-horas", t("relatorios.editor.horas"), hours_options, b.hours or "", refresh("atualizar", "change")) }}
+        {%- endif %}
+        {%- if fractional[i] %}
+        {{ select("b" ~ i ~ "-casas", t("relatorios.editor.casas"), decimal_options, "" if b.decimals is none else b.decimals | string, refresh("atualizar", "change")) }}
+        {%- endif %}
         {#- A cor da série (os tokens da paleta), com a amostra da escolhida. #}
         {%- if b.visual in colored %}
         <div class="flex items-end gap-2">

@@ -615,7 +615,11 @@
         "chart-2": "Segunda cor dos gráficos",
         "chart-3": "Terceira cor dos gráficos",
         "chart-4": "Quarta cor dos gráficos"
-      }
+      },
+      "horasDoModelo": "As do modelo",
+      "casas": "Casas decimais",
+      "casasPadrao": "As de sempre",
+      "casasN": "{n}"
     },
     "idades": {
       "0": "até 1 dia",

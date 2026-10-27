@@ -281,31 +281,40 @@ def wide(visuals: Sequence[str], widths: Sequence[str | None] = ()) -> list[bool
 Format = Callable[[builder.Value], str]
 
 
-def formatter(page: LoggedPage, config: ReportConfig, measure: str) -> Format:
-    """Como mostrar os valores de uma medida; sem base (mediana de nada), um travessão."""
+def formatter(
+    page: LoggedPage, config: ReportConfig, measure: str, block: Block | None = None
+) -> Format:
+    """Como mostrar os valores de uma medida; sem base (mediana de nada), um travessão. O bloco
+    pode trocar o formato das horas do modelo e as casas decimais (`Block.hours`,
+    `Block.decimals`)."""
+    places = block.decimals if block else None
     if measure in DURATIONS:
+        hours = (block.hours if block else None) or config.hours
         base: Callable[[int], str] = (
-            format_duration if config.hours == "hm" else partial(format_hours, page.locale)
+            format_duration
+            if hours == "hm"
+            else partial(format_hours, page.locale, decimals=places)
         )
     elif measure in ELAPSED:
         base = format_elapsed
     elif measure in PERCENT:
-        base = partial(format_percent, page.locale)
+        base = partial(format_percent, page.locale, decimals=places)
     elif measure in RATES:
-        base = partial(format_tenths, page.locale)
+        base = partial(format_tenths, page.locale, decimals=places)
     else:
         base = partial(format_number, page.locale)
     return lambda value: "—" if value is None else base(value)
 
 
-def _step(measure: str, highest: int) -> int:
-    """O passo do eixo dos gráficos (_charts.html): horas cheias e pares, dias, 20% ou 2."""
+def _step(measure: str, highest: int, decimals: int | None = None) -> int:
+    """O passo do eixo dos gráficos (_charts.html): horas cheias e pares, dias, 20% ou 2. As
+    marcas são o topo e a metade: sem casas decimais, a metade de uma taxa precisa ser inteira."""
     if measure in DURATIONS:
         return 120
     if measure in ELAPSED:
         return 1440 if highest > 2880 else 120
     if measure in RATES:
-        return 100  # 1 por dia
+        return 200 if decimals == 0 else 100  # 1 por dia
     return 2000 if measure in PERCENT else 2
 
 
@@ -540,7 +549,7 @@ def block_view(
         # A tendência no período, por dia (por semana num período longo, como os gráficos).
         trend = builder.trend(data, block, f.start, f.end, "week" if long else "day")
         for m in block.measures:
-            fmt = formatter(page, config, m)
+            fmt = formatter(page, config, m, block)
             card: dict[str, Any] = {
                 "label": measure_label(page, block, m),
                 "value": fmt(result.total[m]),
@@ -571,14 +580,14 @@ def block_view(
         ]
         view.update(
             points=points,
-            fmt=formatter(page, config, "hours"),
+            fmt=formatter(page, config, "hours", block),
             step=120,
             labels=(page.t("relatorios.noExpediente"), page.t("relatorios.medidas.overtime")),
         )
     elif block.visual == "combo":
         # As colunas da primeira medida e a linha da segunda (`extra`), no mesmo eixo.
         bars, line = block.measures
-        fmt = formatter(page, config, bars)
+        fmt = formatter(page, config, bars, block)
         labels = (measure_label(page, block, bars), measure_label(page, block, line))
         points = []
         for r in result.rows:
@@ -592,13 +601,15 @@ def block_view(
             point.before_tip = f"{labels[1]}: {fmt(r.values[line])}"
             points.append(point)
         highest = max((max(p.value, p.extra) for p in points), default=0)
-        view.update(points=points, fmt=fmt, step=_step(bars, highest), labels=labels)
+        view.update(
+            points=points, fmt=fmt, step=_step(bars, highest, block.decimals), labels=labels
+        )
     elif block.visual in CHARTS:
         m = block.measures[0]
         # A série de antes, só agrupada por período, dia da semana ou hora: nos cadastros, a
         # mesma posição não é o mesmo valor.
         series = previous is not None and dimension in ORDERED
-        fmt = formatter(page, config, m)
+        fmt = formatter(page, config, m, block)
         points = []
         for i, r in enumerate(result.rows):
             point = Point(
@@ -621,7 +632,7 @@ def block_view(
         view.update(
             points=[p for p in points if p.value] if block.visual == "bars" else points,
             fmt=fmt,
-            step=_step(m, highest),
+            step=_step(m, highest, block.decimals),
             empty=page.t(empty),
         )
         if series:
@@ -641,9 +652,9 @@ def block_view(
                 page.t(f"relatorios.referencia.{block.reference}", valor=fmt(reference)),
             )
     elif block.visual == "heatmap":
-        view.update(_heatmap(page, config, block.measures[0], result))
+        view.update(_heatmap(page, config, block, result))
     elif block.visual == "table":
-        formats = [formatter(page, config, m) for m in block.measures]
+        formats = [formatter(page, config, m, block) for m in block.measures]
         names = [measure_label(page, block, m) for m in block.measures]
         rows = []
         for i, r in enumerate(result.rows):
@@ -672,7 +683,7 @@ def block_view(
                 titles.append(page.t("relatorios.comparacao.variacaoDe", medida=name))
         view.update(columns=columns, titles=titles, rows=rows, total=total)
     else:
-        fmt = formatter(page, config, "hours")
+        fmt = formatter(page, config, "hours", block)
         # Em páginas de LISTED (`pagina<i>` na URL); uma fora da faixa vai para a mais perto.
         count = len(result.tasks)
         pages = max(1, -(-count // LISTED))
@@ -715,13 +726,14 @@ def block_view(
 
 
 def _heatmap(
-    page: LoggedPage, config: ReportConfig, measure: builder.Measure, result: builder.Result
+    page: LoggedPage, config: ReportConfig, block: Block, result: builder.Result
 ) -> dict[str, Any]:
     """O mapa de calor: uma linha por dia da semana, uma célula por hora, cada uma no tom da
     escala (`heat-1` a `heat-5`, 0 sem nada) pelo primeiro limite que ela não passa; a legenda,
     os mesmos limites. Cada limite é a fração do maior valor arredondada para cima, e um limite
     igual ao anterior (poucos valores, ex.: até 2 tarefas por hora) fica sem tom."""
-    fmt = formatter(page, config, measure)
+    measure = block.measures[0]
+    fmt = formatter(page, config, measure, block)
     values = [r.values[measure] for r in result.rows]  # dia × 24 + hora
     top = max((v or 0 for v in values), default=0)
     bounds = [math.ceil(top * k / HEAT_STEPS) for k in range(1, HEAT_STEPS + 1)]

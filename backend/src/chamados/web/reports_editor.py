@@ -144,6 +144,8 @@ def _read_block(form: FormData, i: int) -> Block:
         no_client=NO_CLIENT in many("cliente"),
         statuses=list(dict.fromkeys(int(v) for v in many("status") if v.isascii() and v.isdigit())),
     )
+    timed = visual == "tasks" or bool(set(measures) & set(builder.DURATIONS))
+    fractional = timed or bool(set(measures) & {*builder.PERCENT, *builder.RATES})
     return Block(
         visual=visual,
         title=one("titulo")[:120],
@@ -169,6 +171,9 @@ def _read_block(form: FormData, i: int) -> Block:
         height=next((h for h in ("s", "l") if h == one("altura") and visual in SIZED), "m"),
         # A cor da série, das que a paleta tem; vazia (ou fora deles), a da instalação.
         color=next((c for c in SERIES if c == one("cor") and visual in COLORED), None),
+        # O formato das horas e as casas, só onde valem (`check_block`); vazios, os de sempre.
+        hours=next((h for h in ("hm", "decimal") if h == one("horas") and timed), None),
+        decimals=next((d for d in (0, 1, 2) if str(d) == one("casas") and fractional), None),
     )
 
 
@@ -338,6 +343,23 @@ async def _editor_page(
         + [(s, page.t(f"relatorios.periodos.{key}")) for s, key in RELATIVE_KEYS.items()],
         block_filters=block_filters,
         sized=SIZED,
+        # O formato das horas e as casas de cada bloco: só onde valem.
+        timed=[
+            b.visual == "tasks" or bool(set(b.measures) & set(builder.DURATIONS))
+            for b in editor.blocks
+        ],
+        fractional=[
+            b.visual == "tasks"
+            or bool(set(b.measures) & {*builder.DURATIONS, *builder.PERCENT, *builder.RATES})
+            for b in editor.blocks
+        ],
+        hours_options=[
+            ("", page.t("relatorios.editor.horasDoModelo")),
+            ("hm", page.t("relatorios.editor.formatoHm")),
+            ("decimal", page.t("relatorios.editor.formatoDecimal")),
+        ],
+        decimal_options=[("", page.t("relatorios.editor.casasPadrao"))]
+        + [(str(d), page.t("relatorios.editor.casasN", n=d)) for d in (0, 1, 2)],
         colored=COLORED,
         color_options=[("", page.t("relatorios.editor.cores.chart-1"))]
         + [(c, page.t(f"relatorios.editor.cores.{c}")) for c in SERIES[1:]],

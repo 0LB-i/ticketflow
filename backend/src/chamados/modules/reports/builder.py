@@ -269,6 +269,10 @@ class Block(BaseModel):
     width: Literal["half", "full"] | None = None
     height: Literal["s", "m", "l"] = "m"  # colunas, linha e mapa de calor (SIZED)
     color: Series | None = None  # a cor da série nas barras, colunas e linha (None: `chart-1`)
+    # O formato das horas (None: o do modelo, `ReportConfig.hours`) e as casas das horas em
+    # decimal, das porcentagens e das taxas (None: as de sempre).
+    hours: Literal["hm", "decimal"] | None = None
+    decimals: Literal[0, 1, 2] | None = None
 
 
 class ReportConfig(BaseModel):
@@ -472,6 +476,10 @@ def check_block(block: Block) -> None:
         raise HTTPException(422, "A linha de referência vale nas colunas e na linha.")
     if block.color is not None and block.visual not in COLORED:
         raise HTTPException(422, "A cor vale nas barras, nas colunas e na linha.")
+    if block.hours is not None and not set(block.measures) & {*DURATIONS}:
+        raise HTTPException(422, "O formato das horas vale nas medidas de horas.")
+    if block.decimals is not None and not set(block.measures) & {*DURATIONS, *PERCENT, *RATES}:
+        raise HTTPException(422, "As casas decimais valem nas horas, nas porcentagens e nas taxas.")
     if block.height != "m" and block.visual not in SIZED:
         raise HTTPException(422, "A altura vale nas colunas, na linha e no mapa de calor.")
     if block.aggregate == "mean" and not set(block.measures) & set(ELAPSED):

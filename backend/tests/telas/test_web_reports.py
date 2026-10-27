@@ -2091,3 +2091,42 @@ def test_cor_da_serie_do_bloco(
     dados = formulario(client, nome="X", horas="hm", acao="atualizar", **campos)
     r = client.post("/relatorios/modelos", data={**dados, "b0-cor": "red"})
     assert '<option value="" selected>A da instalação</option>' in r.text
+
+
+def test_formato_das_horas_e_casas_do_bloco(client: TestClient, cenario: dict[str, Any]) -> None:
+    """O bloco troca o formato das horas do modelo e escolhe as casas das horas em decimal, das
+    porcentagens e das taxas; os eixos seguem o formato. O CSV continua com as horas em decimal e
+    em minutos, mas usa as casas nas porcentagens."""
+    dia = dia_util_passado()
+    numero = registrar(client, cenario)["number"]
+    tarefa(client, numero, 60, em(dia, 19))  # fora do expediente
+    tarefa(client, numero, 30, em(dia, 10))
+    campos = {
+        "blocos": "3",
+        "b0-visual": "cards",
+        "b0-medidas": ["hours", "overtime_rate"],
+        "b0-horas": "decimal",
+        "b0-casas": "2",
+        "b1-visual": "columns",
+        "b1-agrupar": "day",
+        "b1-medida": "hours",
+        "b1-horas": "decimal",
+        "b1-casas": "0",
+        "b2-visual": "table",
+        "b2-agrupar": "person",
+        "b2-medidas": ["overtime_rate"],
+        "b2-casas": "0",
+    }
+    modelo = _criar(client, "Formatos", **campos)  # o modelo em hh:mm
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
+    cartoes = _bloco(r.text, 0)
+    assert ">1,50 h</dd>" in cartoes and ">66,67%</dd>" in cartoes
+    assert ">2 h</span>" in _bloco(r.text, 1)  # a marca do eixo, sem casas
+    assert ">67%</td>" in _bloco(r.text, 2)
+    r = client.get("/relatorios/csv", params=_um_dia(dia, aba=modelo, bloco="0"))
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[1] == ["1,50", "90", "66,67"]
+    # O editor só oferece o formato das horas onde há horas; as casas, também nas porcentagens.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert '<option value="decimal" selected>Decimal (7,5 h)</option>' in r.text
+    assert 'name="b2-horas"' not in r.text and 'name="b2-casas"' in r.text

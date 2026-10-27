@@ -271,7 +271,9 @@ async def block_csv(
     if scope.before is not None and scope.comparison:
         first, last = scope.comparison
         previous = builder.run(scope.before, block, first, last)
-    content = csv_export.render_block(scope.data, result, cast(Locale, page.locale), previous)
+    content = csv_export.render_block(
+        scope.data, result, cast(Locale, page.locale), previous, block.decimals
+    )
     reports_api.record_export(
         db, page.request, page.auth, f, format="csv", table="block", model=state.choice.name
     )

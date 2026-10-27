@@ -952,3 +952,11 @@ def test_cor_so_nos_graficos_de_uma_serie() -> None:
         check_block(Block(visual="stacked", dimension="day", measures=STACKED, color="chart-2"))
     with pytest.raises(ValidationError):
         Block.model_validate({"visual": "bars", "measures": ["hours"], "color": "red"})
+
+
+def test_formato_e_casas_so_onde_valem() -> None:
+    check_block(Block(visual="cards", measures=["overtime_rate"], decimals=0))
+    with pytest.raises(HTTPException, match="O formato das horas"):
+        check_block(Block(visual="cards", measures=["opened"], hours="decimal"))
+    with pytest.raises(HTTPException, match="As casas decimais"):
+        check_block(Block(visual="cards", measures=["opened"], decimals=2))

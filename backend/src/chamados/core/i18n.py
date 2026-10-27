@@ -170,6 +170,10 @@ EN: dict[str, str] = {
     "Escolha o que agrupar.": "Choose what to group by.",
     "Escolha ao menos uma medida.": "Choose at least one measure.",
     "Um gráfico mostra uma medida só.": "A chart shows a single measure.",
+    "O formato das horas vale nas medidas de horas.": ("The hour format applies to hour measures."),
+    "As casas decimais valem nas horas, nas porcentagens e nas taxas.": (
+        "Decimal places apply to hours, percentages and rates."
+    ),
     "A cor vale nas barras, nas colunas e na linha.": (
         "The color applies to bars, columns and lines."
     ),

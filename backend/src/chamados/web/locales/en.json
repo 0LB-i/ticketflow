@@ -615,7 +615,11 @@
         "chart-2": "Second chart color",
         "chart-3": "Third chart color",
         "chart-4": "Fourth chart color"
-      }
+      },
+      "horasDoModelo": "The template's",
+      "casas": "Decimal places",
+      "casasPadrao": "Default",
+      "casasN": "{n}"
     },
     "idades": {
       "0": "up to 1 day",
