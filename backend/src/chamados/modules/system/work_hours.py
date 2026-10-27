@@ -9,6 +9,7 @@ vigência sem dias e horário devolve a pessoa ou o grupo ao de cima.
 """
 
 from bisect import bisect_right
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from functools import lru_cache
@@ -71,6 +72,29 @@ def _at(vigencies: Vigencies | None, day: date) -> Schedule | None:
         return None
     i = bisect_right(vigencies, day, key=lambda v: v[0]) - 1
     return vigencies[i][1] if i >= 0 else None
+
+
+def weekday_ranges(weekdays: Sequence[int], names: Sequence[str]) -> str:
+    """Os dias em faixas, com os nomes curtos do idioma (`names`, de segunda a domingo):
+    "seg–sex", "seg, qua, sex", "seg–qua, sáb". Três ou mais dias seguidos viram uma faixa."""
+    days = sorted(set(weekdays))
+    parts: list[str] = []
+    i = 0
+    while i < len(days):
+        j = i
+        while j + 1 < len(days) and days[j + 1] == days[j] + 1:
+            j += 1
+        if j - i >= 2:
+            parts.append(f"{names[days[i]]}–{names[days[j]]}")
+        else:
+            parts.extend(names[d] for d in days[i : j + 1])
+        i = j + 1
+    return ", ".join(parts)
+
+
+def describe(schedule: Schedule, names: Sequence[str]) -> str:
+    """Um expediente em texto curto: "seg–sex 08:00–18:00"."""
+    return f"{weekday_ranges(schedule.weekdays, names)} {schedule.start:%H:%M}–{schedule.end:%H:%M}"
 
 
 @lru_cache(maxsize=4096)
