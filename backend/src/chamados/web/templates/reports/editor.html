@@ -98,6 +98,12 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
       {%- if b.visual == "stacked" %}
       <p class="text-muted">{{ t("relatorios.editor.empilhadasAjuda") }}</p>
       {%- endif %}
+      {#- Os tempos até a conclusão pela mediana (o padrão, §14.1) ou pela média. #}
+      {%- if b.measures | select("in", elapsed) | list %}
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{ select("b" ~ i ~ "-agregacao", t("relatorios.editor.agregacao"), aggregate_options, b.aggregate, refresh("atualizar", "change")) }}
+      </div>
+      {%- endif %}
       {%- if b.visual in ("cards", "table") %}
       {#- O id devolve o foco à caixa depois que o formulário volta. #}
       <fieldset class="flex flex-col gap-2" {{ refresh("atualizar", "change") }}>

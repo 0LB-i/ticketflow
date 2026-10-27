@@ -1598,3 +1598,42 @@ def test_medidas_derivadas(client: TestClient, cenario: dict[str, Any], db: Sess
     r = client.get("/relatorios/blocos", params=_um_dia(hoje, aba=modelo))
     assert re.search(r"<dt[^>]*>Taxa de conclusão</dt>\s*<dd[^>]*>200%</dd>", r.text)
     assert "Acima de 100%: concluiu mais do que registrou." in r.text
+
+
+def test_media_dos_tempos_no_editor_e_na_tela(client: TestClient, cenario: dict[str, Any]) -> None:
+    # A escolha só aparece com um tempo até a conclusão; sem ele, volta à mediana.
+    dados = formulario(
+        client,
+        nome="Tempos",
+        horas="hm",
+        blocos="2",
+        acao="atualizar",
+        **{
+            "b0-visual": "cards",
+            "b0-medidas": ["lead_time", "closed"],
+            "b0-agregacao": "mean",
+            "b1-visual": "cards",
+            "b1-medidas": ["hours"],
+            "b1-agregacao": "mean",
+        },
+    )
+    r = client.post("/relatorios/modelos", data=dados)
+    assert '<option value="mean" selected>Média</option>' in r.text
+    assert 'name="b1-agregacao"' not in r.text
+    assert '<dt class="text-muted">Média até a conclusão</dt>' in r.text
+
+    modelo = _criar(
+        client,
+        "Tempos",
+        **{
+            "b0-visual": "table",
+            "b0-agrupar": "team",
+            "b0-medidas": ["lead_time"],
+            "b0-agregacao": "mean",
+        },
+    )
+    r = client.get("/relatorios/blocos", params={"aba": modelo})
+    assert ">Média até a conclusão</th>" in r.text
+    r = client.get("/relatorios/csv", params={"aba": modelo, "bloco": "0"})
+    cabecalho = r.content.decode("utf-8-sig").splitlines()[0]
+    assert cabecalho == "Grupo;Média até a conclusão;Média até a conclusão (min)"

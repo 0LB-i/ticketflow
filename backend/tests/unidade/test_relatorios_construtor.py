@@ -649,6 +649,36 @@ def test_medidas_derivadas() -> None:
     assert "tasks_per_workday" in measures_for("table", "person")
 
 
+def test_media_dos_tempos_ate_a_conclusao() -> None:
+    concluidos = [
+        _chamado(INICIO, {ANA}, numero=1, lead=60, net_lead=60),
+        _chamado(INICIO, {ANA}, numero=2, lead=120, net_lead=60),
+        _chamado(INICIO, {BIA}, numero=3, lead=600, net_lead=600),
+    ]
+    dados = _dados([], concluidos=concluidos)
+    medidas = ["lead_time", "net_lead_time", "closed"]
+    mediana = run(dados, Block(visual="cards", measures=medidas), INICIO, FIM)
+    assert mediana.total == {"lead_time": 120, "net_lead_time": 60, "closed": 3}
+    assert not mediana.mean
+    media = run(dados, Block(visual="cards", measures=medidas, aggregate="mean"), INICIO, FIM)
+    assert media.total == {
+        "lead_time": 260,
+        "net_lead_time": 240,
+        "closed": 3,
+    }  # as contagens não mudam
+    assert media.mean
+    por_pessoa = run(
+        dados,
+        Block(visual="table", dimension="person", measures=["lead_time"], aggregate="mean"),
+        INICIO,
+        FIM,
+    )
+    assert [r.values["lead_time"] for r in por_pessoa.rows] == [600, 90]
+    # Sem um tempo até a conclusão, a média não tem o que mudar.
+    with pytest.raises(HTTPException):
+        check_block(Block(visual="cards", measures=["hours"], aggregate="mean"))
+
+
 def test_periodo_anterior() -> None:
     assert previous_period(date(2026, 10, 1), date(2026, 10, 31)) == (
         date(2026, 9, 1),

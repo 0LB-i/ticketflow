@@ -154,6 +154,13 @@ def _row_label(page: LoggedPage, dimension: str | None, row: builder.Row, *, sho
     return row.label or page.t("relatorios.semCliente")
 
 
+def measure_label(page: LoggedPage, block: Block, measure: str) -> str:
+    """O nome da medida no bloco: nos tempos até a conclusão, "Mediana…" ou "Média…"."""
+    if block.aggregate == "mean" and measure in ELAPSED:
+        return page.t(f"relatorios.medias.{measure}")
+    return page.t(f"relatorios.medidas.{measure}")
+
+
 def block_title(page: LoggedPage, block: Block, dimension: str | None) -> str:
     """O título digitado ou o automático (ex.: "Horas por pessoa")."""
     if block.title:
@@ -170,7 +177,7 @@ def block_title(page: LoggedPage, block: Block, dimension: str | None) -> str:
     elif block.visual == "stacked":
         title = page.t("relatorios.tituloEmpilhado", dimensao=what)
     else:
-        measure = page.t(f"relatorios.medidas.{block.measures[0]}")
+        measure = measure_label(page, block, block.measures[0])
         title = page.t("relatorios.tituloAuto", medida=measure, dimensao=what)
     if block.top and dimension in CATEGORIES:
         title = page.t("relatorios.osMaiores", titulo=title, n=block.top)
@@ -328,7 +335,7 @@ def block_view(
         for m in block.measures:
             fmt = formatter(page, config, m)
             card: dict[str, Any] = {
-                "label": page.t(f"relatorios.medidas.{m}"),
+                "label": measure_label(page, block, m),
                 "value": fmt(result.total[m]),
             }
             card["href"] = tickets(m)
@@ -398,7 +405,7 @@ def block_view(
             )
     elif block.visual == "table":
         formats = [formatter(page, config, m) for m in block.measures]
-        names = [page.t(f"relatorios.medidas.{m}") for m in block.measures]
+        names = [measure_label(page, block, m) for m in block.measures]
         rows = []
         for i, r in enumerate(result.rows):
             drill = drill_of(r)

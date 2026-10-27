@@ -69,6 +69,8 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "backlog": "Em aberto no fim",
         "lead_time": "Mediana até a conclusão",
         "net_lead_time": "Mediana até a conclusão, líquida",
+        "lead_time_mean": "Média até a conclusão",
+        "net_lead_time_mean": "Média até a conclusão, líquida",
         "reopen_rate": "Reabertura (%)",
         "overtime_rate": "Hora extra (%)",
         "hours_per_ticket": "Horas por chamado",
@@ -118,6 +120,8 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "backlog": "Open at the end",
         "lead_time": "Median time to close",
         "net_lead_time": "Median time to close, net",
+        "lead_time_mean": "Mean time to close",
+        "net_lead_time_mean": "Mean time to close, net",
         "reopen_rate": "Reopened (%)",
         "overtime_rate": "Overtime (%)",
         "hours_per_ticket": "Hours per ticket",
@@ -245,11 +249,12 @@ def render_block(
     head = [t[result.dimension]] if result.dimension else []
     timed = (*DURATIONS, *ELAPSED)  # em horas decimais e em minutos
     for m in measures:
-        names = [t[m]] if previous is None else [t[m], t["before"].format(column=t[m])]
+        name = t[f"{m}_mean"] if result.mean and m in ELAPSED else t[m]
+        names = [name] if previous is None else [name, t["before"].format(column=name)]
         for column in names:
             head += [column, t["minutes"].format(column=column)] if m in timed else [column]
         if previous is not None:
-            head.append(t["change_points" if m in PERCENT else "change"].format(column=t[m]))
+            head.append(t["change_points" if m in PERCENT else "change"].format(column=name))
 
     def decimal(number: float) -> str:
         text = f"{number:.1f}"

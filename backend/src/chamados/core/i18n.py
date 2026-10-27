@@ -184,6 +184,9 @@ EN: dict[str, str] = {
     "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.": (
         "Open is a snapshot of the end of the period: it is not grouped by weekday or hour."
     ),
+    "A média só vale para os tempos até a conclusão.": (
+        "The mean only applies to the times to close."
+    ),
     "Tarefas por dia útil não se agrupa por período, dia da semana nem hora.": (
         "Tasks per working day is not grouped by period, weekday or hour."
     ),

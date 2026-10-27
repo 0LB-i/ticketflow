@@ -482,6 +482,10 @@
       "completion_rate": "Completion rate",
       "tasks_per_workday": "Tasks per working day"
     },
+    "medias": {
+      "lead_time": "Mean time to close",
+      "net_lead_time": "Mean time to close (net)"
+    },
     "acimaDe100": "Above 100%: more tickets closed than opened.",
     "dimensoes": {
       "person": "person",
@@ -560,7 +564,12 @@
       "atendeu": "Show who handled it (the assignees)",
       "clienteAjuda": "The client report has a fixed format: the period's totals and tickets, without overtime, teams or task text. The blocks are kept for when the template is internal again.",
       "previa": "Preview, {de} to {ate}:",
-      "previaSemPeriodo": "Preview:"
+      "previaSemPeriodo": "Preview:",
+      "agregacao": "Times to close",
+      "agregacoes": {
+        "median": "Median",
+        "mean": "Mean"
+      }
     },
     "idades": {
       "0": "up to 1 day",

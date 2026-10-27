@@ -482,6 +482,10 @@
       "completion_rate": "Taxa de conclusão",
       "tasks_per_workday": "Tarefas por dia útil"
     },
+    "medias": {
+      "lead_time": "Média até a conclusão",
+      "net_lead_time": "Média até a conclusão (líquida)"
+    },
     "acimaDe100": "Acima de 100%: concluiu mais do que registrou.",
     "dimensoes": {
       "person": "pessoa",
@@ -560,7 +564,12 @@
       "atendeu": "Mostrar quem atendeu (os responsáveis)",
       "clienteAjuda": "O relatório para o cliente tem um formato fixo: os totais e os chamados do período, sem horas extras, grupos nem o texto das tarefas. Os blocos ficam guardados, para quando o modelo voltar a ser interno.",
       "previa": "Prévia, de {de} a {ate}:",
-      "previaSemPeriodo": "Prévia:"
+      "previaSemPeriodo": "Prévia:",
+      "agregacao": "Tempos até a conclusão",
+      "agregacoes": {
+        "median": "Mediana",
+        "mean": "Média"
+      }
     },
     "idades": {
       "0": "até 1 dia",

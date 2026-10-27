@@ -173,6 +173,9 @@ class Block(BaseModel):
     top: int | None = Field(default=None, ge=1, le=100)  # só os N maiores; o resto em "Outros"
     order: Order = "desc"
     only_overtime: bool = False  # lista de tarefas: só as que têm tempo fora do expediente
+    # Os tempos até a conclusão pela mediana (§14.1) ou, escolhida no bloco, pela média, com o
+    # nome dizendo qual é.
+    aggregate: Literal["median", "mean"] = "median"
 
 
 class PeriodSpec(BaseModel):
@@ -340,6 +343,8 @@ def check_block(block: Block) -> None:
             422,
             "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.",
         )
+    if block.aggregate == "mean" and not set(block.measures) & set(ELAPSED):
+        raise HTTPException(422, "A média só vale para os tempos até a conclusão.")
     if block.dimension in (*TIMES, *CYCLES) and "tasks_per_workday" in block.measures:
         raise HTTPException(
             422, "Tarefas por dia útil não se agrupa por período, dia da semana nem hora."
@@ -473,6 +478,7 @@ class Result:
     rows: list[Row] = field(default_factory=list)
     total: dict[Measure, Value] = field(default_factory=dict)
     is_list: bool = False  # a lista de tarefas (`tasks`), sem agrupar
+    mean: bool = False  # os tempos até a conclusão pela média (`Block.aggregate`)
     tasks: list[TaskFact] = field(default_factory=list)
 
 
@@ -567,10 +573,10 @@ def _contributions(data: Facts, measure: Measure) -> list[tuple[TicketFact, int]
     return [(t, 10000 if t.reopened else 0) for t in data.closed]
 
 
-def _total(data: Facts, measure: Measure) -> Value:
+def _total(data: Facts, measure: Measure, *, mean: bool = False) -> Value:
     if measure in SUMS:
         return _sums(data, SUMS[measure], None).total
-    return _reduce(measure, [amount for _, amount in _contributions(data, measure)])
+    return _reduce(measure, [amount for _, amount in _contributions(data, measure)], mean=mean)
 
 
 def _amounts(data: Facts, measure: Measure, dimension: Dimension) -> Iterator[tuple[Key, int]]:
@@ -598,9 +604,11 @@ def _amounts(data: Facts, measure: Measure, dimension: Dimension) -> Iterator[tu
             yield bucket(key), amount
 
 
-def _reduce(measure: Measure, amounts: list[int]) -> Value:
+def _reduce(measure: Measure, amounts: list[int], *, mean: bool = False) -> Value:
     if measure in ELAPSED:
-        return round(statistics.median(amounts)) if amounts else None
+        if not amounts:
+            return None
+        return round(statistics.fmean(amounts) if mean else statistics.median(amounts))
     if measure in PERCENT:
         return round(statistics.fmean(amounts)) if amounts else None
     return sum(amounts)
@@ -694,6 +702,7 @@ def run(
         return Result(dimension=None, is_list=True, tasks=tasks)
     dim = dimension or block.dimension
     measures = block.measures
+    mean = block.aggregate == "mean"
     plain = [m for m in measures if m not in DERIVED]
     parts = sorted({c for m in measures if m in DERIVED for c in DERIVED[m] if c})
     days = workdays(start, end, data.work_hours) if "tasks_per_workday" in measures else 0
@@ -706,10 +715,11 @@ def run(
         }
 
     total = values(
-        {m: _total(data, m) for m in plain}, {c: _sums(data, c, None).total for c in parts}
+        {m: _total(data, m, mean=mean) for m in plain},
+        {c: _sums(data, c, None).total for c in parts},
     )
     if dim is None:
-        return Result(dimension=None, total=total)
+        return Result(dimension=None, total=total, mean=mean)
 
     # As parcelas de cada chave: as das medidas e as das partes das derivadas (os nomes que
     # coincidem, como "hours", são a mesma soma).
@@ -744,11 +754,11 @@ def run(
         part_sums: dict[Summed, int | None] = {
             c: None if others and c == "worked" else sum(lists[c]) for c in parts
         }
-        return values({m: _reduce(m, lists[m]) for m in plain}, part_sums)
+        return values({m: _reduce(m, lists[m], mean=mean) for m in plain}, part_sums)
 
     rows = [Row(key, _label(data, dim, key), reduced(lists)) for key, lists in amounts.items()]
     if dim in (*TIMES, *CYCLES) or dim == "age":
-        return Result(dimension=dim, rows=rows, total=total)
+        return Result(dimension=dim, rows=rows, total=total, mean=mean)
 
     def by_name(r: Row) -> tuple[bool, str, int]:
         # O id desempata dois nomes iguais (as somas vêm do banco sem uma ordem própria).
@@ -766,4 +776,4 @@ def run(
             slot: [a for k in rest for a in amounts[k][slot]] for slot in slots
         }
         rows = [*rows[: block.top], Row(OTHERS, None, reduced(others, others=True))]
-    return Result(dimension=dim, rows=rows, total=total)
+    return Result(dimension=dim, rows=rows, total=total, mean=mean)

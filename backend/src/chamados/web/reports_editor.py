@@ -110,6 +110,10 @@ def _read_block(form: FormData, i: int) -> Block:
         top=min(int(top), 100) if top.isdigit() and int(top) > 0 else None,
         order=order if order in ("desc", "asc", "name") else "desc",
         only_overtime=one("extras") == "1",
+        # A média só nos tempos até a conclusão: sem eles, volta à mediana.
+        aggregate="mean"
+        if one("agregacao") == "mean" and set(measures) & set(builder.ELAPSED)
+        else "median",
     )
 
 
@@ -223,6 +227,10 @@ def _editor_page(
             for b in editor.blocks
         ],
         order_options=[(o, page.t(f"relatorios.ordens.{o}")) for o in ("desc", "asc", "name")],
+        elapsed=builder.ELAPSED,
+        aggregate_options=[
+            (a, page.t(f"relatorios.editor.agregacoes.{a}")) for a in ("median", "mean")
+        ],
         placeholders=[
             block_title(page, b, b.dimension) or page.t("relatorios.editor.semTitulo")
             for b in editor.blocks
