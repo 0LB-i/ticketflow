@@ -282,7 +282,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         teams, people, clients = parse_uuids(grupo), parse_uuids(pessoa), parse_uuids(cliente)
         client_names = await service.client_labels(db, clients)
         no_client = NO_CLIENT in (cliente or [])
-        statuses = [int(v) for v in status or [] if v.isascii() and v.isdigit()]
+        statuses = [int(v) for v in status or [] if v.isascii() and v.isdigit() and len(v) <= 5]
 
     # Um período relativo, um mês da lista ou o personalizado; sem período (ou um desconhecido),
     # o mês atual. Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em

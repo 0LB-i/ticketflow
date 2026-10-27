@@ -98,16 +98,6 @@ class Point:
 COMPARED = ("cards", "table", "columns", "line")
 
 
-def compared(config: ReportConfig) -> list[Block]:
-    """Os blocos que precisam dos dados do período comparado (e só as partes deles vêm)."""
-    return [b for b in config.blocks if b.visual in COMPARED]
-
-
-def compares(config: ReportConfig) -> bool:
-    """Se algum bloco precisa dos dados do período comparado."""
-    return bool(compared(config))
-
-
 # Os campos do filtro → chave do catálogo (relatorios.*): o subtítulo e os avisos de um bloco.
 FILTER_LABELS: dict[builder.FilterField, str] = {
     "teams": "grupo",

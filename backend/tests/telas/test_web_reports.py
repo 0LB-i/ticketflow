@@ -2005,6 +2005,16 @@ def test_filtro_do_bloco_no_editor(client: TestClient, cenario: dict[str, Any]) 
     salvar = {**dados, "acao": "salvar", "b0-grupo": cenario["infra"]}
     r = client.post("/relatorios/modelos", data=salvar)
     assert r.status_code == 422 and "Você não tem permissão para esta ação." in r.text
+    # Números enormes ou que não são ASCII não derrubam a tela (o int() tem limite de dígitos).
+    enorme = "9" * 5000
+    r = client.post(
+        "/relatorios/modelos",
+        data={**dados, "b0-status": enorme, "acao": f"medida-subir-0-{enorme}"},
+    )
+    assert r.status_code == 200
+    r = client.post("/relatorios/modelos", data={**dados, "blocos": "²"})
+    assert r.status_code == 200
+    assert client.get("/relatorios/blocos", params={"status": enorme}).status_code == 200
 
 
 def test_largura_e_altura_do_bloco(

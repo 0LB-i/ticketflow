@@ -138,7 +138,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
                 i,
                 scope,
                 page_number=int(n)
-                if (n := numbers.get(f"pagina{i}", "")).isascii() and n.isdigit()
+                if (n := numbers.get(f"pagina{i}", "")).isascii() and n.isdigit() and len(n) <= 6
                 else 1,
             )
             for i, (block, scope) in enumerate(

@@ -51,7 +51,8 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
     for v in views:
         visual = v["visual"]
         # O período e o filtro próprios do bloco, quando ele tem, debaixo do título.
-        subtitle = v["period"] if v["own"] else ""
+        # O aviso do filtro do bloco que deixou de valer vai junto.
+        subtitle = " · ".join(p for p in (v["period"], v["warning"]) if p) if v["own"] else ""
         if "message" in v:  # o filtro do bloco não combina com o da tela
             blocks.append(model_pdf.Grid(v["title"], [], [], empty=v["message"], subtitle=subtitle))
         elif visual == "cards":

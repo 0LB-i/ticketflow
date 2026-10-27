@@ -151,11 +151,21 @@ def _read_block(form: FormData, i: int) -> Block:
         people=parse_uuids(many("pessoa")),
         clients=parse_uuids(many("cliente")),
         no_client=NO_CLIENT in many("cliente"),
-        statuses=list(dict.fromkeys(int(v) for v in many("status") if v.isascii() and v.isdigit())),
+        statuses=list(
+            dict.fromkeys(
+                int(v) for v in many("status") if v.isascii() and v.isdigit() and len(v) <= 5
+            )
+        ),
     )
     # Só os maiores, nos agrupamentos por cadastro (os períodos, os ciclos e a idade são fixos).
     cut = None
-    if visual in TOPPED and dimension in CATEGORIES and top.isascii() and top.isdigit():
+    if (
+        visual in TOPPED
+        and dimension in CATEGORIES
+        and top.isascii()
+        and top.isdigit()
+        and len(top) <= 3
+    ):
         cut = min(int(top), 100) or None
     columns = None
     if visual == "tasks":
@@ -199,7 +209,8 @@ def _read_block(form: FormData, i: int) -> Block:
 
 def _read_editor(form: FormData) -> tuple[EditorForm, str]:
     count = form.get("blocos")
-    total = min(int(count), 12) if isinstance(count, str) and count.isdigit() else 0
+    valid = isinstance(count, str) and count.isascii() and count.isdigit() and len(count) <= 2
+    total = min(int(count), 12) if valid else 0  # type: ignore[arg-type]
     hours = form.get("horas")
     editor = EditorForm(
         name=str(form.get("nome", "")),
@@ -223,7 +234,7 @@ def _apply(editor: EditorForm, action: str) -> None:
     if (
         len(parts) == 4
         and parts[0] == "medida"
-        and all(p.isascii() and p.isdigit() for p in parts[2:])
+        and all(p.isascii() and p.isdigit() and len(p) <= 2 for p in parts[2:])
     ):
         i, j = int(parts[2]), int(parts[3])
         if i < len(blocks):
@@ -234,7 +245,9 @@ def _apply(editor: EditorForm, action: str) -> None:
                 blocks[i] = blocks[i].model_copy(update={"measures": measures})
         return
     verb, _, number = action.partition("-")
-    if not (number.isascii() and number.isdigit()) or int(number) >= len(blocks):
+    if not (number.isascii() and number.isdigit() and len(number) <= 2) or int(number) >= len(
+        blocks
+    ):
         return
     i = int(number)
     if verb == "remover":
