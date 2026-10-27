@@ -61,7 +61,7 @@ from chamados.modules.reports.service import (
     distinct_tickets,
     net_minutes,
 )
-from chamados.modules.system.work_hours import DEFAULT
+from chamados.modules.system.work_hours import Calendar
 
 ANA, BIA = 1, 2
 PADARIA, MERCADO, FARMACIA = 10, 11, 12
@@ -133,7 +133,7 @@ def _dados(
         somas[parte] = add_up(((t, 1) for t in linhas), GROUPS)  # type: ignore[index]
     return Facts(
         parts=frozenset(get_args(Part)),
-        work_hours=DEFAULT,
+        calendar=Calendar(installation=[]),
         tasks=tarefas,
         overtime_tasks=tarefas,
         opened=chamados["opened"],
@@ -593,7 +593,7 @@ def test_medidas_derivadas() -> None:
     cartoes = run(dados, Block(visual="cards", measures=medidas), INICIO, FIM)
     # 90 de 240 min fora; 240 min em 2 chamados; 3 concluídos de 2 registrados (passa de 100%);
     # 4 tarefas em 14 dias úteis (1º a 20 de outubro de 2026, segunda a sexta).
-    assert workdays(INICIO, FIM, DEFAULT) == 14
+    assert workdays(INICIO, FIM, Calendar(installation=[])) == 14
     assert cartoes.total == {
         "overtime_rate": 3750,
         "hours_per_ticket": 120,
@@ -680,7 +680,7 @@ def test_medidas_derivadas() -> None:
         hoje - timedelta(days=13),
         hoje + timedelta(days=20),
     )
-    uteis = workdays(hoje - timedelta(days=13), hoje, DEFAULT)
+    uteis = workdays(hoje - timedelta(days=13), hoje, Calendar(installation=[]))
     assert futuro.total["tasks_per_workday"] == round(100 / uteis)
     assert needs([Block(visual="cards", measures=["completion_rate"])]).sums == {
         "closed": {"day"},

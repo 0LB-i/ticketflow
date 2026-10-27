@@ -6,22 +6,26 @@ Cenário (a fixture `cenario`): Ana (membro) e Bia (supervisora) no TI, Caio na 
 import csv
 import io
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
+from chamados.config import Settings
 from chamados.modules.audit.models import AuditLog
+from chamados.modules.identity.models import User
+from chamados.modules.organization.models import TeamMember
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.service import TZ, outside_minutes
 from chamados.modules.system.models import WorkSchedule
-from chamados.modules.system.work_hours import DEFAULT, WorkHours
+from chamados.modules.system.work_hours import Calendar, load_calendar
 from chamados.modules.tickets.models import Ticket
-from tests.apoio import API, base, dia_util_passado, em, registrar, tarefa
-from tests.conftest import consultas, criar_cliente, criar_usuario, entrar
+from tests.apoio import API, base, dia_util_passado, em, registrar, rodar, tarefa
+from tests.conftest import consultas, criar_cliente, criar_usuario, entrar, grupo
 
 REPORTS = "/api/v1/reports"
 SEGUNDA = date(2026, 10, 5)
@@ -39,11 +43,11 @@ SEGUNDA = date(2026, 10, 5)
     ],
 )
 def test_minutos_fora_do_expediente(fim: datetime, minutos: int, fora: int) -> None:
-    assert outside_minutes(fim, minutos, DEFAULT) == fora
+    assert outside_minutes(fim, minutos, Calendar(installation=[])) == fora
 
 
 def test_feriado_e_todo_fora() -> None:
-    feriado = WorkHours(**{**DEFAULT.model_dump(), "holidays": [SEGUNDA]})
+    feriado = Calendar(installation=[], holidays=frozenset({SEGUNDA}))
     assert outside_minutes(em(SEGUNDA, 10), 60, feriado) == 60
 
 
@@ -374,6 +378,79 @@ def test_expediente(client: TestClient, cenario: dict[str, Any], db: Session) ->
     t = registrar(client, cenario, assignee="me")["number"]
     tarefa(client, t, 90, em(dia, 19))
     assert relatorio(client, dia)["totals"]["overtime_minutes"] == 90
+
+
+def test_hora_extra_pelo_expediente_do_grupo_e_proprio(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    """O TI tem expediente (10:00–19:00, seg–sáb): vale para a Ana. A Bia tem um próprio
+    (06:00–12:00) e, a partir de terça, outro (00:00–08:00). O total vem do pré-filtro (só as
+    tarefas que podem ter hora extra vão ao Python) e tem de bater com o de todas as tarefas
+    calculadas em Python (o CSV): o pré-filtro só pode deixar passar a mais."""
+    dia = dia_util_passado()
+    terca = dia + timedelta(days=1)
+    bia = db.scalar(select(User).where(User.email == "bia@x.com"))
+    assert bia is not None
+    todos = [0, 1, 2, 3, 4, 5, 6]
+    db.add_all(
+        [
+            WorkSchedule(
+                team_id=grupo(db, "TI").id, weekdays=todos[:6], start=time(10), end=time(19)
+            ),
+            WorkSchedule(
+                user_id=bia.id, valid_from=dia, weekdays=todos, start=time(6), end=time(12)
+            ),
+            WorkSchedule(
+                user_id=bia.id, valid_from=terca, weekdays=todos, start=time(0), end=time(8)
+            ),
+        ]
+    )
+    db.commit()
+    t = registrar(client, cenario, assignee="me")["number"]
+    tarefa(client, t, 60, em(dia, 18, 30))  # Ana, dentro do TI (na instalação, 30 fora)
+    tarefa(client, t, 60, em(dia, 10, 30))  # Ana, 09:30–10:30: 30 fora (na instalação, 0)
+    entrar(client, "bia@x.com")
+    tarefa(client, t, 60, em(dia, 7))  # Bia, dentro do próprio
+    tarefa(client, t, 120, em(dia, 13))  # Bia, 11:00–13:00: 60 fora (na instalação, 0)
+    tarefa(client, t, 180, em(terca, 1))  # Bia, 22:00–01:00: na terça, 00:00–01:00 dentro
+    criar_usuario(db, "admin@x.com", "admin", nome="Admin")
+    entrar(client, "admin@x.com")
+
+    periodo = {"start": dia.isoformat(), "end": terca.isoformat()}
+    dados = client.get(REPORTS, params=periodo).json()
+    assert dados["totals"]["overtime_minutes"] == 210
+    assert {p["name"]: p["overtime_minutes"] for p in dados["people"]} == {"Ana": 30, "Bia": 180}
+    assert sorted(r["overtime_minutes"] for r in dados["overtime_tasks"]) == [30, 60, 120]
+    r = client.get(f"{REPORTS}/csv", params={**periodo, "table": "tasks", "locale": "en"})
+    linhas = list(csv.DictReader(io.StringIO(r.content.decode("utf-8-sig"))))
+    assert sum(int(x["Outside working hours (min)"]) for x in linhas) == 210
+
+
+def test_grupo_desativado_e_dois_grupos(
+    client: TestClient, cenario: dict[str, Any], db: Session, settings: Settings
+) -> None:
+    """Só os grupos ativos contam; quem está em dois com expediente segue o da instalação."""
+    ti, infra = grupo(db, "TI"), grupo(db, "Infra")
+    for team in (ti, infra):
+        db.add(WorkSchedule(team_id=team.id, weekdays=[0], start=time(9), end=time(10)))
+    ana = db.scalar(select(User).where(User.email == "ana@x.com"))
+    assert ana is not None
+    db.add(TeamMember(team_id=infra.id, user_id=ana.id))
+    db.commit()
+
+    async def ler(sessions: async_sessionmaker[AsyncSession]) -> Calendar:
+        async with sessions() as session:
+            return await load_calendar(session)
+
+    segunda = dia_util_passado()
+    cal = rodar(settings, ler)
+    assert cal.source(ana.id, segunda).conflict == tuple(sorted((ti.id, infra.id)))
+    assert cal.source(ana.id, segunda).kind == "installation"
+    infra.is_active = False
+    db.commit()
+    cal = rodar(settings, ler)
+    assert cal.source(ana.id, segunda).kind == "team"
+    assert cal.source(ana.id, segunda).team_id == ti.id
 
 
 def test_expediente_vigencias(client: TestClient, db: Session) -> None:

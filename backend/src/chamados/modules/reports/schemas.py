@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from chamados.modules.system.work_hours import WorkHours
+from chamados.modules.system.work_hours import Schedule, WorkHours
 
 
 class Ref(BaseModel):
@@ -64,6 +64,8 @@ class TaskRow(BaseModel):
     done_at: datetime
     minutes: int
     overtime_minutes: int
+    # O expediente de quem fez a tarefa, no dia em que ela terminou: só para o CSV (fora da API).
+    schedule: Schedule | None = Field(default=None, exclude=True)
 
 
 class Report(BaseModel):

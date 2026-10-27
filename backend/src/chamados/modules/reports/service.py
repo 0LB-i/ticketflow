@@ -10,8 +10,7 @@ import uuid
 from collections import Counter, defaultdict
 from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, time, timedelta
-from functools import lru_cache
+from datetime import date, datetime, time, timedelta
 from typing import Any, Literal, NamedTuple
 
 from fastapi import HTTPException
@@ -23,6 +22,7 @@ from sqlalchemy import (
     and_,
     any_,
     bindparam,
+    case,
     cast,
     distinct,
     func,
@@ -56,7 +56,7 @@ from chamados.modules.reports.schemas import (
     TaskRow,
     Totals,
 )
-from chamados.modules.system.work_hours import WorkHours, get_work_hours
+from chamados.modules.system.work_hours import Calendar, WorkHours, load_calendar
 from chamados.modules.tickets.models import (
     Ticket,
     TicketCoAssignee,
@@ -87,42 +87,38 @@ class Filters:
     statuses: list[TicketStatus] = field(default_factory=list)  # o status atual do chamado
 
 
-def outside_minutes(end: datetime, minutes: int, wh: WorkHours) -> int:
-    """Minutos da tarefa fora do expediente. A tarefa vai de `end - minutes` até `end` (done_at
-    é quando ela terminou), no horário da máquina."""
+def outside_minutes(end: datetime, minutes: int, cal: Calendar, user_id: int | None = None) -> int:
+    """Minutos da tarefa fora do expediente de quem a fez (`user_id`; sem ele, o da instalação).
+    A tarefa vai de `end - minutes` até `end` (done_at é quando ela terminou), no horário da
+    máquina; cada dia que ela atravessa usa a janela daquele dia (o expediente pode mudar de um
+    dia para o outro)."""
     begin = end - timedelta(minutes=minutes)
     inside = timedelta()
     day = begin.astimezone(TZ).date()
-    while day <= end.astimezone(TZ).date():
-        if day.weekday() in wh.weekdays and day not in wh.holidays:
-            w_start, w_end = _work_window(day, wh.start, wh.end)
-            overlap = min(end, w_end) - max(begin, w_start)
+    last = end.astimezone(TZ).date()
+    while day <= last:
+        window = cal.window(user_id, day)
+        if window is not None:
+            overlap = min(end, window[1]) - max(begin, window[0])
             if overlap > timedelta():
                 inside += overlap
         day += timedelta(days=1)
     return minutes - round(inside.total_seconds() / 60)
 
 
-@lru_cache(maxsize=1024)
-def _work_window(day: date, start: time, end: time) -> tuple[datetime, datetime]:
-    """O expediente do dia em UTC (somar e subtrair datas no mesmo fuso do zoneinfo ignora a
-    troca de horário). Em cache: num relatório de um ano, cada dia volta milhares de vezes."""
-    w_start = datetime.combine(day, start, TZ).astimezone(UTC)
-    return w_start, datetime.combine(day, end, TZ).astimezone(UTC)
-
-
 @dataclass
 class Lookups:
-    """O que não muda numa requisição e mais de uma parte dela lê: o expediente e os status (na
-    tela, as opções do filtro e cada `facts`, duas vezes com o "Comparar")."""
+    """O que não muda numa requisição e mais de uma parte dela lê: o expediente (as vigências e
+    os feriados) e os status (na tela, as opções do filtro e cada `facts`, duas vezes com o
+    "Comparar")."""
 
-    work_hours: WorkHours
+    calendar: Calendar
     statuses: list[TicketStatus]  # na ordem da tela
 
 
 async def lookups(db: AsyncSession) -> Lookups:
     return Lookups(
-        work_hours=await get_work_hours(db),
+        calendar=await load_calendar(db),
         statuses=list(await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order))),
     )
 
@@ -460,10 +456,11 @@ class Facts:
     """Os dados de um período, já com o escopo e os filtros, e os nomes do que aparece neles.
     `parts`: as linhas que vieram; as listas das outras ficam vazias (e o `net_lead`, None).
     `overtime_tasks`: as tarefas que podem ter hora extra (as que não cabem inteiras numa janela
-    do expediente; todas, quando vieram todas); as outras têm zero. `sums`: as medidas pedidas."""
+    do expediente; todas, quando vieram todas); as outras têm zero. `sums`: as medidas pedidas.
+    `calendar`: o expediente de cada pessoa em cada dia (a hora extra e os dias úteis)."""
 
     parts: frozenset[Part]
-    work_hours: WorkHours
+    calendar: Calendar
     tasks: list[TaskFact]
     overtime_tasks: list[TaskFact]
     opened: list[TicketFact]
@@ -589,29 +586,48 @@ def _task_group(group: Group) -> Any:
     return _local_day(TicketComment.done_at)
 
 
-def _may_have_overtime(f: Filters, wh: WorkHours) -> ColumnElement[bool]:
+Windows = tuple[tuple[datetime | None, ...], tuple[datetime | None, ...]]
+
+
+def _windows(f: Filters, cal: Calendar, user_id: int | None) -> Windows:
+    """As janelas do expediente de uma pessoa (None: a instalação), uma por dia do período: os
+    inícios e os fins (nulos nos dias de folga e nos feriados)."""
+    found = [
+        cal.window(user_id, f.start + timedelta(days=i)) for i in range((f.end - f.start).days + 1)
+    ]
+    return (
+        tuple(w[0] if w else None for w in found),
+        tuple(w[1] if w else None for w in found),
+    )
+
+
+def _may_have_overtime(f: Filters, cal: Calendar) -> ColumnElement[bool]:
     """As tarefas que podem ter hora extra: com tempo e que não cabem inteiras na janela do
-    expediente do dia em que terminam (as outras têm zero). As janelas são as do mesmo
-    `_work_window` do `outside_minutes`, uma por dia do período (nenhuma nos dias de folga e nos
-    feriados), e cada tarefa pega a do seu dia pelo índice; a hora extra das que passam continua
-    sendo calculada em Python."""
-    starts: list[datetime | None] = []
-    ends: list[datetime | None] = []
-    day = f.start
-    while day <= f.end:
-        window = (
-            _work_window(day, wh.start, wh.end)
-            if day.weekday() in wh.weekdays and day not in wh.holidays
-            else (None, None)
-        )
-        starts.append(window[0])
-        ends.append(window[1])
-        day += timedelta(days=1)
+    expediente de quem a fez, no dia em que terminam (as outras têm zero). As janelas são as do
+    mesmo `Calendar.window` do `outside_minutes`, uma por dia do período, e cada tarefa pega a do
+    seu dia pelo índice; a hora extra das que passam continua sendo calculada em Python.
+
+    Com o expediente da instalação para todos (o caso comum), um par de vetores só. Quem tem
+    outras janelas no período (o próprio ou o do grupo) ganha o par dele, escolhido pelo autor
+    num CASE; as pessoas com as mesmas janelas dividem o par."""
+    base = _windows(f, cal, None)
+    others: dict[Windows, list[int]] = defaultdict(list)
+    for user_id in {*cal.users, *cal.member_of}:
+        mine = _windows(f, cal, user_id)
+        if mine != base:
+            others[mine].append(user_id)
     windows = ARRAY(DateTime(timezone=True))
     index = _local_day(TicketComment.done_at) - bindparam(None, f.start, type_=Date) + 1
-    # Entre parênteses: o PostgreSQL não aceita o índice logo depois do `::timestamptz[]`.
-    w_start = Grouping(bindparam(None, starts, type_=windows))[index]
-    w_end = Grouping(bindparam(None, ends, type_=windows))[index]
+
+    def at(vector: tuple[datetime | None, ...]) -> Any:
+        # Entre parênteses: o PostgreSQL não aceita o índice logo depois do `::timestamptz[]`.
+        return Grouping(bindparam(None, list(vector), type_=windows))[index]
+
+    w_start, w_end = at(base[0]), at(base[1])
+    if others:
+        by_author = [(_among(TicketComment.author_id, ids), w) for w, ids in others.items()]
+        w_start = case(*((cond, at(w[0])) for cond, w in by_author), else_=w_start)
+        w_end = case(*((cond, at(w[1])) for cond, w in by_author), else_=w_end)
     spent = func.make_interval(0, 0, 0, 0, 0, TicketComment.time_spent_minutes)
     inside = and_(
         w_start.is_not(None),
@@ -622,7 +638,7 @@ def _may_have_overtime(f: Filters, wh: WorkHours) -> ColumnElement[bool]:
 
 
 async def _task_rows(
-    db: AsyncSession, conds: list[ColumnElement[bool]], wh: WorkHours
+    db: AsyncSession, conds: list[ColumnElement[bool]], cal: Calendar
 ) -> list[TaskFact]:
     # Só as colunas usadas: a tarefa inteira traria o texto (até 50 mil caracteres) e o autor de
     # cada linha; os nomes vêm depois, uma vez cada.
@@ -645,7 +661,7 @@ async def _task_rows(
         TaskFact(
             author_id=author_id,
             minutes=spent or 0,
-            overtime=outside_minutes(done_at, spent, wh) if spent else 0,
+            overtime=outside_minutes(done_at, spent, cal, author_id) if spent else 0,
             done_at=done_at,
             ticket_number=number,
             ticket_title=title,
@@ -794,7 +810,7 @@ async def facts(
     """Os dados do período: as linhas e as somas pedidas em `want` (as outras listas ficam
     vazias). `known`: o expediente e os status já lidos na requisição; sem eles, lê."""
     known = known or await lookups(db)
-    wh = known.work_hours
+    cal = known.calendar
     since, until = _bounds(f)
     me = auth.user.id
     people_ids = {p.id for p in f.people}
@@ -834,10 +850,10 @@ async def facts(
     tasks: list[TaskFact] = []
     overtime_tasks: list[TaskFact] = []
     if "tasks" in parts:
-        tasks = overtime_tasks = await _task_rows(db, task_conds, wh)
+        tasks = overtime_tasks = await _task_rows(db, task_conds, cal)
         parts.add("overtime")
     elif "overtime" in parts or "overtime" in want.sums:
-        overtime_tasks = await _task_rows(db, [*task_conds, _may_have_overtime(f, wh)], wh)
+        overtime_tasks = await _task_rows(db, [*task_conds, _may_have_overtime(f, cal)], cal)
         parts.add("overtime")
     task_measures: tuple[Summed, ...] = ("hours", "tasks", "overtime", "worked")
     task_groups: set[Group] = set().union(*(want.sums.get(m, set()) for m in task_measures))
@@ -1065,7 +1081,7 @@ async def facts(
         team_ids |= set(measure.by.get("team", {}))
     return Facts(
         parts=frozenset(parts),
-        work_hours=wh,
+        calendar=cal,
         tasks=tasks,
         overtime_tasks=overtime_tasks,
         opened=ticket_facts["opened"],
@@ -1214,6 +1230,7 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
             done_at=t.done_at,
             minutes=t.minutes,
             overtime_minutes=t.overtime,
+            schedule=data.calendar.schedule(t.author_id, t.day),
         )
 
     overtime_tasks = [row(t) for t in data.overtime_tasks if t.overtime]
@@ -1240,10 +1257,18 @@ async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = F
         )
         for client_id, s in clients.items()
     ]
+    # O expediente da API (contrato de antes, quando havia um só): o da instalação no fim do
+    # período, com os feriados.
+    installation = data.calendar.schedule(None, f.end)
     return Report(
         start=f.start,
         end=f.end,
-        work_hours=data.work_hours,
+        work_hours=WorkHours(
+            weekdays=list(installation.weekdays),
+            start=installation.start,
+            end=installation.end,
+            holidays=sorted(data.calendar.holidays),
+        ),
         totals=Totals(
             minutes=s["hours"].total,
             overtime_minutes=s["overtime"].total,

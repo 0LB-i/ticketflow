@@ -33,7 +33,7 @@ from chamados.modules.reports.service import (
     Want,
     group_keys,
 )
-from chamados.modules.system.work_hours import WorkHours
+from chamados.modules.system.work_hours import Calendar
 
 Visual = Literal[
     "cards", "bars", "columns", "stacked", "line", "combo", "table", "tasks", "heatmap"
@@ -842,12 +842,13 @@ def _label(data: Facts, dimension: Dimension, key: Key) -> str | None:
     return data.statuses[key].name
 
 
-def workdays(start: date, end: date, wh: WorkHours) -> int:
-    """Os dias do expediente no período: os dias de trabalho que não são feriado."""
+def workdays(start: date, end: date, cal: Calendar, user_id: int | None = None) -> int:
+    """Os dias do expediente no período: os dias de trabalho que não são feriado, no expediente
+    da pessoa (None: o da instalação)."""
     count = 0
     day = start
     while day <= end:
-        count += day.weekday() in wh.weekdays and day not in wh.holidays
+        count += cal.window(user_id, day) is not None
         day += timedelta(days=1)
     return count
 
@@ -907,14 +908,20 @@ def run(
     # Os dias úteis até hoje: o mês, a semana e o trimestre em curso vão até o último dia, e os
     # dias que ainda não chegaram não têm tarefa.
     last = min(end, datetime.now(TZ).date())
-    days = workdays(start, last, data.work_hours) if "tasks_per_workday" in measures else 0
+    per_workday = "tasks_per_workday" in measures
+    days = workdays(start, last, data.calendar) if per_workday else 0
 
     def values(
-        plain_values: dict[Measure, Value], part_sums: dict[Summed, int | None]
+        plain_values: dict[Measure, Value],
+        part_sums: dict[Summed, int | None],
+        key: Key = None,
     ) -> dict[Measure, Value]:
-        return {
-            m: _derive(m, part_sums, days) if m in DERIVED else plain_values[m] for m in measures
-        }
+        # Por pessoa, os dias úteis do expediente dela; no total, em "Outros" e nos outros
+        # agrupamentos, os da instalação.
+        n = days
+        if per_workday and dim == "person" and isinstance(key, int):
+            n = workdays(start, last, data.calendar, key)
+        return {m: _derive(m, part_sums, n) if m in DERIVED else plain_values[m] for m in measures}
 
     total = values(
         {m: _total(data, m, mean=mean) for m in plain},
@@ -950,15 +957,17 @@ def run(
             for key, amount in _summed_amounts(data, c, dim):
                 amounts[key][c].append(amount)
 
-    def reduced(lists: dict[str, list[int]], *, others: bool = False) -> dict[Measure, Value]:
+    def reduced(
+        lists: dict[str, list[int]], key: Key = None, *, others: bool = False
+    ) -> dict[Measure, Value]:
         # Em "Outros", os chamados distintos de cada linha não somam (um chamado pode estar em
         # duas): as horas por chamado ficam sem valor.
         part_sums: dict[Summed, int | None] = {
             c: None if others and c == "worked" else sum(lists[c]) for c in parts
         }
-        return values({m: _reduce(m, lists[m], mean=mean) for m in plain}, part_sums)
+        return values({m: _reduce(m, lists[m], mean=mean) for m in plain}, part_sums, key)
 
-    rows = [Row(key, _label(data, dim, key), reduced(lists)) for key, lists in amounts.items()]
+    rows = [Row(key, _label(data, dim, key), reduced(lists, key)) for key, lists in amounts.items()]
     if dim in (*TIMES, *CYCLES) or dim == "age":
         return Result(dimension=dim, rows=rows, total=total, mean=mean)
 

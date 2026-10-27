@@ -805,7 +805,7 @@ def uses_overtime(blocks: Sequence[Block]) -> bool:
 
 def work_hours_line(page: LoggedPage, state: State) -> str:
     """O expediente usado na hora extra (a tela e o cabeçalho do PDF, quando algum bloco a usa)."""
-    wh = state.lookups.work_hours
+    wh = state.lookups.calendar.schedule(None, datetime.now(service.TZ).date())
     return page.t(
         "relatorios.expedienteUsado",
         dias=", ".join(page.t(f"expediente.diasCurtos.{WEEKDAYS[d]}") for d in wh.weekdays),
