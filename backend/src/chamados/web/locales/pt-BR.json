@@ -487,6 +487,7 @@
     "medidas": {
       "hours": "Horas",
       "overtime": "Horas extras",
+      "regular": "Horas no expediente",
       "tasks": "Tarefas",
       "opened": "Chamados registrados",
       "closed": "Chamados concluídos",
@@ -673,6 +674,13 @@
     "noExpediente": "No expediente",
     "tituloEmpilhado": "Horas por {dimensao}: no expediente e extras",
     "tituloCombo": "{primeira} e {segunda} por {dimensao}",
+    "extras": {
+      "campo": "Hora extra",
+      "opcoes": {
+        "juntas": "Sem separação",
+        "separada": "Separada"
+      }
+    },
     "comparacao": {
       "campo": "Comparar com",
       "opcoes": {

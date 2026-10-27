@@ -800,7 +800,7 @@ CLIENT_COLUMN_KEYS = {
 
 
 def uses_overtime(blocks: Sequence[Block]) -> bool:
-    return any("overtime" in b.measures or b.only_overtime for b in blocks)
+    return any({"overtime", "regular"} & set(b.measures) or b.only_overtime for b in blocks)
 
 
 async def work_hours_line(page: LoggedPage, db: DB, state: State, f: service.Filters) -> str:

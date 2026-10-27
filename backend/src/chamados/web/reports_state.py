@@ -46,6 +46,7 @@ NO_CLIENT = "sem-cliente"
 # comparava com o período anterior.
 COMPARE: dict[str, Compare] = {"anterior": "previous", "ano": "year", "1": "previous"}
 COMPARE_SLUGS: dict[Compare, str] = {"previous": "anterior", "year": "ano"}
+SEPARATE = "separada"  # Params.extras: a hora extra à parte, na aba Clientes
 
 
 # Período relativo (slug) → chave do catálogo (relatorios.periodos.*).
@@ -90,6 +91,9 @@ class Params:
     cliente: Values = None
     status: Values = None
     comparar: str | None = None
+    # Na aba Clientes, "separada": as horas no expediente e as extras à parte (sem, todo o tempo
+    # é de trabalho normal). Não é filtro: não conta para "sem nenhum filtro na URL".
+    extras: str | None = None
     # O período de onde o detalhar saiu (a trilha da tela): um relativo, um mês da lista ou
     # "de_ate". Não é filtro: não conta para "sem nenhum filtro na URL".
     origem: str | None = None
@@ -106,7 +110,18 @@ class Params:
 ParamsDep = Annotated[Params, Depends()]
 
 
-FILTER_FIELDS = ("periodo", "de", "ate", "dias", "grupo", "pessoa", "cliente", "status", "comparar")
+FILTER_FIELDS = (
+    "periodo",
+    "de",
+    "ate",
+    "dias",
+    "grupo",
+    "pessoa",
+    "cliente",
+    "status",
+    "comparar",
+    "extras",
+)
 
 
 @dataclass
@@ -190,6 +205,7 @@ class State:
     statuses: list[int]
     client_names: dict[uuid.UUID, str] = field(default_factory=dict)  # os escolhidos
     compare: Compare = "none"
+    separate: bool = False  # Params.extras, só na aba Clientes
     origin: str | None = None  # Params.origem, só no personalizado
     filters: service.Filters | None = None
     error: str | None = None
@@ -269,9 +285,12 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     comparar = params.comparar
     lookups = await service.lookups(db)
     options = await service.choices(db, auth, lookups.statuses)
-    # A aba Clientes abre com os chamados concluídos: é o filtro salvo dela.
+    # A aba Clientes abre com os chamados concluídos (é o filtro salvo dela) e, escolhida, com
+    # a hora extra separada.
+    separate = False
     if choice.model is None and choice.slug == "clientes" and choice.config is not None:
-        choice.config = choice.config.model_copy(
+        separate = params.extras == SEPARATE
+        choice.config = (builder.CLIENTS_OVERTIME if separate else choice.config).model_copy(
             update={"filters": FilterSpec(statuses=closed_statuses(lookups))}
         )
 
@@ -358,6 +377,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         statuses=statuses,
         client_names=client_names,
         compare=compare,
+        separate=separate,
         origin=origin,
         warning=warning,
     )
@@ -388,6 +408,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         "cliente": ([NO_CLIENT] if no_client else []) + [str(c) for c in clients],
         "status": [str(s) for s in statuses],
         "comparar": COMPARE_SLUGS.get(compare),
+        "extras": SEPARATE if separate else None,
         "origem": origin,
     }
     return state
@@ -492,4 +513,5 @@ def form_params(form: FormData) -> Params:
         cliente=many("cliente"),
         status=many("status"),
         comparar=one("comparar"),
+        extras=one("extras"),
     )

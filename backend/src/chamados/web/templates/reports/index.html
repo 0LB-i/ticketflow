@@ -187,6 +187,10 @@
     {#- Os cartões mostram a variação sobre o período comparado: o anterior ou o mesmo do ano
         anterior. #}
     {{ select_field("comparar", t("relatorios.comparacao.campo"), [("", t("relatorios.comparacao.opcoes.none")), ("anterior", t("relatorios.comparacao.opcoes.previous")), ("ano", t("relatorios.comparacao.opcoes.year"))], query_compare) }}
+    {#- Na aba Clientes: as horas no expediente e as extras à parte, ou todo o tempo junto. #}
+    {%- if query_extras is not none %}
+    {{ select_field("extras", t("relatorios.extras.campo"), [("", t("relatorios.extras.opcoes.juntas")), ("separada", t("relatorios.extras.opcoes.separada"))], query_extras) }}
+    {%- endif %}
   </form>
 
   {#- O que está filtrado (cada × tira um valor) e a trilha do detalhar por período. #}

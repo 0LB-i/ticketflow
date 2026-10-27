@@ -243,6 +243,10 @@ def test_numeros_dos_modelos_prontos(
         vistos[f"{aba} · supervisora, comparar"] = _blocos(
             bia, monkeypatch, semana, aba=aba, comparar="1"
         )
+    # A aba Clientes com a hora extra separada: no expediente e extras ao lado das horas.
+    vistos["clientes · separada, comparar"] = _blocos(
+        auditor, monkeypatch, semana, aba="clientes", comparar="1", extras="separada"
+    )
     assert vistos == ESPERADO
 
 
@@ -378,7 +382,6 @@ ESPERADO: dict[str, list[str]] = {
     "clientes · tudo": [
         "cards: ",
         "Horas=8h25",
-        "Horas extras=6h15",
         "Tarefas=9",
         "Chamados registrados=2",
         "Chamados concluídos=2",
@@ -395,7 +398,6 @@ ESPERADO: dict[str, list[str]] = {
     "clientes · tudo, comparar": [
         "cards: ",
         "Horas=8h25 (+181%; antes 3h)",
-        "Horas extras=6h15 (+525%; antes 1h)",
         "Tarefas=9 (+350%; antes 2)",
         "Chamados registrados=2 (−33%; antes 3)",
         "Chamados concluídos=2 (·; antes 0)",
@@ -412,7 +414,6 @@ ESPERADO: dict[str, list[str]] = {
     "clientes · Ana, comparar": [
         "cards: ",
         "Horas=5h30 (+450%; antes 1h)",
-        "Horas extras=4h (+300%; antes 1h)",
         "Tarefas=5 (+400%; antes 1)",
         "Chamados registrados=1 (−50%; antes 2)",
         "Chamados concluídos=2 (·; antes 0)",
@@ -427,7 +428,6 @@ ESPERADO: dict[str, list[str]] = {
     "clientes · supervisora, comparar": [
         "cards: ",
         "Horas=7h10 (+617%; antes 1h)",
-        "Horas extras=5h (+400%; antes 1h)",
         "Tarefas=7 (+600%; antes 1)",
         "Chamados registrados=1 (−50%; antes 2)",
         "Chamados concluídos=2 (·; antes 0)",
@@ -440,6 +440,25 @@ ESPERADO: dict[str, list[str]] = {
         "Cliente Padrão: 1h45 | +75% | 1 | 0% | 1 | ",
         "Sem cliente: 40min |  | 0 |  | 0 | ",
         "Total: 7h10 | +617% | 1 | −50% | 2 | ",
+    ],
+    # No expediente + extras = horas, em cada linha e no total.
+    "clientes · separada, comparar": [
+        "cards: ",
+        "Horas=8h25 (+181%; antes 3h)",
+        "Horas no expediente=2h10 (+8%; antes 2h)",
+        "Horas extras=6h15 (+525%; antes 1h)",
+        "Tarefas=9 (+350%; antes 2)",
+        "Chamados registrados=2 (−33%; antes 3)",
+        "Chamados concluídos=2 (·; antes 0)",
+        "bars: Horas por cliente (os 10 maiores)",
+        "Padaria Pão Quente=315+0",
+        "Cliente Padrão=150+0",
+        "Sem cliente=40+0",
+        "table: Por cliente",
+        "Padaria Pão Quente: 5h15 | +162% | 1h15 | −38% | 4h |  | 0 | −100% | 1 | ",
+        "Cliente Padrão: 2h30 | +150% | 15min |  | 2h15 | +125% | 2 | +100% | 1 | ",
+        "Sem cliente: 40min |  | 40min |  | 0min |  | 0 |  | 0 | ",
+        "Total: 8h25 | +181% | 2h10 | +8% | 6h15 | +525% | 2 | −33% | 2 | ",
     ],
     "horas-extras · tudo": [
         "cards: ",

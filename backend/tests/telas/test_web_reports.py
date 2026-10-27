@@ -859,7 +859,8 @@ def test_aba_clientes(
     client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A aba Clientes abre só com os concluídos; o PDF é o simplificado (os blocos) ou o
-    detalhado (as tarefas de cada cliente, e os blocos como o resumo)."""
+    detalhado (as tarefas de cada cliente, e os blocos como o resumo). A hora extra, por padrão,
+    não aparece; escolhida "separada", vem ao lado do tempo no expediente."""
     dia = dia_util_passado()
     padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     mercado = criar_cliente(db, "Mercado Bom Preço", "11444777000161")
@@ -873,7 +874,7 @@ def test_aba_clientes(
     }
     tarefa(client, numeros["Forno parado"], 90, em(dia, 10))
     tarefa(client, numeros["Forno parado"], 30, em(dia + timedelta(days=1), 10))
-    tarefa(client, numeros["Caixa travado"], 45, em(dia, 11))
+    tarefa(client, numeros["Caixa travado"], 90, em(dia, 19))  # 1h fora do expediente
     tarefa(client, numeros["Ainda aberto"], 60, em(dia, 14))
     for titulo in ("Forno parado", "Caixa travado"):
         r = client.post(
@@ -929,14 +930,50 @@ def test_aba_clientes(
     assert (mercado_.title, padaria_.title) == ("Mercado Bom Preço", "Padaria Pão Quente")
     assert mercado_.columns == ["Quando", "Chamado", "Tempo"]
     um, dois = dia.strftime("%d/%m/%Y"), (dia + timedelta(days=1)).strftime("%d/%m/%Y")
-    assert mercado_.rows == [[um, f"#{numeros['Caixa travado']} Caixa travado", "45min"]]
+    caixa = f"#{numeros['Caixa travado']} Caixa travado"
+    assert mercado_.rows == [[um, caixa, "1h30"]]
     assert padaria_.rows == [
         [um, f"#{numeros['Forno parado']} Forno parado", "1h30"],
         [dois, f"#{numeros['Forno parado']} Forno parado", "30min"],
     ]
     assert (padaria_.total_label, padaria_.total) == ("Total", ["", "2h"])
-    # No fim, os blocos do simplificado, com o título do resumo.
+    # No fim, os blocos do simplificado, com o título do resumo. Sem a hora extra: nem nos
+    # cartões, nem a frase do expediente no cabeçalho.
     assert len(resumo) == len(simples) and resumo[0].title == "Resumo do período"
+    assert isinstance(resumo[0], model_pdf.Cards)
+    assert "Horas extras" not in [rotulo for rotulo, _, _ in resumo[0].items]
+    assert not any(linha.startswith("Hora extra é") for linha in chamadas[1][1])
+
+    # O seletor da hora extra fica ao lado do Comparar, só nesta aba; o padrão é sem separação.
+    r = client.get("/relatorios/blocos", params=filtros)
+    assert '<select id="campo-extras" name="extras"' in r.text
+    assert '<option value="" selected>Sem separação</option>' in r.text
+    assert not re.search(r"<dt[^>]*>Horas (extras|no expediente)</dt>", r.text)
+    outra = client.get("/relatorios/blocos", params={**filtros, "aba": "produtividade"})
+    assert 'name="extras"' not in outra.text
+    # Separada: as horas no expediente e as extras na tela e nos PDFs (a soma das duas é o
+    # tempo), com a frase do expediente no cabeçalho.
+    r = client.get("/relatorios/blocos", params={**filtros, "extras": "separada"})
+    assert '<option value="separada" selected>Separada</option>' in r.text
+    assert re.search(r"<dt[^>]*>Horas no expediente</dt>", r.text)
+    assert re.search(r"<dt[^>]*>Horas extras</dt>", r.text)
+    (detalhado,) = _links(r.text, "PDF detalhado")
+    assert parse_qs(urlsplit(detalhado).query)["extras"] == ["separada"]
+    client.get(detalhado)
+    _, linhas, blocos, *_ = chamadas[-1]
+    assert any(linha.startswith("Hora extra é") for linha in linhas)
+    mercado_ = blocos[0]
+    assert isinstance(mercado_, model_pdf.Grid)
+    assert mercado_.columns == [
+        "Quando", "Chamado", "Horas no expediente", "Horas extras", "Tempo"
+    ]  # fmt: skip
+    assert mercado_.rows == [[um, caixa, "30min", "1h", "1h30"]]
+    assert mercado_.total == ["", "30min", "1h", "1h30"]
+    resumo = blocos[2]
+    assert isinstance(resumo, model_pdf.Cards)
+    assert [rotulo for rotulo, _, _ in resumo.items][:3] == [
+        "Horas", "Horas no expediente", "Horas extras"
+    ]  # fmt: skip
 
 
 def _com_blocos(client: TestClient, url: str) -> Any:

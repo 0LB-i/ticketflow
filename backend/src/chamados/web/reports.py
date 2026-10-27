@@ -361,6 +361,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         # e o de comparação.
         interval=interval_text(page, state),
         query_compare=query["comparar"] or "",
+        # Na aba Clientes, a escolha da hora extra ("" é sem separação).
+        query_extras=(query["extras"] or "") if slug == "clientes" and not choice.model else None,
         filters=filters,
         query_fields=[
             (name, value)

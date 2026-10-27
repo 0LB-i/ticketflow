@@ -487,6 +487,7 @@
     "medidas": {
       "hours": "Hours",
       "overtime": "Overtime",
+      "regular": "Regular hours",
       "tasks": "Tasks",
       "opened": "Tickets opened",
       "closed": "Tickets closed",
@@ -673,6 +674,13 @@
     "noExpediente": "Within working hours",
     "tituloEmpilhado": "Hours per {dimensao}: within working hours and overtime",
     "tituloCombo": "{primeira} and {segunda} per {dimensao}",
+    "extras": {
+      "campo": "Overtime",
+      "opcoes": {
+        "juntas": "Not separated",
+        "separada": "Separated"
+      }
+    },
     "comparacao": {
       "campo": "Compare with",
       "opcoes": {

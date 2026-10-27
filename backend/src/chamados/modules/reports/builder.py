@@ -54,6 +54,7 @@ Dimension = Literal[
 Measure = Literal[
     "hours",
     "overtime",
+    "regular",
     "tasks",
     "opened",
     "closed",
@@ -112,6 +113,7 @@ CYCLE_SIZE: dict[Dimension, int] = {"weekday": 7, "hour": 24, "weekday_hour": 7 
 MEASURES: tuple[Measure, ...] = (
     "hours",
     "overtime",
+    "regular",
     "tasks",
     "opened",
     "closed",
@@ -125,7 +127,7 @@ MEASURES: tuple[Measure, ...] = (
     "completion_rate",
     "tasks_per_workday",
 )
-DURATIONS: tuple[Measure, ...] = ("hours", "overtime", "hours_per_ticket")  # minutos
+DURATIONS: tuple[Measure, ...] = ("hours", "overtime", "regular", "hours_per_ticket")  # minutos
 ELAPSED: tuple[Measure, ...] = ("lead_time", "net_lead_time")  # minutos, pela mediana
 # Em centésimos de ponto (1250 = 12,5%); a taxa de conclusão passa de 100% quando se conclui
 # mais do que se registra.
@@ -147,15 +149,18 @@ def unit(measure: Measure) -> str:
 
 
 # As medidas derivadas: uma conta entre duas somas que já existem (`service.Sums`), em cada
-# linha e no total; sem base (o divisor zero), None. As tarefas por dia útil dividem pelos dias
-# do expediente no período (`workdays`), e por isso não se agrupam por período, dia da semana nem
-# hora (o dia de folga daria divisão por zero).
+# linha e no total; sem base (o divisor zero), None. As horas no expediente (`regular`) são uma
+# diferença, as horas menos as extras (DIFFERENCES); as outras, uma divisão. As tarefas por dia
+# útil dividem pelos dias do expediente no período (`workdays`), e por isso não se agrupam por
+# período, dia da semana nem hora (o dia de folga daria divisão por zero).
 DERIVED: dict[Measure, tuple[Summed, Summed | None]] = {
+    "regular": ("hours", "overtime"),
     "overtime_rate": ("overtime", "hours"),
     "hours_per_ticket": ("hours", "worked"),  # ÷ os chamados distintos com tarefa
     "completion_rate": ("closed", "opened"),
     "tasks_per_workday": ("tasks", None),
 }
+DIFFERENCES: tuple[Measure, ...] = ("regular",)
 # A direção boa de cada medida, para a cor da variação dos cartões: 1, subir é bom; -1, subir é
 # ruim. As que não estão aqui são neutras (horas, tarefas, registrados e cancelados).
 GOOD_DIRECTION: dict[Measure, int] = {
@@ -405,9 +410,11 @@ BUILTINS: dict[str, ReportConfig] = {
             ),
         ]
     ),
+    # Sem a hora extra: para o cliente, todo o tempo é de trabalho normal (CLIENTS_OVERTIME
+    # separa as horas no expediente e as extras).
     "clientes": ReportConfig(
         blocks=[
-            _CARDS,
+            Block(visual="cards", measures=["hours", "tasks", "opened", "closed"]),
             Block(visual="bars", dimension="client", measures=["hours"], top=10),
             Block(visual="table", dimension="client", measures=["hours", "opened", "closed"]),
         ]
@@ -436,6 +443,17 @@ BUILTINS: dict[str, ReportConfig] = {
         ]
     ),
 }
+
+# A aba Clientes com a hora extra separada (a escolha "Hora extra" da tela): as horas no
+# expediente e as extras ao lado do total, nos cartões e na tabela.
+_SEPARATED: list[Measure] = ["hours", "regular", "overtime"]
+CLIENTS_OVERTIME = ReportConfig(
+    blocks=[
+        Block(visual="cards", measures=[*_SEPARATED, "tasks", "opened", "closed"]),
+        Block(visual="bars", dimension="client", measures=["hours"], top=10),
+        Block(visual="table", dimension="client", measures=[*_SEPARATED, "opened", "closed"]),
+    ]
+)
 
 
 def dimensions_for(visual: Visual) -> tuple[Dimension, ...]:
@@ -856,6 +874,9 @@ def workdays(start: date, end: date, cal: Calendar, user_id: int | None = None) 
 def _derive(measure: Measure, sums: dict[Summed, int | None], days: int) -> Value:
     """Uma medida derivada (DERIVED) a partir das somas das partes; sem base, None."""
     top, below = DERIVED[measure]
+    if measure in DIFFERENCES:
+        first, second = sums[top], sums[below] if below else None
+        return None if first is None or second is None else first - second
     bottom = days if below is None else sums[below]
     if not bottom or sums[top] is None:
         return None
