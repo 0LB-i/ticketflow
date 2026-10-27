@@ -100,9 +100,16 @@ async def report_pdf(
     request: Request,
     locale: ExportLocale = None,
 ) -> Response:
-    data = await service.build(db, auth, f)
+    known = await service.lookups(db)
+    data = await service.build(db, auth, f, known=known)
+    use = await service.schedule_use(db, auth, f, known.calendar)
     content = await run_in_threadpool(
-        model_pdf.render_hours, data, f, auth.user.display_name, locale or request_locale(request)
+        model_pdf.render_hours,
+        data,
+        f,
+        use,
+        auth.user.display_name,
+        locale or request_locale(request),
     )
     record_export(db, request, auth, f, format="pdf")
     await db.commit()

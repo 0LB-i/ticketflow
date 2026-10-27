@@ -408,7 +408,20 @@
     "semCliente": "No client",
     "vazio": "No tasks in this period.",
     "semExtras": "No overtime in this period.",
-    "expedienteUsado": "Overtime is task time outside working hours: {dias}, {inicio} to {fim}, excluding holidays. A task ends at the date and time entered.",
+    "expedienteUsado": "Overtime is task time outside working hours: {expediente}, excluding holidays. A task ends at the date and time entered.",
+    "expedientes": {
+      "dias": "Mon|Tue|Wed|Thu|Fri|Sat|Sun",
+      "instalacao": "the default hours ({horario})",
+      "aPartir": "from {data}, {horario}",
+      "grupo1": "team {grupo}'s hours (1 person)",
+      "grupoN": "team {grupo}'s hours ({n} people)",
+      "outroGrupo1": "another team's hours (1 person)",
+      "outroGrupoN": "another team's hours ({n} people)",
+      "proprio1": "{nomes}'s own hours",
+      "proprioN": "own hours for {n} people ({nomes})",
+      "mais": "{n} more",
+      "e": "{inicio} and {fim}"
+    },
     "tarefasForaDoExpediente": "Tasks outside working hours",
     "abas": {
       "produtividade": "Productivity",

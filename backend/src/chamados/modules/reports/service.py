@@ -8,7 +8,7 @@ filtro de visibilidade dos chamados (regra 1 da arquitetura).
 
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any, Literal, NamedTuple
@@ -56,7 +56,13 @@ from chamados.modules.reports.schemas import (
     TaskRow,
     Totals,
 )
-from chamados.modules.system.work_hours import Calendar, WorkHours, load_calendar
+from chamados.modules.system.work_hours import (
+    Calendar,
+    Schedule,
+    WorkHours,
+    describe,
+    load_calendar,
+)
 from chamados.modules.tickets.models import (
     Ticket,
     TicketCoAssignee,
@@ -1112,6 +1118,101 @@ async def facts(
 
 
 @dataclass
+class ScheduleUse:
+    """O expediente que valeu num período (o "Expediente usado"): o da instalação, com as
+    vigências que começaram dentro do período; os grupos cujo expediente valeu para alguém (o
+    nome, ou None num grupo que a pessoa não vê nos relatórios, e quantas pessoas); e quem teve
+    o próprio, pelo nome. Só entram pessoas ao alcance de quem vê (e do filtro de pessoa)."""
+
+    installation: list[tuple[date, Schedule]]
+    teams: list[tuple[str | None, int]] = field(default_factory=list)
+    people: list[str] = field(default_factory=list)
+
+
+async def schedule_use(db: AsyncSession, auth: Auth, f: Filters, cal: Calendar) -> ScheduleUse:
+    installation = [(f.start, cal.schedule(None, f.start))]
+    for day, schedule in cal.installation:
+        if schedule is not None and f.start < day <= f.end and schedule != installation[-1][1]:
+            installation.append((day, schedule))
+    use = ScheduleUse(installation)
+    if not cal.personal:  # o caso comum: nenhuma consulta a mais
+        return use
+    actor = auth.actor
+    reach = {*cal.users, *cal.member_of}
+    if f.people:
+        reach &= {p.id for p in f.people}
+    elif not can(actor, P.REPORT_VIEW_ALL):
+        supervised = await db.scalars(
+            select(TeamMember.user_id).where(TeamMember.team_id.in_(actor.supervises))
+        )
+        reach &= {actor.user_id, *supervised}
+    own: set[int] = set()
+    by_team: dict[int, set[int]] = defaultdict(set)
+    days = [f.start + timedelta(days=i) for i in range((f.end - f.start).days + 1)]
+    for user_id in reach:
+        for day in days:
+            source = cal.source(user_id, day)
+            if source.kind == "own":
+                own.add(user_id)
+            elif source.team_id is not None:
+                by_team[source.team_id].add(user_id)
+    if own:
+        names = await db.scalars(
+            select(User.display_name).where(_among(User.id, own)).order_by(User.display_name)
+        )
+        use.people = list(names)
+    if by_team:
+        seen = can(actor, P.REPORT_VIEW_ALL)
+        teams = await db.execute(
+            select(Team.id, Team.name).where(_among(Team.id, by_team)).order_by(Team.name)
+        )
+        # Os grupos que a pessoa não vê nos relatórios ficam juntos, sem o nome.
+        hidden: set[int] = set()
+        for team_id, name in teams:
+            if seen or team_id in actor.supervises:
+                use.teams.append((name, len(by_team[team_id])))
+            else:
+                hidden |= by_team[team_id]
+        if hidden:
+            use.teams.append((None, len(hidden)))
+    return use
+
+
+NAMES_LISTED = 5  # no "o próprio de N pessoas (…)": os primeiros nomes, e "mais N"
+
+
+def describe_use(
+    use: ScheduleUse,
+    t: Callable[..., str],
+    days: Sequence[str],
+    day_text: Callable[[date], str],
+) -> str:
+    """O "Expediente usado" em texto, com os textos de quem chama (o catálogo da tela ou os do
+    PDF da API), pelas chaves do catálogo relatorios.expedientes: instalacao, aPartir,
+    grupo1/grupoN, outroGrupo1/outroGrupoN, proprio1/proprioN, mais e e. `days`: os nomes
+    curtos dos dias, de segunda a domingo."""
+    hours = [describe(use.installation[0][1], days)]
+    hours += [
+        t("aPartir", data=day_text(d), horario=describe(s, days)) for d, s in use.installation[1:]
+    ]
+    parts = [t("instalacao", horario="; ".join(hours))]
+    for name, n in use.teams:
+        count = "1" if n == 1 else "N"
+        parts.append(t(f"grupo{count}", grupo=name, n=n) if name else t(f"outroGrupo{count}", n=n))
+    if use.people:
+        names = use.people[:NAMES_LISTED]
+        if len(use.people) > NAMES_LISTED:
+            names.append(t("mais", n=len(use.people) - NAMES_LISTED))
+        if len(use.people) == 1:
+            parts.append(t("proprio1", nomes=names[0]))
+        else:
+            parts.append(t("proprioN", n=len(use.people), nomes=", ".join(names)))
+    if len(parts) == 1:
+        return parts[0]
+    return t("e", inicio=", ".join(parts[:-1]), fim=parts[-1])
+
+
+@dataclass
 class ClientTicket:
     """Um chamado do relatório para o cliente (docs/14 §14.8.5): só o que o cliente pode ver."""
 
@@ -1182,11 +1283,18 @@ BUILD_SUMS: dict[Summed, set[Group]] = {
 }
 
 
-async def build(db: AsyncSession, auth: Auth, f: Filters, *, all_tasks: bool = False) -> Report:
+async def build(
+    db: AsyncSession,
+    auth: Auth,
+    f: Filters,
+    *,
+    all_tasks: bool = False,
+    known: Lookups | None = None,
+) -> Report:
     """Os números das telas prontas, da API e do PDF. `all_tasks`: também a lista de todas as
-    tarefas (`Report.tasks`, para o CSV)."""
+    tarefas (`Report.tasks`, para o CSV). `known`: o expediente e os status já lidos."""
     want = Want(rows={"tasks"} if all_tasks else set(), sums=dict(BUILD_SUMS))
-    data = await facts(db, auth, f, want)
+    data = await facts(db, auth, f, want, known)
     s = data.sums
 
     # As somas em Counter, e os modelos só no fim: num ano são milhares de linhas, e cada `+=`

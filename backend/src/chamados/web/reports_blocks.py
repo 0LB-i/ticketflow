@@ -803,15 +803,18 @@ def uses_overtime(blocks: Sequence[Block]) -> bool:
     return any("overtime" in b.measures or b.only_overtime for b in blocks)
 
 
-def work_hours_line(page: LoggedPage, state: State) -> str:
-    """O expediente usado na hora extra (a tela e o cabeçalho do PDF, quando algum bloco a usa)."""
-    wh = state.lookups.calendar.schedule(None, datetime.now(service.TZ).date())
-    return page.t(
-        "relatorios.expedienteUsado",
-        dias=", ".join(page.t(f"expediente.diasCurtos.{WEEKDAYS[d]}") for d in wh.weekdays),
-        inicio=f"{wh.start:%H:%M}",
-        fim=f"{wh.end:%H:%M}",
+async def work_hours_line(page: LoggedPage, db: DB, state: State, f: service.Filters) -> str:
+    """O expediente usado na hora extra (a tela e o cabeçalho do PDF, quando algum bloco a usa):
+    o da instalação, os dos grupos e os próprios que valeram no período, só de quem a pessoa vê."""
+    use = await service.schedule_use(db, page.auth, f, state.lookups.calendar)
+
+    def t(key: str, **values: object) -> str:
+        return page.t(f"relatorios.expedientes.{key}", **values)
+
+    text = service.describe_use(
+        use, t, t("dias").split("|"), lambda day: format_date(page.locale, day)
     )
+    return page.t("relatorios.expedienteUsado", expediente=text)
 
 
 def single_client(state: State) -> str | None:

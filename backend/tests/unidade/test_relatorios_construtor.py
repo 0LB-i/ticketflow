@@ -460,7 +460,9 @@ def test_csv_de_um_bloco() -> None:
     linhas = _csv(csv_export.render_block(dados, lista, "pt-BR"))
     assert linhas[0][:5] == ["Quando", "Pessoa", "Chamado", "Título", "Cliente"]
     assert linhas[1][:5] == ["01/10/2026 10:00", "Ana", "1000", "Impressora", "'=Farmácia"]
-    assert linhas[1][5:] == ["1,50", "90", "1,00", "60"]
+    # No fim, o expediente de quem fez a tarefa naquele dia.
+    assert linhas[0][-1] == "Expediente"
+    assert linhas[1][5:] == ["1,50", "90", "1,00", "60", "seg–sex 08:00–18:00"]
 
 
 # --- medidas de chamados (fase 3) -------------------------------------------------------------

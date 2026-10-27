@@ -14,8 +14,8 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.schemas import Report, TaskRow, Totals
-from chamados.modules.reports.service import TZ, Filters
-from chamados.modules.system.work_hours import DEFAULT
+from chamados.modules.reports.service import TZ, Filters, ScheduleUse
+from chamados.modules.system.work_hours import DEFAULT, Schedule
 
 PAGINA = model_pdf.Page("Gerado em 24/10/2026", "Página {n} de {total}")
 SERIES = {
@@ -207,14 +207,26 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(model_pdf, "render_model", desenhar)
     filtros = Filters(start=relatorio.start, end=relatorio.end, no_client=True)
+    # O expediente que valeu: o da instalação, que mudou no dia 15, o de um grupo que a pessoa
+    # vê, o de um que ela não vê e o próprio de uma pessoa.
+    uso = ScheduleUse(
+        [
+            (relatorio.start, Schedule((0, 1, 2, 3, 4), time(8), time(18))),
+            (date(2026, 10, 15), Schedule((0, 1, 2, 3, 4, 5), time(8), time(12))),
+        ],
+        teams=[("Suporte", 2), (None, 1)],
+        people=["Ana"],
+    )
     for idioma in ("pt-BR", "en"):
-        assert model_pdf.render_hours(relatorio, filtros, "Ana", idioma) == b"%PDF"
+        assert model_pdf.render_hours(relatorio, filtros, uso, "Ana", idioma) == b"%PDF"
     titulo, linhas, blocos, pagina, _, _ = chamadas[0]
     assert titulo == "Relatório de horas"
     assert linhas == [
         "01/10/2026 a 31/10/2026",
         "Grupo: Todos · Pessoa: Todos · Cliente: Sem cliente · Status: Todos",
-        "Expediente: seg, ter, qua, qui, sex · 08:00–18:00 · 1 feriado(s) cadastrado(s)",
+        "Expediente: o da instalação (seg–sex 08:00–18:00; a partir de 15/10/2026, seg–sáb"
+        " 08:00–12:00), o do grupo Suporte (2 pessoas), o de outro grupo (1 pessoa) e o próprio"
+        " de Ana · 1 feriado(s) cadastrado(s)",
     ]
     assert blocos[0].items[:2] == [("Horas", "375:00", ""), ("Horas extras", "250:00", "")]
     assert [b.title for b in blocos[1:]] == [
@@ -229,5 +241,10 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
     assert pagina.numbering == "Página {n} de {total}" and not pagina.landscape
     titulo, linhas, blocos, pagina, _, _ = chamadas[1]
     assert titulo == "Hours report" and linhas[0] == "2026-10-01 to 2026-10-31"
+    assert linhas[2] == (
+        "Working hours: the default hours (Mon–Fri 08:00–18:00; from 2026-10-15, Mon–Sat"
+        " 08:00–12:00), team Suporte's hours (2 people), another team's hours (1 person) and"
+        " Ana's own hours · 1 holiday(s) registered"
+    )
     assert blocos[3].note == "Showing the first 200 of 250 tasks. The CSV has all of them."
     assert pagina.numbering == "Page {n} of {total}"

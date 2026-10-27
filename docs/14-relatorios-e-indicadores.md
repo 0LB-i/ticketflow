@@ -170,6 +170,7 @@ Cada bloco combina **agrupar por × medida × visual**. A medida define de onde 
 
 - **Dois tipos:** o CSV de um bloco (a tabela agrupada, como na tela, com o total no fim; ou a lista de tarefas inteira) e o dos dados brutos (a lista de tarefas ou de chamados, com as colunas da §14.5 mais as horas). Todo bloco tem o seu botão de download; na lista de tarefas, a tela mostra 200 por página e o CSV traz todas.
 - **Formato:** UTF-8 com BOM, para abrir certo no Excel. Os separadores seguem o idioma: em português, `;` e vírgula decimal. As horas saem em minutos e em horas decimais, para somar na planilha.
+- **Expediente** (2026-10-27): as listas de tarefas (a do bloco e a de todas as tarefas da API) terminam com a coluna "Expediente", o expediente usado na hora extra de cada tarefa (o de quem a fez, no dia em que ela terminou: "seg–sex 08:00–18:00"). A lista na tela não tem essa coluna.
 - **Injeção de fórmula:** uma célula que começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro ganha um apóstrofo na frente. Títulos e nomes são texto livre.
 - **Visibilidade e auditoria:** valem a mesma visibilidade e o mesmo escopo da tela, e cada download vai para a auditoria (`report.exported`, com o formato).
 

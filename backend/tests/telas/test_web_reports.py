@@ -8,7 +8,7 @@ import csv
 import io
 import re
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -19,10 +19,11 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.catalog.models import TicketStatus
+from chamados.modules.organization.models import Team
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.builder import previous_period, relative_period, year_before
 from chamados.modules.reports.models import ReportModel
-from chamados.modules.system.models import SystemSetting
+from chamados.modules.system.models import SystemSetting, WorkSchedule
 from chamados.modules.tickets.models import Ticket
 from chamados.web.formatting import TIMEZONE, format_day, format_month
 from chamados.web.reports_blocks import wide
@@ -116,7 +117,10 @@ def test_numeros_graficos_e_abas(client: TestClient, cenario: dict[str, Any], db
     assert f"de={dia.isoformat()}" in r.text
 
     r = client.get("/relatorios/blocos", params={**filtros, "aba": "horas-extras"})
-    assert "Hora extra é o tempo de tarefa fora do expediente: Seg, Ter, Qua, Qui, Sex" in r.text
+    assert (
+        "Hora extra é o tempo de tarefa fora do expediente: o da instalação"
+        " (seg–sex 08:00–18:00), sem contar os feriados." in r.text
+    )
     assert f'<a href="/chamados/{numero}" class="text-primary underline tabular-nums">' in r.text
     assert "Tarefas fora do expediente" in r.text
 
@@ -2212,7 +2216,7 @@ def test_colunas_da_lista_e_ordem_das_medidas(
     assert tabela == ["Pessoa", "Tarefas", "Horas"]
     r = client.get("/relatorios/csv", params=_um_dia(dia, aba=modelo, bloco="0"))
     linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
-    assert linhas[0] == ["Quando", "Chamado", "Título", "Cliente", "Status"]
+    assert linhas[0] == ["Quando", "Chamado", "Título", "Cliente", "Status", "Expediente"]
     assert linhas[1][1:4] == [str(numero), "Impressora não imprime", "Padaria"]
     r = client.get("/relatorios/csv", params=_um_dia(dia, aba=modelo, bloco="1"))
     linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
@@ -2432,7 +2436,9 @@ def test_pdf_configuravel(
         linhas[0]
         == "O tempo de tarefa fora do expediente, por dia e por pessoa, e as tarefas que o tiveram."
     )
-    assert linhas[-1].startswith("Hora extra é o tempo de tarefa fora do expediente: Seg, Ter")
+    assert linhas[-1].startswith(
+        "Hora extra é o tempo de tarefa fora do expediente: o da instalação (seg–sex"
+    )
     assert [type(b).__name__ for b in blocos] == ["Cards", "Chart", "Chart", "Grid"]
     assert blocos[3].rows[0][2] == f"#{numero} Impressora não imprime"
 
@@ -2485,3 +2491,36 @@ def test_textos_e_colunas_do_relatorio_para_o_cliente(
     assert [rotulo for rotulo, _ in totais] == ["Chamados registrados", "Chamados concluídos"]
     assert chamados.columns == ["Chamado", "Status"]
     assert chamados.rows[0][0] == f"#{numero}" and len(chamados.rows[0]) == 2
+
+
+def test_expediente_usado_so_de_quem_a_pessoa_ve(client: TestClient, db: Session) -> None:
+    """O "Expediente usado" cita os expedientes próprios e de grupo que valeram no período, só
+    das pessoas e dos grupos ao alcance de quem vê (docs/14 §14.7)."""
+    ana = criar_usuario(db, "ana@x.com", nome="Ana", grupos={"TI": "member"})
+    criar_usuario(db, "bia@x.com", nome="Bia", grupos={"TI": "supervisor"})
+    caio = criar_usuario(db, "caio@x.com", nome="Caio", grupos={"Infra": "member"})
+    criar_usuario(db, "admin@x.com", "admin", nome="Admin")
+    ti = db.scalar(select(Team).where(Team.name == "TI"))
+    assert ti is not None
+    todos = [0, 1, 2, 3, 4, 5, 6]
+    db.add_all(
+        [
+            WorkSchedule(team_id=ti.id, weekdays=todos[:5], start=time(9), end=time(17)),
+            WorkSchedule(user_id=ana.id, weekdays=todos, start=time(6), end=time(12)),
+            WorkSchedule(user_id=caio.id, weekdays=todos[:6], start=time(7), end=time(16)),
+        ]
+    )
+    db.commit()
+    dia = dia_util_passado()
+    inicio = "Hora extra é o tempo de tarefa fora do expediente: o da instalação (seg–sex"
+    esperado = {
+        # A supervisora do TI: ela segue o do grupo; a Ana tem o próprio; o Caio fica de fora.
+        "bia@x.com": " 08:00–18:00), o do grupo TI (1 pessoa) e o próprio de Ana, sem",
+        "ana@x.com": " 08:00–18:00) e o próprio de Ana, sem",
+        "admin@x.com": " 08:00–18:00), o do grupo TI (1 pessoa) e o próprio de 2 pessoas"
+        " (Ana, Caio), sem",
+    }
+    for email, texto in esperado.items():
+        entrar(client, email)
+        r = client.get("/relatorios/blocos", params=_um_dia(dia, aba="horas-extras"))
+        assert inicio + texto in r.text, email

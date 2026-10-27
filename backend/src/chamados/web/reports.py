@@ -165,7 +165,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             view["wide"] = span
     if f is not None and config is not None and config.audience != "client":
         if uses_overtime(config.blocks):
-            work_hours = work_hours_line(page, state)
+            work_hours = await work_hours_line(page, db, state, f)
         # Os CSV da API levam os mesmos filtros, com o idioma da pessoa (um link não escolhe o
         # Accept-Language). A tabela da aba, só nos modelos prontos de horas.
         api = {

@@ -256,6 +256,7 @@ def test_csv(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
             "Tempo (min)",
             "Fora do expediente",
             "Fora do expediente (min)",
+            "Expediente",
         ],
         [
             f"{dia:%d/%m/%Y} 10:00",
@@ -267,6 +268,7 @@ def test_csv(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
             "30",
             "0,00",
             "0",
+            "seg–sex 08:00–18:00",
         ],
         [
             f"{dia:%d/%m/%Y} 19:00",
@@ -278,13 +280,14 @@ def test_csv(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
             "90",
             "1,00",
             "60",
+            "seg–sex 08:00–18:00",
         ],
     ]
     # As horas extras, em inglês: vírgula como separador e ponto decimal.
     extras = baixar("overtime", "en")
     assert extras[0][0] == "When" and len(extras) == 2
     assert extras[1][0] == f"{dia:%Y-%m-%d} 19:00"
-    assert extras[1][5:] == ["1.50", "90", "1.00", "60"]
+    assert extras[1][5:] == ["1.50", "90", "1.00", "60", "Mon–Fri 08:00–18:00"]
     assert baixar("people", "pt-BR") == [
         [
             "Pessoa",

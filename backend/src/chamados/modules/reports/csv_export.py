@@ -26,6 +26,7 @@ from chamados.modules.reports.builder import (
 )
 from chamados.modules.reports.schemas import Report
 from chamados.modules.reports.service import TZ, Facts, TicketFact
+from chamados.modules.system.work_hours import describe
 
 Table = Literal["people", "clients", "overtime", "tasks"]
 
@@ -51,6 +52,8 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "title": "Título",
         "time": "Tempo",
         "outside": "Fora do expediente",
+        "work_hours": "Expediente",
+        "days": "seg|ter|qua|qui|sex|sáb|dom",
         "minutes": "{column} (min)",
         "before": "{column}, antes",
         "change": "Variação de {column} (%)",
@@ -104,6 +107,8 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "title": "Title",
         "time": "Time",
         "outside": "Outside working hours",
+        "work_hours": "Working hours",
+        "days": "Mon|Tue|Wed|Thu|Fri|Sat|Sun",
         "minutes": "{column} (min)",
         "before": "{column}, before",
         "change": "Change in {column} (%)",
@@ -190,8 +195,11 @@ def render(report: Report, table: Table, locale: Locale) -> bytes:
             for c in report.clients
         ]
     else:
+        # O expediente de quem fez a tarefa no dia dela (o próprio, o do grupo ou o da
+        # instalação), no fim: as colunas de antes não mudam de lugar.
+        days = t["days"].split("|")
         head = [t["when"], t["person"], t["ticket"], t["title"], t["client"]]
-        head += [*time("time"), *time("outside")]
+        head += [*time("time"), *time("outside"), t["work_hours"]]
         rows = [
             [
                 when(r.done_at),
@@ -201,6 +209,7 @@ def render(report: Report, table: Table, locale: Locale) -> bytes:
                 _text(r.client or t["no_client"]),
                 *hours(r.minutes),
                 *hours(r.overtime_minutes),
+                describe(r.schedule, days) if r.schedule else "",
             ]
             for r in (report.tasks if table == "tasks" else report.overtime_tasks)
         ]
@@ -251,7 +260,10 @@ def render_block(
             "time": [t["time"], t["minutes"].format(column=t["time"])],
             "overtime": [t["outside"], t["minutes"].format(column=t["outside"])],
         }
-        head = [h for c in columns for h in heads[c]]
+        # Sempre, no fim: o expediente de quem fez a tarefa no dia dela (a coluna não é das
+        # escolhidas do bloco; a lista na tela fica sem ela).
+        head = [*(h for c in columns for h in heads[c]), t["work_hours"]]
+        days = t["days"].split("|")
         for task in result.tasks:
             client = data.clients.get(task.client_id) if task.client_id else None
             cells: dict[TaskColumn, list[str | int]] = {
@@ -268,7 +280,8 @@ def render_block(
                 "time": hours(task.minutes),
                 "overtime": hours(task.overtime),
             }
-            rows.append([cell for c in columns for cell in cells[c]])
+            schedule = data.calendar.schedule(task.author_id, task.day)
+            rows.append([*(cell for c in columns for cell in cells[c]), describe(schedule, days)])
         return _write(head, rows, pt)
 
     measures = list(result.total)

@@ -232,7 +232,7 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             )
         lines.append(_filters_line(page, state))
         if uses_overtime(blocks):  # o expediente usado, como na tela
-            lines.append(work_hours_line(page, state))
+            lines.append(await work_hours_line(page, db, state, f))
         colors = page.branding.colors
         light = palette(colors.model_dump() if colors else None)["light"]
         # As séries do modo claro, pelo nome do token (a `chart-1` é a primary).

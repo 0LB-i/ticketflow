@@ -408,7 +408,20 @@
     "semCliente": "Sem cliente",
     "vazio": "Nenhuma tarefa no período.",
     "semExtras": "Nenhuma hora extra no período.",
-    "expedienteUsado": "Hora extra é o tempo de tarefa fora do expediente: {dias}, das {inicio} às {fim}, sem contar os feriados. A tarefa termina na data e hora informadas.",
+    "expedienteUsado": "Hora extra é o tempo de tarefa fora do expediente: {expediente}, sem contar os feriados. A tarefa termina na data e hora informadas.",
+    "expedientes": {
+      "dias": "seg|ter|qua|qui|sex|sáb|dom",
+      "instalacao": "o da instalação ({horario})",
+      "aPartir": "a partir de {data}, {horario}",
+      "grupo1": "o do grupo {grupo} (1 pessoa)",
+      "grupoN": "o do grupo {grupo} ({n} pessoas)",
+      "outroGrupo1": "o de outro grupo (1 pessoa)",
+      "outroGrupoN": "o de outro grupo ({n} pessoas)",
+      "proprio1": "o próprio de {nomes}",
+      "proprioN": "o próprio de {n} pessoas ({nomes})",
+      "mais": "mais {n}",
+      "e": "{inicio} e {fim}"
+    },
     "tarefasForaDoExpediente": "Tarefas fora do expediente",
     "abas": {
       "produtividade": "Produtividade",

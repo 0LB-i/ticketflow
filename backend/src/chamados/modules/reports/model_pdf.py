@@ -38,7 +38,7 @@ from reportlab.platypus import (
 
 from chamados.core.i18n import Locale
 from chamados.modules.reports.schemas import Report
-from chamados.modules.reports.service import TZ, Filters
+from chamados.modules.reports.service import TZ, Filters, ScheduleUse, describe_use
 
 INK = colors.HexColor("#171717")
 MUTED = colors.HexColor("#525252")
@@ -631,6 +631,34 @@ HOURS_TEXTS: dict[Locale, dict[str, str]] = {
         "weekdays": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
     },
 }
+# O "Expediente usado" do PDF da API (`service.describe_use`), com as chaves do catálogo da tela
+# (relatorios.expedientes.*).
+USE_TEXTS: dict[Locale, dict[str, str]] = {
+    "pt-BR": {
+        "instalacao": "o da instalação ({horario})",
+        "aPartir": "a partir de {data}, {horario}",
+        "grupo1": "o do grupo {grupo} (1 pessoa)",
+        "grupoN": "o do grupo {grupo} ({n} pessoas)",
+        "outroGrupo1": "o de outro grupo (1 pessoa)",
+        "outroGrupoN": "o de outro grupo ({n} pessoas)",
+        "proprio1": "o próprio de {nomes}",
+        "proprioN": "o próprio de {n} pessoas ({nomes})",
+        "mais": "mais {n}",
+        "e": "{inicio} e {fim}",
+    },
+    "en": {
+        "instalacao": "the default hours ({horario})",
+        "aPartir": "from {data}, {horario}",
+        "grupo1": "team {grupo}'s hours (1 person)",
+        "grupoN": "team {grupo}'s hours ({n} people)",
+        "outroGrupo1": "another team's hours (1 person)",
+        "outroGrupoN": "another team's hours ({n} people)",
+        "proprio1": "{nomes}'s own hours",
+        "proprioN": "own hours for {n} people ({nomes})",
+        "mais": "{n} more",
+        "e": "{inicio} and {fim}",
+    },
+}
 HOURS_LISTED = 200  # as tarefas fora do expediente no PDF, como a lista da tela
 
 
@@ -647,14 +675,18 @@ def _moment(dt: datetime, locale: Locale) -> str:
     return f"{_day(local.date(), locale)} {local:%H:%M}"
 
 
-def render_hours(report: Report, f: Filters, who: str, locale: Locale) -> bytes:
+def render_hours(report: Report, f: Filters, use: ScheduleUse, who: str, locale: Locale) -> bytes:
     """O PDF de `GET /reports/pdf`, um modelo fixo com o conteúdo de sempre: o período, os
-    filtros e o expediente no cabeçalho, os totais, por pessoa, por cliente e as tarefas fora do
-    expediente (as `HOURS_LISTED` primeiras, com a nota), em A4 em pé."""
+    filtros e o expediente usado no cabeçalho (`use`), os totais, por pessoa, por cliente e as
+    tarefas fora do expediente (as `HOURS_LISTED` primeiras, com a nota), em A4 em pé."""
     t = HOURS_TEXTS[locale]
-    weekdays = t["weekdays"].split(",")
     wh = report.work_hours
-    work = f"{', '.join(weekdays[d] for d in wh.weekdays)} · {wh.start:%H:%M}–{wh.end:%H:%M}"
+    work = describe_use(
+        use,
+        lambda key, **values: USE_TEXTS[locale][key].format(**values),
+        t["weekdays"].split(","),
+        lambda day: _day(day, locale),
+    )
     if wh.holidays:
         work += f" · {t['holidays'].format(n=len(wh.holidays))}"
     filters = " · ".join(
