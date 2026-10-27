@@ -115,7 +115,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     columns,
                     [[label, *(text for text, _ in cells)] for label, _, cells in v["rows"]],
                     total=[text for text, _ in v["total"]],
-                    total_label=page.t("relatorios.total"),
+                    total_label=v["total_label"],
                     empty=page.t("relatorios.nada"),
                     subtitle=subtitle,
                 )

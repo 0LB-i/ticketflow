@@ -629,6 +629,11 @@ def test_medidas_derivadas() -> None:
         120,
         None,
     ]
+    # Sem "Outros": só os N maiores, e o total continua o do período inteiro.
+    sem_outros = run(dados, corte.model_copy(update={"hide_others": True}), INICIO, FIM)
+    assert [r.label for r in sem_outros.rows] == ["Bia"] and sem_outros.cut
+    assert sem_outros.total == {"hours_per_ticket": 120}
+    assert not run(dados, corte, INICIO, FIM).cut
     # Por dia: os chamados distintos de cada dia.
     por_dia = run(
         dados, Block(visual="columns", dimension="day", measures=["hours_per_ticket"]), INICIO, FIM
@@ -960,3 +965,15 @@ def test_formato_e_casas_so_onde_valem() -> None:
         check_block(Block(visual="cards", measures=["opened"], hours="decimal"))
     with pytest.raises(HTTPException, match="As casas decimais"):
         check_block(Block(visual="cards", measures=["opened"], decimals=2))
+
+
+def test_so_os_maiores_nos_cadastros() -> None:
+    check_block(
+        Block(visual="bars", dimension="client", measures=["hours"], top=3, hide_others=True)
+    )
+    with pytest.raises(HTTPException, match="Só os maiores"):
+        check_block(Block(visual="columns", dimension="day", measures=["hours"], top=3))
+    with pytest.raises(HTTPException, match="Só os maiores"):
+        check_block(Block(visual="table", dimension="weekday", measures=["hours"], top=3))
+    with pytest.raises(HTTPException, match="Esconder Outros"):
+        check_block(Block(visual="table", dimension="person", measures=["hours"], hide_others=True))

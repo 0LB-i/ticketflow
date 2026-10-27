@@ -619,7 +619,8 @@
       "horasDoModelo": "As do modelo",
       "casas": "Casas decimais",
       "casasPadrao": "As de sempre",
-      "casasN": "{n}"
+      "casasN": "{n}",
+      "semOutros": "Esconder a linha Outros (o total continua com todos)"
     },
     "idades": {
       "0": "até 1 dia",
@@ -695,7 +696,8 @@
       "comparado": "Comparado com {de} a {ate}"
     },
     "filtroNaoCombina": "O filtro deste bloco ({filtro}) não combina com o da tela.",
-    "filtroDoBlocoInvalido": "Partes do filtro deste bloco não valem mais para você e ficaram de fora: {filtros}."
+    "filtroDoBlocoInvalido": "Partes do filtro deste bloco não valem mais para você e ficaram de fora: {filtros}.",
+    "totalComTodos": "Total do período, com todos"
   },
   "expediente": {
     "titulo": "Expediente",

@@ -76,6 +76,7 @@ async def save_filters(
     return response
 
 
+TOPPED = ("bars", "columns", "stacked", "table")  # os que oferecem só os N maiores
 NEW_BLOCK = Block(visual="table", dimension="person", measures=["hours"])
 
 
@@ -144,6 +145,10 @@ def _read_block(form: FormData, i: int) -> Block:
         no_client=NO_CLIENT in many("cliente"),
         statuses=list(dict.fromkeys(int(v) for v in many("status") if v.isascii() and v.isdigit())),
     )
+    # Só os maiores, nos agrupamentos por cadastro (os períodos, os ciclos e a idade são fixos).
+    cut = None
+    if visual in TOPPED and dimension in CATEGORIES and top.isascii() and top.isdigit():
+        cut = min(int(top), 100) or None
     timed = visual == "tasks" or bool(set(measures) & set(builder.DURATIONS))
     fractional = timed or bool(set(measures) & {*builder.PERCENT, *builder.RATES})
     return Block(
@@ -151,7 +156,8 @@ def _read_block(form: FormData, i: int) -> Block:
         title=one("titulo")[:120],
         dimension=dimension,
         measures=measures,
-        top=min(int(top), 100) if top.isdigit() and int(top) > 0 else None,
+        top=cut,
+        hide_others=cut is not None and one("semOutros") == "1",
         order=order if order in ("desc", "asc", "name") else "desc",
         only_overtime=one("extras") == "1",
         # A média só nos tempos até a conclusão: sem eles, volta à mediana.
@@ -306,6 +312,7 @@ async def _editor_page(
         dimensions=dimensions,
         categories=CATEGORIES,
         charts=CHARTS,
+        topped=TOPPED,
         visual_options=[(v, page.t(f"relatorios.visuais.{v}")) for v in builder.VISUALS],
         dimension_options={
             visual: [(d, page.t(f"relatorios.dimensoes.{d}").capitalize()) for d in options]

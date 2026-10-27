@@ -119,11 +119,15 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
         {%- if b.period and b.period.kind == "ultimos-n-dias" %}
         <div {{ refresh("atualizar", "change") }}>{{ field("b" ~ i ~ "-dias", t("relatorios.dias"), type="number", value=b.period.days, min="1", max="366", step="1", inputmode="numeric") }}</div>
         {%- endif %}
-        {%- if b.visual in ("bars", "columns", "stacked", "table") and b.dimension in categories %}
+        {%- if b.visual in topped and b.dimension in categories %}
         <div {{ refresh("atualizar", "change") }}>{{ field("b" ~ i ~ "-maiores", t("relatorios.editor.maiores"), type="number", value=b.top or "", hint=t("relatorios.editor.maioresDica"), min="1", max="100") }}</div>
         {{ select("b" ~ i ~ "-ordem", t("relatorios.editor.ordem"), order_options, b.order, refresh("atualizar", "change")) }}
         {%- endif %}
       </div>
+      {#- Com só os maiores, esconder a linha "Outros" (o total continua com todos). #}
+      {%- if b.top %}
+      <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-semOutros", t("relatorios.editor.semOutros"), checked=b.hide_others, id="campo-b" ~ i ~ "-semOutros") }}</div>
+      {%- endif %}
       {%- if b.visual == "stacked" %}
       <p class="text-muted">{{ t("relatorios.editor.empilhadasAjuda") }}</p>
       {%- endif %}

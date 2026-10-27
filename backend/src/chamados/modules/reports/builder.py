@@ -252,6 +252,7 @@ class Block(BaseModel):
     dimension: Dimension | None = None
     measures: list[Measure] = Field(default=[], max_length=len(MEASURES))
     top: int | None = Field(default=None, ge=1, le=100)  # só os N maiores; o resto em "Outros"
+    hide_others: bool = False  # com os N maiores, sem a linha "Outros"
     order: Order = "desc"
     only_overtime: bool = False  # lista de tarefas: só as que têm tempo fora do expediente
     # Os tempos até a conclusão pela mediana (§14.1) ou, escolhida no bloco, pela média, com o
@@ -474,6 +475,12 @@ def check_block(block: Block) -> None:
         raise HTTPException(422, "A área é uma opção da linha.")
     if block.reference != "none" and block.visual not in REFERENCED:
         raise HTTPException(422, "A linha de referência vale nas colunas e na linha.")
+    if (block.top or block.hide_others) and block.dimension not in CATEGORIES:
+        raise HTTPException(
+            422, "Só os maiores vale ao agrupar por pessoa, cliente, grupo ou status."
+        )
+    if block.hide_others and not block.top:
+        raise HTTPException(422, "Esconder Outros vale com só os maiores.")
     if block.color is not None and block.visual not in COLORED:
         raise HTTPException(422, "A cor vale nas barras, nas colunas e na linha.")
     if block.hours is not None and not set(block.measures) & {*DURATIONS}:
@@ -618,6 +625,7 @@ class Result:
     total: dict[Measure, Value] = field(default_factory=dict)
     is_list: bool = False  # a lista de tarefas (`tasks`), sem agrupar
     mean: bool = False  # os tempos até a conclusão pela média (`Block.aggregate`)
+    cut: bool = False  # linhas de fora dos N maiores, sem "Outros" (o total continua com elas)
     tasks: list[TaskFact] = field(default_factory=list)
 
 
@@ -917,6 +925,8 @@ def run(
         sign = -1 if block.order == "desc" else 1
         rows.sort(key=lambda r: (sign * (r.values[first] or 0), *by_name(r)))
     if block.top and len(rows) > block.top:
+        if block.hide_others:
+            return Result(dimension=dim, rows=rows[: block.top], total=total, mean=mean, cut=True)
         rest = {r.key for r in rows[block.top :]}
         others: dict[str, list[int]] = {
             slot: [a for k in rest for a in amounts[k][slot]] for slot in slots

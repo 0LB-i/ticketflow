@@ -63,10 +63,10 @@
 {#- Tabela no visual do DataTable da SPA: as linhas vêm do caller; `foot`, a linha do total
     ((texto, link) de cada coluna); `titles`, o nome por extenso de uma coluna (o Δ da
     comparação), que também a deixa em cinza; `numeric`, as colunas de números, à direita (o
-    caller alinha as células dele). Uma tabela mais alta que 70% da tela rola dentro da caixa,
+    caller alinha as células dele); `foot_label`, o nome da linha do total. Uma tabela mais alta que 70% da tela rola dentro da caixa,
     com o cabeçalho fixo: o `sticky` fica preso ao contêiner que rola, e o overflow-x-auto já
     era um. #}
-{% macro table(caption, columns, empty, count, foot=None, titles=None, numeric=()) -%}
+{% macro table(caption, columns, empty, count, foot=None, titles=None, numeric=(), foot_label=None) -%}
 <div class="max-h-[70vh] overflow-auto rounded-md border border-border print:max-h-none print:overflow-visible">
   <table class="w-full border-collapse text-left">
     <caption class="sr-only">{{ caption }}</caption>
@@ -89,7 +89,7 @@
     {%- if foot and count %}
     <tfoot class="border-t-2 border-border font-medium">
       <tr>
-        <th scope="row" class="px-3 py-2 text-left">{{ t("relatorios.total") }}</th>
+        <th scope="row" class="px-3 py-2 text-left">{{ foot_label or t("relatorios.total") }}</th>
         {%- for value, href in foot %}
         <td class="px-3 py-2{% if loop.index in numeric %} text-right{% endif %} tabular-nums{% if titles and titles[loop.index] %} text-sm text-muted{% endif %}">{{ linked(value, href) }}</td>
         {%- endfor %}
@@ -221,7 +221,7 @@
 {% endcall %}
 {%- elif b.visual == "table" %}
 {% call frame(b, preview) %}
-  {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles, range(1, b.columns | length)) %}
+  {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles, range(1, b.columns | length), b.total_label) %}
     {%- for label, href, cells in b.rows %}
     <tr class="border-t border-border">
       <td class="px-3 py-2">{{ linked(label, href, boost=True) }}</td>

@@ -682,6 +682,10 @@ def block_view(
                 columns.append("Δ")
                 titles.append(page.t("relatorios.comparacao.variacaoDe", medida=name))
         view.update(columns=columns, titles=titles, rows=rows, total=total)
+        # Sem "Outros", as linhas não somam o total, que continua sendo o do período inteiro.
+        view["total_label"] = page.t(
+            "relatorios.totalComTodos" if result.cut else "relatorios.total"
+        )
     else:
         fmt = formatter(page, config, "hours", block)
         # Em páginas de LISTED (`pagina<i>` na URL); uma fora da faixa vai para a mais perto.

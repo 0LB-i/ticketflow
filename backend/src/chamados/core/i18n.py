@@ -174,6 +174,10 @@ EN: dict[str, str] = {
     "As casas decimais valem nas horas, nas porcentagens e nas taxas.": (
         "Decimal places apply to hours, percentages and rates."
     ),
+    "Só os maiores vale ao agrupar por pessoa, cliente, grupo ou status.": (
+        "Top N applies when grouping by person, client, team or status."
+    ),
+    "Esconder Outros vale com só os maiores.": "Hiding Others applies with top N.",
     "A cor vale nas barras, nas colunas e na linha.": (
         "The color applies to bars, columns and lines."
     ),

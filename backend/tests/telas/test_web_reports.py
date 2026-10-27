@@ -2130,3 +2130,35 @@ def test_formato_das_horas_e_casas_do_bloco(client: TestClient, cenario: dict[st
     r = client.get(f"/relatorios/modelos/{modelo}/editar")
     assert '<option value="decimal" selected>Decimal (7,5 h)</option>' in r.text
     assert 'name="b2-horas"' not in r.text and 'name="b2-casas"' in r.text
+
+
+def test_esconder_outros(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
+    """Com só os maiores, a linha "Outros" pode sumir; o total continua o do período inteiro, e o
+    rodapé (também no CSV e no PDF) diz isso. Nos agrupamentos fixos não há só os maiores."""
+    dia = dia_util_passado()
+    padaria = criar_cliente(db, "Padaria", "11222333000181")
+    tarefa(client, registrar(client, cenario, client_id=padaria)["number"], 60, em(dia, 10))
+    tarefa(client, registrar(client, cenario)["number"], 30, em(dia, 11))
+    campos = {
+        "blocos": "1",
+        "b0-visual": "table",
+        "b0-agrupar": "client",
+        "b0-medidas": "hours",
+        "b0-maiores": "1",
+        "b0-semOutros": "1",
+    }
+    modelo = _criar(client, "Sem outros", **campos)
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
+    tabela = _bloco(r.text, 0)
+    assert "Padaria" in tabela and "Outros" not in tabela and "Sem cliente" not in tabela
+    assert "Total do período, com todos</th>" in tabela and ">1h30</a>" not in tabela
+    assert re.search(r"<td[^>]*>1h30</td>", tabela)  # o total, com o sem cliente
+    r = client.get("/relatorios/csv", params=_um_dia(dia, aba=modelo, bloco="0"))
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[-1] == ["Total do período, com todos", "1,50", "90"] and len(linhas) == 3
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert 'id="campo-b0-semOutros"' in r.text and "checked" in r.text
+    # Por dia: nem só os maiores, nem esconder (mesmo que o formulário mande).
+    dados = formulario(client, nome="X", horas="hm", acao="atualizar", **campos)
+    r = client.post("/relatorios/modelos", data={**dados, "b0-agrupar": "day"})
+    assert 'name="b0-maiores"' not in r.text and 'name="b0-semOutros"' not in r.text

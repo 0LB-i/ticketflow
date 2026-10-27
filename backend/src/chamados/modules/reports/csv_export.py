@@ -55,6 +55,7 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "no_client": "Sem cliente",
         "others": "Outros",
         "total": "Total",
+        "total_all": "Total do período, com todos",
         "team": "Grupo",
         "status": "Status",
         "day": "Dia",
@@ -107,6 +108,7 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "no_client": "No client",
         "others": "Others",
         "total": "Total",
+        "total_all": "Period total, all included",
         "team": "Team",
         "status": "Status",
         "day": "Day",
@@ -314,7 +316,9 @@ def render_block(
             label = _text(row.label or t["no_client"])
         rows.append([label, *values(row.values, old.values if old else None)])
     total = values(result.total, previous.total if previous else None)
-    rows.append([*([t["total"]] if result.dimension else []), *total])
+    # Sem "Outros" (só os maiores), o total continua sendo o do período inteiro, e diz isso.
+    label = t["total_all"] if result.cut else t["total"]
+    rows.append([*([label] if result.dimension else []), *total])
     return _write(head, rows, pt)
 
 

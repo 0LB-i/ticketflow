@@ -619,7 +619,8 @@
       "horasDoModelo": "The template's",
       "casas": "Decimal places",
       "casasPadrao": "Default",
-      "casasN": "{n}"
+      "casasN": "{n}",
+      "semOutros": "Hide the Others row (the total still includes everything)"
     },
     "idades": {
       "0": "up to 1 day",
@@ -695,7 +696,8 @@
       "comparado": "Compared with {de} to {ate}"
     },
     "filtroNaoCombina": "This block's filter ({filtro}) doesn't match the page's.",
-    "filtroDoBlocoInvalido": "Parts of this block's filter no longer apply to you and were left out: {filtros}."
+    "filtroDoBlocoInvalido": "Parts of this block's filter no longer apply to you and were left out: {filtros}.",
+    "totalComTodos": "Period total, all included"
   },
   "expediente": {
     "titulo": "Working hours",
