@@ -1289,10 +1289,13 @@ async def build(
     f: Filters,
     *,
     all_tasks: bool = False,
+    schedules: bool = False,
     known: Lookups | None = None,
 ) -> Report:
     """Os números das telas prontas, da API e do PDF. `all_tasks`: também a lista de todas as
-    tarefas (`Report.tasks`, para o CSV). `known`: o expediente e os status já lidos."""
+    tarefas (`Report.tasks`, para o CSV). `schedules`: o expediente de cada tarefa (a coluna do
+    CSV; num ano são dezenas de milhares de tarefas, e só o CSV o mostra). `known`: o expediente
+    e os status já lidos."""
     want = Want(rows={"tasks"} if all_tasks else set(), sums=dict(BUILD_SUMS))
     data = await facts(db, auth, f, want, known)
     s = data.sums
@@ -1338,7 +1341,7 @@ async def build(
             done_at=t.done_at,
             minutes=t.minutes,
             overtime_minutes=t.overtime,
-            schedule=data.calendar.schedule(t.author_id, t.day),
+            schedule=data.calendar.schedule(t.author_id, t.day) if schedules else None,
         )
 
     overtime_tasks = [row(t) for t in data.overtime_tasks if t.overtime]

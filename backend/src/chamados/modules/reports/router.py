@@ -133,7 +133,8 @@ async def report_csv(
     ],
     locale: ExportLocale = None,
 ) -> Response:
-    data = await service.build(db, auth, f, all_tasks=table == "tasks")
+    tasks = table in ("tasks", "overtime")
+    data = await service.build(db, auth, f, all_tasks=table == "tasks", schedules=tasks)
     content = csv_export.render(data, table, locale or request_locale(request))
     record_export(db, request, auth, f, format="csv", table=table)
     await db.commit()
