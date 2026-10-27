@@ -26,6 +26,7 @@ from chamados.modules.reports.builder import (
     Block,
     FilterSpec,
     PeriodSpec,
+    ReportConfig,
     check_block,
     comparison_period,
     dimensions_for,
@@ -870,6 +871,28 @@ def test_configuracao_da_versao_1_e_convertida() -> None:
     )
     assert config_of(modelo).period.compare == "previous"
     assert upgrade({"version": 2, "period": {"compare": "year"}})["period"]["compare"] == "year"
+
+
+def test_modelo_salvo_antes_da_extensao_5_abre_com_os_padroes() -> None:
+    """Descrição, PDF, relatório para o cliente e o bloco no PDF entraram com padrões que
+    reproduzem o de antes: a versão continua a 2, sem conversão."""
+    salvo = {"version": 2, "blocks": [{"visual": "cards", "measures": ["hours"]}]}
+    config = config_of(ReportModel(config=salvo))
+    assert config.version == 2 and config.description == ""
+    assert config.pdf.model_dump() == {"orientation": "portrait", "title": "", "footer": ""}
+    assert config.client.model_dump() == {
+        "intro": "",
+        "notes": "",
+        "columns": ["ticket", "title", "opened", "closed", "status"],
+        "show_hours": True,
+    }
+    assert config.blocks[0].in_pdf
+    # As colunas do cliente são uma lista fechada, sem nada de organização interna.
+    for colunas in (["team"], ["hours"], []):
+        with pytest.raises(ValidationError):
+            ReportConfig.model_validate({**salvo, "client": {"columns": colunas}})
+    with pytest.raises(ValidationError):
+        ReportConfig.model_validate({**salvo, "description": "x" * 201})
 
 
 def test_periodo_seguinte() -> None:

@@ -522,16 +522,26 @@ def render_model(
     return _document(story, title, page)
 
 
+def _free(text: str, style: ParagraphStyle) -> list[Flowable]:
+    """Um texto livre do modelo (escapado), com as quebras de linha de quem escreveu."""
+    if not text.strip():
+        return []
+    return [Paragraph(escape(_sanitize(text.strip())).replace("\n", "<br/>"), style)]
+
+
 def render_client(
     logo: bytes | None,
     title: str,
     lines: list[str],
+    intro: str,
     totals: list[tuple[str, str]],
     tickets: Grid,
+    notes: str,
     page: Page,
 ) -> bytes:
-    """O relatório para o cliente: o logotipo da instalação, o título, o cliente e o período, os
-    totais e os chamados. Nada de organização interna (quem chama já deixou de fora)."""
+    """O relatório para o cliente: o logotipo da instalação, o título, o cliente e o período, o
+    texto de abertura, os totais, os chamados e as observações. Nada de organização interna
+    (quem chama já deixou de fora)."""
     st = _styles()
     width = page.width
     head: list[Flowable] = [_p(title, st["h1"]), *(_p(line, st["body"]) for line in lines)]
@@ -546,8 +556,12 @@ def render_client(
         story = [header]
     else:
         story = head
+    if intro.strip():
+        story += [Spacer(1, 8), *_free(intro, st["body"])]
     story += _cards(Cards("", [(label, value, "") for label, value in totals]), st, width)
     story += [Spacer(1, 4), *_grid(tickets, st, width)]
+    if notes.strip():
+        story += [Spacer(1, 8), *_free(notes, st["body"])]
     return _document(story, title, page)
 
 

@@ -57,10 +57,28 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
     <div class="grid gap-3 sm:grid-cols-2">
       {{ select("publico", t("relatorios.editor.publico"), [("internal", t("relatorios.editor.publicos.internal")), ("client", t("relatorios.editor.publicos.client"))], form.audience, refresh("atualizar", "change")) }}
     </div>
-    {%- if form.audience == "client" %}
-    <p class="text-muted">{{ t("relatorios.editor.clienteAjuda") }}</p>
-    {{ checkbox("atendeu", t("relatorios.editor.atendeu"), checked=form.show_people) }}
-    {%- endif %}
+    {#- O relatório para o cliente: os textos (só no modelo; a prévia A4 da tela mostra tudo), as
+        colunas e as horas. Escondido (e guardado) no modelo interno. #}
+    <div class="flex flex-col gap-3"{% if form.audience != "client" %} hidden{% endif %}>
+      <p class="text-muted">{{ t("relatorios.editor.clienteAjuda") }}</p>
+      {%- for name, key, value in (("cliente-abertura", "abertura", form.client.intro), ("cliente-observacoes", "observacoes", form.client.notes)) %}
+      <div class="flex flex-col gap-1">
+        <label for="campo-{{ name }}" class="font-medium">{{ t("relatorios.editor.cliente." ~ key) }}</label>
+        <textarea id="campo-{{ name }}" name="{{ name }}" rows="3" maxlength="1000" aria-describedby="campo-{{ name }}-dica" class="rounded-md border border-border-input bg-surface px-3 py-2 text-fg">{{ value }}</textarea>
+        <p id="campo-{{ name }}-dica" class="text-muted">{{ t("relatorios.editor.cliente." ~ key ~ "Dica") }}</p>
+      </div>
+      {%- endfor %}
+      <fieldset class="flex flex-col gap-2">
+        <legend class="font-medium">{{ t("relatorios.editor.colunas") }}</legend>
+        <div class="flex flex-wrap gap-x-4 gap-y-2">
+          {%- for value, text in client_columns %}
+          {{ checkbox("cliente-colunas", text, checked=value in form.client.columns, value=value, id="campo-cliente-colunas-" ~ value) }}
+          {%- endfor %}
+        </div>
+      </fieldset>
+      {{ checkbox("cliente-semHoras", t("relatorios.editor.cliente.semHoras"), checked=not form.client.show_hours) }}
+      {{ checkbox("atendeu", t("relatorios.editor.atendeu"), checked=form.show_people) }}
+    </div>
     {{ checkbox("inicial", t("relatorios.editor.inicial"), checked=form.is_default) }}
     {#- O PDF do modelo interno: a orientação, o título e o rodapé. Escondido (e guardado) no
         modelo para o cliente, que tem um PDF fixo. #}

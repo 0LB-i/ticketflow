@@ -787,6 +787,18 @@ def _heatmap(
     }
 
 
+# As colunas do relatório para o cliente → chave do catálogo (relatorios.paraCliente.colunas.*).
+CLIENT_COLUMN_KEYS = {
+    "ticket": "chamado",
+    "title": "titulo",
+    "opened": "registrado",
+    "closed": "concluido",
+    "status": "status",
+    "hours": "horas",
+    "people": "atendeu",
+}
+
+
 def uses_overtime(blocks: Sequence[Block]) -> bool:
     return any("overtime" in b.measures or b.only_overtime for b in blocks)
 
@@ -813,8 +825,8 @@ async def client_preview(
     page: LoggedPage, db: DB, state: State, f: service.Filters, config: ReportConfig
 ) -> dict[str, Any]:
     """O relatório para o cliente (§14.8.5), na tela e no PDF, com os mesmos textos e na mesma
-    ordem: o título, as linhas do cabeçalho (o cliente e o período), os totais, os chamados e o
-    rodapé (quando foi gerado)."""
+    ordem: o título, as linhas do cabeçalho (o cliente e o período), a abertura, os totais, os
+    chamados, as observações e o rodapé (quando foi gerado). `keys`: as colunas da lista."""
     client = single_client(state)
     if client is None:
         return {"ready": False, "message": page.t("relatorios.paraCliente.umCliente")}
@@ -824,38 +836,50 @@ async def client_preview(
     )
     tickets = await service.client_tickets(db, page.auth, data)
     hours = formatter(page, config, "hours")
-    columns = ["chamado", "titulo", "registrado", "concluido", "status", "horas"]
+    spec = config.client
+    # As colunas escolhidas, na ordem fixa; as horas e quem atendeu, quando o modelo pede.
+    columns: list[str] = [c for c in builder.CLIENT_COLUMNS if c in spec.columns]
+    if spec.show_hours:
+        columns.append("hours")
     if config.show_people:
-        columns.append("atendeu")
+        columns.append("people")
     rows = []
     for t in tickets:
-        row = [
-            f"#{t.number}",
-            t.title,
-            format_date(page.locale, t.created_at),
-            format_date(page.locale, t.closed_at) if t.closed_at else "—",
-            t.status,
-            hours(t.minutes),
-        ]
-        if config.show_people:
-            row.append(", ".join(t.people))
-        rows.append(row)
+        cells = {
+            "ticket": f"#{t.number}",
+            "title": t.title,
+            "opened": format_date(page.locale, t.created_at),
+            "closed": format_date(page.locale, t.closed_at) if t.closed_at else "—",
+            "status": t.status,
+            "hours": hours(t.minutes),
+            "people": ", ".join(t.people),
+        }
+        rows.append([cells[c] for c in columns])
     locale = page.locale
     period = page.t(
         "relatorios.pdf.periodo", de=format_date(locale, f.start), ate=format_date(locale, f.end)
     )
     now = format_datetime(locale, datetime.now(TIMEZONE))
+    totals = [
+        (page.t("relatorios.medidas.opened"), format_number(page.locale, len(data.opened))),
+        (page.t("relatorios.medidas.closed"), format_number(page.locale, len(data.closed))),
+    ]
+    if spec.show_hours:
+        totals.insert(
+            0, (page.t("relatorios.medidas.hours"), hours(sum(t.minutes for t in data.tasks)))
+        )
     return {
         "ready": True,
         "client": client,
         "title": page.t("relatorios.paraCliente.titulo"),
         "lines": [client, period],
+        "intro": spec.intro,
+        "notes": spec.notes,
         "footer": page.t("relatorios.paraCliente.gerado", quando=now),
-        "totals": [
-            (page.t("relatorios.medidas.hours"), hours(sum(t.minutes for t in data.tasks))),
-            (page.t("relatorios.medidas.opened"), format_number(page.locale, len(data.opened))),
-            (page.t("relatorios.medidas.closed"), format_number(page.locale, len(data.closed))),
+        "totals": totals,
+        "keys": columns,
+        "columns": [
+            page.t(f"relatorios.paraCliente.colunas.{CLIENT_COLUMN_KEYS[c]}") for c in columns
         ],
-        "columns": [page.t(f"relatorios.paraCliente.colunas.{c}") for c in columns],
         "rows": rows,
     }

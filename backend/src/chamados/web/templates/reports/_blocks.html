@@ -120,7 +120,11 @@
         {%- endfor %}
       </div>
     </header>
-    <dl class="mt-[1.5em] grid grid-cols-3 border border-paper-rule">
+    {#- Os textos do modelo: o Jinja escapa; as quebras de linha ficam (whitespace-pre-line). #}
+    {%- if v.intro %}
+    <p class="mt-[1.2em] whitespace-pre-line">{{ v.intro }}</p>
+    {%- endif %}
+    <dl class="mt-[1.5em] grid {{ 'grid-cols-3' if v.totals | length == 3 else 'grid-cols-2' }} border border-paper-rule">
       {%- for label, value in v.totals %}
       <div class="border-l border-paper-rule p-[0.5em] first:border-l-0">
         <dt class="text-paper-muted">{{ label }}</dt>
@@ -129,14 +133,14 @@
       {%- endfor %}
     </dl>
     {%- if v.rows %}
-    {#- A 6ª coluna é a das horas; a 3ª e a 4ª, as datas. #}
+    {#- As horas à direita; as datas sem quebrar. #}
     <div class="mt-[1em] overflow-x-auto">
       <table class="w-full border-collapse text-left">
         <caption class="sr-only">{{ v.title }}</caption>
         <thead class="bg-paper-head text-paper-muted">
           <tr>
             {%- for label in v.columns %}
-            <th scope="col" class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top font-normal{% if loop.index0 == 5 %} text-right{% endif %}">{{ label }}</th>
+            <th scope="col" class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top font-normal{% if v["keys"][loop.index0] == "hours" %} text-right{% endif %}">{{ label }}</th>
             {%- endfor %}
           </tr>
         </thead>
@@ -144,7 +148,8 @@
           {%- for row in v.rows %}
           <tr>
             {%- for cell in row %}
-            <td class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top{% if loop.index0 in (2, 3) %} whitespace-nowrap{% elif loop.index0 == 5 %} text-right whitespace-nowrap tabular-nums{% endif %}">{{ cell }}</td>
+            {%- set key = v["keys"][loop.index0] %}
+            <td class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top{% if key in ('opened', 'closed') %} whitespace-nowrap{% elif key == 'hours' %} text-right whitespace-nowrap tabular-nums{% endif %}">{{ cell }}</td>
             {%- endfor %}
           </tr>
           {%- endfor %}
@@ -153,6 +158,9 @@
     </div>
     {%- else %}
     <p class="mt-[1em] text-paper-muted">{{ t("relatorios.nada") }}</p>
+    {%- endif %}
+    {%- if v.notes %}
+    <p class="mt-[1.2em] whitespace-pre-line">{{ v.notes }}</p>
     {%- endif %}
     <p class="mt-[1.5em] text-paper-muted">{{ v.footer }}</p>
   </article>

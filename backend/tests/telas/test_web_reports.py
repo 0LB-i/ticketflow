@@ -804,7 +804,7 @@ def test_relatorio_para_o_cliente(
     dados = formulario(client, nome="X", horas="hm", acao="atualizar", blocos="1", publico="client")
     r = client.post("/relatorios/modelos", data={**dados, **TABELA})
     assert '<div class="flex flex-col gap-4" hidden>' in r.text
-    assert 'name="atendeu"' in r.text and "formato fixo" in r.text
+    assert 'name="atendeu"' in r.text and "tem a abertura, os totais" in r.text
     modelo = _criar(client, "Para a padaria", publico="client", atendeu="1")
 
     # Sem um cliente (só um) no filtro, a tela avisa e não há PDF.
@@ -838,7 +838,8 @@ def test_relatorio_para_o_cliente(
     chamadas = _capturar(monkeypatch, "render_client")
     r = client.get(_link_pdf(r.text))
     assert r.status_code == 200
-    logo, titulo, linhas, totais, chamados, pagina = chamadas[0]
+    logo, titulo, linhas, abertura, totais, chamados, observacoes, pagina = chamadas[0]
+    assert abertura == observacoes == ""  # sem os textos, nada
     assert logo == b"hello" and titulo == "Relatório de atendimento"
     assert linhas[0] == "Padaria Pão Quente" and linhas[1].startswith("Período:")
     assert totais[0] == ("Horas", "1h30")
@@ -2433,3 +2434,53 @@ def test_pdf_configuravel(
     assert linhas[-1].startswith("Hora extra é o tempo de tarefa fora do expediente: Seg, Ter")
     assert [type(b).__name__ for b in blocos] == ["Cards", "Chart", "Chart", "Grid"]
     assert blocos[3].rows[0][2] == f"#{numero} Impressora não imprime"
+
+
+def test_textos_e_colunas_do_relatorio_para_o_cliente(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A abertura e as observações (texto livre, escapado), as colunas escolhidas e as horas
+    escondidas: na prévia A4 e no PDF, na mesma ordem. Nada de organização interna."""
+    padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
+    dia = dia_util_passado()
+    numero = registrar(client, cenario, client_id=padaria, title="Impressora")["number"]
+    tarefa(client, numero, 90, em(dia, 19))
+    modelo = _criar(
+        client,
+        "Para a padaria",
+        publico="client",
+        **{
+            "cliente-abertura": "Prezados,\r\nsegue o resumo & <b>obrigado</b>.",
+            "cliente-observacoes": "Dúvidas: suporte@x.com",
+            "cliente-colunas": ["ticket", "status", "nada"],
+            "cliente-semHoras": "1",
+        },
+    )
+    # O editor guarda as escolhas.
+    r = client.get(f"/relatorios/modelos/{modelo}/editar")
+    assert ">Prezados,\nsegue o resumo &amp; &lt;b&gt;obrigado&lt;/b&gt;.</textarea>" in r.text
+    assert 'name="cliente-colunas" value="ticket" checked' in r.text
+    assert 'name="cliente-colunas" value="title" class' in r.text
+    assert 'name="cliente-semHoras" value="1" checked' in r.text
+
+    # A prévia: abertura, totais sem as horas, só as colunas escolhidas, observações.
+    filtros = _um_dia(dia, aba=modelo, cliente=padaria)
+    r = client.get("/relatorios/blocos", params=filtros)
+    folha = _folha(r.text)
+    abertura = "Prezados,\nsegue o resumo &amp; &lt;b&gt;obrigado&lt;/b&gt;."
+    assert f'<p class="mt-[1.2em] whitespace-pre-line">{abertura}</p>' in folha
+    assert folha.index(abertura) < folha.index("<dl") < folha.index("<table")
+    assert folha.index("<table") < folha.index("Dúvidas: suporte@x.com")
+    assert "grid-cols-2" in folha and ">Horas</dt>" not in folha
+    cabecalho = re.findall(r'<th scope="col"[^>]*>([^<]+)</th>', folha)
+    assert cabecalho == ["Chamado", "Status"]
+    assert "Impressora" not in folha  # sem a coluna do título
+
+    chamadas = _capturar(monkeypatch, "render_client")
+    client.get(_link_pdf(r.text))
+    _, _, _, abertura, totais, chamados, observacoes, _ = chamadas[0]
+    assert abertura == "Prezados,\nsegue o resumo & <b>obrigado</b>."
+    assert observacoes == "Dúvidas: suporte@x.com"
+    assert [rotulo for rotulo, _ in totais] == ["Chamados registrados", "Chamados concluídos"]
+    assert chamados.columns == ["Chamado", "Status"]
+    assert chamados.rows[0][0] == f"#{numero}" and len(chamados.rows[0]) == 2

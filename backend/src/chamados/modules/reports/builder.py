@@ -298,6 +298,26 @@ class PdfSpec(BaseModel):
     footer: str = Field(default="", max_length=200)
 
 
+# As colunas da lista de chamados do relatório para o cliente, nesta ordem. As horas são do
+# `ClientSpec.show_hours` e quem atendeu, do `ReportConfig.show_people`. Uma lista fechada de
+# dados do próprio chamado: nada de organização interna (§14.8.5, "Fica de fora").
+ClientColumn = Literal["ticket", "title", "opened", "closed", "status"]
+CLIENT_COLUMNS: tuple[ClientColumn, ...] = get_args(ClientColumn)
+
+
+class ClientSpec(BaseModel):
+    """O relatório para o cliente (§14.8.5): o texto de abertura e as observações do fim (livres,
+    escritos no modelo), as colunas da lista (sempre na ordem de CLIENT_COLUMNS) e as horas (a
+    coluna e o total)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    intro: str = Field(default="", max_length=1000)
+    notes: str = Field(default="", max_length=1000)
+    columns: list[ClientColumn] = Field(default=list(CLIENT_COLUMNS), min_length=1)
+    show_hours: bool = True
+
+
 class ReportConfig(BaseModel):
     """O que um modelo guarda (`report_models.config`). `version` muda quando o formato mudar
     de um jeito que os modelos salvos precisem ser convertidos (`upgrade`)."""
@@ -314,6 +334,7 @@ class ReportConfig(BaseModel):
     # aparecem; `show_people`, mostrar quem atendeu (os responsáveis).
     audience: Literal["internal", "client"] = "internal"
     show_people: bool = False
+    client: ClientSpec = ClientSpec()
     pdf: PdfSpec = PdfSpec()
     blocks: list[Block] = Field(max_length=12)
 

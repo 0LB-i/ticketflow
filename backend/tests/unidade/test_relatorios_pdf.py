@@ -80,8 +80,8 @@ def test_relatorio_para_o_cliente_com_logotipo() -> None:
     chamados = model_pdf.Grid("", ["Chamado", "Horas"], [["#1000", "1h"]])
     for logo in (imagem.getvalue(), None):
         conteudo = model_pdf.render_client(
-            logo, "Relatório de atendimento", ["Padaria", "Período"], [("Horas", "1h")],
-            chamados, PAGINA,
+            logo, "Relatório de atendimento", ["Padaria", "Período"], "Olá & <b>oi</b>\nlinha 2",
+            [("Horas", "1h")], chamados, "", PAGINA,
         )  # fmt: skip
         assert conteudo.startswith(b"%PDF")
 

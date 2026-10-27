@@ -180,10 +180,13 @@ O modelo de público "cliente" é feito para enviar ao cliente, em PDF.
 - **No editor:** "Público: cliente" (o padrão é interno). Os blocos ficam escondidos e guardados, para quando o modelo voltar a ser interno; a tela mostra a prévia do que vai no PDF. A prévia tem cara de folha A4 (papel branco também no modo escuro, a tipografia do PDF), com os mesmos textos e a mesma ordem, mas sem prometer as quebras de página.
 - **Um cliente:** o filtro precisa ter exatamente um cliente; sem isso, a tela avisa e não há PDF.
 - **Cabeçalho:** o logotipo da instalação (Configurações), o nome do cliente e o período.
-- **Conteúdo:** totais (horas, chamados registrados e concluídos) e a lista dos chamados do período (os que tiveram tarefa no período, ou foram registrados ou concluídos nele), com número, título, registrado em, concluído em (se está concluído), status atual e as horas das tarefas do período.
+- **Conteúdo:** nesta ordem, o texto de abertura, os totais (horas, chamados registrados e concluídos) e a lista dos chamados do período (os que tiveram tarefa no período, ou foram registrados ou concluídos nele), com número, título, registrado em, concluído em (se está concluído), status atual e as horas das tarefas do período, e as observações.
+- **Textos do modelo** (2026-10-27): a abertura e as observações, livres (até 1.000 caracteres cada, com as quebras de linha de quem escreveu), escritos só no editor do modelo, nunca na hora de gerar; vazios, não aparecem. São escapados na prévia e no PDF.
+- **Colunas** (2026-10-27): uma lista fechada, sempre nesta ordem: chamado, título, registrado em, concluído em e status (sem escolha, todas, como antes). As horas são do "Esconder as horas", que tira a coluna e o total de horas; quem atendeu continua uma opção à parte.
 - **Quem atendeu:** opcional no modelo, desligado por padrão; são os responsáveis do chamado (o principal e os outros).
-- **Rodapé:** só a data em que foi gerado, sem o nome de quem gerou.
-- **Fica de fora:** o texto das tarefas (do chamado aparece só o título, porque as tarefas podem ter anotações internas), o valor por hora, as horas extras, os grupos e qualquer outra informação de organização interna.
+- **Rodapé:** só a data em que foi gerado, sem o nome de quem gerou; no PDF, em cada página, com o número da página (§14.8.6). O PDF do cliente é sempre A4 em pé, sem o título e o rodapé livres do modelo interno.
+- **Prévia A4:** mostra tudo o que vai no PDF, na mesma ordem (abertura, totais, chamados, observações, rodapé). Não há CSV do relatório para o cliente.
+- **Fica de fora:** o texto das tarefas (do chamado aparece só o título, porque as tarefas podem ter anotações internas), o valor por hora, as horas extras, os grupos e qualquer outra informação de organização interna. As colunas escolhíveis são só dados do próprio chamado (a lista fechada acima); os textos livres são os que quem monta o modelo escreve.
 
 ### 14.8.6 PDF do modelo
 

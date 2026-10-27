@@ -204,8 +204,10 @@ async def report_pdf(page: LoggedPageDep, db: DB, params: ParamsDep) -> Response
             logo,
             view["title"],
             view["lines"],
+            view["intro"],
             view["totals"],
             model_pdf.Grid("", view["columns"], view["rows"], empty=page.t("relatorios.nada")),
+            view["notes"],
             model_pdf.Page(view["footer"], numbering),
         )
         table = "client"

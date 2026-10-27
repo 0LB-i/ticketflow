@@ -21,6 +21,7 @@ from chamados.modules.reports.builder import (
     BUILTINS,
     CATEGORIES,
     CHARTS,
+    CLIENT_COLUMNS,
     COLORED,
     DEFAULT_DAYS,
     LAST_DAYS,
@@ -29,6 +30,7 @@ from chamados.modules.reports.builder import (
     SIZED,
     Block,
     BlockPeriod,
+    ClientSpec,
     FilterSpec,
     PdfSpec,
     PeriodSpec,
@@ -37,7 +39,13 @@ from chamados.modules.reports.builder import (
 from chamados.modules.reports.models import ReportModel
 from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
-from chamados.web.reports_blocks import TASK_COLUMN_KEYS, block_title, block_view, scopes
+from chamados.web.reports_blocks import (
+    CLIENT_COLUMN_KEYS,
+    TASK_COLUMN_KEYS,
+    block_title,
+    block_view,
+    scopes,
+)
 from chamados.web.reports_state import (
     FILTER_FIELDS,
     NO_CLIENT,
@@ -128,6 +136,7 @@ class EditorForm:
     is_default: bool = False
     audience: str = "internal"  # ou "client": o relatório para o cliente (§14.8.5)
     show_people: bool = False
+    client: ClientSpec = field(default_factory=ClientSpec)
     pdf: PdfSpec = field(default_factory=PdfSpec)
     blocks: list[Block] = field(default_factory=list)
     errors: dict[int, str] = field(default_factory=dict)  # bloco → erro
@@ -251,6 +260,11 @@ def _read_block(form: FormData, i: int) -> Block:
     )
 
 
+def _free_text(form: FormData, name: str, limit: int) -> str:
+    """Um texto livre de várias linhas (as quebras do navegador viram "\n")."""
+    return str(form.get(name, "")).replace("\r\n", "\n").strip()[:limit]
+
+
 def _read_editor(form: FormData) -> tuple[EditorForm, str]:
     count = form.get("blocos")
     valid = isinstance(count, str) and count.isascii() and count.isdigit() and len(count) <= 2
@@ -263,6 +277,15 @@ def _read_editor(form: FormData) -> tuple[EditorForm, str]:
         is_default=form.get("inicial") == "1",
         audience="client" if form.get("publico") == "client" else "internal",
         show_people=form.get("atendeu") == "1",
+        # O relatório para o cliente: os textos, as colunas (nenhuma marcada: as de sempre) e as
+        # horas (marcado "Esconder as horas"; sem o campo, elas aparecem).
+        client=ClientSpec(
+            intro=_free_text(form, "cliente-abertura", 1000),
+            notes=_free_text(form, "cliente-observacoes", 1000),
+            columns=[c for c in CLIENT_COLUMNS if c in form.getlist("cliente-colunas")]
+            or list(CLIENT_COLUMNS),
+            show_hours=form.get("cliente-semHoras") != "1",
+        ),
         pdf=PdfSpec(
             orientation="landscape" if form.get("pdf-orientacao") == "landscape" else "portrait",
             title=str(form.get("pdf-titulo", "")).strip()[:120],
@@ -473,6 +496,10 @@ async def _editor_page(
             ("full", page.t("relatorios.editor.larguras.full")),
         ],
         height_options=[(h, page.t(f"relatorios.editor.alturas.{h}")) for h in ("s", "m", "l")],
+        client_columns=[
+            (c, page.t(f"relatorios.paraCliente.colunas.{CLIENT_COLUMN_KEYS[c]}"))
+            for c in CLIENT_COLUMNS
+        ],
         orientation_options=[
             (o, page.t(f"relatorios.editor.orientacoes.{o}")) for o in ("portrait", "landscape")
         ],
@@ -500,6 +527,7 @@ def _base(page: LoggedPage, base: str | None, models: list[ReportModel]) -> Edit
         hours=config.hours,
         audience=config.audience,
         show_people=config.show_people,
+        client=config.client,
         pdf=config.pdf,
         blocks=list(config.blocks),
     )
@@ -545,6 +573,7 @@ async def edit_model(page: LoggedPageDep, db: DB, model_id: uuid.UUID) -> HTMLRe
             is_default=model.is_default,
             audience=config.audience,
             show_people=config.show_people,
+            client=config.client,
             pdf=config.pdf,
             blocks=list(config.blocks),
         )
@@ -626,6 +655,7 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
                 hours=editor.hours,
                 audience=editor.audience,
                 show_people=editor.show_people,
+                client=editor.client,
                 pdf=editor.pdf,
                 blocks=editor.blocks,
             )
@@ -637,6 +667,7 @@ async def _submit(page: LoggedPage, db: DB, model: ReportModel | None) -> Respon
                     "hours": editor.hours,
                     "audience": editor.audience,
                     "show_people": editor.show_people,
+                    "client": editor.client,
                     "pdf": editor.pdf,
                     "blocks": editor.blocks,
                 }

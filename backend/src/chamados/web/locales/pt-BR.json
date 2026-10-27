@@ -577,7 +577,7 @@
         "client": "Cliente (PDF para enviar)"
       },
       "atendeu": "Mostrar quem atendeu (os responsáveis)",
-      "clienteAjuda": "O relatório para o cliente tem um formato fixo: os totais e os chamados do período, sem horas extras, grupos nem o texto das tarefas. Os blocos ficam guardados, para quando o modelo voltar a ser interno.",
+      "clienteAjuda": "O relatório para o cliente tem a abertura, os totais, os chamados do período e as observações, sem horas extras, grupos nem o texto das tarefas. Os blocos ficam guardados, para quando o modelo voltar a ser interno.",
       "previa": "Prévia, de {de} a {ate}:",
       "previaSemPeriodo": "Prévia:",
       "agregacao": "Tempos até a conclusão",
@@ -640,7 +640,14 @@
       "tituloPdfVazio": "O nome do modelo",
       "rodape": "Rodapé",
       "rodapeDica": "Um texto em cada página, acima da data de geração e do número da página. Vazio: só a data e o número.",
-      "foraDoPdf": "Deixar fora do PDF (continua na tela e no CSV)"
+      "foraDoPdf": "Deixar fora do PDF (continua na tela e no CSV)",
+      "cliente": {
+        "abertura": "Texto de abertura",
+        "aberturaDica": "Aparece logo abaixo do cliente e do período. Vazio: nada.",
+        "observacoes": "Observações",
+        "observacoesDica": "Aparecem no fim, depois da lista de chamados. Vazio: nada.",
+        "semHoras": "Esconder as horas (a coluna e o total)"
+      }
     },
     "idades": {
       "0": "até 1 dia",

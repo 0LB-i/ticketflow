@@ -577,7 +577,7 @@
         "client": "Client (PDF to send)"
       },
       "atendeu": "Show who handled it (the assignees)",
-      "clienteAjuda": "The client report has a fixed format: the period's totals and tickets, without overtime, teams or task text. The blocks are kept for when the template is internal again.",
+      "clienteAjuda": "The client report has the opening text, the totals, the tickets of the period and the notes, without overtime, teams or the text of the tasks. The blocks are kept for when the template goes back to internal.",
       "previa": "Preview, {de} to {ate}:",
       "previaSemPeriodo": "Preview:",
       "agregacao": "Times to close",
@@ -640,7 +640,14 @@
       "tituloPdfVazio": "The template name",
       "rodape": "Footer",
       "rodapeDica": "Text on every page, above the generation date and the page number. Empty: just the date and the number.",
-      "foraDoPdf": "Leave out of the PDF (still on screen and in the CSV)"
+      "foraDoPdf": "Leave out of the PDF (still on screen and in the CSV)",
+      "cliente": {
+        "abertura": "Opening text",
+        "aberturaDica": "Shown right below the client and the period. Empty: nothing.",
+        "observacoes": "Notes",
+        "observacoesDica": "Shown at the end, after the ticket list. Empty: nothing.",
+        "semHoras": "Hide the hours (the column and the total)"
+      }
     },
     "idades": {
       "0": "up to 1 day",
