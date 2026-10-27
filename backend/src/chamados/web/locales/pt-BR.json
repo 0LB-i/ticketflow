@@ -421,7 +421,10 @@
       "quando": "Quando",
       "chamado": "Chamado",
       "tempo": "Tempo",
-      "foraDoExpediente": "Fora do expediente"
+      "foraDoExpediente": "Fora do expediente",
+      "cliente": "Cliente",
+      "grupo": "Grupo",
+      "status": "Status"
     },
     "modelos": "Modelos de relatório",
     "outros": "Outros",
@@ -620,7 +623,11 @@
       "casas": "Casas decimais",
       "casasPadrao": "As de sempre",
       "casasN": "{n}",
-      "semOutros": "Esconder a linha Outros (o total continua com todos)"
+      "semOutros": "Esconder a linha Outros (o total continua com todos)",
+      "colunas": "Colunas",
+      "ordemDasMedidas": "Ordem das medidas",
+      "subirMedida": "Subir {medida}",
+      "descerMedida": "Descer {medida}"
     },
     "idades": {
       "0": "até 1 dia",

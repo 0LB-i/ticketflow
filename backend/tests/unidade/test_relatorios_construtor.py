@@ -977,3 +977,11 @@ def test_so_os_maiores_nos_cadastros() -> None:
         check_block(Block(visual="table", dimension="weekday", measures=["hours"], top=3))
     with pytest.raises(HTTPException, match="Esconder Outros"):
         check_block(Block(visual="table", dimension="person", measures=["hours"], hide_others=True))
+
+
+def test_colunas_so_na_lista_de_tarefas() -> None:
+    check_block(Block(visual="tasks", columns=["when", "team"]))
+    with pytest.raises(HTTPException, match="As colunas"):
+        check_block(Block(visual="table", dimension="person", measures=["hours"], columns=["when"]))
+    with pytest.raises(ValidationError):
+        Block(visual="tasks", columns=[])

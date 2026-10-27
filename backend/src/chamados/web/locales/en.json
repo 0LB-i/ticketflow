@@ -421,7 +421,10 @@
       "quando": "When",
       "chamado": "Ticket",
       "tempo": "Time",
-      "foraDoExpediente": "Outside working hours"
+      "foraDoExpediente": "Outside working hours",
+      "cliente": "Client",
+      "grupo": "Team",
+      "status": "Status"
     },
     "modelos": "Report templates",
     "outros": "Others",
@@ -620,7 +623,11 @@
       "casas": "Decimal places",
       "casasPadrao": "Default",
       "casasN": "{n}",
-      "semOutros": "Hide the Others row (the total still includes everything)"
+      "semOutros": "Hide the Others row (the total still includes everything)",
+      "colunas": "Columns",
+      "ordemDasMedidas": "Measure order",
+      "subirMedida": "Move {medida} up",
+      "descerMedida": "Move {medida} down"
     },
     "idades": {
       "0": "up to 1 day",

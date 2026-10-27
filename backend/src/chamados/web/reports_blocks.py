@@ -55,6 +55,18 @@ from chamados.web.reports_state import NO_CLIENT, RELATIVE_KEYS, State, origin_o
 DAILY_LIMIT = 62  # um gráfico por dia de um período mais longo agrupa por semana
 
 
+# As colunas da lista de tarefas → chave do catálogo (relatorios.colunas.*).
+TASK_COLUMN_KEYS: dict[builder.TaskColumn, str] = {
+    "when": "quando",
+    "person": "pessoa",
+    "ticket": "chamado",
+    "client": "cliente",
+    "team": "grupo",
+    "status": "status",
+    "time": "tempo",
+    "overtime": "foraDoExpediente",
+}
+
 LISTED = 200  # tarefas por página na lista (e no PDF, só a primeira); o CSV traz todas
 
 # Os dias da semana (0 = segunda) → chave dos catálogos (expediente.diasCurtos.*,
@@ -711,6 +723,11 @@ def block_view(
                 total=format_number(page.locale, count),
             ),
         )
+
+        def client_name(client_id: int | None) -> str:
+            found = data.clients.get(client_id) if client_id else None
+            return found.label if found else page.t("relatorios.semCliente")
+
         view.update(
             tasks=[
                 {
@@ -720,8 +737,16 @@ def block_view(
                     "title": t.ticket_title,
                     "minutes": fmt(t.minutes),
                     "overtime": fmt(t.overtime),
+                    "client": client_name(t.client_id),
+                    "team": data.teams[t.team_id].name,
+                    "status": data.statuses[t.status_id].name,
                 }
                 for t in result.tasks[offset : offset + LISTED]
+            ],
+            # As colunas escolhidas no bloco, na ordem fixa (`builder.TASK_COLUMNS`).
+            columns=[
+                (c, page.t(f"relatorios.colunas.{TASK_COLUMN_KEYS[c]}"))
+                for c in (block.columns or builder.DEFAULT_COLUMNS)
             ],
             count=count,
             empty=page.t("relatorios.semExtras" if block.only_overtime else "relatorios.vazio"),

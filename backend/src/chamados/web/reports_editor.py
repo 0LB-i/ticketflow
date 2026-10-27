@@ -36,7 +36,7 @@ from chamados.modules.reports.builder import (
 from chamados.modules.reports.models import ReportModel
 from chamados.web.formatting import TIMEZONE, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
-from chamados.web.reports_blocks import block_title, block_view, scopes
+from chamados.web.reports_blocks import TASK_COLUMN_KEYS, block_title, block_view, scopes
 from chamados.web.reports_state import (
     NO_CLIENT,
     RELATIVE_KEYS,
@@ -111,7 +111,15 @@ def _read_block(form: FormData, i: int) -> Block:
     offered = builder.measures_for(visual, dimension)
     single = one("medida")
     checked = [v for v in form.getlist(f"b{i}-medidas") if isinstance(v, str)]
-    measures = [m for m in offered if m in checked]
+    # Na ordem guardada (`b<i>-sequencia`, a das colunas da tabela e dos cartões, que as setas
+    # mudam); as marcadas agora entram no fim, na ordem do catálogo.
+    sequence = [v for v in form.getlist(f"b{i}-sequencia") if isinstance(v, str)]
+    measures = list(
+        dict.fromkeys(
+            [m for m in sequence if m in checked and m in offered]
+            + [m for m in offered if m in checked]
+        )
+    )
     if visual == "stacked":
         measures = list(offered)
     elif visual == "combo":
@@ -149,6 +157,10 @@ def _read_block(form: FormData, i: int) -> Block:
     cut = None
     if visual in TOPPED and dimension in CATEGORIES and top.isascii() and top.isdigit():
         cut = min(int(top), 100) or None
+    columns = None
+    if visual == "tasks":
+        marked = form.getlist(f"b{i}-colunas")
+        columns = [c for c in builder.TASK_COLUMNS if c in marked]
     timed = visual == "tasks" or bool(set(measures) & set(builder.DURATIONS))
     fractional = timed or bool(set(measures) & {*builder.PERCENT, *builder.RATES})
     return Block(
@@ -180,6 +192,8 @@ def _read_block(form: FormData, i: int) -> Block:
         # O formato das horas e as casas, só onde valem (`check_block`); vazios, os de sempre.
         hours=next((h for h in ("hm", "decimal") if h == one("horas") and timed), None),
         decimals=next((d for d in (0, 1, 2) if str(d) == one("casas") and fractional), None),
+        # As colunas da lista de tarefas, na ordem fixa; as de sempre (ou nenhuma) ficam None.
+        columns=columns if columns and tuple(columns) != builder.DEFAULT_COLUMNS else None,
     )
 
 
@@ -204,8 +218,23 @@ def _apply(editor: EditorForm, action: str) -> None:
     if action == "adicionar" and len(blocks) < 12:
         blocks.append(NEW_BLOCK.model_copy())
         return
+    # Mover uma medida dentro do bloco: "medida-subir-<bloco>-<medida>" (ou descer).
+    parts = action.split("-")
+    if (
+        len(parts) == 4
+        and parts[0] == "medida"
+        and all(p.isascii() and p.isdigit() for p in parts[2:])
+    ):
+        i, j = int(parts[2]), int(parts[3])
+        if i < len(blocks):
+            measures = list(blocks[i].measures)
+            k = j - 1 if parts[1] == "subir" else j + 1
+            if 0 <= j < len(measures) and 0 <= k < len(measures):
+                measures[j], measures[k] = measures[k], measures[j]
+                blocks[i] = blocks[i].model_copy(update={"measures": measures})
+        return
     verb, _, number = action.partition("-")
-    if not number.isdigit() or int(number) >= len(blocks):
+    if not (number.isascii() and number.isdigit()) or int(number) >= len(blocks):
         return
     i = int(number)
     if verb == "remover":
@@ -313,6 +342,11 @@ async def _editor_page(
         categories=CATEGORIES,
         charts=CHARTS,
         topped=TOPPED,
+        task_columns=[
+            (c, page.t(f"relatorios.colunas.{TASK_COLUMN_KEYS[c]}")) for c in builder.TASK_COLUMNS
+        ],
+        default_columns=builder.DEFAULT_COLUMNS,
+        measure_names={m: page.t(f"relatorios.medidas.{m}") for m in builder.MEASURES},
         visual_options=[(v, page.t(f"relatorios.visuais.{v}")) for v in builder.VISUALS],
         dimension_options={
             visual: [(d, page.t(f"relatorios.dimensoes.{d}").capitalize()) for d in options]

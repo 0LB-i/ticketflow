@@ -234,14 +234,25 @@
 {% endcall %}
 {%- else %}
 {% call frame(b, preview) %}
-  {% call table(b.title, [t("relatorios.colunas.quando"), t("relatorios.colunas.pessoa"), t("relatorios.colunas.chamado"), t("relatorios.colunas.tempo"), t("relatorios.colunas.foraDoExpediente")], b.empty, b.tasks | length, numeric=(3, 4)) %}
+  {#- As colunas escolhidas no bloco (`b.columns`, na ordem fixa); o tempo e o fora do expediente,
+      à direita. #}
+  {%- set keys = b.columns | map(attribute=0) | list %}
+  {% call table(b.title, b.columns | map(attribute=1) | list, b.empty, b.tasks | length, numeric=[keys.index("time") if "time" in keys else -1, keys.index("overtime") if "overtime" in keys else -1]) %}
     {%- for o in b.tasks %}
     <tr class="border-t border-border">
+      {%- for key in keys %}
+      {%- if key == "when" %}
       <td class="px-3 py-2 tabular-nums">{{ datetime(o.done_at) }}</td>
-      <td class="px-3 py-2">{{ o.person }}</td>
+      {%- elif key == "ticket" %}
       <td class="px-3 py-2"><a href="/chamados/{{ o.number }}" class="text-primary underline tabular-nums">#{{ o.number }}</a> {{ o.title }}</td>
+      {%- elif key == "time" %}
       <td class="px-3 py-2 text-right tabular-nums">{{ o.minutes }}</td>
+      {%- elif key == "overtime" %}
       <td class="px-3 py-2 text-right tabular-nums">{{ o.overtime }}</td>
+      {%- else %}
+      <td class="px-3 py-2">{{ o[key] }}</td>
+      {%- endif %}
+      {%- endfor %}
     </tr>
     {%- endfor %}
   {% endcall %}

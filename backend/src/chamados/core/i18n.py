@@ -178,6 +178,7 @@ EN: dict[str, str] = {
         "Top N applies when grouping by person, client, team or status."
     ),
     "Esconder Outros vale com só os maiores.": "Hiding Others applies with top N.",
+    "As colunas valem na lista de tarefas.": "Columns apply to the task list.",
     "A cor vale nas barras, nas colunas e na linha.": (
         "The color applies to bars, columns and lines."
     ),

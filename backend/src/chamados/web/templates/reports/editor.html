@@ -156,11 +156,36 @@ hx-post="{{ action }}" hx-trigger="{{ trigger }}" hx-target="#editor" hx-select=
           {%- endfor %}
         </div>
       </fieldset>
+      {#- A ordem das medidas marcadas: as colunas da tabela e os cartões, nessa ordem (a primeira
+          também ordena as linhas). As setas refazem o formulário. #}
+      <ol class="flex flex-col gap-1" aria-label="{{ t('relatorios.editor.ordemDasMedidas') }}">
+        {%- for m in b.measures %}
+        <li class="flex items-center justify-between gap-2 rounded-md bg-surface-raised px-3 py-1">
+          <input type="hidden" name="b{{ i }}-sequencia" value="{{ m }}">
+          <span>{{ measure_names[m] }}</span>
+          {%- if b.measures | length > 1 %}
+          <span class="flex gap-1">
+            <button type="button" {{ refresh("medida-subir-" ~ i ~ "-" ~ loop.index0) }}{% if loop.first %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface disabled:opacity-40" aria-label="{{ t('relatorios.editor.subirMedida', medida=measure_names[m]) }}">{{ icon("arrow-up", "size-4") }}</button>
+            <button type="button" {{ refresh("medida-descer-" ~ i ~ "-" ~ loop.index0) }}{% if loop.last %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface disabled:opacity-40" aria-label="{{ t('relatorios.editor.descerMedida', medida=measure_names[m]) }}">{{ icon("arrow-down", "size-4") }}</button>
+          </span>
+          {%- endif %}
+        </li>
+        {%- endfor %}
+      </ol>
       {%- if b.visual == "cards" and b.measures | length == 1 %}
       <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-grande", t("relatorios.editor.grande"), checked=b.big, id="campo-b" ~ i ~ "-grande") }}</div>
       {%- endif %}
       {%- elif b.visual == "tasks" %}
       <div {{ refresh("atualizar", "change") }}>{{ checkbox("b" ~ i ~ "-extras", t("relatorios.editor.soExtras"), checked=b.only_overtime, id="campo-b" ~ i ~ "-extras") }}</div>
+      {#- As colunas da lista (sem escolha, as de sempre), na ordem fixa. #}
+      <fieldset class="flex flex-col gap-2" {{ refresh("atualizar", "change") }}>
+        <legend class="font-medium">{{ t("relatorios.editor.colunas") }}</legend>
+        <div class="flex flex-wrap gap-x-4 gap-y-2">
+          {%- for value, text in task_columns %}
+          {{ checkbox("b" ~ i ~ "-colunas", text, checked=value in (b.columns or default_columns), value=value, id="campo-b" ~ i ~ "-colunas-" ~ value) }}
+          {%- endfor %}
+        </div>
+      </fieldset>
       {%- endif %}
       {#- O filtro próprio do bloco: as etiquetas da tela; só restringe o filtro dela, campo a
           campo. Pôr ou tirar uma etiqueta refaz o formulário (o evento "etiquetas" do chamado.js). #}

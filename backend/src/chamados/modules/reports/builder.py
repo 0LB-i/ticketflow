@@ -68,6 +68,13 @@ Measure = Literal[
     "tasks_per_workday",
 ]
 Order = Literal["desc", "asc", "name"]
+# As colunas da lista de tarefas, na ordem em que aparecem: o chamado é o número e o título; o
+# tempo e o fora do expediente, os minutos da tarefa.
+TaskColumn = Literal["when", "person", "ticket", "client", "team", "status", "time", "overtime"]
+TASK_COLUMNS: tuple[TaskColumn, ...] = get_args(TaskColumn)
+# As de sempre na tela e no PDF; o CSV de sempre também tem o cliente.
+DEFAULT_COLUMNS: tuple[TaskColumn, ...] = ("when", "person", "ticket", "time", "overtime")
+CSV_COLUMNS: tuple[TaskColumn, ...] = ("when", "person", "ticket", "client", "time", "overtime")
 # Comparar com nada, com o período imediatamente anterior ou com o mesmo período do ano anterior.
 Compare = Literal["none", "previous", "year"]
 
@@ -274,6 +281,9 @@ class Block(BaseModel):
     # decimal, das porcentagens e das taxas (None: as de sempre).
     hours: Literal["hm", "decimal"] | None = None
     decimals: Literal[0, 1, 2] | None = None
+    # As colunas da lista de tarefas (None: as de sempre, DEFAULT_COLUMNS e, no CSV, CSV_COLUMNS),
+    # sempre na ordem de TASK_COLUMNS.
+    columns: list[TaskColumn] | None = Field(default=None, min_length=1)
 
 
 class ReportConfig(BaseModel):
@@ -430,6 +440,8 @@ def check_block(block: Block) -> None:
     """As combinações que o formulário não deixa escolher, conferidas de novo ao salvar."""
     if block.visual == "tasks":
         return
+    if block.columns is not None:
+        raise HTTPException(422, "As colunas valem na lista de tarefas.")
     if block.visual != "cards" and block.dimension is None:
         raise HTTPException(422, "Escolha o que agrupar.")
     if not block.measures:

@@ -6,12 +6,14 @@ em horas decimais (para somar na planilha) e em minutos.
 
 import csv
 import io
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Literal
 
 from chamados.core.i18n import Locale
 from chamados.modules.reports import builder
 from chamados.modules.reports.builder import (
+    CSV_COLUMNS,
     DURATIONS,
     ELAPSED,
     OTHERS,
@@ -19,6 +21,7 @@ from chamados.modules.reports.builder import (
     RATES,
     Measure,
     Result,
+    TaskColumn,
     Value,
 )
 from chamados.modules.reports.schemas import Report
@@ -219,13 +222,16 @@ def render_block(
     locale: Locale,
     previous: Result | None = None,
     decimals: int | None = None,
+    columns: Sequence[TaskColumn] = CSV_COLUMNS,
 ) -> bytes:
     """Um bloco de um modelo: as linhas agrupadas, como na tela, com o total no fim (a coluna da
     medida tem o nome da do CSV das tabelas); a lista de tarefas, com as colunas do de tarefas.
     `previous`: o bloco no período comparado; cada medida ganha o valor de antes e a variação
     (em %, ou em pontos nas porcentagens), as mesmas da tela (`builder.matching`). `decimals`:
     as casas das porcentagens e das taxas escolhidas no bloco (as horas continuam em horas
-    decimais com duas casas e em minutos, para somar na planilha)."""
+    decimais com duas casas e em minutos, para somar na planilha). `columns`: as da lista de
+    tarefas escolhidas no bloco (o chamado é o número e o título; os tempos, em horas e em
+    minutos)."""
     t = TEXTS[locale]
     pt = locale == "pt-BR"
 
@@ -235,24 +241,34 @@ def render_block(
 
     rows: list[list[str | int]] = []
     if result.is_list:
-        head = [t["when"], t["person"], t["ticket"], t["title"], t["client"]]
-        head += [t["time"], t["minutes"].format(column=t["time"])]
-        head += [t["outside"], t["minutes"].format(column=t["outside"])]
+        heads: dict[TaskColumn, list[str]] = {
+            "when": [t["when"]],
+            "person": [t["person"]],
+            "ticket": [t["ticket"], t["title"]],
+            "client": [t["client"]],
+            "team": [t["team"]],
+            "status": [t["status"]],
+            "time": [t["time"], t["minutes"].format(column=t["time"])],
+            "overtime": [t["outside"], t["minutes"].format(column=t["outside"])],
+        }
+        head = [h for c in columns for h in heads[c]]
         for task in result.tasks:
             client = data.clients.get(task.client_id) if task.client_id else None
-            rows.append(
-                [
+            cells: dict[TaskColumn, list[str | int]] = {
+                "when": [
                     task.done_at.astimezone(TZ).strftime(
                         "%d/%m/%Y %H:%M" if pt else "%Y-%m-%d %H:%M"
-                    ),
-                    _text(data.users[task.author_id].display_name),
-                    task.ticket_number,
-                    _text(task.ticket_title),
-                    _text(client.label if client else t["no_client"]),
-                    *hours(task.minutes),
-                    *hours(task.overtime),
-                ]
-            )
+                    )
+                ],
+                "person": [_text(data.users[task.author_id].display_name)],
+                "ticket": [task.ticket_number, _text(task.ticket_title)],
+                "client": [_text(client.label if client else t["no_client"])],
+                "team": [_text(data.teams[task.team_id].name)],
+                "status": [_text(data.statuses[task.status_id].name)],
+                "time": hours(task.minutes),
+                "overtime": hours(task.overtime),
+            }
+            rows.append([cell for c in columns for cell in cells[c]])
         return _write(head, rows, pt)
 
     measures = list(result.total)

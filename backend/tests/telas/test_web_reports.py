@@ -2162,3 +2162,63 @@ def test_esconder_outros(client: TestClient, cenario: dict[str, Any], db: Sessio
     dados = formulario(client, nome="X", horas="hm", acao="atualizar", **campos)
     r = client.post("/relatorios/modelos", data={**dados, "b0-agrupar": "day"})
     assert 'name="b0-maiores"' not in r.text and 'name="b0-semOutros"' not in r.text
+
+
+def test_colunas_da_lista_e_ordem_das_medidas(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lista de tarefas mostra as colunas escolhidas (na ordem fixa), também no CSV e no PDF;
+    a tabela, as medidas na ordem guardada, que as setas do editor mudam."""
+    dia = dia_util_passado()
+    padaria = criar_cliente(db, "Padaria", "11222333000181")
+    numero = registrar(client, cenario, client_id=padaria)["number"]
+    tarefa(client, numero, 60, em(dia, 10))
+    campos = {
+        "blocos": "2",
+        "b0-visual": "tasks",
+        "b0-colunas": ["status", "ticket", "client", "when"],
+        "b1-visual": "table",
+        "b1-agrupar": "person",
+        "b1-medidas": ["hours", "tasks"],
+        "b1-sequencia": ["tasks", "hours"],
+    }
+    modelo = _criar(client, "Colunas", **campos)
+    config = db.scalar(select(ReportModel.config).where(ReportModel.name == "Colunas"))
+    assert config is not None
+    assert config["blocks"][0]["columns"] == ["when", "ticket", "client", "status"]
+    assert config["blocks"][1]["measures"] == ["tasks", "hours"]
+    r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo))
+    lista = _bloco(r.text, 0)
+    cabecalho = re.findall(r'<th scope="col"[^>]*>([^<]+)</th>', lista)
+    assert cabecalho == ["Quando", "Chamado", "Cliente", "Status"]
+    assert '<td class="px-3 py-2">Padaria</td>' in lista and "Pessoa" not in lista
+    tabela = re.findall(r'<th scope="col"[^>]*>([^<]+)</th>', _bloco(r.text, 1))
+    assert tabela == ["Pessoa", "Tarefas", "Horas"]
+    r = client.get("/relatorios/csv", params=_um_dia(dia, aba=modelo, bloco="0"))
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[0] == ["Quando", "Chamado", "Título", "Cliente", "Status"]
+    assert linhas[1][1:4] == [str(numero), "Impressora não imprime", "Padaria"]
+    r = client.get("/relatorios/csv", params=_um_dia(dia, aba=modelo, bloco="1"))
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    assert linhas[0] == ["Pessoa", "Tarefas", "Horas", "Horas (min)"]
+    pdf = _capturar(monkeypatch, "render_model")
+    client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
+    lista_pdf, tabela_pdf = pdf[0][2]
+    assert lista_pdf.columns == ["Quando", "Chamado", "Cliente", "Status"]
+    assert lista_pdf.rows[0][1:3] == [f"#{numero} Impressora não imprime", "Padaria"]
+    assert tabela_pdf.columns == ["Pessoa", "Tarefas", "Horas"]
+
+    # No editor: as setas trocam as medidas de lugar; uma marcada agora entra no fim.
+    dados = formulario(client, nome="X", horas="hm", **campos)
+    r = client.post("/relatorios/modelos", data={**dados, "acao": "medida-subir-1-1"})
+    assert re.findall(r'name="b1-sequencia" value="(\w+)"', r.text) == ["hours", "tasks"]
+    marcadas = {"b1-medidas": ["hours", "tasks", "overtime"]}
+    r = client.post("/relatorios/modelos", data={**dados, "acao": "atualizar", **marcadas})
+    ordem = re.findall(r'name="b1-sequencia" value="(\w+)"', r.text)
+    assert ordem == ["tasks", "hours", "overtime"]
+    assert 'aria-label="Descer Tarefas"' in r.text
+    # Sem escolha, as colunas de sempre marcadas.
+    sem = {k: v for k, v in dados.items() if k != "b0-colunas"}
+    r = client.post("/relatorios/modelos", data={**sem, "acao": "atualizar"})
+    assert 'id="campo-b0-colunas-person" name="b0-colunas" value="person" checked' in r.text
+    assert 'id="campo-b0-colunas-client" name="b0-colunas" value="client" class' in r.text

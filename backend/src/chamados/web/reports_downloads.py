@@ -5,6 +5,7 @@ auditoria (`report.exported`).
 """
 
 import base64
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any, cast
 
@@ -121,19 +122,18 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                 )
             )
         else:
-            columns = ["quando", "pessoa", "chamado", "tempo", "foraDoExpediente"]
+            # As colunas escolhidas no bloco, como na tela; o chamado é o número e o título.
+            texts: dict[str, Callable[[dict[str, Any]], str]] = {
+                "when": lambda t: format_datetime(page.locale, t["done_at"]),
+                "ticket": lambda t: f"#{t['number']} {t['title']}",
+                "time": lambda t: t["minutes"],
+            }
             blocks.append(
                 model_pdf.Grid(
                     v["title"],
-                    [page.t(f"relatorios.colunas.{c}") for c in columns],
+                    [label for _, label in v["columns"]],
                     [
-                        [
-                            format_datetime(page.locale, t["done_at"]),
-                            t["person"],
-                            f"#{t['number']} {t['title']}",
-                            t["minutes"],
-                            t["overtime"],
-                        ]
+                        [texts[key](t) if key in texts else t[key] for key, _ in v["columns"]]
                         for t in v["tasks"]
                     ],
                     empty=v["empty"],
@@ -272,7 +272,12 @@ async def block_csv(
         first, last = scope.comparison
         previous = builder.run(scope.before, block, first, last)
     content = csv_export.render_block(
-        scope.data, result, cast(Locale, page.locale), previous, block.decimals
+        scope.data,
+        result,
+        cast(Locale, page.locale),
+        previous,
+        block.decimals,
+        block.columns or builder.CSV_COLUMNS,
     )
     reports_api.record_export(
         db, page.request, page.auth, f, format="csv", table="block", model=state.choice.name
