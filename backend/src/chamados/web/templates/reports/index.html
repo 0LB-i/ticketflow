@@ -191,6 +191,16 @@
     {%- if query_extras is not none %}
     {{ select_field("extras", t("relatorios.extras.campo"), [("", t("relatorios.extras.opcoes.juntas")), ("separada", t("relatorios.extras.opcoes.separada"))], query_extras) }}
     {%- endif %}
+    {#- Com um cliente só: as horas descontadas do excedente (horas e minutos). #}
+    {%- if query_discount is not none %}
+    <div class="flex flex-col gap-1">
+      <label for="campo-desconto" class="font-medium">{{ t("relatorios.desconto.campo") }}</label>
+      <input id="campo-desconto" name="desconto" value="{{ query_discount }}" placeholder="0:00" autocomplete="off"{% if discount_invalid %} aria-invalid="true" aria-describedby="campo-desconto-erro"{% endif %} class="h-10 w-28 rounded-md border bg-surface px-3 text-fg tabular-nums {{ 'border-danger' if discount_invalid else 'border-border-input' }}">
+      {%- if discount_invalid %}
+      <p id="campo-desconto-erro" class="text-danger">{{ t("relatorios.desconto.invalido") }}</p>
+      {%- endif %}
+    </div>
+    {%- endif %}
   </form>
 
   {#- O que está filtrado (cada × tira um valor) e a trilha do detalhar por período. #}

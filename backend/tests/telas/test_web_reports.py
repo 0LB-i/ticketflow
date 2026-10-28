@@ -28,6 +28,7 @@ from chamados.modules.system.models import SystemSetting, WorkSchedule
 from chamados.modules.tickets.models import Ticket
 from chamados.web.formatting import TIMEZONE, format_day, format_month
 from chamados.web.reports_blocks import wide
+from chamados.web.reports_state import parse_minutes
 from tests.apoio import API, dia_util_passado, em, formulario, registrar, status_id, tarefa
 from tests.conftest import criar_cliente, criar_usuario, entrar, outra_sessao
 
@@ -992,7 +993,7 @@ def test_aba_clientes_plano_do_contrato(
     """As horas além do plano vêm separadas: o mensal por mês do calendário, o anual por ano,
     com todo o trabalho feito para o cliente (o de antes do período e o que a pessoa não vê
     também consomem), na ordem em que as tarefas terminaram. Avulso e sem cliente: tudo
-    excedente."""
+    excedente. As horas descontadas da tela (com um cliente só) abatem do excedente."""
     padrao = cenario["cliente"]
     mercado = criar_cliente(db, "Mercado Bom Preço", "11444777000161")
     loja = criar_cliente(db, "Loja Avulsa", "11222333000181")
@@ -1057,6 +1058,57 @@ def test_aba_clientes_plano_do_contrato(
         "1h",
         "2h45",
     )
+    assert "Horas descontadas" not in valores
+
+    # As horas descontadas: o campo só aparece com um cliente só; o desconto abate os primeiros
+    # excedentes do período, e a tela ganha o desconto e o excedente a cobrar.
+    r = client.get("/relatorios/blocos", params=filtros)
+    assert 'name="desconto"' not in r.text
+    um_cliente = {**filtros, "cliente": padrao}
+    r = client.get("/relatorios/blocos", params=um_cliente)
+    assert '<input id="campo-desconto" name="desconto" value=""' in r.text
+    r = client.get("/relatorios/blocos", params={**um_cliente, "desconto": "1h"})
+    assert re.search(r"<dt[^>]*>Excedente a cobrar</dt>", r.text)
+    (detalhado,) = _links(r.text, "PDF detalhado")
+    assert parse_qs(urlsplit(detalhado).query)["desconto"] == ["1h"]
+    client.get(detalhado)
+    _, _, blocos, *_ = chamadas[-1]
+    padrao_ = blocos[0]
+    assert isinstance(padrao_, model_pdf.Grid)
+    assert padrao_.columns == [
+        "Quando",
+        "Chamado",
+        "Horas no plano",
+        "Horas excedentes",
+        "Horas descontadas",
+        "Excedente a cobrar",
+        "Tempo",
+    ]
+    assert [linha[2:] for linha in padrao_.rows] == [
+        ["30min", "30min", "30min", "0min", "1h"],
+        ["0min", "45min", "30min", "15min", "45min"],
+    ]
+    assert padrao_.total == ["", "30min", "1h15", "1h", "15min", "1h45"]
+    resumo = next(b for b in blocos if isinstance(b, model_pdf.Cards))
+    valores = {rotulo: valor for rotulo, valor, _ in resumo.items}
+    assert (valores["Horas descontadas"], valores["Excedente a cobrar"]) == ("1h", "15min")
+    # O que não se entende fica de fora, com o aviso.
+    r = client.get("/relatorios/blocos", params={**um_cliente, "desconto": "uma hora"})
+    assert "Use horas e minutos, ex.: 2:30." in r.text
+    assert not re.search(r"<dt[^>]*>Excedente a cobrar</dt>", r.text)
+
+
+@pytest.mark.parametrize(
+    ("texto", "minutos"),
+    [("2:30", 150), ("2h30", 150), ("2h", 120), ("2", 120), ("0:05", 5), ("45min", 45)],
+)
+def test_horas_descontadas_aceitas(texto: str, minutos: int) -> None:
+    assert parse_minutes(texto) == minutos
+
+
+@pytest.mark.parametrize("texto", ["2:75", "duas", "2,5", "-1"])
+def test_horas_descontadas_recusadas(texto: str) -> None:
+    assert parse_minutes(texto) is None
 
 
 def _com_blocos(client: TestClient, url: str) -> Any:

@@ -490,6 +490,8 @@
       "regular": "Horas no expediente",
       "in_plan": "Horas no plano",
       "excess": "Horas excedentes",
+      "discounted": "Horas descontadas",
+      "charged": "Excedente a cobrar",
       "tasks": "Tarefas",
       "opened": "Chamados registrados",
       "closed": "Chamados concluídos",
@@ -676,6 +678,10 @@
     "noExpediente": "No expediente",
     "tituloEmpilhado": "Horas por {dimensao}: no expediente e extras",
     "tituloCombo": "{primeira} e {segunda} por {dimensao}",
+    "desconto": {
+      "campo": "Horas descontadas",
+      "invalido": "Use horas e minutos, ex.: 2:30."
+    },
     "extras": {
       "campo": "Hora extra",
       "opcoes": {

@@ -92,6 +92,9 @@ class Filters:
     clients: list[Client] = field(default_factory=list)
     no_client: bool = False  # os chamados sem cliente (junto com os de `clients`)
     statuses: list[TicketStatus] = field(default_factory=list)  # o status atual do chamado
+    # Minutos descontados do excedente do plano (a aba Clientes, com um cliente só): abatem os
+    # primeiros excedentes do período. Só o período da tela; o comparado fica sem.
+    discount: int = 0
 
 
 def outside_minutes(end: datetime, minutes: int, cal: Calendar, user_id: int | None = None) -> int:
@@ -344,6 +347,7 @@ class TaskFact:
     team_id: int
     status_id: int
     excess: int = 0  # minutos além do plano do cliente (só quando pedidos: `Plan`)
+    discounted: int = 0  # dos excedentes, os abatidos pelo desconto (`Filters.discount`)
 
     @property
     def day(self) -> date:
@@ -417,7 +421,16 @@ Part = Literal["tasks", "overtime", "opened", "closed", "canceled", "backlog", "
 # base das horas por chamado); não soma de um dia para a semana, então tem os agrupamentos
 # próprios de semana, mês e dia da semana.
 Summed = Literal[
-    "hours", "overtime", "excess", "tasks", "opened", "closed", "canceled", "backlog", "worked"
+    "hours",
+    "overtime",
+    "excess",
+    "discounted",
+    "tasks",
+    "opened",
+    "closed",
+    "canceled",
+    "backlog",
+    "worked",
 ]
 # Os conjuntos de chamados (linhas ou contagens).
 Counted = Literal["opened", "closed", "canceled", "backlog"]
@@ -958,8 +971,10 @@ async def facts(
     ]
     if people_ids:
         task_conds.append(TicketComment.author_id.in_(people_ids))
-    # O excedente do plano: pedido nas somas, também preenche o das linhas.
-    plan = await plan_usage(db, f) if "excess" in want.sums else None
+    # O excedente do plano: pedido nas somas (ou o desconto, que sai dele), também preenche o
+    # das linhas.
+    wants_plan = "excess" in want.sums or "discounted" in want.sums
+    plan = await plan_usage(db, f) if wants_plan else None
     tasks: list[TaskFact] = []
     overtime_tasks: list[TaskFact] = []
     if "tasks" in parts:
@@ -968,7 +983,14 @@ async def facts(
     elif "overtime" in parts or "overtime" in want.sums:
         overtime_tasks = await _task_rows(db, [*task_conds, _may_have_overtime(f, cal)], cal, plan)
         parts.add("overtime")
-    task_measures: tuple[Summed, ...] = ("hours", "tasks", "overtime", "excess", "worked")
+    task_measures: tuple[Summed, ...] = (
+        "hours",
+        "tasks",
+        "overtime",
+        "excess",
+        "discounted",
+        "worked",
+    )
     task_groups: set[Group] = set().union(*(want.sums.get(m, set()) for m in task_measures))
     if any(m in want.sums for m in task_measures):
         if "tasks" in parts:  # as linhas já vieram
@@ -984,6 +1006,17 @@ async def facts(
             sums["worked"] = worked
         if plan is not None:
             sums["excess"] = excess
+    if "discounted" in want.sums:
+        # O desconto abate os primeiros excedentes do período, na ordem das tarefas; as linhas
+        # vêm só para ele, quando há (é de um cliente só).
+        rows = tasks
+        if "tasks" not in parts and f.discount:
+            rows = await _task_rows(db, task_conds, cal, plan)
+        left = f.discount
+        for t in rows:
+            t.discounted = min(t.excess, left)
+            left -= t.discounted
+        sums["discounted"] = add_up(((t, t.discounted) for t in rows), task_groups)
     if "overtime" in want.sums:
         # Só as que podem ter hora extra somam; as chaves das outras (com zero) vêm das tarefas,
         # para o bloco mostrar as mesmas linhas de quando todas passavam pelo Python.

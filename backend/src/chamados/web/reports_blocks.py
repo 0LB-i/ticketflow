@@ -248,7 +248,7 @@ async def scopes(
             before = await service.facts(
                 db,
                 page.auth,
-                replace(filters, start=first, end=last),
+                replace(filters, start=first, end=last, discount=0),  # o desconto é do período
                 builder.needs(compared_blocks),
                 state.lookups,
             )

@@ -490,6 +490,8 @@
       "regular": "Regular hours",
       "in_plan": "Hours within plan",
       "excess": "Hours over plan",
+      "discounted": "Discounted hours",
+      "charged": "Overage to bill",
       "tasks": "Tasks",
       "opened": "Tickets opened",
       "closed": "Tickets closed",
@@ -676,6 +678,10 @@
     "noExpediente": "Within working hours",
     "tituloEmpilhado": "Hours per {dimensao}: within working hours and overtime",
     "tituloCombo": "{primeira} and {segunda} per {dimensao}",
+    "desconto": {
+      "campo": "Discounted hours",
+      "invalido": "Use hours and minutes, e.g. 2:30."
+    },
     "extras": {
       "campo": "Overtime",
       "opcoes": {

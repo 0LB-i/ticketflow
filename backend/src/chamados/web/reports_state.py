@@ -5,6 +5,7 @@ sempre manda o período, então mexer num filtro passa a valer o da URL, e "Salv
 guarda no modelo.
 """
 
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -94,6 +95,9 @@ class Params:
     # Na aba Clientes, "separada": as horas no expediente e as extras à parte (sem, todo o tempo
     # é de trabalho normal). Não é filtro: não conta para "sem nenhum filtro na URL".
     extras: str | None = None
+    # Na aba Clientes, com um cliente só: as horas descontadas do excedente ("2:30", "2h30").
+    # Também não é filtro.
+    desconto: str | None = None
     # O período de onde o detalhar saiu (a trilha da tela): um relativo, um mês da lista ou
     # "de_ate". Não é filtro: não conta para "sem nenhum filtro na URL".
     origem: str | None = None
@@ -121,6 +125,7 @@ FILTER_FIELDS = (
     "status",
     "comparar",
     "extras",
+    "desconto",
 )
 
 
@@ -155,6 +160,21 @@ def parse_days(value: str | None) -> int | None:
     if not (value and value.isascii() and value.isdigit() and len(value) <= 3):
         return None  # "²" é dígito para o isdigit, mas não para o int
     return int(value) if 1 <= int(value) <= MAX_DAYS else None
+
+
+HOURS = re.compile(r"(\d{1,5})(?:[:h](\d{1,2})?(?:min)?)?")
+
+
+def parse_minutes(value: str) -> int | None:
+    """Horas e minutos ("2:30", "2h30", "2h", "2") ou só minutos ("45min"), em minutos; o que
+    não se entende (ou minutos de 60 em diante), None."""
+    value = value.strip().lower().replace(" ", "")
+    if found := HOURS.fullmatch(value):
+        minutes = int(found[2] or 0)
+        return int(found[1]) * 60 + minutes if minutes < 60 else None
+    if found := re.fullmatch(r"(\d{1,6})min", value):
+        return int(found[1])
+    return None
 
 
 def parse_uuids(values: list[str] | None) -> list[uuid.UUID]:
@@ -206,6 +226,11 @@ class State:
     client_names: dict[uuid.UUID, str] = field(default_factory=dict)  # os escolhidos
     compare: Compare = "none"
     separate: bool = False  # Params.extras, só na aba Clientes
+    # Params.desconto: o campo aparece na aba Clientes com um cliente só; os minutos (0 sem
+    # desconto) e se o texto não se entendeu.
+    discount_field: bool = False
+    discount: int = 0
+    discount_invalid: bool = False
     origin: str | None = None  # Params.origem, só no personalizado
     filters: service.Filters | None = None
     error: str | None = None
@@ -357,6 +382,16 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     ):
         origin = None
 
+    # As horas descontadas: na aba Clientes, filtrada por um cliente só; com elas, o desconto e
+    # o excedente a cobrar entram nos blocos.
+    discount_field = (
+        choice.model is None and choice.slug == "clientes" and len(clients) == 1 and not no_client
+    )
+    discount_text = (params.desconto or "").strip() if discount_field else ""
+    discount = parse_minutes(discount_text) if discount_text else 0
+    if discount and choice.config is not None:
+        choice.config = builder.with_discount(choice.config)
+
     state = State(
         choice=choice,
         models=models,
@@ -378,6 +413,9 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         client_names=client_names,
         compare=compare,
         separate=separate,
+        discount_field=discount_field,
+        discount=discount or 0,
+        discount_invalid=discount is None,
         origin=origin,
         warning=warning,
     )
@@ -396,6 +434,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
                 no_client=no_client,
                 statuses=statuses,
             )
+            state.filters.discount = state.discount
         except HTTPException as exc:
             state.error = page.api_message(exc)
     state.query = {
@@ -409,6 +448,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         "status": [str(s) for s in statuses],
         "comparar": COMPARE_SLUGS.get(compare),
         "extras": SEPARATE if separate else None,
+        "desconto": discount_text or None,
         "origem": origin,
     }
     return state
@@ -514,4 +554,5 @@ def form_params(form: FormData) -> Params:
         status=many("status"),
         comparar=one("comparar"),
         extras=one("extras"),
+        desconto=one("desconto"),
     )
