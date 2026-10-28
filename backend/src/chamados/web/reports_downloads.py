@@ -166,7 +166,6 @@ def _filters_line(page: LoggedPage, state: State) -> str:
                 key=str.casefold,
             ),
         ),
-        ("status", [s.name for s in o.statuses if s.id in state.statuses]),
     ):
         if chosen:
             parts.append(f"{page.t(f'relatorios.{key}')}: {', '.join(chosen)}")
