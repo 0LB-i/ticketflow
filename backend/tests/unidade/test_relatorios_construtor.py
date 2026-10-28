@@ -45,10 +45,10 @@ from chamados.modules.reports.builder import (
 from chamados.modules.reports.models import ReportModel
 from chamados.modules.reports.saved import config_of
 from chamados.modules.reports.service import (
-    GROUPS,
     TZ,
     ClientName,
     Facts,
+    Group,
     Part,
     Summed,
     Sums,
@@ -122,14 +122,15 @@ def _dados(
     }
     # As somas pelo mesmo caminho do `facts` quando as linhas vieram (`add_up`), em todos os
     # agrupamentos.
+    todos = get_args(Group)
     somas: dict[Summed, Sums] = {
-        "hours": add_up(((t, t.minutes) for t in tarefas), GROUPS),
-        "overtime": add_up(((t, t.overtime) for t in tarefas), GROUPS),
-        "tasks": add_up(((t, 1) for t in tarefas), GROUPS),
-        "worked": distinct_tickets(tarefas, GROUPS),
+        "hours": add_up(((t, t.minutes) for t in tarefas), todos),
+        "overtime": add_up(((t, t.overtime) for t in tarefas), todos),
+        "tasks": add_up(((t, 1) for t in tarefas), todos),
+        "worked": distinct_tickets(tarefas, todos),
     }
     for parte, linhas in chamados.items():
-        somas[parte] = add_up(((t, 1) for t in linhas), GROUPS)  # type: ignore[index]
+        somas[parte] = add_up(((t, 1) for t in linhas), todos)  # type: ignore[index]
     return Facts(
         parts=frozenset(get_args(Part)),
         calendar=Calendar(installation=[]),

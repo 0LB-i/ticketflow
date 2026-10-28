@@ -159,11 +159,18 @@ def _date(value: str | None) -> date | None:
         return None
 
 
+def parse_int(value: object, digits: int) -> int | None:
+    """Um número de até `digits` algarismos de 0 a 9; o resto, None ("²" é dígito para o
+    isdigit, mas não para o int)."""
+    if isinstance(value, str) and value.isascii() and value.isdigit() and len(value) <= digits:
+        return int(value)
+    return None
+
+
 def parse_days(value: str | None) -> int | None:
     """Os N dias do "ultimos-n-dias", de 1 a MAX_DAYS; fora disso (ou sem número), None."""
-    if not (value and value.isascii() and value.isdigit() and len(value) <= 3):
-        return None  # "²" é dígito para o isdigit, mas não para o int
-    return int(value) if 1 <= int(value) <= MAX_DAYS else None
+    days = parse_int(value, 3)
+    return days if days is not None and 1 <= days <= MAX_DAYS else None
 
 
 HOURS = re.compile(r"(\d{1,5})(?:[:h](\d{1,2})?(?:min)?)?")
@@ -357,7 +364,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         teams, people, clients = parse_uuids(grupo), parse_uuids(pessoa), parse_uuids(cliente)
         client_names = await service.client_labels(db, clients)
         no_client = NO_CLIENT in (cliente or [])
-        statuses = [int(v) for v in status or [] if v.isascii() and v.isdigit() and len(v) <= 5]
+        statuses = [n for v in status or [] if (n := parse_int(v, 5)) is not None]
 
     # Um período relativo, um mês da lista ou o personalizado; sem período (ou um desconhecido),
     # o mês atual. Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em

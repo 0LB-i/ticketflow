@@ -41,6 +41,7 @@ from chamados.web.reports_state import (
     last_months,
     load_state,
     origin_view,
+    parse_int,
     parse_uuids,
     with_query,
 )
@@ -200,9 +201,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
                 block,
                 i,
                 scope,
-                page_number=int(n)
-                if (n := numbers.get(f"pagina{i}", "")).isascii() and n.isdigit() and len(n) <= 6
-                else 1,
+                page_number=parse_int(numbers.get(f"pagina{i}"), 6) or 1,
             )
             for i, (block, scope) in enumerate(
                 zip(config.blocks, await scopes(page, db, state, config.blocks), strict=True)

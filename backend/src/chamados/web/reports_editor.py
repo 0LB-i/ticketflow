@@ -55,6 +55,7 @@ from chamados.web.reports_state import (
     form_params,
     load_state,
     parse_days,
+    parse_int,
     parse_uuids,
     with_query,
 )
@@ -107,9 +108,9 @@ async def organize_tabs(page: LoggedPageDep, db: DB) -> Response:
     shown.add(default or (order or known)[0])
     action = str(form.get("acao", "salvar"))
     verb, _, number = action.partition("-")
-    moved = verb in ("subir", "descer") and number.isascii() and number.isdigit()
-    if moved and len(number) <= 2:
-        i = int(number)
+    i = parse_int(number, 2) if verb in ("subir", "descer") else None
+    moved = i is not None
+    if i is not None:
         j = i - 1 if verb == "subir" else i + 1
         if 0 <= i < len(order) and 0 <= j < len(order):
             order[i], order[j] = order[j], order[i]
@@ -206,9 +207,7 @@ def _read_block(form: FormData, i: int) -> Block:
         clients=parse_uuids(many("cliente")),
         no_client=NO_CLIENT in many("cliente"),
         statuses=list(
-            dict.fromkeys(
-                int(v) for v in many("status") if v.isascii() and v.isdigit() and len(v) <= 5
-            )
+            dict.fromkeys(n for v in many("status") if (n := parse_int(v, 5)) is not None)
         ),
     )
     # Só os maiores, nos agrupamentos por cadastro (os períodos, os ciclos e a idade são fixos).
@@ -269,9 +268,7 @@ def _free_text(form: FormData, name: str, limit: int) -> str:
 
 
 def _read_editor(form: FormData) -> tuple[EditorForm, str]:
-    count = form.get("blocos")
-    valid = isinstance(count, str) and count.isascii() and count.isdigit() and len(count) <= 2
-    total = min(int(count), 12) if valid else 0  # type: ignore[arg-type]
+    total = min(parse_int(form.get("blocos"), 2) or 0, 12)
     hours = form.get("horas")
     editor = EditorForm(
         name=str(form.get("nome", "")),
@@ -307,13 +304,9 @@ def _apply(editor: EditorForm, action: str) -> None:
         return
     # Mover uma medida dentro do bloco: "medida-subir-<bloco>-<medida>" (ou descer).
     parts = action.split("-")
-    if (
-        len(parts) == 4
-        and parts[0] == "medida"
-        and all(p.isascii() and p.isdigit() and len(p) <= 2 for p in parts[2:])
-    ):
-        i, j = int(parts[2]), int(parts[3])
-        if i < len(blocks):
+    if len(parts) == 4 and parts[0] == "medida":
+        i, j = parse_int(parts[2], 2), parse_int(parts[3], 2)
+        if i is not None and j is not None and i < len(blocks):
             measures = list(blocks[i].measures)
             k = j - 1 if parts[1] == "subir" else j + 1
             if 0 <= j < len(measures) and 0 <= k < len(measures):
@@ -321,11 +314,9 @@ def _apply(editor: EditorForm, action: str) -> None:
                 blocks[i] = blocks[i].model_copy(update={"measures": measures})
         return
     verb, _, number = action.partition("-")
-    if not (number.isascii() and number.isdigit() and len(number) <= 2) or int(number) >= len(
-        blocks
-    ):
+    i = parse_int(number, 2)
+    if i is None or i >= len(blocks):
         return
-    i = int(number)
     if verb == "remover":
         del blocks[i]
     elif verb == "subir" and i > 0:

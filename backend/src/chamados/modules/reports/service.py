@@ -442,18 +442,6 @@ COUNTED: tuple[Counted, ...] = ("opened", "closed", "canceled", "backlog")
 Group = Literal[
     "person", "client", "team", "status", "day", "hour", "week", "month", "weekday", "weekday_hour"
 ]
-GROUPS: tuple[Group, ...] = (
-    "person",
-    "client",
-    "team",
-    "status",
-    "day",
-    "hour",
-    "week",
-    "month",
-    "weekday",
-    "weekday_hour",
-)
 
 
 @dataclass
