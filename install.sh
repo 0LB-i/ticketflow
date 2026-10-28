@@ -6,6 +6,9 @@
 #   curl -fsSLO https://raw.githubusercontent.com/0LB-i/ticketflow/main/install.sh
 #   sudo bash install.sh [DOMINIO]     # sem DOMINIO: ticketflow.local
 #
+# O TicketFlow usa o fuso da máquina: numa máquina ainda em UTC, o script o troca para o FUSO
+# (padrão America/Sao_Paulo; outro: sudo FUSO=America/Manaus bash install.sh).
+#
 # O domínio de verdade e o certificado definitivo (certbot ou o da empresa) se configuram depois,
 # no nginx (/etc/nginx/sites-available/ticketflow) e no APP_BASE_URL do /etc/ticketflow/env.
 #
@@ -35,6 +38,7 @@ if [[ $# -gt 1 ]]; then
   exit 2
 fi
 DOMINIO="${1:-ticketflow.local}"
+FUSO="${FUSO:-America/Sao_Paulo}"
 IP="$(hostname -I | awk '{print $1}')"
 
 etapa() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
@@ -49,7 +53,15 @@ export DEBIAN_FRONTEND=noninteractive
 
 etapa "pacotes básicos"
 apt-get update -q
-apt-get install -y -q --no-upgrade git curl ca-certificates nginx openssl
+apt-get install -y -q --no-upgrade git curl ca-certificates gnupg nginx openssl
+
+etapa "fuso horário"
+# Telas, relatórios e rotinas usam o fuso da máquina (core/timezone.py); um fuso já escolhido
+# por quem administra o servidor fica como está.
+if [[ "$(timedatectl show -p Timezone --value)" =~ ^(Etc/)?UTC$ ]]; then
+  timedatectl set-timezone "$FUSO"
+fi
+timedatectl show -p Timezone --value
 
 etapa "usuário e diretórios"
 id "$SERVICO" >/dev/null 2>&1 ||

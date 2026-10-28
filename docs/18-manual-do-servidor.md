@@ -47,7 +47,7 @@ sudo bash install.sh            # domínio padrão ticketflow.local; ou: sudo ba
 
 No lugar do passo 9, ele configura o nginx em HTTPS com um **certificado autoassinado** (`/etc/ticketflow/tls/ticketflow.crt`), sem o `Strict-Transport-Security`, que impediria seguir com ele. O domínio de verdade se ajusta depois: `server_name` e certificado em `/etc/nginx/sites-available/ticketflow` (ou `certbot --nginx -d DOMINIO`), `APP_BASE_URL` no `/etc/ticketflow/env`, e então `systemctl reload nginx` e `systemctl restart ticketflow`.
 
-Pode rodar de novo: mantém o `/etc/ticketflow/env`, o banco e o certificado, e não reinicia os serviços que já estão no ar. O passo 1 (atualizações automáticas, firewall, SSH) continua com quem administra o servidor.
+Pode rodar de novo: mantém o `/etc/ticketflow/env`, o banco e o certificado, e não reinicia os serviços que já estão no ar. Do passo 1, ele só acerta o fuso (`America/Sao_Paulo`, ou o da variável `FUSO`), e só numa máquina ainda em UTC; as atualizações automáticas, o firewall e o SSH continuam com quem administra o servidor.
 
 ### 1. Sistema operacional
 
