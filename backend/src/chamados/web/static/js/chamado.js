@@ -601,11 +601,13 @@ document.addEventListener('mousedown', (e) => {
   if (caixa.querySelector('[data-opcoes]').hidden) htmx.trigger(campo, 'abrir')
   else fecharOpcoes(caixa)
 })
+// O clique na lista (numa opção ou na barra de rolagem) não tira o foco da busca: sem isso, a
+// barra de rolagem fechava a lista como um clique fora (focusout).
 document.addEventListener('mousedown', (e) => {
-  const opcao = e.target.closest('[data-opcoes] [data-id]')
-  if (!opcao) return
+  if (!e.target.closest?.('[data-opcoes]')) return
   e.preventDefault()
-  escolherCliente(opcao.closest('[data-cliente]'), opcao)
+  const opcao = e.target.closest('[data-id]')
+  if (opcao) escolherCliente(opcao.closest('[data-cliente]'), opcao)
 })
 document.addEventListener('keydown', (e) => {
   const campo = e.target.closest?.('[data-cliente] [role=combobox]')
