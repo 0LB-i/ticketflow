@@ -17,7 +17,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 from chamados.db.session import DB
-from chamados.modules.reports import builder, history, saved, service
+from chamados.modules.reports import history, saved, service
 from chamados.modules.reports.builder import CUSTOM
 from chamados.modules.reports.models import ReportModel
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_day
@@ -340,31 +340,6 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             period = {"periodo": month.value, "de": None, "ate": None, "dias": None}
         return with_query("/relatorios", {**here, "origem": None, **period})
 
-    def interval(first: date, last: date) -> str:
-        return page.t(
-            "relatorios.intervalo",
-            de=format_day(page.locale, first),
-            ate=format_day(page.locale, last),
-        )
-
-    # As setas andam um período do mesmo tamanho (o mês, o trimestre, os N dias). No "ano até
-    # hoje", e num personalizado de 1º de janeiro até um dia do mesmo ano (que não seja o fim de
-    # um mês: aí são meses inteiros), as mesmas datas do ano vizinho. Não vão além de hoje.
-    steps = None
-    if start and end and start <= end:
-        year_to_date = state.period == "ano-ate-hoje" or (
-            state.period == CUSTOM
-            and (start.month, start.day) == (1, 1)
-            and end.year == start.year
-            and (end + timedelta(days=1)).day != 1
-        )
-        earlier = builder.previous_period(start, end, year_to_date=year_to_date)
-        later = builder.next_period(start, end, year_to_date=year_to_date)
-        steps = (
-            (interval(*earlier), period_url(*earlier)),
-            (interval(*later), period_url(*later) if later[0] <= today else None),
-        )
-
     # Atalhos do personalizado: as semanas (segunda a domingo) e os meses, inteiros.
     monday = today - timedelta(days=today.weekday())
     shortcuts = [
@@ -401,7 +376,6 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         end=state.end_text,
         days=state.days,
         period_ok=bool(start and end and start <= end),
-        steps=steps,
         shortcuts=shortcuts,
         printed=printed,
         # O intervalo de um período relativo ou de um mês (que não aparece nos campos de data)

@@ -465,8 +465,6 @@
     "restaurarFiltros": "Restore saved filters",
     "filtradoPor": "Filtered by:",
     "limparFiltros": "Clear filters",
-    "periodoAnterior": "Previous period: {intervalo}",
-    "proximoPeriodo": "Next period: {intervalo}",
     "atalhos": {
       "rotulo": "Shortcuts:",
       "estaSemana": "This week",

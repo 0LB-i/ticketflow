@@ -33,7 +33,6 @@ from chamados.modules.reports.builder import (
     measures_for,
     narrow,
     needs,
-    next_period,
     previous_period,
     relative_period,
     run,
@@ -404,7 +403,7 @@ def test_periodos_relativos_de_semana_ano_e_n_dias() -> None:
     assert relative_period("ultimos-n-dias", domingo, 45) == (date(2026, 10, 2), domingo)
     assert relative_period("ultimos-n-dias", domingo, 366) == (date(2025, 11, 15), domingo)
     assert relative_period("ultimos-n-dias", domingo) == relative_period("ultimos-30-dias", domingo)
-    # As setas andam um do mesmo tamanho: a semana, o ano e os 12 meses (meses inteiros), os N.
+    # O anterior é um do mesmo tamanho: a semana, o ano (meses inteiros), os N.
     assert previous_period(date(2026, 11, 9), date(2026, 11, 15)) == (
         date(2026, 11, 2),
         date(2026, 11, 8),
@@ -412,10 +411,6 @@ def test_periodos_relativos_de_semana_ano_e_n_dias() -> None:
     assert previous_period(date(2025, 1, 1), date(2025, 12, 31)) == (
         date(2024, 1, 1),
         date(2024, 12, 31),
-    )
-    assert next_period(date(2025, 12, 1), date(2026, 11, 30)) == (
-        date(2026, 12, 1),
-        date(2027, 11, 30),
     )
     assert previous_period(date(2026, 10, 2), domingo) == (date(2026, 8, 18), date(2026, 10, 1))
 
@@ -895,42 +890,6 @@ def test_modelo_salvo_antes_da_extensao_5_abre_com_os_padroes() -> None:
             ReportConfig.model_validate({**salvo, "client": {"columns": colunas}})
     with pytest.raises(ValidationError):
         ReportConfig.model_validate({**salvo, "description": "x" * 201})
-
-
-def test_periodo_seguinte() -> None:
-    # Simétrico ao anterior: os meses seguintes (o trimestre, o seguinte), as mesmas datas do ano
-    # seguinte no ano até a data, os demais com o mesmo número de dias logo depois.
-    assert next_period(date(2026, 9, 1), date(2026, 9, 30)) == (
-        date(2026, 10, 1),
-        date(2026, 10, 31),
-    )
-    assert next_period(date(2026, 1, 31), date(2026, 1, 31)) == (date(2026, 2, 1), date(2026, 2, 1))
-    assert next_period(date(2025, 10, 1), date(2025, 12, 31)) == (
-        date(2026, 1, 1),
-        date(2026, 3, 31),
-    )
-    assert next_period(date(2025, 12, 1), date(2026, 1, 31)) == (
-        date(2026, 2, 1),
-        date(2026, 3, 31),
-    )
-    assert next_period(date(2025, 1, 1), date(2025, 10, 24), year_to_date=True) == (
-        date(2026, 1, 1),
-        date(2026, 10, 24),
-    )
-    assert next_period(date(2028, 1, 1), date(2028, 2, 29), year_to_date=True) == (
-        date(2029, 1, 1),
-        date(2029, 2, 28),
-    )
-    assert next_period(date(2026, 9, 27), date(2026, 10, 26)) == (
-        date(2026, 10, 27),
-        date(2026, 11, 25),
-    )
-    # Ida e volta.
-    for inicio, fim in [
-        (date(2026, 10, 1), date(2026, 10, 31)),
-        (date(2026, 9, 27), date(2026, 10, 26)),
-    ]:
-        assert previous_period(*next_period(inicio, fim)) == (inicio, fim)
 
 
 def test_csv_dos_chamados_e_da_porcentagem() -> None:

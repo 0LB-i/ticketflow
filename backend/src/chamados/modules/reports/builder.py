@@ -270,7 +270,7 @@ class FilterSpec(BaseModel):
 
 class BlockPeriod(BaseModel):
     """O período próprio de um bloco: um relativo (com os N dias no "ultimos-n-dias"). Anda com o
-    calendário, e não com as setas da tela."""
+    calendário."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -616,7 +616,7 @@ def _month(day: date) -> tuple[date, date]:
 
 
 def previous_period(start: date, end: date, *, year_to_date: bool = False) -> tuple[date, date]:
-    """O período imediatamente anterior (comparar com o anterior e a seta da tela): o ano até a
+    """O período imediatamente anterior (comparar com o anterior): o ano até a
     data ("ano-ate-hoje"), com as mesmas datas do ano anterior; meses inteiros, com os meses de
     antes; os demais, com o mesmo número de dias logo antes."""
     if year_to_date:
@@ -629,21 +629,6 @@ def previous_period(start: date, end: date, *, year_to_date: bool = False) -> tu
         return date(index // 12, index % 12 + 1, 1), start - timedelta(days=1)
     length = (end - start).days + 1
     return start - timedelta(days=length), start - timedelta(days=1)
-
-
-def next_period(start: date, end: date, *, year_to_date: bool = False) -> tuple[date, date]:
-    """O período seguinte (as setas da tela), simétrico ao `previous_period`: as mesmas datas do
-    ano seguinte, os meses seguintes ou o mesmo número de dias logo depois."""
-    if year_to_date:
-        last = end - timedelta(days=1) if (end.month, end.day) == (2, 29) else end
-        return start.replace(year=start.year + 1), last.replace(year=end.year + 1)
-    after = end + timedelta(days=1)
-    if start.day == 1 and after.day == 1:
-        months = (after.year - start.year) * 12 + after.month - start.month
-        index = after.year * 12 + after.month - 1 + months
-        return after, date(index // 12, index % 12 + 1, 1) - timedelta(days=1)
-    length = (end - start).days + 1
-    return after, end + timedelta(days=length)
 
 
 def _year_before(day: date) -> date:

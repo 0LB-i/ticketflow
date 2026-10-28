@@ -465,8 +465,6 @@
     "restaurarFiltros": "Restaurar filtros salvos",
     "filtradoPor": "Filtrado por:",
     "limparFiltros": "Limpar filtros",
-    "periodoAnterior": "Período anterior: {intervalo}",
-    "proximoPeriodo": "Próximo período: {intervalo}",
     "atalhos": {
       "rotulo": "Atalhos:",
       "estaSemana": "Esta semana",

@@ -15,16 +15,6 @@
 <script src="{{ static('js/chamado.js') }}" defer></script>
 {% endblock %}
 
-{#- Uma seta do período: (intervalo, endereço); sem endereço (o próximo começaria depois de hoje),
-    desativada. #}
-{% macro step_link(step, name, key) -%}
-{%- set label, url = step %}
-{%- if url %}
-<a href="{{ url }}" hx-boost="true" class="shrink-0 rounded-md p-2 text-muted hover:bg-surface-raised hover:text-fg" aria-label="{{ t(key, intervalo=label) }}" title="{{ t(key, intervalo=label) }}">{{ icon(name, "size-5") }}</a>
-{%- else %}
-<span role="link" aria-disabled="true" class="shrink-0 p-2 text-muted opacity-40" aria-label="{{ t(key, intervalo=label) }}">{{ icon(name, "size-5") }}</span>
-{%- endif %}
-{%- endmacro %}
 
 {% block content %}
 {#- Avisa o leitor de tela quando o relatório chega pelo HTMX (chamado.js); fora do #relatorio,
@@ -132,12 +122,7 @@
     {%- endif %}
     <div class="flex flex-col gap-1">
       <label for="campo-periodo" class="font-medium">{{ t("relatorios.periodo") }}</label>
-      {#- As setas andam um período do mesmo tamanho. #}
-      <div class="flex items-center gap-1">
-      {%- if steps %}
-      {{ step_link(steps[0], "chevron-left", "relatorios.periodoAnterior") }}
-      {%- endif %}
-      <select id="campo-periodo" name="periodo" class="h-10 min-w-0 flex-1 rounded-md border border-border-input bg-surface px-3 text-fg">
+      <select id="campo-periodo" name="periodo" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
         {%- for group, options in period_groups %}
         <optgroup label="{{ group }}">
           {%- for value, text in options %}
@@ -147,10 +132,6 @@
         {%- endfor %}
         <option value="personalizado"{% if period == "personalizado" %} selected{% endif %}>{{ t("relatorios.personalizado") }}</option>
       </select>
-      {%- if steps %}
-      {{ step_link(steps[1], "chevron-right", "relatorios.proximoPeriodo") }}
-      {%- endif %}
-      </div>
       {%- if interval %}
       <p class="text-sm text-muted">{{ interval }}</p>
       {%- endif %}
