@@ -513,7 +513,6 @@
       "dica": "Tira da lista de clientes os que já tiveram relatório seu hoje (PDF baixado)."
     },
     "clientesGeral": {
-      "explicacao": "Escolha o período e o status e clique em Gerar: sai o relatório detalhado de cada cliente com horas no período.",
       "gerar": "Gerar",
       "nenhum": "Nenhum cliente com horas no período.",
       "baixarPdf": "Baixar PDF detalhado",

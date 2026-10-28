@@ -25,7 +25,6 @@
     <span class="hidden items-center gap-2 text-sm text-muted in-[.htmx-request]:inline-flex print:hidden">{{ icon("loader-circle", "size-4 animate-spin") }} {{ t("relatorios.carregando") }}</span>
   </div>
   {{ tabs_nav(tabs, "clientes-geral") }}
-  <p class="text-muted print:hidden">{{ t("relatorios.clientesGeral.explicacao") }}</p>
 
   <form method="get" action="/relatorios/clientes-geral" data-envia-ao-mudar hx-get="/relatorios/clientes-geral" hx-push-url="true" hx-sync="this:replace" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
     {{ period_fields(period) }}
