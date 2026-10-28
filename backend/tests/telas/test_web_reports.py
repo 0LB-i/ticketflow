@@ -873,7 +873,7 @@ def test_relatorio_para_o_cliente(
     folha = _folha(client.get("/relatorios/blocos", params=filtros).text)
     assert f"<p>{linhas[1]}</p>" in folha and f">{titulo}</h2>" in folha
     assert '<img src="/api/v1/branding/report-logo?v=x"' in folha
-    assert '<p class="text-[1.38em] font-bold text-paper-fg">TI Ltda</p>' in folha
+    assert '<p class="text-[1.63em] font-bold text-paper-fg">TI Ltda</p>' in folha
     sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     assert sem_cliente.status_code == 422
 
@@ -2575,7 +2575,7 @@ def test_descricao_do_modelo(
 ) -> None:
     # Os prontos têm a descrição do catálogo, na dica da aba (e no PDF); abaixo dela, não.
     r = client.get("/relatorios/blocos", params={"aba": "clientes"})
-    descricao = "Horas e chamados registrados e concluídos de cada cliente."
+    descricao = "Horas e chamados registrados."
     assert f'title="{descricao}"' in r.text and f">{descricao}</p>" not in r.text
 
     # A do modelo da pessoa: texto livre (escapado), até 200 caracteres, editada no editor.

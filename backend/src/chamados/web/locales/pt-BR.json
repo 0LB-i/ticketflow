@@ -789,7 +789,7 @@
     },
     "descricoes": {
       "produtividade": "Horas, horas extras, tarefas e chamados concluídos de cada pessoa.",
-      "clientes": "Horas e chamados registrados e concluídos de cada cliente.",
+      "clientes": "Horas e chamados registrados.",
       "horasExtras": "O tempo de tarefa fora do expediente, por dia e por pessoa, e as tarefas que o tiveram.",
       "chamados": "Registrados, concluídos e em aberto, tempos até a conclusão, reabertura e o em aberto por idade, status e grupo."
     }

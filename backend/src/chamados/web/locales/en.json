@@ -789,7 +789,7 @@
     },
     "descricoes": {
       "produtividade": "Hours, overtime, tasks and closed tickets for each person.",
-      "clientes": "Hours and opened and closed tickets for each client.",
+      "clientes": "Hours and opened tickets.",
       "horasExtras": "Task time outside working hours, by day and by person, and the tasks that had it.",
       "chamados": "Opened, closed and open tickets, time to close, reopen rate and open tickets by age, status and team."
     }

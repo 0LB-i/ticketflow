@@ -153,20 +153,12 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
 
 
 def _filters_line(page: LoggedPage, state: State) -> str:
-    """Os filtros usados, para o cabeçalho do PDF."""
+    """Os filtros usados, para o cabeçalho do PDF (o cliente, não)."""
     o = state.options
     parts = []
     for key, chosen in (
         ("grupo", [t.name for t in o.teams if t.id in state.teams]),
         ("pessoa", [p.name for p in o.people if p.id in state.people]),
-        (
-            "cliente",
-            ([page.t("relatorios.semCliente")] if state.no_client else [])
-            + sorted(
-                (state.client_names[c] for c in state.clients if c in state.client_names),
-                key=str.casefold,
-            ),
-        ),
     ):
         if chosen:
             parts.append(f"{page.t(f'relatorios.{key}')}: {', '.join(chosen)}")
