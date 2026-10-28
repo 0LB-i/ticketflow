@@ -173,6 +173,9 @@
         pessoa hoje. Uma chave de ligar e desligar (o checkbox escondido, `role=switch`), na
         altura dos campos: o trilho cinza com a bolinha à esquerda, desligada; verde com ela à
         direita, ligada. #}
+    {#- A cascata e as horas descontadas cabem lado a lado numa célula da grade. #}
+    {%- if query_cascade is not none or query_discount is not none %}
+    <div class="flex items-start gap-6">
     {%- if query_cascade is not none %}
     <div class="flex flex-col gap-1">
       <span id="campo-cascata-rotulo" class="font-medium">{{ t("relatorios.cascata.campo") }}</span>
@@ -193,6 +196,8 @@
       {%- if discount_invalid %}
       <p id="campo-desconto-erro" class="text-danger">{{ t("relatorios.desconto.invalido") }}</p>
       {%- endif %}
+    </div>
+    {%- endif %}
     </div>
     {%- endif %}
   </form>
