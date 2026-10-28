@@ -725,8 +725,7 @@
         "previous": "Período anterior",
         "year": "Mesmo período do ano anterior"
       },
-      "dica": "Antes ({rotulo}): {valor}",
-      "colunaPdf": "Var."
+      "dica": "Antes ({rotulo}): {valor}"
     },
     "chamados": {
       "voltar": "Voltar ao relatório",

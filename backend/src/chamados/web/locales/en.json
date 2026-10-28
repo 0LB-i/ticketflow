@@ -725,8 +725,7 @@
         "previous": "Previous period",
         "year": "Same period last year"
       },
-      "dica": "Before ({rotulo}): {valor}",
-      "colunaPdf": "Chg."
+      "dica": "Before ({rotulo}): {valor}"
     },
     "chamados": {
       "voltar": "Back to the report",

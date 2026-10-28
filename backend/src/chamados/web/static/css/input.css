@@ -146,7 +146,7 @@
 
 @theme inline {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
-  /* A do PDF (as fontes padrão do PDF: Helvetica), na prévia do relatório para o cliente */
+  /* A do PDF (a Liberation Sans, com as medidas da Helvetica), na prévia do relatório para o cliente */
   --font-paper: Helvetica, Arial, sans-serif;
 
   --color-brand: var(--tf-brand);

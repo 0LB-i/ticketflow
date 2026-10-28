@@ -126,6 +126,38 @@ def test_cor_da_serie_do_bloco(monkeypatch: pytest.MonkeyPatch) -> None:
     assert usadas == [azul, colors.black]  # sem a cor na paleta, a da série
 
 
+def test_barras_com_muitas_pessoas() -> None:
+    """Uma barra por pessoa, sem limite: em desenhos de até `BARS`, na mesma escala, que se
+    dividem entre as páginas (um desenho só passava da altura da página e o PDF falhava)."""
+    pontos = [(f"Pessoa {i}", 60 * i, 0, f"{i}h") for i in range(80)]
+    desenhos = model_pdf._bars(model_pdf.Chart("Horas", "bars", pontos), colors.black, 500)
+    assert len(desenhos) == 4
+    for deitada in (False, True):
+        pagina = replace(PAGINA, landscape=deitada)
+        grafico = model_pdf.Chart("Horas por pessoa", "bars", pontos)
+        conteudo = model_pdf.render_model("M", [], [grafico], pagina, SERIES, ())
+        assert conteudo.startswith(b"%PDF")
+
+
+def test_letras_fora_do_latim_basico() -> None:
+    """A fonte embutida tem o sinal de menos, o Δ e as letras de outras línguas: nada cai nas
+    fontes de símbolos (o ■ no lugar da letra)."""
+    texto = "Łódź −12% Δ Ğ Москва →"
+    conteudo = model_pdf.render_model(
+        texto,
+        [texto],
+        [
+            model_pdf.Grid(texto, [texto], [[texto]]),
+            model_pdf.Chart(texto, "bars", [(texto, 1, 0, texto)]),
+        ],
+        replace(PAGINA, footer=texto),
+        SERIES,
+        (),
+    )
+    assert model_pdf.FONT.encode() in conteudo
+    assert b"ZapfDingbats" not in conteudo and b"/Symbol" not in conteudo
+
+
 def test_pagina_deitada_e_rodape_em_cada_pagina(monkeypatch: pytest.MonkeyPatch) -> None:
     """A4 em pé ou deitado (a largura dos blocos segue a página) e, em cada página, o rodapé
     com o texto livre, o "Gerado em…" e "Página n de total"."""
@@ -163,7 +195,7 @@ def test_largura_das_colunas_pelo_texto() -> None:
     larguras = model_pdf._widths([[*linha, "Ana Maria, Bia"]], 510, 9)
     assert sum(larguras) == pytest.approx(510)
     assert larguras[4] >= 510 / 7 > larguras[2]  # o status, não menos que a data
-    precisa = stringWidth("Ana Maria, Bia", "Helvetica", 9) + model_pdf.PADDING
+    precisa = stringWidth("Ana Maria, Bia", model_pdf.FONT, 9) + model_pdf.PADDING
     assert larguras[6] == pytest.approx(precisa)  # cabe na parte igual: fica com o que precisa
     # Tudo cabe: crescem na proporção.
     assert sum(model_pdf._widths([["a", "bb"]], 500, 9)) == pytest.approx(500)

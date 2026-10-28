@@ -116,15 +116,10 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                 )
             )
         elif visual == "table":
-            # As fontes padrão do PDF não têm o Δ: a coluna da variação vira uma abreviatura.
-            delta = page.t("relatorios.comparacao.colunaPdf")
-            columns = [
-                delta if title else c for c, title in zip(v["columns"], v["titles"], strict=True)
-            ]
             blocks.append(
                 model_pdf.Grid(
                     v["title"],
-                    columns,
+                    v["columns"],
                     [[label, *(text for text, _ in cells)] for label, _, cells in v["rows"]],
                     total=[text for text, _ in v["total"]],
                     total_label=v["total_label"],

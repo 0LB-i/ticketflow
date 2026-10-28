@@ -775,8 +775,8 @@ def test_pdf_do_modelo(
     assert [type(b).__name__ for b in blocos] == ["Cards", "Chart", "Grid"]
     assert blocos[0].items[0][:2] == ("Horas", "1h30")
     assert blocos[1].kind == "stacked" and blocos[1].points[0][1:3] == (90, 60)
-    # Comparando, a tabela tem a variação (sem base: vazia), com uma abreviatura no lugar do Δ.
-    assert blocos[2].columns == ["Pessoa", "Horas", "Var."]
+    # Comparando, a tabela tem a variação (sem base: vazia), na coluna Δ como na tela.
+    assert blocos[2].columns == ["Pessoa", "Horas", "Δ"]
     assert blocos[2].rows == [["Ana", "1h30", ""]] and blocos[2].total == ["1h30", ""]
     # O rodapé de cada página: quando e quem gerou, e o número da página.
     assert pagina.generated.endswith("por Ana") and pagina.numbering == "Página {n} de {total}"

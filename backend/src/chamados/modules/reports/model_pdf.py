@@ -6,14 +6,15 @@ web/reports_downloads.py, que é quem sabe o idioma e o formato das horas). A ex
 API (`GET /reports/pdf`), que não passa pela tela: `render_hours` monta os blocos fixos dele a
 partir do `service.build`, com os textos de `HOURS_TEXTS` (os módulos não dependem de web/, onde
 estão os catálogos da tela). Os gráficos são desenhados no próprio ReportLab, em vetor, como os
-da tela e com as mesmas cores de série do modo claro (`Series`, web/palette.py). Fontes padrão do
-PDF, sem pacotes do sistema. A página (A4 em pé ou deitado) e o rodapé de cada uma, com o número
-dela, vêm em `Page`.
+da tela e com as mesmas cores de série do modo claro (`Series`, web/palette.py). A fonte é a
+Liberation Sans, que vem junto (fonts/), sem pacotes do sistema. A página (A4 em pé ou deitado)
+e o rodapé de cada uma, com o número dela, vêm em `Page`.
 """
 
 import io
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Literal
 from xml.sax.saxutils import escape
 
@@ -23,14 +24,17 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader, simpleSplit
-from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfbase.pdfmetrics import registerFont, registerFontFamily, stringWidth
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (
+    BaseDocTemplate,
     Flowable,
+    Frame,
     Image,
     KeepTogether,
+    PageTemplate,
     Paragraph,
-    SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
@@ -50,6 +54,16 @@ FOOT_SIZE = 7.5  # o corpo do rodapé de cada página
 FOOT_LEADING = 9
 FOOT_BASE = 10 * mm  # a linha de baixo do rodapé, a partir da borda da folha
 FOOT_LINES = 3  # o texto livre do rodapé, no máximo em três linhas
+BARS = 20  # as barras de cada desenho: um desenho não se divide entre as páginas
+
+# A Liberation Sans tem as medidas da Helvetica (a da prévia do relatório para o cliente) e o que
+# as fontes padrão do PDF não têm: o sinal de menos, o Δ, o latim de outras línguas, o grego e o
+# cirílico. Emoji e ideogramas, não (saem como um retângulo vazio).
+FONT, BOLD = "LiberationSans", "LiberationSans-Bold"
+_FONTS = Path(__file__).parent / "fonts"
+registerFont(TTFont(FONT, str(_FONTS / "LiberationSans-Regular.ttf")))
+registerFont(TTFont(BOLD, str(_FONTS / "LiberationSans-Bold.ttf")))
+registerFontFamily(FONT, normal=FONT, bold=BOLD, italic=FONT, boldItalic=BOLD)
 
 
 @dataclass
@@ -75,7 +89,7 @@ class Page:
     def footer_lines(self) -> list[str]:
         if not self.footer.strip():
             return []
-        lines = simpleSplit(_sanitize(self.footer), "Helvetica", FOOT_SIZE, self.width)
+        lines = simpleSplit(self.footer, FONT, FOOT_SIZE, self.width)
         return list(lines[:FOOT_LINES])
 
 
@@ -152,30 +166,33 @@ class Series:
     named: dict[str, colors.Color] = field(default_factory=dict)
 
 
-def _sanitize(text: str) -> str:
-    # As fontes padrão do PDF (WinAnsi) não têm o sinal de menos (U+2212).
-    return text.replace("−", "-")
-
-
 def _styles() -> dict[str, ParagraphStyle]:
     sheet = getSampleStyleSheet()
-    body = ParagraphStyle("body", parent=sheet["BodyText"], fontSize=9, leading=12, textColor=INK)
+    body = ParagraphStyle(
+        "body", parent=sheet["BodyText"], fontName=FONT, fontSize=9, leading=12, textColor=INK
+    )
     return {
         "body": body,
         "muted": ParagraphStyle("muted", parent=body, textColor=MUTED),
         "value": ParagraphStyle("value", parent=body, fontSize=14, leading=18),
         "big": ParagraphStyle("big", parent=body, fontSize=32, leading=38),
         "h1": ParagraphStyle(
-            "h1", parent=sheet["Heading1"], fontSize=16, textColor=INK, spaceAfter=2
+            "h1", parent=sheet["Heading1"], fontName=BOLD, fontSize=16, textColor=INK, spaceAfter=2
         ),
         "h2": ParagraphStyle(
-            "h2", parent=sheet["Heading2"], fontSize=11, textColor=INK, spaceBefore=10, spaceAfter=4
+            "h2",
+            parent=sheet["Heading2"],
+            fontName=BOLD,
+            fontSize=11,
+            textColor=INK,
+            spaceBefore=10,
+            spaceAfter=4,
         ),
     }
 
 
 def _p(text: str, style: ParagraphStyle) -> Paragraph:
-    return Paragraph(escape(_sanitize(text)), style)
+    return Paragraph(escape(text), style)
 
 
 def _head(block: Block, st: dict[str, ParagraphStyle]) -> list[Flowable]:
@@ -195,7 +212,7 @@ def _widths(texts: list[list[str]], width: float, size: float) -> list[float]:
     que sobra na proporção do que passariam dela (uma coluna longa, como o título, não espreme
     uma média, como o status, abaixo das curtas). Se todas cabem, crescem na proporção."""
     columns = zip(*texts, strict=True)
-    need = [max(stringWidth(c, "Helvetica", size) for c in col) + PADDING for col in columns]
+    need = [max(stringWidth(c, FONT, size) for c in col) + PADDING for col in columns]
     fair = width / len(need)
     over = sum(n - fair for n in need if n > fair)
     if not over:
@@ -207,7 +224,6 @@ def _widths(texts: list[list[str]], width: float, size: float) -> list[float]:
 def _cell(text: str, style: ParagraphStyle, width: float) -> str | Paragraph:
     """O texto que cabe numa linha vai como texto simples (no corpo da tabela); só o que precisa
     quebrar vira Paragraph: um Paragraph por célula levava segundos numa tabela longa."""
-    text = _sanitize(text)
     if "\n" not in text and stringWidth(text, style.fontName, style.fontSize) <= width - PADDING:
         return text
     return Paragraph(escape(text), style)
@@ -221,7 +237,7 @@ def _grid(block: Grid, st: dict[str, ParagraphStyle], width: float) -> list[Flow
     texts = [block.columns, *block.rows]
     if block.total is not None:
         texts.append([block.total_label, *block.total])
-    widths = _widths([[_sanitize(c) for c in row] for row in texts], width, body.fontSize)
+    widths = _widths(texts, width, body.fontSize)
     data: list[list[str | Paragraph]] = [[_p(c, st["muted"]) for c in block.columns]]
     data += [[_cell(c, body, w) for c, w in zip(row, widths, strict=True)] for row in texts[1:]]
     table = Table(data, colWidths=widths, repeatRows=1)
@@ -277,7 +293,7 @@ def _rect(x: float, y: float, width: float, height: float, color: colors.Color) 
 
 def _text(x: float, y: float, text: str, size: float = 7, color: colors.Color = MUTED,
           anchor: Literal["start", "middle", "end"] = "start") -> String:  # fmt: skip
-    return String(x, y, _sanitize(text), fontName="Helvetica", fontSize=size, fillColor=color,
+    return String(x, y, text, fontName=FONT, fontSize=size, fillColor=color,
                   textAnchor=anchor)  # fmt: skip
 
 
@@ -285,20 +301,26 @@ def _short(text: str, size: int = 28) -> str:
     return text if len(text) <= size else text[: size - 1] + "…"
 
 
-def _bars(block: Chart, primary: colors.Color, width: float) -> Drawing:
+def _bars(block: Chart, primary: colors.Color, width: float) -> list[Flowable]:
+    """As barras em desenhos de até `BARS`, na mesma escala: com muitas (uma por pessoa), um
+    desenho só passaria da altura da página."""
     row = 14
     label_width = 45 * mm
     area = width - label_width - 22 * mm
     top = max([1, *(p[1] for p in block.points)])
-    drawing = Drawing(width, row * len(block.points) + 2)
-    for i, (label, value, _, text) in enumerate(block.points):
-        y = drawing.height - (i + 1) * row
-        drawing.add(_text(0, y + 3, _short(label)))
-        length = value / top * area
-        if length > 0:
-            drawing.add(_rect(label_width, y + 1, length, row - 4, primary))
-        drawing.add(_text(label_width + length + 3, y + 3, text, color=INK))
-    return drawing
+    drawings: list[Flowable] = []
+    for start in range(0, len(block.points), BARS):
+        part = block.points[start : start + BARS]
+        drawing = Drawing(width, row * len(part) + 2)
+        for i, (label, value, _, text) in enumerate(part):
+            y = drawing.height - (i + 1) * row
+            drawing.add(_text(0, y + 3, _short(label)))
+            length = value / top * area
+            if length > 0:
+                drawing.add(_rect(label_width, y + 1, length, row - 4, primary))
+            drawing.add(_text(label_width + length + 3, y + 3, text, color=INK))
+        drawings.append(drawing)
+    return drawings
 
 
 def _columns(block: Chart, series: Series, page_width: float) -> Drawing:
@@ -383,8 +405,11 @@ def _chart(
     if not block.points:
         return [*flow, _p(block.empty, st["muted"])]
     series = replace(series, first=series.named.get(block.color, series.first))
+    # O título fica com o primeiro desenho; os outros pedaços das barras seguem soltos.
+    rest: list[Flowable] = []
     if block.kind == "bars":
-        flow.append(_bars(block, series.first, width))
+        first, *rest = _bars(block, series.first, width)
+        flow.append(first)
     else:
         flow.append(_columns(block, series, width))
     if block.legend:
@@ -394,9 +419,9 @@ def _chart(
         for color, label in zip((series.first, second), block.legend, strict=True):
             legend.add(_rect(x, 2, 7, 7, color))
             legend.add(_text(x + 10, 3, label, size=8))
-            x += 10 + len(label) * 4.5 + 12
-        flow.append(legend)
-    return [KeepTogether(flow)]
+            x += 10 + stringWidth(label, FONT, 8) + 12
+        (rest or flow).append(legend)
+    return [KeepTogether(flow), *rest]
 
 
 def _heatmap(
@@ -431,18 +456,18 @@ def _heatmap(
             swatch.strokeColor, swatch.strokeWidth = RULE, 0.5
         legend.add(swatch)
         legend.add(_text(x + 10, 3, text, size=8))
-        x += 10 + len(text) * 4.5 + 12
+        x += 10 + stringWidth(text, FONT, 8) + 12
     return [KeepTogether([*flow, drawing, legend])]
 
 
 def _footer(canvas: Canvas, page: Page, number: int, total: int) -> None:
     """O rodapé de uma página: o texto livre do modelo, o "Gerado em…" e o número da página."""
     canvas.saveState()
-    canvas.setFont("Helvetica", FOOT_SIZE)
+    canvas.setFont(FONT, FOOT_SIZE)
     canvas.setFillColor(MUTED)
-    canvas.drawString(MARGIN, FOOT_BASE, _sanitize(page.generated))
+    canvas.drawString(MARGIN, FOOT_BASE, page.generated)
     numbering = page.numbering.replace("{n}", str(number)).replace("{total}", str(total))
-    canvas.drawRightString(MARGIN + page.width, FOOT_BASE, _sanitize(numbering))
+    canvas.drawRightString(MARGIN + page.width, FOOT_BASE, numbering)
     for k, line in enumerate(reversed(page.footer_lines()), 1):
         canvas.drawString(MARGIN, FOOT_BASE + k * FOOT_LEADING, line)
     canvas.restoreState()
@@ -475,15 +500,21 @@ def _document(story: list[Flowable], title: str, page: Page) -> bytes:
     buffer = io.BytesIO()
     # O rodapé ocupa a linha do "Gerado em…" e as do texto livre, com um respiro acima.
     footer = FOOT_BASE + FOOT_LEADING * (len(page.footer_lines()) + 1) + 4 * mm
-    doc = SimpleDocTemplate(
+    doc = BaseDocTemplate(
         buffer,
         pagesize=page.size,
         leftMargin=MARGIN,
         rightMargin=MARGIN,
         topMargin=MARGIN,
         bottomMargin=max(MARGIN, footer),
-        title=_sanitize(title),
+        title=title,
     )
+    # Sem o respiro dos lados (6 pt no frame padrão): os blocos têm a largura entre as margens
+    # (`Page.width`), a mesma do rodapé.
+    frame = Frame(
+        doc.leftMargin, doc.bottomMargin, doc.width, doc.height, leftPadding=0, rightPadding=0
+    )
+    doc.addPageTemplates([PageTemplate(frames=[frame])])
     doc.build(story, canvasmaker=_numbered(page))
     return buffer.getvalue()
 
@@ -527,7 +558,7 @@ def _free(text: str, style: ParagraphStyle) -> list[Flowable]:
     """Um texto livre do modelo (escapado), com as quebras de linha de quem escreveu."""
     if not text.strip():
         return []
-    return [Paragraph(escape(_sanitize(text.strip())).replace("\n", "<br/>"), style)]
+    return [Paragraph(escape(text.strip()).replace("\n", "<br/>"), style)]
 
 
 def render_client(
