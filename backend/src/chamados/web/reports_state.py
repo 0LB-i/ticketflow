@@ -98,6 +98,9 @@ class Params:
     # Na aba Clientes, com um cliente só: as horas descontadas do excedente ("2:30", "2h30").
     # Também não é filtro.
     desconto: str | None = None
+    # Na aba Clientes, "1": a cascata (os clientes com relatório da pessoa hoje saem da lista de
+    # clientes). Também não é filtro.
+    cascata: str | None = None
     # O período de onde o detalhar saiu (a trilha da tela): um relativo, um mês da lista ou
     # "de_ate". Não é filtro: não conta para "sem nenhum filtro na URL".
     origem: str | None = None
@@ -126,6 +129,7 @@ FILTER_FIELDS = (
     "comparar",
     "extras",
     "desconto",
+    "cascata",
 )
 
 
@@ -231,6 +235,7 @@ class State:
     discount_field: bool = False
     discount: int = 0
     discount_invalid: bool = False
+    cascade: bool = False  # Params.cascata, só na aba Clientes
     origin: str | None = None  # Params.origem, só no personalizado
     filters: service.Filters | None = None
     error: str | None = None
@@ -391,6 +396,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     discount = parse_minutes(discount_text) if discount_text else 0
     if discount and choice.config is not None:
         choice.config = builder.with_discount(choice.config)
+    cascade = choice.model is None and choice.slug == "clientes" and params.cascata == "1"
 
     state = State(
         choice=choice,
@@ -416,6 +422,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         discount_field=discount_field,
         discount=discount or 0,
         discount_invalid=discount is None,
+        cascade=cascade,
         origin=origin,
         warning=warning,
     )
@@ -449,6 +456,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         "comparar": COMPARE_SLUGS.get(compare),
         "extras": SEPARATE if separate else None,
         "desconto": discount_text or None,
+        "cascata": "1" if cascade else None,
         "origem": origin,
     }
     return state
@@ -555,4 +563,5 @@ def form_params(form: FormData) -> Params:
         comparar=one("comparar"),
         extras=one("extras"),
         desconto=one("desconto"),
+        cascata=one("cascata"),
     )

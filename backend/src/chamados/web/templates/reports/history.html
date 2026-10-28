@@ -1,0 +1,47 @@
+{#- O Histórico de Relatórios (docs/14 §14.7): os PDFs da aba Clientes que a pessoa baixou com um
+    cliente só, do mais recente para o mais antigo, com o link que gera o mesmo PDF de novo. -#}
+{% extends "app.html" %}
+{% from "reports/_tabs.html" import tabs_nav with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ t("relatorios.abas.historico") }} · {{ t("relatorios.titulo") }}{% endblock %}
+
+{% block content %}
+{#- O mesmo #relatorio da tela dos relatórios: a aba Histórico de lá troca só ele. #}
+<div id="relatorio" class="mx-auto flex max-w-7xl flex-col gap-4">
+  <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
+  {{ tabs_nav(tabs, "historico", boost=False) }}
+  <p class="text-muted">{{ t("relatorios.historico.explicacao") }}</p>
+  {%- if entries %}
+  <div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
+    <table class="w-full text-left">
+      <thead class="text-sm text-muted">
+        <tr>
+          <th scope="col" class="px-4 py-2 font-medium">{{ t("relatorios.historico.quando") }}</th>
+          <th scope="col" class="px-4 py-2 font-medium">{{ t("relatorios.historico.cliente") }}</th>
+          <th scope="col" class="px-4 py-2 font-medium">{{ t("relatorios.historico.periodo") }}</th>
+          <th scope="col" class="px-4 py-2 font-medium">{{ t("relatorios.historico.tipo") }}</th>
+          <th scope="col" class="px-4 py-2"><span class="sr-only">{{ t("relatorios.historico.gerarDeNovo") }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for e in entries %}
+        <tr class="border-t border-border">
+          <td class="px-4 py-2 whitespace-nowrap tabular-nums">{{ e.when }}</td>
+          <td class="px-4 py-2">{{ e.client }}</td>
+          <td class="px-4 py-2 whitespace-nowrap tabular-nums">{{ e.period }}</td>
+          <td class="px-4 py-2">{{ e.kind }}</td>
+          <td class="px-4 py-2 text-right whitespace-nowrap"><a href="{{ e.url }}" class="inline-flex items-center gap-1 text-primary underline">{{ icon("download", "size-4") }} {{ t("relatorios.historico.gerarDeNovo") }}</a></td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- if entries | length >= listed %}
+  <p class="text-sm text-muted">{{ t("relatorios.historico.mostrando", n=listed) }}</p>
+  {%- endif %}
+  {%- else %}
+  <p class="rounded-lg border border-border bg-surface p-4 text-muted">{{ t("relatorios.historico.nenhum") }}</p>
+  {%- endif %}
+</div>
+{% endblock %}

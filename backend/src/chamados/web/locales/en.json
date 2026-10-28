@@ -429,7 +429,8 @@
       "produtividade": "Productivity",
       "clientes": "Clients",
       "horasExtras": "Overtime",
-      "chamados": "Tickets"
+      "chamados": "Tickets",
+      "historico": "History"
     },
     "colunas": {
       "pessoa": "Person",
@@ -678,6 +679,24 @@
     "noExpediente": "Within working hours",
     "tituloEmpilhado": "Hours per {dimensao}: within working hours and overtime",
     "tituloCombo": "{primeira} and {segunda} per {dimensao}",
+    "cascata": {
+      "campo": "Cascade",
+      "dica": "Hides from the client list the clients you already reported on today (PDF downloaded)."
+    },
+    "historico": {
+      "explicacao": "The Clients tab PDFs you downloaded with a single client. Generate again uses the same filters and period, with today's data.",
+      "quando": "Generated at",
+      "cliente": "Client",
+      "periodo": "Period",
+      "tipo": "Type",
+      "tipos": {
+        "simple": "Summary",
+        "detailed": "Detailed"
+      },
+      "gerarDeNovo": "Generate again",
+      "nenhum": "No reports generated yet.",
+      "mostrando": "Showing the {n} most recent."
+    },
     "desconto": {
       "campo": "Discounted hours",
       "invalido": "Use hours and minutes, e.g. 2:30."

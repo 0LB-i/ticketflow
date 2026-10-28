@@ -6,6 +6,7 @@
 {% from "_fields.html" import chips, client_chips with context %}
 {% from "_icons.html" import icon %}
 {% from "reports/_blocks.html" import block, client_sheet with context %}
+{% from "reports/_tabs.html" import tabs_nav with context %}
 
 {% block title %}{{ t("relatorios.titulo") }}{% endblock %}
 
@@ -117,12 +118,8 @@
     <button type="button" data-fecha-dialogo class="absolute top-4 right-4 rounded p-1 text-muted hover:bg-surface-raised" aria-label="{{ t('comum.fechar') }}">{{ icon("x", "size-4") }}</button>
   </dialog>
 
-  {#- Os modelos prontos e os da pessoa. #}
-  <nav aria-label="{{ t('relatorios.modelos') }}" hx-boost="true" class="flex flex-wrap gap-1 border-b border-border print:hidden">
-    {%- for slug, label, url, tip in tabs %}
-    <a href="{{ url }}"{% if tip %} title="{{ tip }}"{% endif %} class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>{{ label }}</a>
-    {%- endfor %}
-  </nav>
+  {#- Os modelos prontos e os da pessoa, e o Histórico. #}
+  {{ tabs_nav(tabs, tab) }}
 
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
       continua. Pelo HTMX, esperando as escolhas seguidas (600 ms), com o endereço na barra (o
@@ -179,7 +176,7 @@
     {%- for name, label, options, selected, all_key, names in filters %}
     {%- set placeholder = t("relatorios.adicionar") if selected else t("relatorios." ~ all_key) %}
     {%- if options is none %}
-    {{ client_chips(name, t("relatorios." ~ label), selected, names, placeholder, "relatorios.tirarFiltro", "/relatorios/clientes") }}
+    {{ client_chips(name, t("relatorios." ~ label), selected, names, placeholder, "relatorios.tirarFiltro", clients_url) }}
     {%- else %}
     {{ chips(name, t("relatorios." ~ label), options, selected, names, placeholder, "relatorios.tirarFiltro") }}
     {%- endif %}
@@ -190,6 +187,15 @@
     {#- Na aba Clientes: as horas no expediente e as extras à parte, ou todo o tempo junto. #}
     {%- if query_extras is not none %}
     {{ select_field("extras", t("relatorios.extras.campo"), [("", t("relatorios.extras.opcoes.juntas")), ("separada", t("relatorios.extras.opcoes.separada"))], query_extras) }}
+    {%- endif %}
+    {#- Na aba Clientes: a cascata tira da lista de clientes os que já tiveram relatório da
+        pessoa hoje. #}
+    {%- if query_cascade is not none %}
+    <label class="inline-flex cursor-pointer items-center gap-2 self-end pb-2" title="{{ t('relatorios.cascata.dica') }}">
+      <input type="checkbox" name="cascata" value="1"{% if query_cascade %} checked{% endif %} aria-describedby="campo-cascata-dica" class="size-4 accent-(--tf-primary)">
+      {{ t("relatorios.cascata.campo") }}
+      <span id="campo-cascata-dica" class="sr-only">{{ t("relatorios.cascata.dica") }}</span>
+    </label>
     {%- endif %}
     {#- Com um cliente só: as horas descontadas do excedente (horas e minutos). #}
     {%- if query_discount is not none %}

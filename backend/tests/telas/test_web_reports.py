@@ -2502,10 +2502,10 @@ def test_colunas_da_lista_e_ordem_das_medidas(
 
 
 def _abas(html: str) -> list[str]:
-    """Os nomes na barra de abas, na ordem."""
+    """Os nomes das abas dos modelos na barra, na ordem (sem o Histórico, que é fixo)."""
     barra = re.search(r'<nav aria-label="Modelos de relatório".*?</nav>', html, re.S)
     assert barra, "sem a barra de abas"
-    return re.findall(r">([^<>]+)</a>", barra.group(0))
+    return [a for a in re.findall(r">([^<>]+)</a>", barra.group(0)) if a != "Histórico"]
 
 
 def _organizar(

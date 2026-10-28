@@ -15,7 +15,7 @@ from starlette.concurrency import run_in_threadpool
 
 from chamados.core.i18n import Locale
 from chamados.db.session import DB
-from chamados.modules.reports import builder, csv_export, model_pdf, service
+from chamados.modules.reports import builder, csv_export, history, model_pdf, service
 from chamados.modules.reports import router as reports_api
 from chamados.modules.reports.builder import CHARTS, ELAPSED, TICKET_SETS
 from chamados.modules.system.service import get_value
@@ -333,6 +333,34 @@ async def report_pdf(
     reports_api.record_export(
         db, page.request, page.auth, f, format="pdf", table=table, model=state.choice.name
     )
+    if (
+        state.choice.slug == "clientes"
+        and state.choice.model is None
+        and len(f.clients) == 1
+        and not f.no_client
+    ):
+        # O Histórico e a cascata: com as datas do período (um relativo, como o mês atual, seria
+        # outro depois), sem a cascata, que é da tela.
+        again = {
+            **state.query,
+            "aba": "clientes",
+            "periodo": builder.CUSTOM,
+            "de": f.start.isoformat(),
+            "ate": f.end.isoformat(),
+            "dias": None,
+            "origem": None,
+            "cascata": None,
+            "detalhado": "1" if table == "detailed" else None,
+        }
+        history.record(
+            db,
+            page.auth.user.id,
+            f.clients[0].id,
+            "detailed" if table == "detailed" else "simple",
+            f.start,
+            f.end,
+            {k: v for k, v in again.items() if v},
+        )
     await db.commit()
     name = f"relatorio-{f.start:%Y-%m-%d}-a-{f.end:%Y-%m-%d}.pdf"
     return Response(

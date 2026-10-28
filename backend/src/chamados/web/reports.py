@@ -17,9 +17,10 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 from chamados.db.session import DB
-from chamados.modules.reports import builder, service
+from chamados.modules.reports import builder, history, saved, service
 from chamados.modules.reports.builder import CUSTOM
-from chamados.web.formatting import TIMEZONE, format_day
+from chamados.modules.reports.models import ReportModel
+from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.reports_blocks import (
     block_view,
@@ -59,10 +60,11 @@ def _fold(text: str) -> str:
 
 @router.get("/relatorios/clientes")
 async def client_choices(
-    page: LoggedPageDep, db: DB, q: str = "", cliente: Values = None
+    page: LoggedPageDep, db: DB, q: str = "", cliente: Values = None, cascata: bool = False
 ) -> HTMLResponse:
     """As opções do filtro de cliente (HTMX): "Sem cliente" e os clientes que batem com a busca,
-    sem os já escolhidos (`cliente`, as etiquetas)."""
+    sem os já escolhidos (`cliente`, as etiquetas) e, na cascata da aba Clientes, sem os que já
+    tiveram relatório da pessoa hoje."""
     text = q.strip()[:200]
     # No editor, as etiquetas do filtro de um bloco se chamam `b<i>-cliente`.
     extra = [v for k, v in page.request.query_params.multi_items() if k.endswith("-cliente")]
@@ -71,9 +73,61 @@ async def client_choices(
     options = []
     if NO_CLIENT not in chosen and _fold(text) in _fold(none_label):
         options.append((NO_CLIENT, none_label))
-    found = await service.client_choices(db, text, parse_uuids(chosen))
+    done = await history.clients_today(db, page.auth.user.id) if cascata else []
+    found = await service.client_choices(db, text, [*parse_uuids(chosen), *done])
     options += [(str(c.id), c.name) for c in found]
     return page.render("reports/_client_options.html", options=options)
+
+
+def _tab_names(
+    page: LoggedPage, models: list[ReportModel]
+) -> tuple[dict[str, str], dict[str, str]]:
+    """O nome de cada aba e a dica: a descrição; a dos modelos da pessoa, como foi salva (sem
+    converter a configuração de cada um)."""
+    names = {s: page.t(f"relatorios.abas.{key}") for s, key in TABS.items()}
+    names.update({str(m.public_id): m.name for m in models})
+    tips = {s: page.t(f"relatorios.descricoes.{key}") for s, key in TABS.items()}
+    for m in models:
+        tip = m.config.get("description")
+        tips[str(m.public_id)] = tip if isinstance(tip, str) else ""
+    return names, tips
+
+
+@router.get("/relatorios/historico")
+async def history_page(page: LoggedPageDep, db: DB) -> HTMLResponse:
+    """O Histórico (docs/14 §14.7): os PDFs da aba Clientes que a pessoa baixou com um cliente
+    só, com o link que gera o mesmo de novo. As abas, na ordem da pessoa, sem os filtros."""
+    auth = page.auth
+    models = await saved.list_mine(db, auth)
+    default = next((str(m.public_id) for m in models if m.is_default), None)
+    arranged = saved.arrange(
+        [*TABS, *(str(m.public_id) for m in models)], default, await saved.tab_prefs(db, auth)
+    )
+    names, tips = _tab_names(page, models)
+    found = await history.entries(db, auth.user.id)
+    return page.render(
+        "reports/history.html",
+        tabs=[
+            (s, names[s], with_query("/relatorios", {"aba": s}), tips[s])
+            for s, shown in arranged
+            if shown
+        ],
+        entries=[
+            {
+                "when": format_datetime(page.locale, e.created_at),
+                "client": e.client,
+                "period": page.t(
+                    "relatorios.detalhe.intervalo",
+                    de=format_date(page.locale, e.start),
+                    ate=format_date(page.locale, e.end),
+                ),
+                "kind": page.t(f"relatorios.historico.tipos.{e.kind}"),
+                "url": with_query("/relatorios/pdf", e.query),
+            }
+            for e in found
+        ],
+        listed=history.LISTED,
+    )
 
 
 @router.get("/relatorios")
@@ -98,14 +152,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     # As abas na ordem da pessoa, sem as escondidas; a escondida aberta pelo link aparece
     # enquanto está aberta. Os modelos prontos levam os filtros da tela; o da pessoa abre com os
     # que ele guarda.
-    tab_names = {s: page.t(f"relatorios.abas.{key}") for s, key in TABS.items()}
-    tab_names.update({str(m.public_id): m.name for m in state.models})
-    # A descrição vai na dica da aba; a dos modelos da pessoa, como foi salva (sem converter a
-    # configuração de cada um).
-    tips = {s: page.t(f"relatorios.descricoes.{key}") for s, key in TABS.items()}
-    for m in state.models:
-        tip = m.config.get("description")
-        tips[str(m.public_id)] = tip if isinstance(tip, str) else ""
+    tab_names, tips = _tab_names(page, state.models)
 
     def tab_query(s: str) -> dict[str, Any]:
         if s not in TABS:
@@ -365,6 +412,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         query_extras=(query["extras"] or "") if slug == "clientes" and not choice.model else None,
         # Com um cliente só, as horas descontadas do excedente.
         query_discount=(query["desconto"] or "") if state.discount_field else None,
+        query_cascade=state.cascade if slug == "clientes" and not choice.model else None,
+        clients_url="/relatorios/clientes?cascata=1" if state.cascade else "/relatorios/clientes",
         discount_invalid=state.discount_invalid,
         filters=filters,
         query_fields=[

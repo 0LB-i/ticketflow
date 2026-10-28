@@ -429,7 +429,8 @@
       "produtividade": "Produtividade",
       "clientes": "Clientes",
       "horasExtras": "Horas extras",
-      "chamados": "Chamados"
+      "chamados": "Chamados",
+      "historico": "Histórico"
     },
     "colunas": {
       "pessoa": "Pessoa",
@@ -678,6 +679,24 @@
     "noExpediente": "No expediente",
     "tituloEmpilhado": "Horas por {dimensao}: no expediente e extras",
     "tituloCombo": "{primeira} e {segunda} por {dimensao}",
+    "cascata": {
+      "campo": "Cascata",
+      "dica": "Tira da lista de clientes os que já tiveram relatório seu hoje (PDF baixado)."
+    },
+    "historico": {
+      "explicacao": "Os PDFs da aba Clientes que você baixou com um cliente só. Gerar de novo usa os mesmos filtros e período, com os dados de hoje.",
+      "quando": "Gerado em",
+      "cliente": "Cliente",
+      "periodo": "Período",
+      "tipo": "Tipo",
+      "tipos": {
+        "simple": "Simplificado",
+        "detailed": "Detalhado"
+      },
+      "gerarDeNovo": "Gerar de novo",
+      "nenhum": "Nenhum relatório gerado ainda.",
+      "mostrando": "Mostrando os {n} mais recentes."
+    },
     "desconto": {
       "campo": "Horas descontadas",
       "invalido": "Use horas e minutos, ex.: 2:30."
