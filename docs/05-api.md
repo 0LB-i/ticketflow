@@ -105,6 +105,7 @@ Um chamado que o usuário não pode ver responde `403` ("Você não tem acesso a
 | `PATCH` | `/admin/settings` | `{"default_locale": "pt-BR" \| "en", "colors": {"brand", "neutral", "background"} \| null}` (`admin.settings`) |
 | `PUT` / `DELETE` | `/admin/settings/logo` | Envia (`{"data_url": "data:image/png;base64,..."}`, PNG, JPEG ou WebP até 256 KB) ou remove o logotipo |
 | `PUT` / `DELETE` | `/admin/settings/report-logo` | O mesmo, para o logotipo dos relatórios, separado do logotipo do aplicativo |
+| `GET` / `PUT` | `/admin/settings/report-filters` | Os filtros que a tela de Relatórios mostra: `period`, `team`, `person`, `status` e `compare`, todos `true` por padrão. Desligado, o campo some da tela e vale o valor do modelo; a API dos relatórios não muda (`admin.settings`) |
 | `GET` / `PUT` | `/admin/settings/company` | Os dados da empresa que usa o sistema (`null` enquanto não cadastrados): `name` (razão social) e `document` (CNPJ) obrigatórios; `trade_name`, `state_registration`, `municipal_registration`, `phone`, `email`, `website`, `postal_code`, `street`, `number`, `complement`, `district`, `city` e `state` opcionais. O `PUT` substitui tudo e devolve os valores normalizados (só dígitos no CNPJ, telefone e CEP) (`admin.settings`) |
 | `PATCH` | `/me` | Preferências da pessoa: `{"locale": "en" \| "pt-BR" \| null}` (nulo segue o padrão do sistema) |
 

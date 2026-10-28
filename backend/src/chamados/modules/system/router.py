@@ -1,4 +1,5 @@
-"""Configurações da instalação: idioma padrão e cores (docs/13: /admin/configuracoes) e, na tela
+"""Configurações da instalação: idioma padrão, cores e os filtros da tela de Relatórios (docs/13:
+/admin/configuracoes) e, na tela
 Empresa (/admin/empresa), os dados da empresa, o logotipo e o logotipo dos relatórios.
 
 `GET /branding` é público: a tela de login também usa as cores, o logotipo e o idioma.
@@ -73,6 +74,17 @@ class Branding(BaseModel):
 class SettingsUpdate(BaseModel):
     default_locale: Locale | None = None
     colors: Colors | None = Field(default=None, description="nulo volta às cores padrão")
+
+
+class ReportFilters(BaseModel):
+    """Os filtros que a tela de Relatórios mostra. Desligado, o campo some e o relatório usa o
+    valor do modelo (ou o do endereço)."""
+
+    period: bool = True
+    team: bool = True
+    person: bool = True
+    status: bool = True
+    compare: bool = Field(default=True, description="o campo Comparar com")
 
 
 class LogoIn(BaseModel):
@@ -261,6 +273,38 @@ async def set_company(data: CompanyIn, auth: Admin, request: Request, db: DB) ->
         )
         await db.commit()
     return Company.model_validate(values)
+
+
+async def get_report_filters(db: AsyncSession) -> ReportFilters:
+    """Sem a linha, todos ligados."""
+    return ReportFilters.model_validate(await get_value(db, "report_filters") or {})
+
+
+@router.get("/admin/settings/report-filters", response_model=ReportFilters)
+async def report_filters(auth: Admin, db: DB) -> ReportFilters:
+    return await get_report_filters(db)
+
+
+@router.put("/admin/settings/report-filters", response_model=ReportFilters)
+async def set_report_filters(
+    data: ReportFilters, auth: Admin, request: Request, db: DB
+) -> ReportFilters:
+    """Liga e desliga os filtros da tela de Relatórios. Todos ligados apaga a linha (o padrão)."""
+    before = await get_report_filters(db)
+    if data != before:
+        value = None if data == ReportFilters() else data.model_dump()
+        await set_value(db, "report_filters", value, auth.user.id)
+        record(
+            db,
+            "settings.updated",
+            request=request,
+            actor_user_id=auth.user.id,
+            target_type="settings",
+            before={"report_filters": before.model_dump()},
+            after={"report_filters": data.model_dump()},
+        )
+        await db.commit()
+    return data
 
 
 @router.get("/work-hours", response_model=WorkHours)

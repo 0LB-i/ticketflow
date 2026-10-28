@@ -166,6 +166,29 @@ def test_supervisor_escolhe_pessoa(
     assert _pdf(r.text)["person"] == [cenario["ana"], cenario["bia"]]
 
 
+def test_filtros_desligados_em_configuracoes(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    """Desligado em Configurações, o campo some da tela; o cliente fica sempre."""
+    entrar(client, "bia@x.com")
+    r = client.get("/relatorios")
+    for campo in ('id="campo-periodo"', 'name="comparar"', "Todos os grupos", "Todas as pessoas"):
+        assert campo in r.text
+    assert "Todos os status" in r.text
+    db.add(
+        SystemSetting(
+            key="report_filters",
+            value={"period": False, "team": False, "person": False, "status": False},
+        )
+    )
+    db.commit()
+    r = client.get("/relatorios")
+    for campo in ('id="campo-periodo"', "Todos os grupos", "Todas as pessoas", "Todos os status"):
+        assert campo not in r.text
+    assert 'name="comparar"' in r.text  # sem a chave, ligado
+    assert "Todos os clientes" in r.text
+
+
 def test_filtro_de_cliente(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
     padaria = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     # Vários clientes e "Sem cliente"; um valor que não é cliente fica de fora.

@@ -1,6 +1,7 @@
-"""Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, status dos chamados
-e expediente; os logotipos ficam na tela Empresa (web/company.py). Exige admin.settings
-(conferido aqui por `requires`: na API fica numa dependência que não roda na chamada direta).
+"""Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, status dos chamados,
+expediente e os filtros da tela de Relatórios; os logotipos ficam na tela Empresa (web/company.py).
+Exige admin.settings (conferido aqui por `requires`: na API fica numa dependência que não roda na
+chamada direta).
 Cada seção grava pela rota da API dela.
 """
 
@@ -19,7 +20,7 @@ from chamados.db.session import DB
 from chamados.modules.catalog import router as catalog_api
 from chamados.modules.catalog.router import StatusCreate, StatusOrder, StatusOut, StatusUpdate
 from chamados.modules.system import router as system_api
-from chamados.modules.system.router import SettingsUpdate
+from chamados.modules.system.router import ReportFilters, SettingsUpdate, get_report_filters
 from chamados.modules.system.work_hours import Schedule, WorkHoursIn, get_work_hours
 from chamados.web import work_hours
 from chamados.web.page import LoggedPage, check_csrf, requires
@@ -33,6 +34,14 @@ HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 COLOR_FIELDS = ("brand", "neutral", "background")
 KINDS = ("open", "waiting", "delivered", "closed", "canceled")
 HOME = "/admin/configuracoes"
+# Os filtros da tela de Relatórios que se desligam (ReportFilters), com o rótulo de lá.
+REPORT_FILTERS = {
+    "period": "relatorios.periodo",
+    "team": "relatorios.grupo",
+    "person": "relatorios.pessoa",
+    "status": "relatorios.status",
+    "compare": "relatorios.comparacao.campo",
+}
 
 
 def _variables(tokens: dict[str, str]) -> str:
@@ -85,6 +94,7 @@ async def settings_page(
     preview = palette(colors)
     statuses = (await catalog_api.list_statuses(page.auth, db)).items
     hours = await get_work_hours(db)
+    shown = (await get_report_filters(db)).model_dump()
     return page.render(
         "admin/settings.html",
         locale_options=[(loc, page.t(f"idioma.nomes.{loc}")) for loc in LOCALES],
@@ -109,6 +119,7 @@ async def settings_page(
             )
         ),
         holidays=[(h.isoformat(), format_date(page.locale, h)) for h in hours.holidays],
+        report_filters=[(key, page.t(label), shown[key]) for key, label in REPORT_FILTERS.items()],
     )
 
 
@@ -248,6 +259,33 @@ async def remove_status(
         f"{HOME}#status",
         lambda: catalog_api.delete_status(status_id, page.auth, request, db),
         page.t("statusConfig.removido", nome=name),
+    )
+
+
+# --- filtros dos relatórios -----------------------------------------------------------------
+
+
+@router.post("/admin/configuracoes/filtros-relatorios")
+async def save_report_filters(
+    page: SettingsAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    ligados: Annotated[list[str] | None, Form()] = None,
+) -> Response:
+    """Cada chave ligada vem em `ligados`; as que não vêm ficam desligadas."""
+    check_csrf(page, csrf_token)
+    on = set(ligados or [])
+    return await run(
+        page,
+        f"{HOME}#filtros-relatorios",
+        lambda: system_api.set_report_filters(
+            ReportFilters.model_validate({key: key in on for key in REPORT_FILTERS}),
+            page.auth,
+            request,
+            db,
+        ),
+        page.t("comum.salvo"),
     )
 
 

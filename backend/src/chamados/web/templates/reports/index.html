@@ -120,6 +120,8 @@
     {#- Mexer nos outros filtros mantém a trilha do detalhar. #}
     <input type="hidden" name="origem" value="{{ origin }}">
     {%- endif %}
+    {#- O período e o Comparar com podem estar desligados em Configurações. #}
+    {%- if show_period %}
     <div class="flex flex-col gap-1">
       <label for="campo-periodo" class="font-medium">{{ t("relatorios.periodo") }}</label>
       <select id="campo-periodo" name="periodo" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
@@ -153,6 +155,7 @@
       {%- endfor %}
     </div>
     {%- endif %}
+    {%- endif %}
     {#- Vários valores em etiquetas; nenhuma é "todos". #}
     {%- for name, label, options, selected, all_key, names in filters %}
     {%- set placeholder = t("relatorios.adicionar") if selected else t("relatorios." ~ all_key) %}
@@ -164,7 +167,9 @@
     {%- endfor %}
     {#- Os cartões mostram a variação sobre o período comparado: o anterior ou o mesmo do ano
         anterior. #}
+    {%- if show_compare %}
     {{ select_field("comparar", t("relatorios.comparacao.campo"), [("", t("relatorios.comparacao.opcoes.none")), ("anterior", t("relatorios.comparacao.opcoes.previous")), ("ano", t("relatorios.comparacao.opcoes.year"))], query_compare) }}
+    {%- endif %}
     {#- Na aba Clientes: as horas no expediente e as extras à parte, ou todo o tempo junto. #}
     {%- if query_extras is not none %}
     {{ select_field("extras", t("relatorios.extras.campo"), [("", t("relatorios.extras.opcoes.juntas")), ("separada", t("relatorios.extras.opcoes.separada"))], query_extras) }}

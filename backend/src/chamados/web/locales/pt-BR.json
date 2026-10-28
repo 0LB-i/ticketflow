@@ -904,6 +904,11 @@
     "mesAnterior": "Mês anterior",
     "proximoMes": "Próximo mês"
   },
+  "filtrosRelatorios": {
+    "titulo": "Filtros dos relatórios",
+    "descricao": "Os filtros que aparecem na tela de Relatórios, para todas as pessoas. Desligado, o campo some e o relatório usa o valor do modelo.",
+    "salvar": "Salvar filtros"
+  },
   "statusConfig": {
     "titulo": "Status dos chamados",
     "descricao": "Os status aparecem nesta ordem nas listas e no formulário do chamado. O comportamento diz ao sistema o que o status significa e não muda depois de criado.",

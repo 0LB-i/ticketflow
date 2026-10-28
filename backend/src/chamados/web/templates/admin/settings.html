@@ -1,4 +1,5 @@
-{#- Configurações da instalação: idioma, cores, status dos chamados e expediente. O
+{#- Configurações da instalação: idioma, cores, status dos chamados, expediente e os filtros dos
+    relatórios. O
     comportamento (combinações prontas, seletor de cor, feriados) está no static/js/configuracoes.js. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import badge, button_class, field, logo, select_field, status_badge with context %}
@@ -197,6 +198,32 @@
     </div>
     <div class="flex justify-end border-t border-border pt-4">
       <button type="submit" class="{{ button_class() }}">{{ t("expediente.salvar") }}</button>
+    </div>
+  </form>
+
+  {#- Os filtros da tela de Relatórios: cada um uma chave de ligar e desligar (o checkbox
+      escondido, `role=switch`), como a cascata de lá. Desligado, o campo some e vale o do modelo. #}
+  <form id="filtros-relatorios" method="post" action="/admin/configuracoes/filtros-relatorios" aria-labelledby="filtros-relatorios-titulo" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div>
+      <h2 id="filtros-relatorios-titulo" class="font-semibold">{{ t("filtrosRelatorios.titulo") }}</h2>
+      <p class="mt-1 text-muted">{{ t("filtrosRelatorios.descricao") }}</p>
+    </div>
+    <ul class="flex flex-col divide-y divide-border rounded-md border border-border">
+      {%- for key, label, on in report_filters %}
+      <li>
+        <label class="group flex cursor-pointer items-center justify-between gap-3 px-3 py-2">
+          <span>{{ label }}</span>
+          <input type="checkbox" role="switch" name="ligados" value="{{ key }}"{% if on %} checked{% endif %} class="sr-only">
+          <span aria-hidden="true" class="relative h-6 w-11 shrink-0 rounded-full bg-border-input transition-colors group-has-checked:bg-green-fg group-has-focus-visible:outline-2 group-has-focus-visible:outline-offset-2 group-has-focus-visible:outline-focus motion-reduce:transition-none">
+            <span class="absolute top-0.5 left-0.5 size-5 rounded-full bg-surface shadow transition-transform group-has-checked:translate-x-5 motion-reduce:transition-none"></span>
+          </span>
+        </label>
+      </li>
+      {%- endfor %}
+    </ul>
+    <div class="flex justify-end border-t border-border pt-4">
+      <button type="submit" class="{{ button_class() }}">{{ t("filtrosRelatorios.salvar") }}</button>
     </div>
   </form>
 </div>

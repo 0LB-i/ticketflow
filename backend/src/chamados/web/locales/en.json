@@ -904,6 +904,11 @@
     "mesAnterior": "Previous month",
     "proximoMes": "Next month"
   },
+  "filtrosRelatorios": {
+    "titulo": "Report filters",
+    "descricao": "The filters shown on the Reports screen, for everyone. When off, the field is hidden and the report uses the template's value.",
+    "salvar": "Save filters"
+  },
   "statusConfig": {
     "titulo": "Ticket statuses",
     "descricao": "Statuses appear in this order in lists and in the ticket form. The behavior tells the system what the status means and cannot change after it is created.",

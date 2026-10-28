@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from chamados.core.i18n import EN
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.identity.passwords import password_problem
+from chamados.modules.system.models import SystemSetting
 from tests.conftest import FakeMailer, criar_usuario, entrar
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
@@ -53,6 +54,9 @@ def test_so_admin_altera(client: TestClient, db: Session) -> None:
     assert client.delete("/api/v1/admin/settings/report-logo").status_code == 403
     assert client.get("/api/v1/admin/settings/company").status_code == 403
     assert client.put("/api/v1/admin/settings/company", json=EMPRESA).status_code == 403
+    assert client.get("/api/v1/admin/settings/report-filters").status_code == 403
+    r = client.put("/api/v1/admin/settings/report-filters", json={"status": False})
+    assert r.status_code == 403
 
 
 def test_idioma_e_cores(client: TestClient, db: Session) -> None:
@@ -161,6 +165,24 @@ def test_dados_da_empresa(client: TestClient, db: Session) -> None:
             "state_registration",
         ]
     }  # fmt: skip
+
+
+def test_filtros_dos_relatorios(client: TestClient, db: Session) -> None:
+    """Todos ligados por padrão; ligar todos de novo volta ao padrão (sem a linha)."""
+    _admin(client, db)
+    url = "/api/v1/admin/settings/report-filters"
+    todos = {"period": True, "team": True, "person": True, "status": True, "compare": True}
+    assert client.get(url).json() == todos
+    r = client.put(url, json={"status": False, "compare": False})
+    assert r.json() == {**todos, "status": False, "compare": False}
+    assert client.get(url).json() == {**todos, "status": False, "compare": False}
+    client.put(url, json={"status": False, "compare": False})  # sem mudança, sem auditoria
+    assert client.put(url, json={}).json() == todos
+    assert db.scalar(select(SystemSetting).where(SystemSetting.key == "report_filters")) is None
+    logs = db.scalars(
+        select(AuditLog).where(AuditLog.action == "settings.updated").order_by(AuditLog.id)
+    ).all()
+    assert [(log.after or {})["report_filters"]["status"] for log in logs] == [False, True]
 
 
 def test_idioma_do_usuario(client: TestClient, db: Session) -> None:

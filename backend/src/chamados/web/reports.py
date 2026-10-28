@@ -20,6 +20,7 @@ from chamados.db.session import DB
 from chamados.modules.reports import history, saved, service
 from chamados.modules.reports.builder import CUSTOM
 from chamados.modules.reports.models import ReportModel
+from chamados.modules.system.router import get_report_filters
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.reports_blocks import (
@@ -245,7 +246,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     # Os filtros de vários valores (etiquetas): nome, rótulo, opções, escolhidos, o texto de
     # "todos" e os nomes. Grupo só com o que escolher; pessoa, só para quem vê mais que o próprio
     # trabalho. O cliente não tem a lista (são milhares): busca pelo HTMX (`client_choices`), e
-    # os nomes são só os dos escolhidos.
+    # os nomes são só os dos escolhidos. Os desligados em Configurações não aparecem.
+    shown = await get_report_filters(db)
     client_names = {
         NO_CLIENT: page.t("relatorios.semCliente"),
         **{str(c): name for c, name in state.client_names.items()},
@@ -254,11 +256,11 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     person_options = [(str(p.id), p.name) for p in options.people]
     status_options = [(str(s.id), s.name) for s in options.statuses]
     filters: list[tuple[str, str, list[tuple[str, str]] | None, Any, str, dict[str, str]]] = []
-    if options.teams:
+    if options.teams and shown.team:
         filters.append(
             ("grupo", "grupo", team_options, query["grupo"], "todosOsGrupos", dict(team_options))
         )
-    if len(options.people) > 1:
+    if len(options.people) > 1 and shown.person:
         filters.append(
             (
                 "pessoa",
@@ -270,9 +272,17 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             )
         )
     filters.append(("cliente", "cliente", None, query["cliente"], "todosOsClientes", client_names))
-    filters.append(
-        ("status", "status", status_options, query["status"], "todosOsStatus", dict(status_options))
-    )
+    if shown.status:
+        filters.append(
+            (
+                "status",
+                "status",
+                status_options,
+                query["status"],
+                "todosOsStatus",
+                dict(status_options),
+            )
+        )
 
     # "Filtrado por": cada valor escolhido com o link que o tira, e "Limpar filtros", que tira
     # todos e mantém a aba e o período (sem nenhum filtro na URL valeriam os salvos do modelo).
@@ -360,6 +370,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         organize=page.request.query_params.get("organizar") == "1",
         here_url=with_query("/relatorios", here),
         model=choice.model,
+        show_period=shown.period,
+        show_compare=shown.compare,
         period=state.period,
         period_groups=[
             (

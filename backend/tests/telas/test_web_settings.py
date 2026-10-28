@@ -43,6 +43,8 @@ def test_so_admin(client: TestClient, db: Session) -> None:
     cores = {"brand": "#2563EB", "neutral": "#64748B", "background": "#FFFFFF"}
     assert client.post(URL, data=_form(client, default_locale="en", **cores)).status_code == 403
     assert client.post(f"{URL}/status/novo", data=_form(client, name="X")).status_code == 403
+    r = client.post(f"{URL}/filtros-relatorios", data=_form(client))
+    assert r.status_code == 403
     assert _valor(db, "locale") is None
 
 
@@ -75,6 +77,22 @@ def test_idioma_e_cores(client: TestClient, db: Session) -> None:
     assert _valor(db, "colors") is None
     r = client.post(URL, data=_form(client, default_locale="pt-BR", **{**padrao, "brand": "azul"}))
     assert _aviso(r.text) == "Use o formato #RRGGBB."
+
+
+def test_filtros_dos_relatorios(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    r = client.get(URL)
+    assert 'name="ligados" value="status" checked' in r.text
+    url = f"{URL}/filtros-relatorios"
+    ligados = ["period", "team", "person"]
+    r = client.post(url, data=_form(client, ligados=ligados))
+    assert _aviso(r.text) == "Alterações salvas"
+    assert _valor(db, "report_filters") == {
+        "period": True, "team": True, "person": True, "status": False, "compare": False
+    }  # fmt: skip
+    assert 'name="ligados" value="status" class' in r.text  # desligado: sem o checked
+    client.post(url, data=_form(client, ligados=[*ligados, "status", "compare"]))
+    assert _valor(db, "report_filters") is None
 
 
 def test_status(client: TestClient, db: Session) -> None:
