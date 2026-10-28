@@ -10,12 +10,14 @@ from typing import Any
 import pytest
 from PIL import Image
 from reportlab.lib import colors
+from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
-from reportlab.platypus import FrameBreak, Paragraph
+from reportlab.platypus import FrameBreak, Paragraph, Table
 
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.schemas import Report, TaskRow, Totals
 from chamados.modules.reports.service import TZ, Filters, ScheduleUse
+from chamados.modules.system.company import Company, letterhead
 from chamados.modules.system.work_hours import DEFAULT, Schedule
 
 PAGINA = model_pdf.Page("Gerado em 24/10/2026", "Página {n} de {total}")
@@ -88,6 +90,46 @@ def test_relatorio_para_o_cliente_com_logotipo() -> None:
         assert conteudo.startswith(b"%PDF")
         # O PDF do modelo leva o mesmo logotipo, à esquerda do título.
         conteudo = model_pdf.render_model("M", ["Período"], [], PAGINA, SERIES, (), logo)
+        assert conteudo.startswith(b"%PDF")
+
+
+def test_dados_da_empresa_no_cabecalho() -> None:
+    """As linhas da empresa (as que têm algo) ficam à direita do título, com ou sem logotipo."""
+    assert letterhead(None) == []
+    empresa = Company(name="Padaria Pão Quente Ltda", document="11222333000181")
+    assert letterhead(empresa) == ["Padaria Pão Quente Ltda", "CNPJ 11.222.333/0001-81"]
+    empresa = empresa.model_copy(
+        update={
+            "state_registration": "ISENTO",
+            "street": "Av. Paulista",
+            "number": "1000",
+            "district": "Bela Vista",
+            "city": "São Paulo",
+            "state": "SP",
+            "postal_code": "01310100",
+            "phone": "1133334444",
+            "email": "contato@padaria.com.br",
+        }
+    )
+    linhas = letterhead(empresa)
+    assert linhas[1:] == [
+        "CNPJ 11.222.333/0001-81 · IE ISENTO",
+        "Av. Paulista, 1000 · Bela Vista · São Paulo/SP · CEP 01310-100",
+        "(11) 3333-4444 · contato@padaria.com.br",
+    ]
+    imagem = io.BytesIO()
+    Image.new("RGB", (200, 80), "#C2410C").save(imagem, format="PNG")
+    chamados = model_pdf.Grid("", ["Chamado", "Horas"], [["#1000", "1h"]])
+    for logo in (imagem.getvalue(), None):
+        cabecalho = model_pdf._heading(logo, [], 180 * mm, linhas)[0]
+        assert isinstance(cabecalho, Table)
+        larguras = [180 * mm - 62 * mm, 62 * mm] if logo is None else [45 * mm, 73 * mm, 62 * mm]
+        assert cabecalho._colWidths == larguras  # type: ignore[attr-defined]
+        conteudo = model_pdf.render_model("M", ["Período"], [], PAGINA, SERIES, (), logo, linhas)
+        assert conteudo.startswith(b"%PDF")
+        conteudo = model_pdf.render_client(
+            logo, "Relatório", ["Padaria"], "", [("Horas", "1h")], chamados, "", PAGINA, linhas
+        )
         assert conteudo.startswith(b"%PDF")
 
 
@@ -278,9 +320,11 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
         people=["Ana"],
     )
     for idioma in ("pt-BR", "en"):
-        assert model_pdf.render_hours(relatorio, filtros, uso, "Ana", idioma, b"logo") == b"%PDF"
-    titulo, linhas, blocos, pagina, _, _, logo = chamadas[0]
-    assert logo == b"logo"  # o logotipo da instalação, no cabeçalho
+        pdf = model_pdf.render_hours(relatorio, filtros, uso, "Ana", idioma, b"logo", ["Padaria"])
+        assert pdf == b"%PDF"
+    titulo, linhas, blocos, pagina, _, _, logo, empresa = chamadas[0]
+    assert logo == b"logo"  # o logotipo dos relatórios, no cabeçalho
+    assert empresa == ["Padaria"]  # e os dados da empresa
     assert titulo == "Relatório de horas"
     assert linhas == [
         "01/10/2026 a 31/10/2026 · Grupo: Todos · Pessoa: Todos · Cliente: Sem cliente ·"
@@ -301,7 +345,7 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
     assert pagina.generated.startswith("Gerado em ") and pagina.generated.endswith(" por Ana")
     assert pagina.numbering == "Página {n} de {total}" and not pagina.landscape
     assert pagina.continued == "{titulo} (continuação)"
-    titulo, linhas, blocos, pagina, _, _, _ = chamadas[1]
+    titulo, linhas, blocos, pagina, *_ = chamadas[1]
     assert titulo == "Hours report" and linhas[0].startswith("2026-10-01 to 2026-10-31 · ")
     assert linhas[1] == (
         "Working hours: the default hours (Mon–Fri 08:00–18:00; from 2026-10-15, Mon–Sat"

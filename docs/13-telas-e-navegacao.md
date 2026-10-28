@@ -65,7 +65,8 @@ flowchart LR
 | `/admin/grupos` | Grupos, membros e supervisores | Admin | 1 |
 | `/admin/categorias` | Árvore de categorias, grupo padrão, tipo, aprovação, confidencialidade | Admin | 1 (aprovação: 2) |
 | `/admin/status` | Status (criar com `kind`, renomear, ordenar) e códigos de resolução | Admin | 1 |
-| `/admin/configuracoes` | Idioma padrão (português ou inglês; cada pessoa pode escolher outro no menu do usuário), as três cores da identidade com prévia nos modos claro e escuro ([17.2](17-identidade-visual.md#172-cores)), o logotipo (menu e login) e o logotipo dos relatórios (PDFs e prévia do relatório para o cliente, separado desde 2026-10-28). Depois: nome do sistema, e-mail de envio (SMTP), anexos (tipos, limites) | Admin | 1 |
+| `/admin/empresa` | Dados da empresa que usa o sistema (razão social, CNPJ, inscrições, contato e endereço; vão para o cabeçalho dos PDFs de relatório), o logotipo (menu e login) e o logotipo dos relatórios (PDFs e prévia do relatório para o cliente). Desde 2026-10-28; os logotipos ficavam em Configurações | Admin | 1 |
+| `/admin/configuracoes` | Idioma padrão (português ou inglês; cada pessoa pode escolher outro no menu do usuário) e as três cores da identidade com prévia nos modos claro e escuro ([17.2](17-identidade-visual.md#172-cores)). Depois: nome do sistema, e-mail de envio (SMTP), anexos (tipos, limites) | Admin | 1 |
 | `/admin/auditoria` | Log de auditoria com filtros | Admin, auditor | 1 |
 
 Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **sessão expirada** (volta ao login e depois à página onde estava).

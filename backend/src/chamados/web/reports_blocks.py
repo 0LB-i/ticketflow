@@ -35,6 +35,7 @@ from chamados.modules.reports.builder import (
     FilterSpec,
     ReportConfig,
 )
+from chamados.modules.system.company import get_letterhead
 from chamados.web.formatting import (
     TIMEZONE,
     format_date,
@@ -876,6 +877,7 @@ async def client_preview(
         "client": client,
         "title": page.t("relatorios.paraCliente.titulo"),
         "lines": [client, period],
+        "company": await get_letterhead(db),
         "intro": spec.intro,
         "notes": spec.notes,
         "footer": page.t("relatorios.paraCliente.gerado", quando=now),

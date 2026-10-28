@@ -15,6 +15,7 @@
     "quadro": "Kanban",
     "clientes": "Clientes",
     "relatorios": "Relatórios",
+    "empresa": "Empresa",
     "configuracoes": "Configurações",
     "tokens": "Tokens de API"
   },
@@ -888,6 +889,11 @@
       "ambar": "Âmbar",
       "grafite": "Grafite"
     }
+  },
+  "empresa": {
+    "titulo": "Empresa",
+    "descricao": "Os dados da empresa que usa o TicketFlow. A razão social, o CNPJ, o endereço e o contato aparecem no cabeçalho dos PDFs de relatório.",
+    "site": "Site"
   },
   "dataHora": {
     "data": "Data",

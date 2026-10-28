@@ -8,6 +8,7 @@ from chamados.web import (
     auth,
     board,
     clients,
+    company,
     reports,
     reports_downloads,
     reports_editor,
@@ -27,6 +28,7 @@ router.include_router(clients.router)
 router.include_router(admin.router)
 router.include_router(admin_tokens.router)
 router.include_router(settings.router)
+router.include_router(company.router)
 router.include_router(reports.router)
 router.include_router(reports_downloads.router)
 router.include_router(reports_editor.router)

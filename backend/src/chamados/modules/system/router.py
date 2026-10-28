@@ -1,5 +1,5 @@
-"""Configurações da instalação: idioma padrão, cores, logotipo e o logotipo dos relatórios
-(docs/13: /admin/configuracoes).
+"""Configurações da instalação: idioma padrão e cores (docs/13: /admin/configuracoes) e, na tela
+Empresa (/admin/empresa), os dados da empresa, o logotipo e o logotipo dos relatórios.
 
 `GET /branding` é público: a tela de login também usa as cores, o logotipo e o idioma.
 Alterar exige admin.settings, e toda mudança vai para a auditoria (docs/08 §8.8).
@@ -21,6 +21,7 @@ from chamados.core.permissions import P
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, CurrentAuth, require
+from chamados.modules.system.company import Company, CompanyIn, clean, get_company
 from chamados.modules.system.models import SystemSetting
 from chamados.modules.system.service import get_value, set_value
 from chamados.modules.system.work_hours import (
@@ -233,6 +234,33 @@ async def set_report_logo(data: LogoIn, auth: Admin, request: Request, db: DB) -
 @router.delete("/admin/settings/report-logo", response_model=Branding)
 async def remove_report_logo(auth: Admin, request: Request, db: DB) -> Branding:
     return await _remove_logo("report_logo", auth, request, db)
+
+
+@router.get("/admin/settings/company", response_model=Company | None)
+async def company(auth: Admin, db: DB) -> Company | None:
+    """Os dados da empresa que usa o sistema; nulo enquanto não foram cadastrados."""
+    return await get_company(db)
+
+
+@router.put("/admin/settings/company", response_model=Company)
+async def set_company(data: CompanyIn, auth: Admin, request: Request, db: DB) -> Company:
+    """Substitui os dados inteiros (o formulário envia todos os campos). A auditoria guarda só
+    quais campos mudaram."""
+    values = clean(data)
+    stored = await get_value(db, "company") or {}
+    changed = sorted(f for f, value in values.items() if stored.get(f) != value)
+    if changed:
+        await set_value(db, "company", values, auth.user.id)
+        record(
+            db,
+            "settings.company_changed",
+            request=request,
+            actor_user_id=auth.user.id,
+            target_type="settings",
+            after={"fields": changed},
+        )
+        await db.commit()
+    return Company.model_validate(values)
 
 
 @router.get("/work-hours", response_model=WorkHours)

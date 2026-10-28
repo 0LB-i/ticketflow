@@ -760,7 +760,7 @@ def test_pdf_do_modelo(
     r = client.get(link)
     assert r.status_code == 200 and r.content == b"%PDF-teste"
     assert r.headers["content-type"] == "application/pdf"
-    titulo, linhas, blocos, pagina, cores, calor, logo = chamadas[0]
+    titulo, linhas, blocos, pagina, cores, calor, logo, empresa = chamadas[0]
     assert calor == ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C")
     assert titulo == "Mensal"
     assert cores == {
@@ -785,17 +785,19 @@ def test_pdf_do_modelo(
     assert pagina.generated.endswith("por Ana") and pagina.numbering == "Página {n} de {total}"
     assert (pagina.footer, pagina.landscape) == ("", False)
     assert pagina.continued == "{titulo} (continuação)"
-    # Sem o logotipo dos relatórios, sem imagem; com ele, no cabeçalho.
-    assert logo is None
+    # Sem o logotipo dos relatórios e sem os dados da empresa, nada; com eles, no cabeçalho.
+    assert logo is None and empresa == []
     db.add(
         SystemSetting(
             key="report_logo",
             value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"},
         )
     )
+    db.add(SystemSetting(key="company", value={"name": "TI Ltda", "document": "11222333000181"}))
     db.commit()
     client.get(link)
     assert chamadas[-1][6] == b"hello"
+    assert chamadas[-1][7] == ["TI Ltda", "CNPJ 11.222.333/0001-81"]
     registro = db.scalars(
         select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
     ).all()[-1]
@@ -846,18 +848,20 @@ def test_relatorio_para_o_cliente(
     assert ">Gerado em " in folha and "<img" not in folha
 
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
-    # O PDF leva o logotipo dos relatórios (o do aplicativo, não).
+    # O PDF leva o logotipo dos relatórios (o do aplicativo, não) e os dados da empresa.
     db.add(
         SystemSetting(
             key="report_logo",
             value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"},
         )
     )
+    db.add(SystemSetting(key="company", value={"name": "TI Ltda", "document": "11222333000181"}))
     db.commit()
     chamadas = _capturar(monkeypatch, "render_client")
     r = client.get(_link_pdf(r.text))
     assert r.status_code == 200
-    logo, titulo, linhas, abertura, totais, chamados, observacoes, pagina = chamadas[0]
+    logo, titulo, linhas, abertura, totais, chamados, observacoes, pagina, empresa = chamadas[0]
+    assert empresa == ["TI Ltda", "CNPJ 11.222.333/0001-81"]
     assert abertura == observacoes == ""  # sem os textos, nada
     assert logo == b"hello" and titulo == "Relatório de atendimento"
     assert linhas[0] == "Padaria Pão Quente" and linhas[1].startswith("Período:")
@@ -869,6 +873,7 @@ def test_relatorio_para_o_cliente(
     folha = _folha(client.get("/relatorios/blocos", params=filtros).text)
     assert f"<p>{linhas[1]}</p>" in folha and f">{titulo}</h2>" in folha
     assert '<img src="/api/v1/branding/report-logo?v=x"' in folha
+    assert '<p class="text-[1.13em] font-bold text-paper-fg">TI Ltda</p>' in folha
     sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     assert sem_cliente.status_code == 422
 
@@ -2625,7 +2630,7 @@ def test_pdf_configuravel(
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
     chamadas = _capturar(monkeypatch, "render_model")
     client.get(_link_pdf(r.text))
-    titulo, linhas, blocos, pagina, _, _, _ = chamadas[0]
+    titulo, linhas, blocos, pagina, *_ = chamadas[0]
     assert titulo == "Horas do mês"
     assert [type(b).__name__ for b in blocos] == ["Cards"]
     assert (pagina.footer, pagina.landscape) == ("Uso interno", True)
@@ -2635,7 +2640,7 @@ def test_pdf_configuravel(
     # Os prontos de horas usam o PDF do modelo, com os blocos de cada um e o expediente.
     r = client.get("/relatorios/blocos", params=_um_dia(dia, aba="horas-extras"))
     client.get(_link_pdf(r.text))
-    titulo, linhas, blocos, pagina, _, _, _ = chamadas[1]
+    titulo, linhas, blocos, pagina, *_ = chamadas[1]
     assert titulo == "Horas extras"
     assert (
         linhas[0]
@@ -2690,7 +2695,7 @@ def test_textos_e_colunas_do_relatorio_para_o_cliente(
 
     chamadas = _capturar(monkeypatch, "render_client")
     client.get(_link_pdf(r.text))
-    _, _, _, abertura, totais, chamados, observacoes, _ = chamadas[0]
+    _, _, _, abertura, totais, chamados, observacoes, *_ = chamadas[0]
     assert abertura == "Prezados,\nsegue o resumo & <b>obrigado</b>."
     assert observacoes == "Dúvidas: suporte@x.com"
     assert [rotulo for rotulo, _ in totais] == ["Chamados registrados", "Chamados concluídos"]

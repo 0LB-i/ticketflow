@@ -1,4 +1,4 @@
-"""Configurações (idioma, cores, logotipo) e mensagens da API em inglês."""
+"""Configurações (idioma, cores, logotipo, dados da empresa) e mensagens da API em inglês."""
 
 import ast
 import base64
@@ -16,6 +16,7 @@ from tests.conftest import FakeMailer, criar_usuario, entrar
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
 CORES = {"brand": "#1d4ed8", "neutral": "#64748B", "background": "#F8FAFC"}
+EMPRESA = {"name": " Padaria  Pão Quente Ltda ", "document": "11.222.333/0001-81"}
 
 
 def _admin(client: TestClient, db: Session) -> None:
@@ -50,6 +51,8 @@ def test_so_admin_altera(client: TestClient, db: Session) -> None:
     )
     assert r.status_code == 403
     assert client.delete("/api/v1/admin/settings/report-logo").status_code == 403
+    assert client.get("/api/v1/admin/settings/company").status_code == 403
+    assert client.put("/api/v1/admin/settings/company", json=EMPRESA).status_code == 403
 
 
 def test_idioma_e_cores(client: TestClient, db: Session) -> None:
@@ -116,6 +119,48 @@ def test_logotipo_dos_relatorios(client: TestClient, db: Session) -> None:
     assert client.delete(url).json()["report_logo_url"] is None
     assert client.get("/api/v1/branding/report-logo").status_code == 404
     assert client.delete(url).status_code == 404
+
+
+def test_dados_da_empresa(client: TestClient, db: Session) -> None:
+    """Razão social e CNPJ obrigatórios, o resto opcional; tudo normalizado como nos clientes.
+    A auditoria guarda só quais campos mudaram."""
+    _admin(client, db)
+    url = "/api/v1/admin/settings/company"
+    assert client.get(url).json() is None
+    r = client.put(url, json={**EMPRESA, "document": "11.222.333/0001-82"})
+    assert r.status_code == 422 and r.json()["detail"] == "CNPJ inválido."
+    r = client.put(url, json={**EMPRESA, "postal_code": "123"})
+    assert r.json()["detail"] == "CEP inválido: são 8 números."
+    r = client.put(url, json={**EMPRESA, "state": "XX"})
+    assert r.json()["detail"] == "UF inválida."
+    completa = {
+        **EMPRESA,
+        "phone": "(11) 3333-4444",
+        "email": "Contato@Padaria.com.br",
+        "state_registration": "isento",
+        "postal_code": "01310-100",
+        "city": "São Paulo",
+        "state": "sp",
+        "street": "  ",
+    }
+    r = client.put(url, json=completa)
+    assert r.status_code == 200
+    empresa = r.json()
+    assert empresa["name"] == "Padaria Pão Quente Ltda"
+    assert empresa["document"] == "11222333000181"
+    assert empresa["phone"] == "1133334444"
+    assert empresa["email"] == "contato@padaria.com.br"
+    assert empresa["state_registration"] == "ISENTO"
+    assert (empresa["postal_code"], empresa["state"], empresa["street"]) == ("01310100", "SP", None)
+    assert client.get(url).json() == empresa
+    client.put(url, json=completa)  # sem mudança, sem auditoria
+    log = db.scalars(select(AuditLog).where(AuditLog.action == "settings.company_changed")).one()
+    assert log.after == {
+        "fields": [
+            "city", "document", "email", "name", "phone", "postal_code", "state",
+            "state_registration",
+        ]
+    }  # fmt: skip
 
 
 def test_idioma_do_usuario(client: TestClient, db: Session) -> None:

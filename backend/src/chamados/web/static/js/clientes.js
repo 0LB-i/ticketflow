@@ -1,5 +1,6 @@
 // Formulário de cliente (templates/clients/form.html): campos de pessoa física ou jurídica
-// conforme o tipo, as horas conforme o contrato, máscaras e as listas de telefones e e-mails.
+// conforme o tipo, as horas conforme o contrato, máscaras e as listas de telefones e e-mails. As
+// máscaras também servem aos dados da empresa (templates/admin/company.html).
 // JavaScript puro (ADR 0011).
 
 const tipo = (form) => form.querySelector('input[name=kind]:checked')?.value ?? 'person'
@@ -69,6 +70,7 @@ function formatarCep(valor) {
 
 const MASCARAS = {
   documento: (v, form) => formatarDocumento(v, tipo(form)),
+  cnpj: (v) => formatarDocumento(v, 'company'),
   telefone: formatarTelefone,
   cep: formatarCep,
   rg: (v) => soDigitos(v).slice(0, 14),

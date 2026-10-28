@@ -1,4 +1,5 @@
-"""CPF, CNPJ, telefone e CEP: normalização e dígitos verificadores (sem banco).
+"""CPF, CNPJ, telefone e CEP: normalização, dígitos verificadores e formato de exibição (sem
+banco).
 
 O CNPJ alfanumérico (Receita Federal, a partir de julho de 2026) tem 12 caracteres de 0-9 ou A-Z
 e 2 dígitos verificadores numéricos. O cálculo é o mesmo do numérico, com o valor de cada
@@ -57,3 +58,45 @@ def normalize_phone(value: str) -> str:
 
 def valid_phone(digits: str) -> bool:
     return bool(re.fullmatch(r"[1-9]{2}\d{8,9}", digits))
+
+
+# --- para exibir (como o documentos.ts da SPA; o banco guarda só os dígitos) ---------------
+
+
+def format_document(value: str | None, kind: str) -> str:
+    """CPF "000.000.000-00" ou CNPJ "00.000.000/0000-00" (o alfanumérico também)."""
+    if not value:
+        return ""
+    if kind == "person":
+        d = "".join(c for c in value if c.isdigit())[:11]
+        parts = [d[:3], d[3:6], d[6:9]]
+        text = ".".join(p for p in parts if p)
+        return f"{text}-{d[9:]}" if len(d) > 9 else text
+    c = "".join(ch for ch in value.upper() if ch.isascii() and ch.isalnum())[:14]
+    text = ".".join(p for p in (c[:2], c[2:5], c[5:8]) if p)
+    if len(c) > 8:
+        text += f"/{c[8:12]}"
+    if len(c) > 12:
+        text += f"-{c[12:]}"
+    return text
+
+
+def format_phone(value: str) -> str:
+    """ "(11) 3333-4444" ou "(11) 98765-4321"."""
+    d = "".join(c for c in value if c.isdigit())
+    if len(d) in (12, 13) and d.startswith("55"):
+        d = d[2:]
+    d = d[:11]
+    if len(d) <= 2:
+        return d
+    middle = 5 if len(d) == 11 else 4
+    number = d[2:]
+    if len(number) > middle:
+        return f"({d[:2]}) {number[:middle]}-{number[middle:]}"
+    return f"({d[:2]}) {number}"
+
+
+def format_postal_code(value: str | None) -> str:
+    """ "01310-100"."""
+    d = "".join(c for c in (value or "") if c.isdigit())[:8]
+    return f"{d[:5]}-{d[5:]}" if len(d) > 5 else d

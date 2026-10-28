@@ -1,4 +1,4 @@
-{#- Configurações da instalação: idioma, cores, logotipo, status dos chamados e expediente. O
+{#- Configurações da instalação: idioma, cores, status dos chamados e expediente. O
     comportamento (combinações prontas, seletor de cor, feriados) está no static/js/configuracoes.js. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import badge, button_class, field, logo, select_field, status_badge with context %}
@@ -91,66 +91,6 @@
       <button type="submit" class="{{ button_class() }}">{{ t("configuracoes.salvar") }}</button>
     </div>
   </form>
-
-  <section id="logotipo" class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="logotipo-titulo">
-    <div>
-      <h2 id="logotipo-titulo" class="font-semibold">{{ t("configuracoes.logotipo") }}</h2>
-      <p class="mt-1 text-muted">{{ t("configuracoes.logotipoDescricao") }}</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-4">
-      <div class="rounded-md border border-border p-3">{{ logo() }}</div>
-      {%- if not branding.logo_url %}
-      <p class="text-muted">{{ t("configuracoes.semLogotipo") }}</p>
-      {%- endif %}
-    </div>
-    <div class="flex flex-wrap gap-2">
-      {#- Escolher a imagem já envia. #}
-      <form method="post" action="/admin/configuracoes/logo" enctype="multipart/form-data" data-envia-ao-mudar>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label class="cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus {{ button_class('secondary') }}">
-          {{ t("configuracoes.enviarLogotipo") }}
-          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="sr-only">
-        </label>
-      </form>
-      {%- if branding.logo_url %}
-      <form method="post" action="/admin/configuracoes/logo/remover">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="{{ button_class('ghost') }}">{{ t("configuracoes.removerLogotipo") }}</button>
-      </form>
-      {%- endif %}
-    </div>
-  </section>
-
-  {#- O logotipo dos PDFs de relatório: separado do logotipo do aplicativo. #}
-  <section id="logotipo-relatorios" class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="logotipo-relatorios-titulo">
-    <div>
-      <h2 id="logotipo-relatorios-titulo" class="font-semibold">{{ t("configuracoes.logotipoRelatorios") }}</h2>
-      <p class="mt-1 text-muted">{{ t("configuracoes.logotipoRelatoriosDescricao") }}</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-4">
-      {%- if branding.report_logo_url %}
-      <div class="rounded-md border border-border bg-white p-3"><img src="{{ branding.report_logo_url }}" alt="" class="max-h-[18mm] max-w-[40mm] object-contain"></div>
-      {%- else %}
-      <p class="text-muted">{{ t("configuracoes.semLogotipoRelatorios") }}</p>
-      {%- endif %}
-    </div>
-    <div class="flex flex-wrap gap-2">
-      {#- Escolher a imagem já envia. #}
-      <form method="post" action="/admin/configuracoes/logo-relatorios" enctype="multipart/form-data" data-envia-ao-mudar>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label class="cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus {{ button_class('secondary') }}">
-          {{ t("configuracoes.enviarLogotipo") }}
-          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="sr-only">
-        </label>
-      </form>
-      {%- if branding.report_logo_url %}
-      <form method="post" action="/admin/configuracoes/logo-relatorios/remover">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="{{ button_class('ghost') }}">{{ t("configuracoes.removerLogotipo") }}</button>
-      </form>
-      {%- endif %}
-    </div>
-  </section>
 
   {#- Status dos chamados: criar, renomear, ordenar e remover. #}
   <section id="status" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="status-titulo">

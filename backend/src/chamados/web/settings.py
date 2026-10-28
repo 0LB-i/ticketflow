@@ -1,15 +1,15 @@
-"""Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, logotipos, status
-dos chamados e expediente. Exige admin.settings (conferido aqui por `requires`: na API fica numa
-dependência que não roda na chamada direta). Cada seção grava pela rota da API dela.
+"""Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, status dos chamados
+e expediente; os logotipos ficam na tela Empresa (web/company.py). Exige admin.settings
+(conferido aqui por `requires`: na API fica numa dependência que não roda na chamada direta).
+Cada seção grava pela rota da API dela.
 """
 
-import base64
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 
@@ -19,7 +19,7 @@ from chamados.db.session import DB
 from chamados.modules.catalog import router as catalog_api
 from chamados.modules.catalog.router import StatusCreate, StatusOrder, StatusOut, StatusUpdate
 from chamados.modules.system import router as system_api
-from chamados.modules.system.router import LOGO_MAX_BYTES, LogoIn, SettingsUpdate
+from chamados.modules.system.router import SettingsUpdate
 from chamados.modules.system.work_hours import Schedule, WorkHoursIn, get_work_hours
 from chamados.web import work_hours
 from chamados.web.page import LoggedPage, check_csrf, requires
@@ -32,7 +32,6 @@ Field = Annotated[str, Form()]
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 COLOR_FIELDS = ("brand", "neutral", "background")
 KINDS = ("open", "waiting", "delivered", "closed", "canceled")
-LOGO_TYPES = ("image/png", "image/jpeg", "image/webp")
 HOME = "/admin/configuracoes"
 
 
@@ -113,7 +112,7 @@ async def settings_page(
     )
 
 
-async def _run(
+async def run(
     page: LoggedPage,
     back: str,
     action: Callable[[], Awaitable[object]],
@@ -151,7 +150,7 @@ async def save_branding(
         return response
     upper = {k: v.strip().upper() for k, v in typed.items()}
     colors: dict[str, Any] | None = None if upper == DEFAULT_COLORS else upper
-    return await _run(
+    return await run(
         page,
         HOME,
         lambda: system_api.update_settings(
@@ -161,90 +160,6 @@ async def save_branding(
             db,
         ),
         page.t("comum.salvo"),
-    )
-
-
-async def _upload(
-    page: LoggedPage,
-    anchor: str,
-    logo: UploadFile | None,
-    save: Callable[[LogoIn], Awaitable[object]],
-) -> Response:
-    """PNG, JPEG ou WebP até 256 KB; a API confere de novo, pelos primeiros bytes."""
-    response = RedirectResponse(f"{HOME}#{anchor}", status_code=303)
-    if logo is None or not logo.filename:
-        return response
-    if logo.content_type not in LOGO_TYPES:
-        page.flash(response, ("error", page.t("configuracoes.logotipoTipo")))
-        return response
-    raw = await logo.read(LOGO_MAX_BYTES + 1)
-    if len(raw) > LOGO_MAX_BYTES:
-        page.flash(response, ("error", page.t("configuracoes.logotipoGrande")))
-        return response
-    data_url = f"data:{logo.content_type};base64,{base64.b64encode(raw).decode()}"
-    return await _run(
-        page,
-        f"{HOME}#{anchor}",
-        lambda: save(LogoIn(data_url=data_url)),
-        page.t("configuracoes.logotipoSalvo"),
-    )
-
-
-@router.post("/admin/configuracoes/logo")
-async def save_logo(
-    page: SettingsAdmin,
-    request: Request,
-    db: DB,
-    csrf_token: Field = "",
-    logo: Annotated[UploadFile | None, File()] = None,
-) -> Response:
-    check_csrf(page, csrf_token)
-    return await _upload(
-        page, "logotipo", logo, lambda data: system_api.set_logo(data, page.auth, request, db)
-    )
-
-
-@router.post("/admin/configuracoes/logo/remover")
-async def remove_logo(
-    page: SettingsAdmin, request: Request, db: DB, csrf_token: Field = ""
-) -> Response:
-    check_csrf(page, csrf_token)
-    return await _run(
-        page,
-        f"{HOME}#logotipo",
-        lambda: system_api.remove_logo(page.auth, request, db),
-        page.t("configuracoes.logotipoRemovido"),
-    )
-
-
-@router.post("/admin/configuracoes/logo-relatorios")
-async def save_report_logo(
-    page: SettingsAdmin,
-    request: Request,
-    db: DB,
-    csrf_token: Field = "",
-    logo: Annotated[UploadFile | None, File()] = None,
-) -> Response:
-    """O logotipo dos PDFs de relatório, separado do logotipo do aplicativo."""
-    check_csrf(page, csrf_token)
-    return await _upload(
-        page,
-        "logotipo-relatorios",
-        logo,
-        lambda data: system_api.set_report_logo(data, page.auth, request, db),
-    )
-
-
-@router.post("/admin/configuracoes/logo-relatorios/remover")
-async def remove_report_logo(
-    page: SettingsAdmin, request: Request, db: DB, csrf_token: Field = ""
-) -> Response:
-    check_csrf(page, csrf_token)
-    return await _run(
-        page,
-        f"{HOME}#logotipo-relatorios",
-        lambda: system_api.remove_report_logo(page.auth, request, db),
-        page.t("configuracoes.logotipoRemovido"),
     )
 
 
@@ -261,7 +176,7 @@ async def create_status(
     kind: Field = "open",
 ) -> Response:
     check_csrf(page, csrf_token)
-    return await _run(
+    return await run(
         page,
         f"{HOME}#status",
         lambda: catalog_api.create_status(
@@ -285,7 +200,7 @@ async def rename_status(
     statuses = (await catalog_api.list_statuses(page.auth, db)).items
     if any(st.id == status_id and st.name == name.strip() for st in statuses):
         return RedirectResponse(f"{HOME}#status", status_code=303)  # nome igual: nada a gravar
-    return await _run(
+    return await run(
         page,
         f"{HOME}#status",
         lambda: catalog_api.update_status(
@@ -317,7 +232,7 @@ async def move_status(
             ids[i], ids[j] = ids[j], ids[i]
         await catalog_api.reorder_statuses(StatusOrder(ids=ids), page.auth, request, db)
 
-    return await _run(page, f"{HOME}#status", action, page.t("statusConfig.ordemSalva"))
+    return await run(page, f"{HOME}#status", action, page.t("statusConfig.ordemSalva"))
 
 
 @router.post("/admin/configuracoes/status/{status_id}/remover")
@@ -328,7 +243,7 @@ async def remove_status(
     check_csrf(page, csrf_token)
     statuses = (await catalog_api.list_statuses(page.auth, db)).items
     name = next((s.name for s in statuses if s.id == status_id), "")
-    return await _run(
+    return await run(
         page,
         f"{HOME}#status",
         lambda: catalog_api.delete_status(status_id, page.auth, request, db),
@@ -366,7 +281,7 @@ async def save_work_hours(
         page.flash(response, ("error", found))
         return response
     day = found[0]
-    return await _run(
+    return await run(
         page,
         back,
         lambda: system_api.set_work_hours(

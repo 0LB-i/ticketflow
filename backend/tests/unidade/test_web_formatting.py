@@ -4,16 +4,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from chamados.modules.clients.documents import format_document, format_phone, format_postal_code
 from chamados.web.formatting import (
     SUGGESTED_TIMES,
     format_ago,
     format_datetime,
-    format_document,
     format_duration,
     format_hours,
     format_percent,
-    format_phone,
-    format_postal_code,
     format_size,
     format_tenths,
     local_parts,

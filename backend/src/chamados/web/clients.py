@@ -18,8 +18,8 @@ from chamados.core.permissions import P
 from chamados.db.session import DB
 from chamados.modules.clients import documents as doc
 from chamados.modules.clients import router as clients_api
+from chamados.modules.clients.documents import format_document, format_phone, format_postal_code
 from chamados.modules.clients.router import ClientIn, ClientOut
-from chamados.web.formatting import format_document, format_phone, format_postal_code
 from chamados.web.page import LoggedPage, check_csrf, requires
 
 router = APIRouter()

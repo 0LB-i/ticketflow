@@ -15,6 +15,7 @@
     "quadro": "Kanban",
     "clientes": "Clients",
     "relatorios": "Reports",
+    "empresa": "Company",
     "configuracoes": "Settings",
     "tokens": "API tokens"
   },
@@ -888,6 +889,11 @@
       "ambar": "Amber",
       "grafite": "Graphite"
     }
+  },
+  "empresa": {
+    "titulo": "Company",
+    "descricao": "Details of the company that uses TicketFlow. The legal name, CNPJ, address and contact appear in the header of the report PDFs.",
+    "site": "Website"
   },
   "dataHora": {
     "data": "Date",

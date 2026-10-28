@@ -13,6 +13,7 @@ from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import CurrentAuth
 from chamados.modules.reports import csv_export, model_pdf, service
 from chamados.modules.reports.schemas import Report, ReportOptions
+from chamados.modules.system.company import get_letterhead
 from chamados.modules.system.service import get_report_logo
 
 router = APIRouter(prefix="/reports", tags=["relatórios"])
@@ -112,6 +113,7 @@ async def report_pdf(
         auth.user.display_name,
         locale or request_locale(request),
         await get_report_logo(db),
+        await get_letterhead(db),
     )
     record_export(db, request, auth, f, format="pdf")
     await db.commit()

@@ -24,7 +24,7 @@ from chamados.modules.organization import router as organization
 from chamados.modules.reports import router as reports
 from chamados.modules.system import router as system
 from chamados.modules.tickets import router as tickets
-from chamados.web import admin, auth, settings, ticket, tokens
+from chamados.web import admin, auth, company, settings, ticket, tokens
 from chamados.web import admin_tokens as web_admin_tokens
 from chamados.web import board as web_board
 from chamados.web import clients as web_clients
@@ -39,6 +39,7 @@ API += (organization, reports, system, tickets)
 WEB: tuple[ModuleType, ...] = (
     admin,
     auth,
+    company,
     settings,
     ticket,
     tokens,
@@ -55,6 +56,7 @@ AREAS = {
     "/admin/tokens": {P.ADMIN_USERS},
     "/admin/grupos": {P.ADMIN_ORGANIZATION},
     "/admin/configuracoes": {P.ADMIN_SETTINGS},
+    "/admin/empresa": {P.ADMIN_SETTINGS},
     "/admin/clientes": {P.CLIENT_VIEW, P.CLIENT_MANAGE},
 }
 # Quem tem a da esquerda também tem as da direita (Actor.permissions dá as duas de clientes).

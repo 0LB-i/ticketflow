@@ -77,41 +77,6 @@ def test_idioma_e_cores(client: TestClient, db: Session) -> None:
     assert _aviso(r.text) == "Use o formato #RRGGBB."
 
 
-def test_logotipo(client: TestClient, db: Session) -> None:
-    _admin(client, db)
-    envio = _form(client)
-    r = client.post(f"{URL}/logo", data=envio, files={"logo": ("logo.gif", b"GIF89a", "image/gif")})
-    assert _aviso(r.text) == "Envie uma imagem PNG, JPEG ou WebP."
-    grande = PNG + b"\0" * 256 * 1024
-    r = client.post(f"{URL}/logo", data=envio, files={"logo": ("logo.png", grande, "image/png")})
-    assert _aviso(r.text) == "A imagem passa de 256 KB."
-    r = client.post(f"{URL}/logo", data=envio, files={"logo": ("logo.png", PNG, "image/png")})
-    assert _aviso(r.text) == "Logotipo atualizado"
-    assert '<img src="/api/v1/branding/logo?v=' in r.text
-    r = client.post(f"{URL}/logo/remover", data=envio)
-    assert _aviso(r.text) == "Logotipo removido"
-    assert _valor(db, "logo") is None
-
-
-def test_logotipo_dos_relatorios(client: TestClient, db: Session) -> None:
-    """Uma seção própria, separada do logotipo do aplicativo, com as mesmas regras."""
-    _admin(client, db)
-    envio = _form(client)
-    r = client.get(URL)
-    assert 'id="logotipo-relatorios"' in r.text and "Sem logotipo: os PDFs saem" in r.text
-    arquivo = {"logo": ("logo.gif", b"GIF89a", "image/gif")}
-    r = client.post(f"{URL}/logo-relatorios", data=envio, files=arquivo)
-    assert _aviso(r.text) == "Envie uma imagem PNG, JPEG ou WebP."
-    arquivo = {"logo": ("logo.png", PNG, "image/png")}
-    r = client.post(f"{URL}/logo-relatorios", data=envio, files=arquivo)
-    assert _aviso(r.text) == "Logotipo atualizado"
-    assert '<img src="/api/v1/branding/report-logo?v=' in r.text
-    assert _valor(db, "logo") is None and _valor(db, "report_logo")
-    r = client.post(f"{URL}/logo-relatorios/remover", data=envio)
-    assert _aviso(r.text) == "Logotipo removido"
-    assert _valor(db, "report_logo") is None
-
-
 def test_status(client: TestClient, db: Session) -> None:
     _admin(client, db)
     r = client.post(f"{URL}/status/novo", data=_form(client, name="Em análise", kind="open"))
@@ -201,7 +166,8 @@ def test_marca_lida_numa_consulta(client: TestClient, db: Session) -> None:
     _admin(client, db)
     cores = {"brand": "#2563EB", "neutral": "#64748B", "background": "#FFFFFF"}
     client.post(URL, data=_form(client, default_locale="pt-BR", **cores))
-    client.post(f"{URL}/logo", data=_form(client), files={"logo": ("logo.png", PNG, "image/png")})
+    arquivo = {"logo": ("logo.png", PNG, "image/png")}
+    client.post("/admin/empresa/logo", data=_form(client), files=arquivo)
     with consultas(client) as sql:
         r = client.get("/chamados")
     assert len([q for q in sql if "FROM settings" in q]) == 1
