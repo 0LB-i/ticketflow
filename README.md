@@ -88,7 +88,7 @@ scripts/check.sh                        # uma vez, antes do commit: tipos e os t
 scripts/check.sh --completo             # antes de uma versão: todos os testes, também no PostgreSQL 16, e auditoria
 ```
 
-Detalhes em [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci). Produção: [Manual do servidor](docs/18-manual-do-servidor.md).
+Detalhes em [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci). Produção: `sudo bash install.sh` num Ubuntu 24.04 novo ([Manual do servidor](docs/18-manual-do-servidor.md)).
 
 ## Convenções
 

@@ -38,6 +38,17 @@ navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (tick
 
 Todos os comandos rodam como um usuário administrador com `sudo`.
 
+**Instalação automática:** o `install.sh` da raiz do repositório faz os passos 2 a 9 abaixo (com o código vindo do GitHub, só com o que a produção usa: sem testes, benchmark, `docs/` nem os scripts de desenvolvimento). Depois dele, falta só o passo 10:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/0LB-i/ticketflow/main/install.sh
+sudo bash install.sh            # domínio padrão ticketflow.local; ou: sudo bash install.sh DOMINIO
+```
+
+No lugar do passo 9, ele configura o nginx em HTTPS com um **certificado autoassinado** (`/etc/ticketflow/tls/ticketflow.crt`), sem o `Strict-Transport-Security`, que impediria seguir com ele. O domínio de verdade se ajusta depois: `server_name` e certificado em `/etc/nginx/sites-available/ticketflow` (ou `certbot --nginx -d DOMINIO`), `APP_BASE_URL` no `/etc/ticketflow/env`, e então `systemctl reload nginx` e `systemctl restart ticketflow`.
+
+Pode rodar de novo: mantém o `/etc/ticketflow/env`, o banco e o certificado, e não reinicia os serviços que já estão no ar. O passo 1 (atualizações automáticas, firewall, SSH) continua com quem administra o servidor.
+
 ### 1. Sistema operacional
 
 ```bash
