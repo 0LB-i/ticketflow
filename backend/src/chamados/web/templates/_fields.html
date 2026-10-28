@@ -174,7 +174,7 @@
 <div data-chips class="flex flex-col gap-2">
   <div data-cliente class="relative flex flex-col gap-1">
     <label for="campo-{{ name }}" class="font-medium">{{ label }}</label>
-    <div class="inline-flex h-10 items-center gap-1 rounded-md border border-border-input bg-surface px-3">
+    <div data-contorno class="inline-flex h-10 cursor-default items-center gap-1 rounded-md border border-border-input bg-surface px-3">
       <input id="campo-{{ name }}" type="text" name="q" form="sem-formulario" role="combobox" aria-expanded="false" aria-controls="campo-{{ name }}-opcoes" aria-autocomplete="list" autocomplete="off" placeholder="{{ placeholder }}" hx-get="{{ url }}" hx-trigger="input changed delay:300ms, click, abrir" hx-include="closest [data-chips]" hx-target="#campo-{{ name }}-opcoes" hx-swap="innerHTML" hx-select="unset" hx-indicator="this" hx-sync="this:replace" class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted">
       {#- A seta dos <select> (o ::picker-icon do base-select, input.css). #}
       <span aria-hidden="true" class="shrink-0 before:content-[counter(seta,disclosure-open)]"></span>

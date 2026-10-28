@@ -593,6 +593,18 @@ document.addEventListener('htmx:afterSwap', (e) => {
   lista.hidden = false
   lista.closest('[data-cliente]').querySelector('[role=combobox]').setAttribute('aria-expanded', 'true')
 })
+// Nas etiquetas, o clique na seta (ou fora do texto, no contorno) abre a lista, ou a fecha se
+// já estiver aberta, como nos <select>; o foco fica na busca.
+document.addEventListener('mousedown', (e) => {
+  const contorno = e.target.closest?.('[data-contorno]')
+  if (!contorno || e.target.matches('[role=combobox]')) return
+  e.preventDefault()
+  const caixa = contorno.closest('[data-cliente]')
+  const campo = caixa.querySelector('[role=combobox]')
+  campo.focus()
+  if (caixa.querySelector('[data-opcoes]').hidden) htmx.trigger(campo, 'abrir')
+  else fecharOpcoes(caixa)
+})
 document.addEventListener('mousedown', (e) => {
   const opcao = e.target.closest('[data-opcoes] [data-id]')
   if (!opcao) return
