@@ -11,6 +11,7 @@ import pytest
 from PIL import Image
 from reportlab.lib import colors
 from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.platypus import FrameBreak, Paragraph
 
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.schemas import Report, TaskRow, Totals
@@ -84,6 +85,9 @@ def test_relatorio_para_o_cliente_com_logotipo() -> None:
             logo, "Relatório de atendimento", ["Padaria", "Período"], "Olá & <b>oi</b>\nlinha 2",
             [("Horas", "1h")], chamados, "", PAGINA,
         )  # fmt: skip
+        assert conteudo.startswith(b"%PDF")
+        # O PDF do modelo leva o mesmo logotipo, à esquerda do título.
+        conteudo = model_pdf.render_model("M", ["Período"], [], PAGINA, SERIES, (), logo)
         assert conteudo.startswith(b"%PDF")
 
 
@@ -183,6 +187,30 @@ def test_pagina_deitada_e_rodape_em_cada_pagina(monkeypatch: pytest.MonkeyPatch)
     assert total > 1 and rodapes == [(n, total) for n in range(1, total + 1)]
 
 
+def test_tabela_que_continua_na_pagina_seguinte() -> None:
+    """A tabela que passa da página abre cada página seguinte com o título e "(continuação)";
+    a sem título (a do relatório para o cliente) segue só com o cabeçalho das colunas."""
+    pagina = replace(PAGINA, continued="{titulo} (continuação)")
+    linhas = [[f"Cliente {i}", "1h"] for i in range(150)]  # três páginas
+    tabela = model_pdf.Grid("Por cliente", ["Cliente", "Horas"], linhas)
+    *_, partes = model_pdf._grid(tabela, model_pdf._styles(), pagina.width, pagina.continued)
+    _, quebra, titulo, resto = partes.split(pagina.width, 600)
+    assert quebra is FrameBreak
+    assert isinstance(titulo, Paragraph) and isinstance(resto, model_pdf._Continued)
+    assert titulo.getPlainText() == "Por cliente (continuação)" and resto.label is titulo
+    sem_titulo = model_pdf._grid(replace(tabela, title=""), model_pdf._styles(), 500)[-1]
+    assert len(sem_titulo.split(500, 600)) == 2
+    conteudo = model_pdf.render_model("M", [], [tabela], pagina, SERIES, ())
+    assert conteudo.startswith(b"%PDF")
+
+
+def test_rotulo_das_barras_pela_largura() -> None:
+    """O nome nas barras é cortado pela largura que ele ocupa, não pelo número de letras."""
+    assert model_pdf._fit("Ana", 100, 8) == "Ana"
+    cortado = model_pdf._fit("Nome muito comprido " * 5, 100, 8)
+    assert cortado.endswith("…") and stringWidth(cortado, model_pdf.FONT, 8) <= 100
+
+
 def test_largura_das_colunas_pelo_texto() -> None:
     """A coluna estreita fica com o que precisa; a larga divide o resto. Juntas, a largura toda."""
     textos = [["Quando", "Chamado", "Tempo"], ["24/10 10:00", "#1 " + "título longo " * 10, "1h"]]
@@ -250,12 +278,13 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
         people=["Ana"],
     )
     for idioma in ("pt-BR", "en"):
-        assert model_pdf.render_hours(relatorio, filtros, uso, "Ana", idioma) == b"%PDF"
-    titulo, linhas, blocos, pagina, _, _ = chamadas[0]
+        assert model_pdf.render_hours(relatorio, filtros, uso, "Ana", idioma, b"logo") == b"%PDF"
+    titulo, linhas, blocos, pagina, _, _, logo = chamadas[0]
+    assert logo == b"logo"  # o logotipo da instalação, no cabeçalho
     assert titulo == "Relatório de horas"
     assert linhas == [
-        "01/10/2026 a 31/10/2026",
-        "Grupo: Todos · Pessoa: Todos · Cliente: Sem cliente · Status: Todos",
+        "01/10/2026 a 31/10/2026 · Grupo: Todos · Pessoa: Todos · Cliente: Sem cliente ·"
+        " Status: Todos",
         "Expediente: o da instalação (seg–sex 08:00–18:00; a partir de 15/10/2026, seg–sáb"
         " 08:00–12:00), o do grupo Suporte (2 pessoas), o de outro grupo (1 pessoa) e o próprio"
         " de Ana · 1 feriado(s) cadastrado(s)",
@@ -271,9 +300,10 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
     assert lista.note == "Mostrando as 200 primeiras de 250 tarefas. O CSV traz todas."
     assert pagina.generated.startswith("Gerado em ") and pagina.generated.endswith(" por Ana")
     assert pagina.numbering == "Página {n} de {total}" and not pagina.landscape
-    titulo, linhas, blocos, pagina, _, _ = chamadas[1]
-    assert titulo == "Hours report" and linhas[0] == "2026-10-01 to 2026-10-31"
-    assert linhas[2] == (
+    assert pagina.continued == "{titulo} (continuação)"
+    titulo, linhas, blocos, pagina, _, _, _ = chamadas[1]
+    assert titulo == "Hours report" and linhas[0].startswith("2026-10-01 to 2026-10-31 · ")
+    assert linhas[1] == (
         "Working hours: the default hours (Mon–Fri 08:00–18:00; from 2026-10-15, Mon–Sat"
         " 08:00–12:00), team Suporte's hours (2 people), another team's hours (1 person) and"
         " Ana's own hours · 1 holiday(s) registered"

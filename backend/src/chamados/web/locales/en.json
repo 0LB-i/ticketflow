@@ -769,6 +769,7 @@
       "gerado": "Generated on {quando} by {quem}",
       "comparado": "Compared with {de} to {ate}",
       "pagina": "Page {n} of {total}",
+      "continua": "{titulo} (continued)",
       "resumo": "Period summary"
     },
     "filtroNaoCombina": "This block's filter ({filtro}) doesn't match the page's.",

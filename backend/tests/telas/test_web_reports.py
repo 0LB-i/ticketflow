@@ -754,12 +754,13 @@ def test_pdf_do_modelo(
         r = client.get("/relatorios/blocos", params={"aba": aba})
         assert "/relatorios/pdf?" in r.text and "/api/v1/reports/pdf" not in r.text
     r = client.get("/relatorios/blocos", params=_um_dia(dia, aba=modelo, comparar="1"))
-    assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
+    link = _link_pdf(r.text)
+    assert client.get(link).content.startswith(b"%PDF-1")  # desenhado de verdade
     chamadas = _capturar(monkeypatch, "render_model")
-    r = client.get(_link_pdf(r.text))
+    r = client.get(link)
     assert r.status_code == 200 and r.content == b"%PDF-teste"
     assert r.headers["content-type"] == "application/pdf"
-    titulo, linhas, blocos, pagina, cores, calor = chamadas[0]
+    titulo, linhas, blocos, pagina, cores, calor, logo = chamadas[0]
     assert calor == ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C")
     assert titulo == "Mensal"
     assert cores == {
@@ -770,8 +771,10 @@ def test_pdf_do_modelo(
         "chart-before": "#D3785C",
     }
     anterior = (dia - timedelta(days=1)).strftime("%d/%m/%Y")
-    assert linhas[0] == f"Período: {dia:%d/%m/%Y} a {dia:%d/%m/%Y}"
-    assert linhas[1] == f"Comparado com {anterior} a {anterior}"
+    # O período, o comparado e os filtros (nenhum aqui) numa linha só.
+    assert linhas[0] == (
+        f"Período: {dia:%d/%m/%Y} a {dia:%d/%m/%Y} · Comparado com {anterior} a {anterior}"
+    )
     assert [type(b).__name__ for b in blocos] == ["Cards", "Chart", "Grid"]
     assert blocos[0].items[0][:2] == ("Horas", "1h30")
     assert blocos[1].kind == "stacked" and blocos[1].points[0][1:3] == (90, 60)
@@ -781,6 +784,17 @@ def test_pdf_do_modelo(
     # O rodapé de cada página: quando e quem gerou, e o número da página.
     assert pagina.generated.endswith("por Ana") and pagina.numbering == "Página {n} de {total}"
     assert (pagina.footer, pagina.landscape) == ("", False)
+    assert pagina.continued == "{titulo} (continuação)"
+    # Sem logotipo nas Configurações, sem imagem; com ele, no cabeçalho.
+    assert logo is None
+    db.add(
+        SystemSetting(
+            key="logo", value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"}
+        )
+    )
+    db.commit()
+    client.get(link)
+    assert chamadas[-1][6] == b"hello"
     registro = db.scalars(
         select(AuditLog).where(AuditLog.action == "report.exported").order_by(AuditLog.id)
     ).all()[-1]
@@ -948,6 +962,12 @@ def test_aba_clientes(
     assert isinstance(resumo[0], model_pdf.Cards)
     assert "Horas extras" not in [rotulo for rotulo, _, _ in resumo[0].items]
     assert not any(linha.startswith("Hora extra é") for linha in chamadas[1][1])
+    # Com um cliente só no filtro, sem os blocos por cliente (as barras dos maiores e a tabela
+    # no fim teriam só ele): ficam os cartões.
+    assert [type(b).__name__ for b in simples] == ["Cards", "Chart", "Grid"]
+    client.get("/relatorios/pdf", params={**filtros, "cliente": padaria})
+    _, _, um_cliente, *_ = chamadas[-1]
+    assert [type(b).__name__ for b in um_cliente] == ["Cards"]
 
     # O seletor da hora extra fica ao lado do Comparar, só nesta aba; o padrão é sem separação.
     r = client.get("/relatorios/blocos", params=filtros)
@@ -2600,7 +2620,7 @@ def test_pdf_configuravel(
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
     chamadas = _capturar(monkeypatch, "render_model")
     client.get(_link_pdf(r.text))
-    titulo, linhas, blocos, pagina, _, _ = chamadas[0]
+    titulo, linhas, blocos, pagina, _, _, _ = chamadas[0]
     assert titulo == "Horas do mês"
     assert [type(b).__name__ for b in blocos] == ["Cards"]
     assert (pagina.footer, pagina.landscape) == ("Uso interno", True)
@@ -2610,7 +2630,7 @@ def test_pdf_configuravel(
     # Os prontos de horas usam o PDF do modelo, com os blocos de cada um e o expediente.
     r = client.get("/relatorios/blocos", params=_um_dia(dia, aba="horas-extras"))
     client.get(_link_pdf(r.text))
-    titulo, linhas, blocos, pagina, _, _ = chamadas[1]
+    titulo, linhas, blocos, pagina, _, _, _ = chamadas[1]
     assert titulo == "Horas extras"
     assert (
         linhas[0]

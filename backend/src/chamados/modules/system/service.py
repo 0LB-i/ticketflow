@@ -1,5 +1,6 @@
 """Leitura e gravação das configurações, e o idioma efetivo de cada usuário."""
 
+import base64
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -12,6 +13,12 @@ from chamados.modules.system.models import SystemSetting
 
 async def get_value(db: AsyncSession, key: str) -> Any:
     return await db.scalar(select(SystemSetting.value).where(SystemSetting.key == key))
+
+
+async def get_logo(db: AsyncSession) -> bytes | None:
+    """A imagem do logotipo da instalação (os PDFs); sem ele, None."""
+    stored = await get_value(db, "logo")
+    return base64.b64decode(stored["data"]) if stored else None
 
 
 async def set_value(db: AsyncSession, key: str, value: Any, user_id: int) -> None:

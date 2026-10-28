@@ -769,6 +769,7 @@
       "gerado": "Gerado em {quando} por {quem}",
       "comparado": "Comparado com {de} a {ate}",
       "pagina": "Página {n} de {total}",
+      "continua": "{titulo} (continuação)",
       "resumo": "Resumo do período"
     },
     "filtroNaoCombina": "O filtro deste bloco ({filtro}) não combina com o da tela.",

@@ -4,7 +4,6 @@ dos chamados por trás de um número (detalhar), com o CSV dela. Todo download v
 auditoria (`report.exported`).
 """
 
-import base64
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any, cast
@@ -18,7 +17,7 @@ from chamados.db.session import DB
 from chamados.modules.reports import builder, csv_export, history, model_pdf, service
 from chamados.modules.reports import router as reports_api
 from chamados.modules.reports.builder import CHARTS, ELAPSED, TICKET_SETS
-from chamados.modules.system.service import get_value
+from chamados.modules.system.service import get_logo
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_elapsed
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.palette import palette
@@ -249,15 +248,15 @@ async def report_pdf(
     now = format_datetime(locale, datetime.now(TIMEZONE))
     # O número da página, com os marcadores {n} e {total} (o `model_pdf` os preenche).
     numbering = page.t("relatorios.pdf.pagina")
+    continued = page.t("relatorios.pdf.continua")  # com o marcador {titulo}
     period = page.t(
         "relatorios.pdf.periodo", de=format_date(locale, f.start), ate=format_date(locale, f.end)
     )
+    logo = await get_logo(db)  # o da instalação, no cabeçalho dos dois
     if config.audience == "client":
         view = await client_preview(page, db, state, f, config)
         if not view["ready"]:
             raise HTTPException(422, "O relatório do cliente precisa de um cliente (só um).")
-        stored = await get_value(db, "logo")
-        logo = base64.b64decode(stored["data"]) if stored else None
         content = await run_in_threadpool(
             model_pdf.render_client,
             logo,
@@ -271,25 +270,32 @@ async def report_pdf(
         )
         table = "client"
     else:
-        # Só os blocos do PDF (`Block.in_pdf`); os de fora nem são calculados.
-        blocks = [b for b in config.blocks if b.in_pdf]
+        # Só os blocos do PDF (`Block.in_pdf`); os de fora nem são calculados. Com um cliente
+        # só no filtro, os blocos por cliente (a tabela, as barras dos maiores) teriam só ele:
+        # ficam de fora também.
+        one_client = len(f.clients) == 1 and not f.no_client
+        blocks = [
+            b for b in config.blocks if b.in_pdf and not (one_client and b.dimension == "client")
+        ]
         found = await scopes(page, db, state, blocks)
         views = [
             block_view(page, state, config, block, i, scope)
             for i, (block, scope) in enumerate(zip(blocks, found, strict=True))
         ]
-        # A descrição do modelo, logo abaixo do título.
-        lines = [description_of(page, state.choice), period]
+        # A descrição do modelo, logo abaixo do título; o período, o comparado e os filtros
+        # numa linha só.
+        when = [period]
         if compared_period := state.comparison():
             first, last = compared_period
-            lines.append(
+            when.append(
                 page.t(
                     "relatorios.pdf.comparado",
                     de=format_date(locale, first),
                     ate=format_date(locale, last),
                 )
             )
-        lines.append(_filters_line(page, state))
+        when.append(_filters_line(page, state))
+        lines = [description_of(page, state.choice), " · ".join(w for w in when if w)]
         if uses_overtime(blocks):  # o expediente usado, como na tela
             lines.append(await work_hours_line(page, db, state, f))
         colors = page.branding.colors
@@ -321,9 +327,11 @@ async def report_pdf(
                 numbering,
                 spec.footer,
                 spec.orientation == "landscape",
+                continued,
             ),
             series,
             heat,
+            logo,
         )
     reports_api.record_export(
         db, page.request, page.auth, f, format="pdf", table=table, model=state.choice.name

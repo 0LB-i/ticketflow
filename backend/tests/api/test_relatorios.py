@@ -359,7 +359,7 @@ def test_pdf_no_idioma_pedido(
     idiomas: list[str] = []
 
     def render(*args: Any) -> bytes:
-        idiomas.append(args[-1])
+        idiomas.append(args[4])  # depois do relatório, filtros, expediente e quem gerou
         return b"%PDF"
 
     monkeypatch.setattr(model_pdf, "render_hours", render)

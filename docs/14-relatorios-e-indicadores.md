@@ -197,6 +197,9 @@ O PDF segue o modelo: título, descrição, período (e o de comparação), filt
 
 - **Página** (2026-10-27): A4 em pé ou deitado, escolhido no modelo; deitado, os blocos ocupam a largura maior. As colunas das tabelas têm a largura do texto mais longo delas (as estreitas, como datas e horas, ficam com o que precisam; as largas dividem o resto).
 - **Título e rodapé:** o título do PDF (vazio, o nome do modelo); em cada página, embaixo, o texto livre do modelo (até três linhas), o "Gerado em… por…" e "Página 2 de 5".
+- **Cabeçalho** (2026-10-28): o logotipo da instalação (Configurações) à esquerda do título, como no relatório para o cliente (sem logotipo, só o título); também no PDF da API. O período, o comparado e os filtros numa linha só, e uma linha fina antes do primeiro bloco.
+- **Tabela em mais de uma página** (2026-10-28): a página seguinte abre com o título dela e "(continuação)", e o cabeçalho das colunas.
+- **Um cliente só** (2026-10-28): com um cliente só no filtro da tela, os blocos agrupados por cliente (a tabela, as barras dos maiores) ficam fora do PDF, porque teriam só ele; na tela continuam.
 - **Blocos fora do PDF:** um bloco marcado "Deixar fora do PDF" continua na tela e no CSV dele; o PDF nem o calcula. O expediente do cabeçalho só entra quando um bloco do PDF usa a hora extra.
 - **O relatório para o cliente** (§14.8.5) tem o mesmo rodapé de cada página (sem o nome de quem gerou), mas sempre em pé, sem o título e o rodapé livres (ele tem os textos próprios).
 

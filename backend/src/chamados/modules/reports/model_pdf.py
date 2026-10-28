@@ -31,6 +31,8 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Flowable,
     Frame,
+    FrameBreak,
+    HRFlowable,
     Image,
     KeepTogether,
     PageTemplate,
@@ -70,12 +72,14 @@ registerFontFamily(FONT, normal=FONT, bold=BOLD, italic=FONT, boldItalic=BOLD)
 class Page:
     """A página e o rodapé de cada uma: `generated` ("Gerado em…") à esquerda e `numbering` à
     direita ("Página {n} de {total}", com os marcadores), e, acima deles, o texto livre do
-    modelo (`footer`; vazio, nada)."""
+    modelo (`footer`; vazio, nada). `continued`: o título de uma tabela que passa para a página
+    seguinte, com o marcador {titulo}."""
 
     generated: str
     numbering: str
     footer: str = ""
     landscape: bool = False
+    continued: str = "{titulo}"
 
     @property
     def size(self) -> tuple[float, float]:
@@ -174,8 +178,8 @@ def _styles() -> dict[str, ParagraphStyle]:
     return {
         "body": body,
         "muted": ParagraphStyle("muted", parent=body, textColor=MUTED),
-        "value": ParagraphStyle("value", parent=body, fontSize=14, leading=18),
-        "big": ParagraphStyle("big", parent=body, fontSize=32, leading=38),
+        "value": ParagraphStyle("value", parent=body, fontName=BOLD, fontSize=14, leading=18),
+        "big": ParagraphStyle("big", parent=body, fontName=BOLD, fontSize=32, leading=38),
         "h1": ParagraphStyle(
             "h1", parent=sheet["Heading1"], fontName=BOLD, fontSize=16, textColor=INK, spaceAfter=2
         ),
@@ -229,7 +233,28 @@ def _cell(text: str, style: ParagraphStyle, width: float) -> str | Paragraph:
     return Paragraph(escape(text), style)
 
 
-def _grid(block: Grid, st: dict[str, ParagraphStyle], width: float) -> list[Flowable]:
+class _Continued(Table):
+    """A tabela que, ao passar para a página seguinte, abre a página com o título dela (`label`,
+    já com o "(continuação)"): o cabeçalho das colunas se repete, mas sem o título não se sabe
+    de que tabela é."""
+
+    label: Paragraph | None = None
+
+    def split(self, availWidth: float, availHeight: float) -> list[Flowable]:
+        parts = super().split(availWidth, availHeight)
+        if len(parts) < 2 or self.label is None:
+            return parts
+        first, *rest = parts
+        for part in rest:  # o pedaço que passar de novo da página leva o título também
+            if isinstance(part, _Continued):
+                part.label = self.label
+        # A quebra antes do título: na sobra da página, ele ficaria longe da tabela.
+        return [first, FrameBreak, self.label, *rest]
+
+
+def _grid(
+    block: Grid, st: dict[str, ParagraphStyle], width: float, continued: str = "{titulo}"
+) -> list[Flowable]:
     flow = _head(block, st)
     if not block.rows:
         return [*flow, _p(block.empty, st["muted"])]
@@ -240,7 +265,10 @@ def _grid(block: Grid, st: dict[str, ParagraphStyle], width: float) -> list[Flow
     widths = _widths(texts, width, body.fontSize)
     data: list[list[str | Paragraph]] = [[_p(c, st["muted"]) for c in block.columns]]
     data += [[_cell(c, body, w) for c, w in zip(row, widths, strict=True)] for row in texts[1:]]
-    table = Table(data, colWidths=widths, repeatRows=1)
+    table = _Continued(data, colWidths=widths, repeatRows=1)
+    if block.title:
+        label = ParagraphStyle("continued", parent=st["h2"], spaceBefore=0)
+        table.label = _p(continued.replace("{titulo}", block.title), label)
     style: list[Any] = [
         ("BACKGROUND", (0, 0), (-1, 0), HEAD),
         ("LINEBELOW", (0, 0), (-1, -1), 0.5, RULE),
@@ -301,6 +329,15 @@ def _short(text: str, size: int = 28) -> str:
     return text if len(text) <= size else text[: size - 1] + "…"
 
 
+def _fit(text: str, width: float, size: float) -> str:
+    """O texto cortado (com reticências) para caber em `width`, na fonte dos desenhos."""
+    if stringWidth(text, FONT, size) <= width:
+        return text
+    while text and stringWidth(text + "…", FONT, size) > width:
+        text = text[:-1]
+    return text.rstrip() + "…"
+
+
 def _bars(block: Chart, primary: colors.Color, width: float) -> list[Flowable]:
     """As barras em desenhos de até `BARS`, na mesma escala: com muitas (uma por pessoa), um
     desenho só passaria da altura da página."""
@@ -314,7 +351,7 @@ def _bars(block: Chart, primary: colors.Color, width: float) -> list[Flowable]:
         drawing = Drawing(width, row * len(part) + 2)
         for i, (label, value, _, text) in enumerate(part):
             y = drawing.height - (i + 1) * row
-            drawing.add(_text(0, y + 3, _short(label)))
+            drawing.add(_text(0, y + 3, _fit(label, label_width - 3 * mm, 8), 8, INK))
             length = value / top * area
             if length > 0:
                 drawing.add(_rect(label_width, y + 1, length, row - 4, primary))
@@ -413,7 +450,7 @@ def _chart(
     else:
         flow.append(_columns(block, series, width))
     if block.legend:
-        legend = Drawing(width, 12)
+        legend = Drawing(width, 16)  # 4 pt de respiro acima, longe dos rótulos do eixo
         x = 0.0
         second = series.second if block.kind in ("stacked", "combo") else series.before
         for color, label in zip((series.first, second), block.legend, strict=True):
@@ -526,10 +563,12 @@ def render_model(
     page: Page,
     series: dict[str, str],
     heat: tuple[str, ...],
+    logo: bytes | None = None,
 ) -> bytes:
-    """O PDF de um modelo: o título, as linhas de cabeçalho (descrição, período, filtros,
-    expediente), os blocos na ordem e, em cada página, o rodapé (`page`). `series`: as cores da
-    paleta por token (`chart-1` a `chart-4` e `chart-before`); `heat`, as do mapa de calor."""
+    """O PDF de um modelo: o logotipo da instalação (sem ele, nada), o título, as linhas de
+    cabeçalho (descrição, período, filtros, expediente), os blocos na ordem e, em cada página,
+    o rodapé (`page`). `series`: as cores da paleta por token (`chart-1` a `chart-4` e
+    `chart-before`); `heat`, as do mapa de calor."""
     st = _styles()
     width = page.width
     named = {token: colors.HexColor(c) for token, c in series.items()}
@@ -540,8 +579,9 @@ def render_model(
         [colors.HexColor(c) for c in heat],
         named,
     )
-    story: list[Flowable] = [_p(title, st["h1"])]
-    story += [_p(line, st["muted"]) for line in lines]
+    head: list[Flowable] = [_p(title, st["h1"]), *(_p(line, st["muted"]) for line in lines)]
+    story = _heading(logo, head, width)
+    story.append(HRFlowable(width="100%", thickness=0.5, color=RULE, spaceBefore=6))
     for block in blocks:
         if isinstance(block, Cards):
             story += _cards(block, st, width)
@@ -550,8 +590,22 @@ def render_model(
         elif isinstance(block, Heatmap):
             story += _heatmap(block, st, palette, width)
         else:
-            story += _grid(block, st, width)
+            story += _grid(block, st, width, page.continued)
     return _document(story, title, page)
+
+
+def _heading(logo: bytes | None, head: list[Flowable], width: float) -> list[Flowable]:
+    """O cabeçalho do PDF: com o logotipo da instalação, ele à esquerda e o título e as linhas
+    (`head`) ao lado; sem ele, só o título e as linhas."""
+    if not logo:
+        return head
+    image = ImageReader(io.BytesIO(logo))
+    natural, tall = image.getSize()
+    scale = min(40 * mm / natural, 18 * mm / tall)
+    picture = Image(io.BytesIO(logo), width=natural * scale, height=tall * scale)
+    header = Table([[picture, head]], colWidths=[45 * mm, width - 45 * mm])
+    header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    return [header]
 
 
 def _free(text: str, style: ParagraphStyle) -> list[Flowable]:
@@ -577,17 +631,7 @@ def render_client(
     st = _styles()
     width = page.width
     head: list[Flowable] = [_p(title, st["h1"]), *(_p(line, st["body"]) for line in lines)]
-    story: list[Flowable]
-    if logo:
-        image = ImageReader(io.BytesIO(logo))
-        natural, tall = image.getSize()
-        scale = min(40 * mm / natural, 18 * mm / tall)
-        picture = Image(io.BytesIO(logo), width=natural * scale, height=tall * scale)
-        header = Table([[picture, head]], colWidths=[45 * mm, width - 45 * mm])
-        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-        story = [header]
-    else:
-        story = head
+    story = _heading(logo, head, width)
     if intro.strip():
         story += [Spacer(1, 8), *_free(intro, st["body"])]
     story += _cards(Cards("", [(label, value, "") for label, value in totals]), st, width)
@@ -615,6 +659,7 @@ HOURS_TEXTS: dict[Locale, dict[str, str]] = {
         "holidays": "{n} feriado(s) cadastrado(s)",
         "generated": "Gerado em {when} por {who}",
         "page": "Página {n} de {total}",
+        "continued": "{titulo} (continuação)",
         "hours": "Horas",
         "overtime": "Horas extras",
         "tasks": "Tarefas",
@@ -644,6 +689,7 @@ HOURS_TEXTS: dict[Locale, dict[str, str]] = {
         "holidays": "{n} holiday(s) registered",
         "generated": "Generated on {when} by {who}",
         "page": "Page {n} of {total}",
+        "continued": "{titulo} (continued)",
         "hours": "Hours",
         "overtime": "Overtime",
         "tasks": "Tasks",
@@ -706,10 +752,18 @@ def _moment(dt: datetime, locale: Locale) -> str:
     return f"{_day(local.date(), locale)} {local:%H:%M}"
 
 
-def render_hours(report: Report, f: Filters, use: ScheduleUse, who: str, locale: Locale) -> bytes:
-    """O PDF de `GET /reports/pdf`, um modelo fixo com o conteúdo de sempre: o período, os
-    filtros e o expediente usado no cabeçalho (`use`), os totais, por pessoa, por cliente e as
-    tarefas fora do expediente (as `HOURS_LISTED` primeiras, com a nota), em A4 em pé."""
+def render_hours(
+    report: Report,
+    f: Filters,
+    use: ScheduleUse,
+    who: str,
+    locale: Locale,
+    logo: bytes | None = None,
+) -> bytes:
+    """O PDF de `GET /reports/pdf`, um modelo fixo com o conteúdo de sempre: o logotipo da
+    instalação, o período, os filtros e o expediente usado no cabeçalho (`use`), os totais, por
+    pessoa, por cliente e as tarefas fora do expediente (as `HOURS_LISTED` primeiras, com a
+    nota), em A4 em pé."""
     t = HOURS_TEXTS[locale]
     wh = report.work_hours
     work = describe_use(
@@ -789,15 +843,13 @@ def render_hours(report: Report, f: Filters, use: ScheduleUse, who: str, locale:
             note=t["cut"].format(n=len(listed), total=total) if total > len(listed) else "",
         ),
     ]
-    lines = [
-        t["period"].format(start=_day(report.start, locale), end=_day(report.end, locale)),
-        filters,
-        f"{t['work_hours']}: {work}",
-    ]
+    period = t["period"].format(start=_day(report.start, locale), end=_day(report.end, locale))
+    lines = [f"{period} · {filters}", f"{t['work_hours']}: {work}"]
     page = Page(
         t["generated"].format(when=_moment(datetime.now(TZ), locale), who=who),
         t["page"],
+        continued=t["continued"],
     )
     # As cores não importam: o PDF da API não tem gráficos.
     black = {token: "#000000" for token in ("chart-1", "chart-2", "chart-before")}
-    return render_model(t["title"], lines, blocks, page, black, ())
+    return render_model(t["title"], lines, blocks, page, black, (), logo)
