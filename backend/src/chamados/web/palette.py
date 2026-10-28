@@ -28,15 +28,7 @@ TOKENS = (
     "muted",
     "border",
     "border-input",
-    "chart-2",
-    "chart-3",
-    "chart-4",
     "chart-before",
-    "heat-1",
-    "heat-2",
-    "heat-3",
-    "heat-4",
-    "heat-5",
 )
 
 DEFAULT_COLORS: Colors = {"brand": "#F97316", "neutral": "#737373", "background": "#FFFFFF"}
@@ -69,15 +61,7 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "muted": "#525252",
         "border": "#E5E5E5",
         "border-input": "#737373",
-        "chart-2": "#1D4ED8",
-        "chart-3": "#0F766E",
-        "chart-4": "#172554",
         "chart-before": "#D3785C",
-        "heat-1": "#EDC3B5",
-        "heat-2": "#E5A490",
-        "heat-3": "#DB856A",
-        "heat-4": "#CF6543",
-        "heat-5": "#C2410C",
     },
     "dark": {
         "brand": "#F97316",
@@ -93,15 +77,7 @@ DEFAULT_PALETTE: dict[Mode, Tokens] = {
         "muted": "#A3A3A3",
         "border": "#404040",
         "border-input": "#737373",
-        "chart-2": "#3B82F6",
-        "chart-3": "#14B8A6",
-        "chart-4": "#93C5FD",
         "chart-before": "#BE7844",
-        "heat-1": "#4F3523",
-        "heat-2": "#774B2B",
-        "heat-3": "#A16232",
-        "heat-4": "#CD7A37",
-        "heat-5": "#FB923C",
     },
 }
 
@@ -221,81 +197,7 @@ def _shift(hex_color: str, delta: float) -> str:
 
 
 # --- séries dos gráficos ----------------------------------------------------------------------
-# A `chart-1` é a `primary` (o input.css a repete). A `chart-2` (as horas extras das colunas
-# empilhadas), a `chart-3` e a `chart-4` precisam se distinguir dela e entre si, duas a duas,
-# também para quem não enxerga vermelho ou verde: a distância em OKLab (×100) com a visão simulada
-# pelo Machado, Oliveira e Fernandes (2009, em RGB linear), como o validador da skill `dataviz`.
-
-DISTINCT = 15  # visão normal
-DISTINCT_CVD = 8  # protanopia e deuteranopia
-
-_CVD = (
-    (
-        (0.152286, 1.052583, -0.204868),
-        (0.114503, 0.786281, 0.099216),
-        (-0.003882, -0.048116, 1.051998),
-    ),
-    (
-        (0.367322, 0.860646, -0.227968),
-        (0.280085, 0.672501, 0.047413),
-        (-0.011820, 0.042940, 0.968881),
-    ),
-)
-
-# Os matizes candidatos das séries 2 a 4, na ordem de preferência (graus OKLCH): azul,
-# verde-azulado, violeta e âmbar. O tom de partida de cada modo; depois, os mesmos matizes mais
-# longe do fundo (`_FARTHER` na luminosidade): com a luminosidade parecida, quatro cores não se
-# distinguem duas a duas para quem não enxerga vermelho ou verde, e a diferença de luminosidade
-# a simulação não apaga.
-_SERIES_HUES = (264, 185, 300, 75)
-_SERIES_TONE: dict[Mode, tuple[float, float]] = {"light": (0.49, 0.2), "dark": (0.62, 0.18)}
-_FARTHER = 0.15
-
-
-def _oklab(linear: Rgb) -> Rgb:
-    # O _rgb_to_oklch parte do sRGB: volta do linear (a simulação é feita nele).
-    big_l, c, h = _rgb_to_oklch(tuple(_gamma(v) for v in linear))  # type: ignore[arg-type]
-    return big_l, c * math.cos(h), c * math.sin(h)
-
-
-def distance(a: str, b: str, cvd: int | None = None) -> float:
-    """A diferença entre duas cores (OKLab ×100); `cvd`: 0 protanopia, 1 deuteranopia."""
-
-    def lab(hex_color: str) -> Rgb:
-        rgb = tuple(_linear(v) for v in _hex_to_rgb(hex_color))
-        if cvd is not None:
-            rgb = tuple(min(1, max(0, sum(m * v for m, v in zip(row, rgb, strict=True))))
-                        for row in _CVD[cvd])  # fmt: skip
-        return _oklab(rgb)  # type: ignore[arg-type]
-
-    return 100 * math.dist(lab(a), lab(b))
-
-
-def distinct(a: str, b: str) -> bool:
-    return distance(a, b) >= DISTINCT and all(distance(a, b, k) >= DISTINCT_CVD for k in (0, 1))
-
-
-def _series(primary: str, backgrounds: list[str], mode: Mode) -> list[str]:
-    """A `chart-2`, a `chart-3` e a `chart-4`, nessa ordem: cada uma é o primeiro candidato (3:1
-    sobre os fundos) distinto da `primary` e das já escolhidas; se nenhum for, o mais distante
-    delas para quem não enxerga vermelho ou verde."""
-    big_l, c = _SERIES_TONE[mode]
-    farther = -_FARTHER if mode == "light" else _FARTHER
-    candidates = [
-        _readable(_oklch_to_hex((big_l + d, c, math.radians(h))), backgrounds, 3)
-        for d in (0, farther)
-        for h in _SERIES_HUES
-    ]
-    chosen = [primary]
-    for _ in range(3):
-        rest = [x for x in candidates if x not in chosen]
-        chosen.append(
-            next(
-                (x for x in rest if all(distinct(x, y) for y in chosen)),
-                max(rest, key=lambda x: min(distance(x, y, k) for y in chosen for k in (0, 1))),
-            )
-        )
-    return chosen[1:]
+# A `chart-1` é a `primary` (o input.css a repete); a `chart-before`, a do período comparado.
 
 
 def _before_series(primary: str, backgrounds: list[str], light: bool) -> str:
@@ -304,24 +206,6 @@ def _before_series(primary: str, backgrounds: list[str], light: bool) -> str:
     big_l, c, h = _rgb_to_oklch(_hex_to_rgb(primary))
     faded = _oklch_to_hex((big_l + (0.12 if light else -0.12), c * 0.7, h))
     return _readable(faded, backgrounds, 3)
-
-
-HEAT_STEPS = 5
-
-
-def _heat_scale(primary: str, surface: str, light: bool) -> list[str]:
-    """A escala sequencial do mapa de calor (`heat-1` a `heat-5`): o matiz da `primary`, do tom
-    quase do fundo (pouco saturado) até a própria `primary`, com a luminosidade e a saturação
-    andando em passos iguais. Cada tom se afasta mais do fundo que o anterior (o primeiro já se
-    vê sobre ele), e o último tem o contraste da `primary`. O "sem nada" fica fora da escala: a
-    célula vazia, só com a borda."""
-    big_l, c, h = _rgb_to_oklch(_hex_to_rgb(primary))
-    start = _rgb_to_oklch(_hex_to_rgb(surface))[0] + (-0.15 if light else 0.15)
-    last = HEAT_STEPS - 1
-    return [
-        _oklch_to_hex((start + (big_l - start) * k / last, c * (0.3 + 0.7 * k / last), h))
-        for k in range(HEAT_STEPS)
-    ]
 
 
 DARK_TEXT = "#0A0A0A"
@@ -361,9 +245,6 @@ def _derive(colors: Colors, mode: Mode) -> Tokens:
     primary = _readable(brand, [*backgrounds, subtle, on_primary], 4.5)
     hover = _readable(_shift(primary, -0.07 if light_bgs else 0.07), [on_primary], 4.5)
     focus = _readable(brand, [surface, bg], 3)
-    chart_2, chart_3, chart_4 = _series(primary, [surface, bg], mode)
-
-    heat = _heat_scale(primary, surface, light_bgs)
     return {
         "brand": brand,
         "primary": primary,
@@ -378,11 +259,7 @@ def _derive(colors: Colors, mode: Mode) -> Tokens:
         "muted": muted,
         "border": border,
         "border-input": border_input,
-        "chart-2": chart_2,
-        "chart-3": chart_3,
-        "chart-4": chart_4,
         "chart-before": _before_series(primary, [surface, bg], light_bgs),
-        **{f"heat-{k + 1}": color for k, color in enumerate(heat)},
     }
 
 

@@ -1,8 +1,7 @@
-"""Relatórios: o que a tela tira da URL (docs/14 §14.8). O modelo (`aba`), o período e os
-filtros ficam na URL, como na lista de chamados. Grupo, pessoa, cliente e status aceitam vários
-valores (o parâmetro repetido). Sem nenhum filtro na URL, valem os salvos no modelo; o formulário
-sempre manda o período, então mexer num filtro passa a valer o da URL, e "Salvar filtros" o
-guarda no modelo.
+"""Relatórios: o que a tela tira da URL (docs/14 §14.8). A aba, o período e os filtros ficam
+na URL, como na lista de chamados. Grupo, pessoa, cliente e status aceitam vários valores (o
+parâmetro repetido). Sem nenhum filtro na URL, vale o mês atual (e, na aba Clientes, os
+concluídos); o formulário sempre manda o período, então mexer num filtro passa a valer o da URL.
 """
 
 import re
@@ -13,26 +12,22 @@ from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import Depends, HTTPException, Query
-from starlette.datastructures import FormData
 
 from chamados.db.session import DB
-from chamados.modules.reports import builder, saved, service
+from chamados.modules.reports import builder, service
 from chamados.modules.reports.builder import (
     BUILTINS,
     CUSTOM,
     LAST_DAYS,
     RELATIVE,
     Compare,
-    FilterSpec,
-    PeriodSpec,
     ReportConfig,
 )
-from chamados.modules.reports.models import ReportModel
 from chamados.modules.reports.service import MAX_DAYS
 from chamados.web.formatting import TIMEZONE, format_day, format_month
 from chamados.web.page import LoggedPage
 
-# Modelo pronto (slug da aba na URL) → chave do catálogo (relatorios.abas.*).
+# Aba pronta (slug na URL) → chave do catálogo (relatorios.abas.*), na ordem das abas.
 TABS = {
     "produtividade": "produtividade",
     "clientes": "clientes",
@@ -43,7 +38,7 @@ TABS = {
 
 NO_CLIENT = "sem-cliente"
 
-# A comparação na URL (`comparar`) → `PeriodSpec.compare`. O "1" é o dos links de quando só se
+# A comparação na URL (`comparar`) → `Compare`. O "1" é o dos links de quando só se
 # comparava com o período anterior.
 COMPARE: dict[str, Compare] = {"anterior": "previous", "ano": "year", "1": "previous"}
 COMPARE_SLUGS: dict[Compare, str] = {"previous": "anterior", "year": "ano"}
@@ -79,8 +74,7 @@ Values = Annotated[list[str] | None, Query()]
 
 @dataclass
 class Params:
-    """O modelo e os filtros como vêm na URL (ou num formulário, com os mesmos nomes); um ausente
-    é None. Sem nenhum filtro, valem os salvos no modelo."""
+    """A aba e os filtros como vêm na URL; um ausente é None."""
 
     aba: str | None = None
     periodo: str | None = None
@@ -93,44 +87,19 @@ class Params:
     status: Values = None
     comparar: str | None = None
     # Na aba Clientes, "separada": as horas no expediente e as extras à parte (sem, todo o tempo
-    # é de trabalho normal). Não é filtro: não conta para "sem nenhum filtro na URL".
+    # é de trabalho normal).
     extras: str | None = None
     # Na aba Clientes, com um cliente só: as horas descontadas ("2:30", "2h30").
-    # Também não é filtro.
     desconto: str | None = None
     # Na aba Clientes, "1": a cascata (os clientes com relatório da pessoa hoje saem da lista de
-    # clientes). Também não é filtro.
+    # clientes).
     cascata: str | None = None
     # O período de onde o detalhar saiu (a trilha da tela): um relativo, um mês da lista ou
-    # "de_ate". Não é filtro: não conta para "sem nenhum filtro na URL".
+    # "de_ate".
     origem: str | None = None
-
-    def hidden(self) -> list[tuple[str, str]]:
-        """Os filtros em campos escondidos de um formulário."""
-        fields = []
-        for name in FILTER_FIELDS:
-            value = getattr(self, name)
-            fields += [(name, v) for v in ([value] if isinstance(value, str) else value or [])]
-        return fields
 
 
 ParamsDep = Annotated[Params, Depends()]
-
-
-FILTER_FIELDS = (
-    "periodo",
-    "de",
-    "ate",
-    "dias",
-    "grupo",
-    "pessoa",
-    "cliente",
-    "status",
-    "comparar",
-    "extras",
-    "desconto",
-    "cascata",
-)
 
 
 @dataclass
@@ -203,24 +172,18 @@ def parse_uuids(values: list[str] | None) -> list[uuid.UUID]:
 
 @dataclass
 class Choice:
-    """O modelo aberto: um pronto (`model` None) ou um da pessoa."""
+    """A aba aberta."""
 
     slug: str  # a aba na URL
     name: str
-    config: ReportConfig | None  # None: o modelo salvo não vale mais (error)
-    model: ReportModel | None = None
+    config: ReportConfig
 
 
 @dataclass
 class State:
-    """O que a tela e o CSV de um bloco tiram da URL: o modelo, o período e os filtros."""
+    """O que a tela e o CSV de um bloco tiram da URL: a aba, o período e os filtros."""
 
     choice: Choice
-    models: list[ReportModel]
-    # As abas na ordem da pessoa, com se aparecem (`saved.arrange`), e a inicial: o modelo
-    # marcado como inicial ou, sem ele, a primeira.
-    tabs: list[tuple[str, bool]]
-    initial: str
     options: service.Choices
     lookups: service.Lookups  # o expediente e os status, lidos uma vez (`service.facts`)
     period: str
@@ -246,7 +209,6 @@ class State:
     origin: str | None = None  # Params.origem, só no personalizado
     filters: service.Filters | None = None
     error: str | None = None
-    warning: str | None = None
     query: dict[str, str | list[str] | None] = field(default_factory=dict)
 
     def comparison(self) -> tuple[date, date] | None:
@@ -260,39 +222,6 @@ class State:
         except ValueError:  # antes do ano 1: não há com que comparar
             return None
 
-    def specs(self) -> tuple[PeriodSpec, FilterSpec]:
-        """O período e os filtros como o modelo os guarda. Um mês da lista vira as datas dele."""
-        if self.period in RELATIVE:
-            period = PeriodSpec(kind=self.period, days=self.days, compare=self.compare)
-        else:
-            period = PeriodSpec(kind=CUSTOM, start=self.start, end=self.end, compare=self.compare)
-        filters = FilterSpec(
-            teams=self.teams,
-            people=self.people,
-            clients=self.clients,
-            no_client=self.no_client,
-            statuses=self.statuses,
-        )
-        return period, filters
-
-
-def _choice(page: LoggedPage, aba: str | None, models: list[ReportModel], initial: str) -> Choice:
-    def builtin(slug: str) -> Choice:
-        return Choice(slug, page.t(f"relatorios.abas.{TABS[slug]}"), BUILTINS[slug])
-
-    # Sem aba, a inicial (pela ordem da pessoa, quando não há modelo inicial).
-    aba = initial if aba is None else aba
-    if aba in BUILTINS:
-        return builtin(aba)
-    model = next((m for m in models if str(m.public_id) == aba), None)
-    if model is None:
-        return builtin("produtividade")
-    try:
-        config: ReportConfig | None = saved.config_of(model)
-    except HTTPException:
-        config = None
-    return Choice(str(model.public_id), model.name, config, model)
-
 
 def closed_statuses(lookups: service.Lookups) -> list[int]:
     """Os status de situação concluída: o filtro de status com que a aba Clientes abre."""
@@ -300,71 +229,34 @@ def closed_statuses(lookups: service.Lookups) -> list[int]:
 
 
 def description_of(page: LoggedPage, choice: Choice) -> str:
-    """A descrição do modelo aberto: a do catálogo nos prontos, a salva nos da pessoa."""
-    if choice.model is None:
-        return page.t(f"relatorios.descricoes.{TABS[choice.slug]}")
-    return choice.config.description if choice.config else ""
+    """O que a aba mostra, do catálogo."""
+    return page.t(f"relatorios.descricoes.{TABS[choice.slug]}")
 
 
 async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
     auth = page.auth
     today = datetime.now(TIMEZONE).date()
     months = last_months(page.locale, today)
-    models = await saved.list_mine(db, auth)
-    default = next((str(m.public_id) for m in models if m.is_default), None)
-    tabs = saved.arrange(
-        [*TABS, *(str(m.public_id) for m in models)], default, await saved.tab_prefs(db, auth)
-    )
-    initial = default or tabs[0][0]
-    choice = _choice(page, params.aba, models, initial)
+    slug = params.aba if params.aba in BUILTINS else "produtividade"
+    choice = Choice(slug, page.t(f"relatorios.abas.{TABS[slug]}"), BUILTINS[slug])
     periodo, de, ate, dias = params.periodo, params.de, params.ate, params.dias
     grupo, pessoa, cliente, status = params.grupo, params.pessoa, params.cliente, params.status
-    comparar = params.comparar
     lookups = await service.lookups(db)
     options = await service.choices(db, auth, lookups.statuses)
-    # A aba Clientes abre com os chamados concluídos (é o filtro salvo dela) e, escolhida, com
-    # a hora extra separada.
-    separate = False
-    if choice.model is None and choice.slug == "clientes" and choice.config is not None:
-        separate = params.extras == SEPARATE
-        choice.config = (builder.CLIENTS_OVERTIME if separate else choice.config).model_copy(
-            update={"filters": FilterSpec(statuses=closed_statuses(lookups))}
-        )
+    # Na aba Clientes, escolhida, a hora extra separada.
+    separate = slug == "clientes" and params.extras == SEPARATE
+    if separate:
+        choice.config = builder.CLIENTS_OVERTIME
 
-    # Sem filtro na URL, valem os do modelo. Os salvos que deixaram de valer para a pessoa
-    # (ex.: deixou de supervisionar o grupo) ficam de fora, com um aviso.
-    warning = None
-    url = (periodo, de, ate, dias, grupo, pessoa, cliente, status, comparar)
-    compare: Compare = COMPARE.get(comparar or "", "none")
-    if all(v is None for v in url) and choice.config is not None:
-        spec, saved_filters = choice.config.period, choice.config.filters
-        periodo = spec.kind
-        compare = spec.compare
-        de = spec.start.isoformat() if spec.start else None
-        ate = spec.end.isoformat() if spec.end else None
-        dias = str(spec.days) if spec.days else None
-        lost = []
-        teams = [t for t in saved_filters.teams if t in {o.id for o in options.teams}]
-        if len(teams) < len(saved_filters.teams):
-            lost.append(page.t("relatorios.grupo"))
-        people = [p for p in saved_filters.people if p in {o.id for o in options.people}]
-        if len(people) < len(saved_filters.people):
-            lost.append(page.t("relatorios.pessoa"))
-        client_names = await service.client_labels(db, saved_filters.clients)
-        clients = [c for c in saved_filters.clients if c in client_names]
-        if len(clients) < len(saved_filters.clients):
-            lost.append(page.t("relatorios.cliente"))
-        statuses = [s for s in saved_filters.statuses if s in {o.id for o in options.statuses}]
-        if len(statuses) < len(saved_filters.statuses):
-            lost.append(page.t("relatorios.status"))
-        no_client = saved_filters.no_client
-        if lost:
-            warning = page.t("relatorios.filtrosSalvosInvalidos", filtros=", ".join(lost))
-    else:
-        teams, people, clients = parse_uuids(grupo), parse_uuids(pessoa), parse_uuids(cliente)
-        client_names = await service.client_labels(db, clients)
-        no_client = NO_CLIENT in (cliente or [])
-        statuses = [n for v in status or [] if (n := parse_int(v, 5)) is not None]
+    compare: Compare = COMPARE.get(params.comparar or "", "none")
+    teams, people, clients = parse_uuids(grupo), parse_uuids(pessoa), parse_uuids(cliente)
+    client_names = await service.client_labels(db, clients)
+    no_client = NO_CLIENT in (cliente or [])
+    statuses = [n for v in status or [] if (n := parse_int(v, 5)) is not None]
+    # A aba Clientes abre (sem nenhum filtro na URL) com os chamados concluídos.
+    url = (periodo, de, ate, dias, grupo, pessoa, cliente, status, params.comparar)
+    if slug == "clientes" and all(v is None for v in url):
+        statuses = closed_statuses(lookups)
 
     # Um período relativo, um mês da lista ou o personalizado; sem período (ou um desconhecido),
     # o mês atual. Ao escolher "Personalizado", as datas começam no primeiro dia do mês e em
@@ -396,20 +288,15 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
 
     # As horas descontadas: na aba Clientes, filtrada por um cliente só; com elas, o desconto e
     # as horas a cobrar entram nos blocos.
-    discount_field = (
-        choice.model is None and choice.slug == "clientes" and len(clients) == 1 and not no_client
-    )
+    discount_field = slug == "clientes" and len(clients) == 1 and not no_client
     discount_text = (params.desconto or "").strip() if discount_field else ""
     discount = parse_minutes(discount_text) if discount_text else 0
-    if discount and choice.config is not None:
+    if discount:
         choice.config = builder.with_discount(choice.config)
-    cascade = choice.model is None and choice.slug == "clientes" and params.cascata == "1"
+    cascade = slug == "clientes" and params.cascata == "1"
 
     state = State(
         choice=choice,
-        models=models,
-        tabs=tabs,
-        initial=initial,
         options=options,
         lookups=lookups,
         period=period,
@@ -431,11 +318,8 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         discount_invalid=discount is None,
         cascade=cascade,
         origin=origin,
-        warning=warning,
     )
-    if choice.config is None:
-        state.error = page.t("relatorios.modeloInvalido")
-    elif start and end and start <= end:
+    if start and end and start <= end:
         try:
             state.filters = await service.resolve(
                 db,
@@ -545,30 +429,3 @@ def interval_text(page: LoggedPage, state: State) -> str | None:
             )
         )
     return " · ".join(parts) or None
-
-
-def form_params(form: FormData) -> Params:
-    """Os filtros vindos num formulário (os mesmos nomes da URL); um ausente fica None."""
-
-    def one(name: str) -> str | None:
-        value = form.get(name)
-        return value if isinstance(value, str) else None
-
-    def many(name: str) -> list[str] | None:
-        values = [v for v in form.getlist(name) if isinstance(v, str)]
-        return values or None
-
-    return Params(
-        periodo=one("periodo"),
-        de=one("de"),
-        ate=one("ate"),
-        dias=one("dias"),
-        grupo=many("grupo"),
-        pessoa=many("pessoa"),
-        cliente=many("cliente"),
-        status=many("status"),
-        comparar=one("comparar"),
-        extras=one("extras"),
-        desconto=one("desconto"),
-        cascata=one("cascata"),
-    )

@@ -32,11 +32,7 @@ As cores da empresa são **laranja, cinza e branco**. A interface é majoritaria
 | `border` | `#E5E5E5` (neutral-200) | `#404040` (neutral-700) | Divisórias decorativas |
 | `border-input` | `#737373` (neutral-500) | `#737373` (neutral-500) | Borda de campos de formulário |
 | `chart-1` | = `primary` | = `primary` | Série dos gráficos dos relatórios |
-| `chart-2` | `#1D4ED8` (blue-700) | `#3B82F6` (blue-500) | Segunda série (as horas extras das colunas empilhadas) |
-| `chart-3` | `#0F766E` (teal-700) | `#14B8A6` (teal-500) | Terceira série (a cor que um bloco pode escolher) |
-| `chart-4` | `#172554` (blue-950) | `#93C5FD` (blue-300) | Quarta série (idem) |
 | `chart-before` | `#D3785C` | `#BE7844` | Série do período anterior (comparar): a `primary` mais clara |
-| `paper`, `paper-fg`, `paper-muted`, `paper-rule`, `paper-head` | `#FFFFFF`, `#171717`, `#525252`, `#E5E5E5`, `#F5F5F5` | os mesmos | A folha da prévia do relatório para o cliente: papel branco nos dois modos, com as cores do PDF |
 
 O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro); o **amarelo-ouro** (`gold`, só para "Marcar como entregue") é `#FACC15` com texto `#171717` nos dois modos, `#EAB308` no hover.
 
@@ -69,7 +65,7 @@ Mínimos: **4,5:1** para texto e **3:1** para bordas de campos e contorno de foc
 | `text` sobre `surface` | 17,93 / 16,44 | ✅ claro / escuro |
 | `text-muted` sobre `surface` | 7,81 / 7,11 | ✅ claro / escuro |
 | `border-input` sobre `surface` | 4,74 / 3,78 | ✅ claro / escuro |
-| `chart-2` a `chart-4` e `chart-before` sobre `surface` e `bg` (marcas de gráfico, mínimo 3:1) | ≥ 3,04 | ✅ claro / escuro |
+| `chart-before` sobre `surface` e `bg` (marca de gráfico, mínimo 3:1) | ≥ 3,04 | ✅ claro / escuro |
 | Badges de status (claro) | 4,79 a 9,51 | ✅ |
 | Badges de status (escuro) | 8,15 a 10,62 | ✅ |
 

@@ -1,28 +1,17 @@
 {#- Gráficos dos relatórios em SVG, de uma série só (como o BarChart.vue e o ColumnChart.vue da
-    SPA), mais a linha, só com os tokens de série (`chart-1` a `chart-4`, a cor do bloco, e `chart-before`); ao
-    comparar, as colunas e a linha por período ganham a série de antes, mais clara
+    SPA), mais a linha, só com os tokens de série (`chart-1` e `chart-before`); ao comparar, as colunas e a linha por período ganham a série de antes, mais clara
     (`chart-before`, `p.before`), com a legenda (`legend`). O CSV de cada bloco traz os mesmos
     números. Cada barra é um <svg> com a ponta arredondada (4px) e o lado da base reto: o
     retângulo arredondado inteiro mais um reto cobrindo a metade da base. `fmt`: formata o
     valor. -#}
 
-{#- A classe da cor de uma série (`Block.color`), escrita por inteiro (o Tailwind só gera as que
-    encontra): `kind` é fill, stroke ou bg. -#}
-{% macro series(kind, color) -%}
-{{- {
-  "fill": {"chart-1": "fill-chart-1", "chart-2": "fill-chart-2", "chart-3": "fill-chart-3", "chart-4": "fill-chart-4"},
-  "stroke": {"chart-1": "stroke-chart-1", "chart-2": "stroke-chart-2", "chart-3": "stroke-chart-3", "chart-4": "stroke-chart-4"},
-  "bg": {"chart-1": "bg-chart-1", "chart-2": "bg-chart-2", "chart-3": "bg-chart-3", "chart-4": "bg-chart-4"},
-}[kind][color] -}}
-{%- endmacro %}
-
 {#- Uma coluna ou um ponto: um link quando clicar aplica o valor como filtro (`p.href`, trocando o
     #relatorio pelo HTMX, como os filtros da tela); sem ele, um elemento que recebe o foco, para
     a dica abrir pelo teclado. O caller desenha a marca. -#}
-{% macro point(p, fmt, tip=None) -%}
+{% macro point(p, fmt) -%}
 {%- set tag = "a" if p.href else "span" %}
-{%- set tip = tip or p.before_tip %}
-<{{ tag }}{% if p.href %} href="{{ p.href }}" hx-boost="true"{% else %} tabindex="0"{% endif %} aria-label="{{ p.label }}: {{ fmt(p.value) }}{% if p.before_tip %} · {{ tip }}{% endif %}" class="group relative flex size-full items-end justify-center gap-0.5">
+{%- set tip = p.before_tip %}
+<{{ tag }}{% if p.href %} href="{{ p.href }}" hx-boost="true"{% else %} tabindex="0"{% endif %} aria-label="{{ p.label }}: {{ fmt(p.value) }}{% if tip %} · {{ tip }}{% endif %}" class="group relative flex size-full items-end justify-center gap-0.5">
   {{- caller() }}
   <span role="tooltip" class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap shadow-lg group-hover:block group-focus-visible:block print:hidden">
     <strong class="tabular-nums">{{ fmt(p.value) }}</strong>
@@ -34,25 +23,10 @@
 </{{ tag }}>
 {%- endmacro %}
 
-{#- A linha de referência (média ou mediana dos pontos), tracejada, na altura do valor. -#}
-{% macro reference_line(reference, top) -%}
-{%- if reference %}
-{%- set y = "%.2f" | format(100 - reference[0] / top * 100) %}
-<line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-muted" stroke-width="1.5" stroke-dasharray="6 4"/>
-{%- endif %}
-{%- endmacro %}
-
-{#- O nome da linha de referência, com o valor, ao lado da legenda. -#}
-{% macro reference_label(reference) -%}
-{%- if reference %}
-<p class="inline-flex items-center gap-2 text-sm text-muted"><svg width="20" height="4" aria-hidden="true"><line x1="0" x2="20" y1="2" y2="2" class="stroke-muted" stroke-width="1.5" stroke-dasharray="6 4"/></svg>{{ reference[1] }}</p>
-{%- endif %}
-{%- endmacro %}
-
 {#- A legenda da comparação: a série de agora e a de antes, mais clara. -#}
-{% macro compare_legend(legend, color="chart-1") -%}
+{% macro compare_legend(legend) -%}
 <ul class="flex flex-wrap gap-4 text-sm text-muted">
-  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm {{ series('bg', color) }}" aria-hidden="true"></span>{{ legend[0] }}</li>
+  <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-1" aria-hidden="true"></span>{{ legend[0] }}</li>
   <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-before" aria-hidden="true"></span>{{ legend[1] }}</li>
 </ul>
 {%- endmacro %}
@@ -60,7 +34,7 @@
 {#- Barras horizontais (horas por pessoa, por cliente): o rótulo à esquerda, em até duas linhas
     (mais larga nas telas largas; o nome inteiro também no `title` e, no link, no `aria-label`), e
     o valor na ponta. -#}
-{% macro bar_chart(items, fmt, color="chart-1") -%}
+{% macro bar_chart(items, fmt) -%}
 {%- set top = ([1] + items | map(attribute="value") | list) | max %}
 <div class="flex flex-col gap-3">
   <ul class="flex flex-col gap-2">
@@ -73,7 +47,7 @@
       {%- endif %}
       <span class="flex items-center gap-2">
         {%- if item.value %}
-        <svg width="{{ '%.2f' | format(item.value / top * 85) }}%" height="16" class="shrink-0 {{ series('fill', color) }}" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
+        <svg width="{{ '%.2f' | format(item.value / top * 85) }}%" height="16" class="shrink-0 fill-chart-1" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
         {%- endif %}
         <span class="text-sm whitespace-nowrap tabular-nums">{{ fmt(item.value) }}</span>
       </span>
@@ -88,19 +62,19 @@
     `step` (120: horas cheias e pares; 2 nas contagens), e o de baixo, o primeiro rótulo e mais
     uns cinco. A dica abre com o foco só pelo teclado: um clique não a deixa presa. A coluna ocupa
     3/5 da faixa dela, até 2,5rem (comparando, as duas ficam com metade disso cada uma). -#}
-{% macro column_chart(points, fmt, step=120, legend=None, reference=None, height="h-40", color="chart-1") -%}
+{% macro column_chart(points, fmt, step=120, legend=None) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
 {%- set step = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
 <div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
+    <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
       <span class="-my-2 text-right">{{ fmt(m) }}</span>
       {%- endfor %}
     </div>
-    <div class="relative {{ height }}">
+    <div class="relative h-40">
       <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         {%- for m in ticks %}
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
@@ -120,7 +94,7 @@
           {%- endif %}
           {%- endif %}
           {%- if p.value %}
-          <svg width="{{ '30%' if p.before is not none else '60%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-5' if p.before is not none else 'max-w-10' }} {{ series('fill', color) }} group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
+          <svg width="{{ '30%' if p.before is not none else '60%' }}" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="{{ 'max-w-5' if p.before is not none else 'max-w-10' }} fill-chart-1 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
           {%- elif p.before is not none %}
           <span class="w-[30%] max-w-5"></span>
           {%- endif %}
@@ -128,8 +102,6 @@
         </li>
         {%- endfor %}
       </ul>
-      {#- A referência por cima das colunas (sem receber o mouse), como no PDF. #}
-      <svg class="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden="true">{{ reference_line(reference, top) }}</svg>
     </div>
     <div></div>
     <div class="flex gap-0.5 pt-1 text-xs text-muted" aria-hidden="true">
@@ -139,16 +111,15 @@
     </div>
   </div>
   {%- if legend %}
-  {{ compare_legend(legend, color) }}
+  {{ compare_legend(legend) }}
   {%- endif %}
-  {{ reference_label(reference) }}
 </div>
 {%- endmacro %}
 
 
 {#- Linha ao longo do tempo: os mesmos eixos e dicas das colunas; cada ponto fica no meio da sua
     faixa, e a linha (em viewBox de 0 a 100, sem engrossar ao esticar) liga os centros. -#}
-{% macro line_chart(points, fmt, step=120, legend=None, reference=None, area=False, height="h-40", color="chart-1") -%}
+{% macro line_chart(points, fmt, step=120, legend=None) -%}
 {%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="before") | select("number") | list) | max %}
 {%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
 {%- set ticks = [top, top // 2, 0] %}
@@ -156,18 +127,17 @@
 {%- set count = [1, points | length] | max %}
 <div class="flex flex-col gap-3">
   <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
+    <div class="flex h-40 flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
       {%- for m in ticks %}
       <span class="-my-2 text-right">{{ fmt(m) }}</span>
       {%- endfor %}
     </div>
-    <div class="relative {{ height }}">
+    <div class="relative h-40">
       <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         {%- for m in ticks %}
         {%- set y = "%.2f" | format(100 - m / top * 100) %}
         <line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-border" stroke-width="1" shape-rendering="crispEdges"/>
         {%- endfor %}
-        {{ reference_line(reference, top) }}
       </svg>
       <svg class="absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {%- if legend %}
@@ -175,19 +145,14 @@
         <polyline fill="none" class="stroke-chart-before" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="
           {%- for p in points if p.before is not none %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.before / top * 100) }} {% endfor %}"/>
         {%- endif %}
-        {%- if area and points %}
-        {#- A área sob a linha, na cor da série e bem clara. #}
-        <polygon class="{{ series('fill', color) }}" fill-opacity="0.15" points="{{ '%.2f' | format(0.5 / count * 100) }},100 
-          {%- for p in points %} {{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.value / top * 100) }}{% endfor %} {{ '%.2f' | format((points | length - 0.5) / count * 100) }},100"/>
-        {%- endif %}
-        <polyline fill="none" class="{{ series('stroke', color) }}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
+        <polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
           {%- for p in points %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.value / top * 100) }} {% endfor %}"/>
       </svg>
       <ul class="absolute inset-0 flex">
         {%- for p in points %}
         <li class="flex h-full flex-1">
           {%- call point(p, fmt) %}
-          <svg class="absolute inset-0 size-full overflow-visible {{ series('fill', color) }}" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.value / top * 100) }}%" r="3" class="group-hover:[r:5px] group-focus-visible:[r:5px]"/></svg>
+          <svg class="absolute inset-0 size-full overflow-visible fill-chart-1" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.value / top * 100) }}%" r="3" class="group-hover:[r:5px] group-focus-visible:[r:5px]"/></svg>
           {%- endcall %}
         </li>
         {%- endfor %}
@@ -201,161 +166,8 @@
     </div>
   </div>
   {%- if legend %}
-  {{ compare_legend(legend, color) }}
+  {{ compare_legend(legend) }}
   {%- endif %}
-  {{ reference_label(reference) }}
 </div>
 {%- endmacro %}
 
-
-{#- Colunas empilhadas: as horas no expediente embaixo (chart-1) e as extras em cima (chart-2),
-    com a legenda; os eixos e as dicas das colunas. `labels`: os nomes das duas partes. -#}
-{% macro stacked_chart(points, fmt, step, labels, height="h-40") -%}
-{%- set highest = ([0] + points | map(attribute="value") | list) | max %}
-{%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
-{%- set ticks = [top, top // 2, 0] %}
-{%- set step_label = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
-<div class="flex flex-col gap-3">
-  <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
-      {%- for m in ticks %}
-      <span class="-my-2 text-right">{{ fmt(m) }}</span>
-      {%- endfor %}
-    </div>
-    <div class="relative {{ height }}">
-      <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
-        {%- for m in ticks %}
-        {%- set y = "%.2f" | format(100 - m / top * 100) %}
-        <line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-border" stroke-width="1" shape-rendering="crispEdges"/>
-        {%- endfor %}
-      </svg>
-      <ul class="absolute inset-0 flex items-end gap-0.5">
-        {%- for p in points %}
-        <li class="flex h-full flex-1">
-          {%- call point(p, fmt, labels[0] ~ ": " ~ fmt(p.value - p.extra) ~ " · " ~ labels[1] ~ ": " ~ fmt(p.extra)) %}
-          {%- if p.value %}
-          {%- set upper = "%.2f" | format(p.extra / p.value * 100) %}
-          <svg width="60%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-10 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="{{ upper }}%" class="fill-chart-2"/><rect y="{{ upper }}%" width="100%" height="{{ '%.2f' | format(100 - p.extra / p.value * 100) }}%" class="fill-chart-1"/></svg>
-          {%- endif %}
-          {%- endcall %}
-        </li>
-        {%- endfor %}
-      </ul>
-    </div>
-    <div></div>
-    <div class="flex gap-0.5 pt-1 text-xs text-muted" aria-hidden="true">
-      {%- for p in points %}
-      <span class="flex-1 overflow-visible">{% if loop.index0 % step_label == 0 %}<span class="whitespace-nowrap">{{ p.label }}</span>{% endif %}</span>
-      {%- endfor %}
-    </div>
-  </div>
-  <ul class="flex flex-wrap gap-4 text-sm text-muted">
-    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-1" aria-hidden="true"></span>{{ labels[0] }}</li>
-    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-2" aria-hidden="true"></span>{{ labels[1] }}</li>
-  </ul>
-</div>
-{%- endmacro %}
-
-
-{#- Mapa de calor: uma linha por dia da semana, uma célula por hora, no tom da escala sequencial
-    da primary (`heat-1` a `heat-5`, mais forte quanto mais perto do maior valor; sem nada, a
-    célula vazia, só com a borda), com a legenda do limite de cada tom. A dica de cada célula diz
-    o dia, a hora e o valor; o leitor de tela lê a mesma grade numa tabela (`sr-only`), e a grade
-    fica escondida dele para não ouvir os 168 valores duas vezes. As classes estão escritas por
-    inteiro: o Tailwind só gera as que encontra. -#}
-{% macro heat_map(b) -%}
-{%- set tones = {0: "border border-border", 1: "bg-heat-1", 2: "bg-heat-2", 3: "bg-heat-3", 4: "bg-heat-4", 5: "bg-heat-5"} %}
-{#- A altura das células (`Block.height`): baixa, média ou alta. #}
-{%- set cell = {"s": "h-4", "m": "h-6", "l": "h-8"}[b.height] %}
-{%- if b.legend %}
-<div class="flex flex-col gap-3">
-  <div class="grid grid-cols-[auto_repeat(24,minmax(0,1fr))] gap-0.5 text-xs text-muted" aria-hidden="true">
-    <span></span>
-    {%- for hour in b.hours %}
-    <span class="text-center tabular-nums">{% if loop.index0 % 3 == 0 %}{{ hour }}{% endif %}</span>
-    {%- endfor %}
-    {%- for short, name, cells in b.days %}
-    <span class="pr-1" title="{{ name }}">{{ short }}</span>
-    {%- for c in cells %}
-    <span class="group relative {{ cell }} rounded-sm {{ tones[c.level] }}">
-      <span class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 rounded-md border border-border bg-surface px-2 py-1 text-sm whitespace-nowrap text-fg shadow-lg group-hover:block print:hidden"><strong class="tabular-nums">{{ c.value }}</strong><span class="text-muted"> · {{ c.label }}</span></span>
-    </span>
-    {%- endfor %}
-    {%- endfor %}
-  </div>
-  <ul class="flex flex-wrap gap-4 text-sm text-muted" aria-label="{{ b.legend_label }}">
-    {%- for level, text in b.legend %}
-    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm {{ tones[level] }}" aria-hidden="true"></span>{{ text }}</li>
-    {%- endfor %}
-  </ul>
-  <table class="sr-only">
-    <caption>{{ b.title }}</caption>
-    <thead><tr><th scope="col">{{ b.weekday_label }}</th>{% for hour in b.hours %}<th scope="col">{{ hour }}</th>{% endfor %}</tr></thead>
-    <tbody>
-      {%- for short, name, cells in b.days %}
-      <tr><th scope="row">{{ name }}</th>{% for c in cells %}<td>{{ c.value }}</td>{% endfor %}</tr>
-      {%- endfor %}
-    </tbody>
-  </table>
-</div>
-{%- else %}
-<p class="text-muted">{{ b.empty }}</p>
-{%- endif %}
-{%- endmacro %}
-
-
-{#- Barras + linha: as colunas da primeira medida (chart-1) e a linha da segunda (chart-2, `p.extra`),
-    da mesma unidade, no mesmo eixo (sem eixo duplo), com a legenda; os eixos e as dicas das
-    colunas. `labels`: os nomes das duas medidas. -#}
-{% macro combo_chart(points, fmt, step, labels, height="h-40") -%}
-{%- set highest = ([0] + points | map(attribute="value") | list + points | map(attribute="extra") | list) | max %}
-{%- set top = [step, ((highest / step) | round(0, "ceil") | int) * step] | max %}
-{%- set ticks = [top, top // 2, 0] %}
-{%- set step_label = [1, ((points | length) / 6) | round(0, "ceil") | int] | max %}
-{%- set count = [1, points | length] | max %}
-<div class="flex flex-col gap-3">
-  <div class="grid grid-cols-[auto_1fr] gap-x-2">
-    <div class="flex {{ height }} flex-col justify-between text-xs text-muted tabular-nums" aria-hidden="true">
-      {%- for m in ticks %}
-      <span class="-my-2 text-right">{{ fmt(m) }}</span>
-      {%- endfor %}
-    </div>
-    <div class="relative {{ height }}">
-      <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
-        {%- for m in ticks %}
-        {%- set y = "%.2f" | format(100 - m / top * 100) %}
-        <line x1="0" x2="100%" y1="{{ y }}%" y2="{{ y }}%" class="stroke-border" stroke-width="1" shape-rendering="crispEdges"/>
-        {%- endfor %}
-      </svg>
-      <ul class="absolute inset-0 flex items-end gap-0.5">
-        {%- for p in points %}
-        <li class="flex h-full flex-1">
-          {%- call point(p, fmt, p.before_tip) %}
-          {%- if p.value %}
-          <svg width="60%" height="{{ '%.2f' | format(p.value / top * 100) }}%" class="max-w-10 fill-chart-1 group-hover:opacity-80 group-focus-visible:opacity-80" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect y="50%" width="100%" height="50%"/></svg>
-          {%- endif %}
-          {#- O ponto da linha, no meio da faixa (com um ponto só, a linha não aparece sem ele). #}
-          <svg class="pointer-events-none absolute inset-0 size-full overflow-visible fill-chart-2" aria-hidden="true"><circle cx="50%" cy="{{ '%.2f' | format(100 - p.extra / top * 100) }}%" r="3"/></svg>
-          {%- endcall %}
-        </li>
-        {%- endfor %}
-      </ul>
-      {#- A linha por cima das colunas, sem receber o mouse: a dica é a da coluna. #}
-      <svg class="pointer-events-none absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <polyline fill="none" class="stroke-chart-2" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="
-          {%- for p in points %}{{ '%.2f' | format((loop.index0 + 0.5) / count * 100) }},{{ '%.2f' | format(100 - p.extra / top * 100) }} {% endfor %}"/>
-      </svg>
-    </div>
-    <div></div>
-    <div class="flex gap-0.5 pt-1 text-xs text-muted" aria-hidden="true">
-      {%- for p in points %}
-      <span class="flex-1 overflow-visible">{% if loop.index0 % step_label == 0 %}<span class="whitespace-nowrap">{{ p.label }}</span>{% endif %}</span>
-      {%- endfor %}
-    </div>
-  </div>
-  <ul class="flex flex-wrap gap-4 text-sm text-muted">
-    <li class="inline-flex items-center gap-2"><span class="size-3 rounded-sm bg-chart-1" aria-hidden="true"></span>{{ labels[0] }}</li>
-    <li class="inline-flex items-center gap-2"><span class="h-0.5 w-4 rounded-sm bg-chart-2" aria-hidden="true"></span>{{ labels[1] }}</li>
-  </ul>
-</div>
-{%- endmacro %}

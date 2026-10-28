@@ -1,14 +1,13 @@
-{#- Os blocos de um modelo de relatório já formatados (`reports_blocks.block_view`): na tela
-    (index.html) e na prévia do editor (editor.html, `preview`: sem o CSV, e o editor a deixa
-    `inert`, para um clique não sair dele). -#}
+{#- Os blocos de uma aba de Relatórios já formatados (`reports_blocks.block_view`), na tela
+    (index.html). -#}
 {% from "_icons.html" import icon %}
 {% from "_ui.html" import button_class %}
-{% from "reports/_charts.html" import bar_chart, column_chart, combo_chart, heat_map, line_chart, stacked_chart %}
+{% from "reports/_charts.html" import bar_chart, column_chart, line_chart %}
 
 {#- O menu de ações de um bloco (hoje, só o CSV), no padrão dos menus da tela (`data-menu`, que
     o app.js fecha ao clicar fora e com o Esc). #}
 {% macro block_menu(b) -%}
-{%- set name = b.title or t("relatorios.editor.bloco", n=b.index + 1) %}
+{%- set name = b.title or t("relatorios.bloco", n=b.index + 1) %}
 <details data-menu class="relative shrink-0 print:hidden">
   <summary class="inline-flex size-8 cursor-pointer list-none items-center justify-center rounded-md text-muted hover:bg-surface-raised hover:text-fg [&::-webkit-details-marker]:hidden" aria-label="{{ t('relatorios.acoesBloco', bloco=name) }}" title="{{ t('relatorios.acoesBloco', bloco=name) }}">{{ icon("ellipsis", "size-4") }}</summary>
   <div role="menu" class="absolute right-0 z-50 mt-1 min-w-40 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
@@ -18,8 +17,8 @@
 {%- endmacro %}
 
 {#- O cabeçalho de todo bloco: o título, o período (e o de comparação, quando o bloco compara)
-    e, à direita, o menu de ações (fora da prévia do editor). #}
-{% macro block_head(b, preview, menu=True) -%}
+    e, à direita, o menu de ações. #}
+{% macro block_head(b, menu=True) -%}
 <div class="flex items-start justify-between gap-2">
   <div class="flex min-w-0 flex-col gap-0.5">
     {%- if b.title %}
@@ -28,12 +27,8 @@
     {%- if b.period %}
     <p class="text-sm text-muted">{{ b.period }}</p>
     {%- endif %}
-    {#- Uma parte do filtro próprio do bloco que saiu do alcance da pessoa (ficou de fora). #}
-    {%- if b.warning %}
-    <p class="text-sm text-muted" role="status">{{ b.warning }}</p>
-    {%- endif %}
   </div>
-  {%- if menu and not preview %}
+  {%- if menu %}
   {{ block_menu(b) }}
   {%- endif %}
 </div>
@@ -42,13 +37,13 @@
 {#- O cartão de todo bloco: a mesma borda, sombra e espaçamento. Os gráficos são um <figure> com
     o cabeçalho no <figcaption>; os outros, uma <section>. Ocupa a linha inteira da grade com
     `b.wide` (reports_blocks.wide). O id e o scroll-mt: a paginação da lista rola até ele. #}
-{% macro frame(b, preview, figure=False, menu=True) -%}
+{% macro frame(b, figure=False, menu=True) -%}
 {%- set tag = "figure" if figure else "section" %}
 <{{ tag }} id="bloco-{{ b.index }}" class="flex min-w-0 scroll-mt-4 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md print:break-inside-avoid print:shadow-none{% if b.wide %} lg:col-span-2{% endif %}">
   {%- if figure %}
-  <figcaption>{{ block_head(b, preview, menu) }}</figcaption>
+  <figcaption>{{ block_head(b, menu) }}</figcaption>
   {%- else %}
-  {{ block_head(b, preview, menu) }}
+  {{ block_head(b, menu) }}
   {%- endif %}
   {{ caller() }}
 </{{ tag }}>
@@ -100,104 +95,18 @@
 </div>
 {%- endmacro %}
 
-{#- A prévia do relatório para o cliente (reports_blocks.client_preview) com cara de folha A4: os
-    mesmos textos e a mesma ordem do PDF (model_pdf.render_client), com os dados da empresa à
-    direita do logotipo, a tipografia dele (9 pt no corpo, 16 pt no título, 14 pt nos totais) e papel branco
-    também no modo escuro. As margens de 15 mm são 15/210 da largura (o padding em % vem da
-    largura do pai, que tem a da folha); o aspect-ratio é só a altura mínima: a folha cresce com
-    a lista, sem prometer as quebras de página do PDF. No celular, a letra diminui um pouco e as
-    células quebram. -#}
-{% macro client_sheet(v) -%}
-<div class="mx-auto w-full max-w-[210mm]">
-  <article aria-label="{{ v.title }}" class="aspect-[210/297] w-full rounded-sm border border-border bg-paper p-[7.14%] font-paper text-[11px] leading-[1.35] text-paper-fg shadow-md sm:text-[12px]">
-    {#- O logotipo e, logo à direita dele, os dados da empresa (a primeira linha em destaque). #}
-    {%- if branding.report_logo_url or v.company %}
-    <header class="mb-[0.6em] flex items-center gap-4">
-      {%- if branding.report_logo_url %}
-      <img src="{{ branding.report_logo_url }}" alt="" class="max-h-[18mm] max-w-[40mm] shrink-0 object-contain">
-      {%- endif %}
-      {%- if v.company %}
-      <div class="min-w-0 text-[0.89em] leading-snug text-paper-muted">
-        <p class="text-[1.88em] font-bold text-paper-fg">{{ v.company[0] }}</p>
-        {%- for line in v.company[1:] %}
-        <p>{{ line }}</p>
-        {%- endfor %}
-      </div>
-      {%- endif %}
-    </header>
-    {%- endif %}
-    <h2 class="mb-[0.2em] text-[1.78em] leading-tight font-bold">{{ v.title }}</h2>
-    {%- for line in v.lines %}
-    <p>{{ line }}</p>
-    {%- endfor %}
-    {#- Os textos do modelo: o Jinja escapa; as quebras de linha ficam (whitespace-pre-line). #}
-    {%- if v.intro %}
-    <p class="mt-[1.2em] whitespace-pre-line">{{ v.intro }}</p>
-    {%- endif %}
-    <dl class="mt-[1.5em] grid {{ 'grid-cols-3' if v.totals | length == 3 else 'grid-cols-2' }} border border-paper-rule">
-      {%- for label, value in v.totals %}
-      <div class="border-l border-paper-rule p-[0.5em] first:border-l-0">
-        <dt class="text-paper-muted">{{ label }}</dt>
-        <dd class="text-[1.55em] leading-snug">{{ value }}</dd>
-      </div>
-      {%- endfor %}
-    </dl>
-    {%- if v.rows %}
-    {#- As horas à direita; as datas sem quebrar. #}
-    <div class="mt-[1em] overflow-x-auto">
-      <table class="w-full border-collapse text-left">
-        <caption class="sr-only">{{ v.title }}</caption>
-        <thead class="bg-paper-head text-paper-muted">
-          <tr>
-            {%- for label in v.columns %}
-            <th scope="col" class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top font-normal{% if v["keys"][loop.index0] == "hours" %} text-right{% endif %}">{{ label }}</th>
-            {%- endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {%- for row in v.rows %}
-          <tr>
-            {%- for cell in row %}
-            {%- set key = v["keys"][loop.index0] %}
-            <td class="border-b border-paper-rule px-[0.5em] py-[0.3em] align-top{% if key in ('opened', 'closed') %} whitespace-nowrap{% elif key == 'hours' %} text-right whitespace-nowrap tabular-nums{% endif %}">{{ cell }}</td>
-            {%- endfor %}
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-    {%- else %}
-    <p class="mt-[1em] text-paper-muted">{{ t("relatorios.nada") }}</p>
-    {%- endif %}
-    {%- if v.notes %}
-    <p class="mt-[1.2em] whitespace-pre-line">{{ v.notes }}</p>
-    {%- endif %}
-    <p class="mt-[1.5em] text-paper-muted">{{ v.footer }}</p>
-  </article>
-</div>
-{%- endmacro %}
-
 {#- Um bloco: cartões, gráfico, tabela ou lista de tarefas. -#}
-{% macro block(b, preview=False) -%}
-{%- if b.message %}
-{#- O filtro próprio do bloco não combina com o da tela: o bloco não consulta nada. #}
-{% call frame(b, preview, menu=False) %}
-  <p class="text-muted">{{ b.message }}</p>
-{% endcall %}
-{%- elif b.visual == "cards" %}
+{% macro block(b) -%}
+{%- if b.visual == "cards" %}
 {#- Os cartões não têm CSV. As divisórias: cada cartão tem a borda de cima e a da esquerda, e o
     -mt-px/-ml-px esconde as da primeira linha e as do começo de cada linha (o overflow-hidden). #}
-{% call frame(b, preview, menu=False) %}
+{% call frame(b, menu=False) %}
   <div class="overflow-hidden">
     <dl class="-mt-px -ml-px flex flex-wrap">
       {%- for card in b.cards %}
       <div class="flex-1 basis-40 border-t border-l border-border px-4 py-3">
         <dt class="text-muted">{{ card.label }}</dt>
-        {#- O número grande: uma medida só, em destaque, com a tendência mais alta. #}
-        <dd class="mt-1 {{ 'text-5xl tracking-tight' if b.big else 'text-2xl' }} font-semibold">{{ linked(card.value, card.href) }}</dd>
-        {%- if card.hint %}
-        <dd class="mt-1 text-sm text-muted">{{ card.hint }}</dd>
-        {%- endif %}
+        <dd class="mt-1 text-2xl font-semibold">{{ linked(card.value, card.href) }}</dd>
         {%- if card.before is defined %}
         {#- A variação: verde na direção boa da medida, vermelho na ruim, cinza nas neutras; a seta
             e o texto dizem o mesmo sem a cor, e o leitor de tela ouve "subiu" ou "caiu". #}
@@ -207,38 +116,28 @@
         {%- endif %}
         {%- if card.spark %}
         {#- A tendência no período (reports_blocks._spark): sem eixo nem rótulos, só a linha. #}
-        <dd class="mt-2" aria-hidden="true"><svg viewBox="0 0 100 32" preserveAspectRatio="none" class="block {{ 'h-16' if b.big else 'h-8' }} w-full overflow-visible"><polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="{{ card.spark }}"/></svg></dd>
+        <dd class="mt-2" aria-hidden="true"><svg viewBox="0 0 100 32" preserveAspectRatio="none" class="block h-8 w-full overflow-visible"><polyline fill="none" class="stroke-chart-1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="{{ card.spark }}"/></svg></dd>
         {%- endif %}
       </div>
       {%- endfor %}
     </dl>
   </div>
 {% endcall %}
-{%- elif b.visual in ("bars", "columns", "stacked", "line", "combo") %}
-{% call frame(b, preview, figure=True) %}
-  {#- A altura escolhida no bloco (`Block.height`); a média é a de sempre. #}
-  {%- set height = {"s": "h-28", "m": "h-40", "l": "h-56"}[b.height] %}
+{%- elif b.visual in ("bars", "columns", "line") %}
+{% call frame(b, figure=True) %}
   {%- if b.visual == "bars" %}
-  {{ bar_chart(b.points, b.fmt, b.color) }}
+  {{ bar_chart(b.points, b.fmt) }}
   {%- if not b.points %}
   <p class="text-muted">{{ b.empty }}</p>
   {%- endif %}
   {%- elif b.visual == "columns" %}
-  {{ column_chart(b.points, b.fmt, b.step, b.legend, b.reference, height, b.color) }}
-  {%- elif b.visual == "stacked" %}
-  {{ stacked_chart(b.points, b.fmt, b.step, b.labels, height) }}
-  {%- elif b.visual == "combo" %}
-  {{ combo_chart(b.points, b.fmt, b.step, b.labels, height) }}
+  {{ column_chart(b.points, b.fmt, b.step, b.legend) }}
   {%- else %}
-  {{ line_chart(b.points, b.fmt, b.step, b.legend, b.reference, b.area, height, b.color) }}
+  {{ line_chart(b.points, b.fmt, b.step, b.legend) }}
   {%- endif %}
 {% endcall %}
-{%- elif b.visual == "heatmap" %}
-{% call frame(b, preview, figure=True) %}
-  {{ heat_map(b) }}
-{% endcall %}
 {%- elif b.visual == "table" %}
-{% call frame(b, preview) %}
+{% call frame(b) %}
   {% call table(b.title, b.columns, t("relatorios.nada"), b.rows | length, b.total, b.titles, range(1, b.columns | length), b.total_label) %}
     {%- for label, href, cells in b.rows %}
     <tr class="border-t border-border">
@@ -251,11 +150,10 @@
   {% endcall %}
 {% endcall %}
 {%- else %}
-{% call frame(b, preview) %}
-  {#- As colunas escolhidas no bloco (`b.columns`, na ordem fixa); o tempo e o fora do expediente,
-      à direita. #}
+{% call frame(b) %}
+  {#- As colunas (`b.columns`); o tempo e o fora do expediente, à direita. #}
   {%- set keys = b.columns | map(attribute=0) | list %}
-  {% call table(b.title, b.columns | map(attribute=1) | list, b.empty, b.tasks | length, numeric=[keys.index("time") if "time" in keys else -1, keys.index("overtime") if "overtime" in keys else -1]) %}
+  {% call table(b.title, b.columns | map(attribute=1) | list, b.empty, b.tasks | length, numeric=[keys.index("time"), keys.index("overtime")]) %}
     {%- for o in b.tasks %}
     <tr class="border-t border-border">
       {%- for key in keys %}

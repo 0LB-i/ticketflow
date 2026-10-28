@@ -7,7 +7,7 @@ from chamados.modules.clients.models import Client
 from chamados.modules.identity.models import AuthToken, User, UserSession
 from chamados.modules.jobs.models import Job, OutboxEvent
 from chamados.modules.organization.models import Role, Team, TeamMember
-from chamados.modules.reports.models import ReportExport, ReportModel, ReportPreference
+from chamados.modules.reports.models import ReportExport
 from chamados.modules.system.models import SystemSetting, WorkSchedule
 from chamados.modules.tickets.models import (
     Ticket,
@@ -26,8 +26,6 @@ __all__ = [
     "Job",
     "OutboxEvent",
     "ReportExport",
-    "ReportModel",
-    "ReportPreference",
     "ResolutionCode",
     "Role",
     "SystemSetting",

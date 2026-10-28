@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timedelta
 import pytest
 
 from chamados.core.timezone import LOCAL_TZ
-from chamados.modules.reports.builder import workdays
 from chamados.modules.reports.service import outside_minutes
 from chamados.modules.system.work_hours import (
     Calendar,
@@ -107,8 +106,6 @@ def test_janela_e_feriado() -> None:
     assert cal.window(ANA, quinta) is None  # feriado vale para todos
     assert cal.window(DANI, SEGUNDA + timedelta(days=5)) is None  # sábado
     assert cal.window(ANA, SEGUNDA + timedelta(days=5)) is not None  # o Suporte trabalha
-    assert workdays(SEGUNDA, SEGUNDA + timedelta(days=6), cal, ANA) == 5
-    assert workdays(SEGUNDA, SEGUNDA + timedelta(days=6), cal) == 4
 
 
 @pytest.mark.parametrize(

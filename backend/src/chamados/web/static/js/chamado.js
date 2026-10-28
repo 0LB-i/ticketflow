@@ -448,11 +448,7 @@ function atualizarTodos(select) {
 // lista da caixa (o × tirado sai da página), e a tela nova o devolve a ela pelo id.
 function aplicarFiltro(caixa) {
   const form = caixa.closest('form[data-envia-ao-mudar]')
-  if (!form) {
-    // No editor de modelos (o filtro de um bloco), quem ouve o evento refaz o formulário.
-    caixa.dispatchEvent(new Event('etiquetas', { bubbles: true }))
-    return
-  }
+  if (!form) return
   caixa.querySelector('[data-chips-adiciona], [role=combobox]').focus()
   form.requestSubmit()
 }

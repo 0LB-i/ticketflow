@@ -1,4 +1,4 @@
-"""Relatório em CSV (docs/14 §14.8.4): uma tabela da tela, um bloco de um modelo ou todas as
+"""Relatório em CSV (docs/14 §14.8.4): uma tabela da tela, um bloco de uma aba ou todas as
 tarefas do período, no idioma de quem pede. UTF-8 com BOM, para o Excel reconhecer a
 codificação; em português, `;` e vírgula decimal, como o Excel em português espera. O tempo sai
 em horas decimais (para somar na planilha) e em minutos.
@@ -6,7 +6,6 @@ em horas decimais (para somar na planilha) e em minutos.
 
 import csv
 import io
-from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Literal
 
@@ -18,7 +17,6 @@ from chamados.modules.reports.builder import (
     ELAPSED,
     OTHERS,
     PERCENT,
-    RATES,
     Measure,
     Result,
     TaskColumn,
@@ -66,29 +64,17 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "no_client": "Sem cliente",
         "others": "Outros",
         "total": "Total",
-        "total_all": "Total do período, com todos",
         "team": "Grupo",
         "status": "Status",
         "day": "Dia",
         "week": "Semana",
-        "month": "Mês",
         "age": "Idade",
         "ages": "até 1 dia|1 a 3 dias|3 a 7 dias|mais de 7 dias",
-        "weekday": "Dia da semana",
-        "weekdays": "segunda|terça|quarta|quinta|sexta|sábado|domingo",
-        "hour": "Hora do dia",
-        "weekday_hour": "Dia da semana e hora",
         "canceled": "Chamados cancelados",
         "backlog": "Em aberto no fim",
         "lead_time": "Mediana até a conclusão",
         "net_lead_time": "Mediana até a conclusão, líquida",
-        "lead_time_mean": "Média até a conclusão",
-        "net_lead_time_mean": "Média até a conclusão, líquida",
         "reopen_rate": "Reabertura (%)",
-        "overtime_rate": "Hora extra (%)",
-        "hours_per_ticket": "Horas por chamado",
-        "completion_rate": "Taxa de conclusão (%)",
-        "tasks_per_workday": "Tarefas por dia útil",
         "people": "Responsáveis",
         "created": "Registrado em",
         "closed_at": "Concluído em",
@@ -126,29 +112,17 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "no_client": "No client",
         "others": "Others",
         "total": "Total",
-        "total_all": "Period total, all included",
         "team": "Team",
         "status": "Status",
         "day": "Day",
         "week": "Week",
-        "month": "Month",
         "age": "Age",
         "ages": "up to 1 day|1 to 3 days|3 to 7 days|over 7 days",
-        "weekday": "Weekday",
-        "weekdays": "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday",
-        "hour": "Hour of day",
-        "weekday_hour": "Weekday and hour",
         "canceled": "Tickets canceled",
         "backlog": "Open at the end",
         "lead_time": "Median time to close",
         "net_lead_time": "Median time to close, net",
-        "lead_time_mean": "Mean time to close",
-        "net_lead_time_mean": "Mean time to close, net",
         "reopen_rate": "Reopened (%)",
-        "overtime_rate": "Overtime (%)",
-        "hours_per_ticket": "Hours per ticket",
-        "completion_rate": "Completion rate (%)",
-        "tasks_per_workday": "Tasks per working day",
         "people": "Assignees",
         "created": "Opened at",
         "closed_at": "Closed at",
@@ -249,17 +223,12 @@ def render_block(
     result: Result,
     locale: Locale,
     previous: Result | None = None,
-    decimals: int | None = None,
-    columns: Sequence[TaskColumn] = CSV_COLUMNS,
 ) -> bytes:
-    """Um bloco de um modelo: as linhas agrupadas, como na tela, com o total no fim (a coluna da
-    medida tem o nome da do CSV das tabelas); a lista de tarefas, com as colunas do de tarefas.
+    """Um bloco de uma aba: as linhas agrupadas, como na tela, com o total no fim (a coluna da
+    medida tem o nome da do CSV das tabelas); a lista de tarefas, com as colunas do de tarefas
+    (CSV_COLUMNS: o chamado é o número e o título; os tempos, em horas e em minutos).
     `previous`: o bloco no período comparado; cada medida ganha o valor de antes e a variação
-    (em %, ou em pontos nas porcentagens), as mesmas da tela (`builder.matching`). `decimals`:
-    as casas das porcentagens e das taxas escolhidas no bloco (as horas continuam em horas
-    decimais com duas casas e em minutos, para somar na planilha). `columns`: as da lista de
-    tarefas escolhidas no bloco (o chamado é o número e o título; os tempos, em horas e em
-    minutos)."""
+    (em %, ou em pontos nas porcentagens), as mesmas da tela (`builder.matching`)."""
     t = TEXTS[locale]
     pt = locale == "pt-BR"
 
@@ -274,14 +243,11 @@ def render_block(
             "person": [t["person"]],
             "ticket": [t["ticket"], t["title"]],
             "client": [t["client"]],
-            "team": [t["team"]],
-            "status": [t["status"]],
             "time": [t["time"], t["minutes"].format(column=t["time"])],
             "overtime": [t["outside"], t["minutes"].format(column=t["outside"])],
         }
-        # Sempre, no fim: o expediente de quem fez a tarefa no dia dela (a coluna não é das
-        # escolhidas do bloco; a lista na tela fica sem ela).
-        head = [*(h for c in columns for h in heads[c]), t["work_hours"]]
+        # No fim, o expediente de quem fez a tarefa no dia dela (a lista na tela fica sem ele).
+        head = [*(h for c in CSV_COLUMNS for h in heads[c]), t["work_hours"]]
         days = t["days"].split("|")
         for task in result.tasks:
             client = data.clients.get(task.client_id) if task.client_id else None
@@ -294,28 +260,28 @@ def render_block(
                 "person": [_text(data.users[task.author_id].display_name)],
                 "ticket": [task.ticket_number, _text(task.ticket_title)],
                 "client": [_text(client.label if client else t["no_client"])],
-                "team": [_text(data.teams[task.team_id].name)],
-                "status": [_text(data.statuses[task.status_id].name)],
                 "time": hours(task.minutes),
                 "overtime": hours(task.overtime),
             }
             schedule = data.calendar.schedule(task.author_id, task.day)
-            rows.append([*(cell for c in columns for cell in cells[c]), describe(schedule, days)])
+            rows.append(
+                [*(cell for c in CSV_COLUMNS for cell in cells[c]), describe(schedule, days)]
+            )
         return _write(head, rows, pt)
 
     measures = list(result.total)
     head = [t[result.dimension]] if result.dimension else []
     timed = (*DURATIONS, *ELAPSED)  # em horas decimais e em minutos
     for m in measures:
-        name = t[f"{m}_mean"] if result.mean and m in ELAPSED else t[m]
+        name = t[m]
         names = [name] if previous is None else [name, t["before"].format(column=name)]
         for column in names:
             head += [column, t["minutes"].format(column=column)] if m in timed else [column]
         if previous is not None:
             head.append(t["change_points" if m in PERCENT else "change"].format(column=name))
 
-    def decimal(number: float, places: int = 1) -> str:
-        text = f"{number:.{places}f}"
+    def decimal(number: float) -> str:
+        text = f"{number:.1f}"
         return text.replace(".", ",") if pt else text
 
     def cell(m: Measure, value: Value) -> list[str | int]:
@@ -323,8 +289,8 @@ def render_block(
             return ["", ""] if m in timed else [""]
         if m in timed:
             return hours(value)
-        if m in PERCENT or m in RATES:
-            return [decimal(value / 100, 1 if decimals is None else decimals)]
+        if m in PERCENT:
+            return [decimal(value / 100)]
         return [value]
 
     def change(m: Measure, now: Value, before: Value) -> str:
@@ -342,31 +308,20 @@ def render_block(
                 cells += [*cell(m, before), change(m, v[m], before)]
         return cells
 
-    if result.dimension == "month":
-        day_format = "%m/%Y" if pt else "%Y-%m"
-    else:
-        day_format = "%d/%m/%Y" if pt else "%Y-%m-%d"
+    day_format = "%d/%m/%Y" if pt else "%Y-%m-%d"
     for i, row in enumerate(result.rows):
         old = builder.matching(previous, i, row) if previous else None
         if isinstance(row.key, date):
             label = row.key.strftime(day_format)
         elif result.dimension == "age" and isinstance(row.key, int):
             label = t["ages"].split("|")[row.key]
-        elif result.dimension == "weekday" and isinstance(row.key, int):
-            label = t["weekdays"].split("|")[row.key]
-        elif result.dimension == "hour":
-            label = f"{row.key:02d}:00"
-        elif result.dimension == "weekday_hour" and isinstance(row.key, int):
-            label = f"{t['weekdays'].split('|')[row.key // 24]} {row.key % 24:02d}:00"
         elif row.key == OTHERS:
             label = t["others"]
         else:
             label = _text(row.label or t["no_client"])
         rows.append([label, *values(row.values, old.values if old else None)])
     total = values(result.total, previous.total if previous else None)
-    # Sem "Outros" (só os maiores), o total continua sendo o do período inteiro, e diz isso.
-    label = t["total_all"] if result.cut else t["total"]
-    rows.append([*([label] if result.dimension else []), *total])
+    rows.append([*([t["total"]] if result.dimension else []), *total])
     return _write(head, rows, pt)
 
 

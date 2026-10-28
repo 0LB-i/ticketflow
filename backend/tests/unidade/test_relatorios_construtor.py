@@ -1,6 +1,6 @@
-"""Construtor guiado dos relatórios (docs/14 §14.8): o cálculo de cada bloco a partir dos dados do
-período, as combinações recusadas, os períodos relativos e o CSV de um bloco. Sem banco: os
-dados (`service.Facts`) são montados à mão.
+"""Os blocos dos relatórios (docs/14 §14.8): o cálculo de cada bloco a partir dos dados do
+período, os períodos relativos e o CSV de um bloco. Sem banco: os dados (`service.Facts`) são
+montados à mão.
 """
 
 import csv
@@ -11,39 +11,21 @@ from datetime import date, datetime, timedelta
 from typing import Any, get_args
 
 import pytest
-from fastapi import HTTPException
-from pydantic import ValidationError
 
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.reports import csv_export
 from chamados.modules.reports.builder import (
     BUILTINS,
-    DIMENSIONS,
-    MEASURES,
     OTHERS,
-    STACKED,
-    VISUALS,
     Block,
-    FilterSpec,
-    PeriodSpec,
-    ReportConfig,
-    check_block,
     comparison_period,
-    dimensions_for,
-    measures_for,
-    narrow,
     needs,
     previous_period,
     relative_period,
     run,
     trend,
-    unit,
-    upgrade,
-    workdays,
     year_before,
 )
-from chamados.modules.reports.models import ReportModel
-from chamados.modules.reports.saved import config_of
 from chamados.modules.reports.service import (
     TZ,
     ClientName,
@@ -57,7 +39,6 @@ from chamados.modules.reports.service import (
     TicketFact,
     UserName,
     add_up,
-    distinct_tickets,
     net_minutes,
 )
 from chamados.modules.system.work_hours import Calendar
@@ -127,7 +108,6 @@ def _dados(
         "hours": add_up(((t, t.minutes) for t in tarefas), todos),
         "overtime": add_up(((t, t.overtime) for t in tarefas), todos),
         "tasks": add_up(((t, 1) for t in tarefas), todos),
-        "worked": distinct_tickets(tarefas, todos),
     }
     for parte, linhas in chamados.items():
         somas[parte] = add_up(((t, 1) for t in linhas), todos)  # type: ignore[index]
@@ -190,7 +170,7 @@ def test_tendencia_dos_cartoes() -> None:
 
 def test_cada_bloco_pede_so_o_que_usa() -> None:
     """`service.facts` só consulta o que os blocos usam: as somas das medidas que somam, por
-    agrupamento (o dia serve à semana e ao mês; nos cartões, à tendência, menos no em aberto), e
+    agrupamento (o dia serve à semana; nos cartões, à tendência, menos no em aberto), e
     as linhas da lista, dos concluídos (a mediana) e do em aberto. Uma parte ou uma soma que não
     veio é erro (não um zero)."""
     produtividade = needs(BUILTINS["produtividade"].blocks)
@@ -226,7 +206,7 @@ def test_cada_bloco_pede_so_o_que_usa() -> None:
         run(dados, Block(visual="cards", measures=["net_lead_time"]), INICIO, INICIO)
 
 
-def test_os_maiores_outros_e_ordem() -> None:
+def test_os_maiores_e_outros() -> None:
     dados = _dados(
         [
             _tarefa(ANA, 10, INICIO, cliente=PADARIA),
@@ -242,9 +222,6 @@ def test_os_maiores_outros_e_ordem() -> None:
 
     assert linhas() == [("Mercado", 30), ("=Farmácia", 20), ("Padaria", 10), (None, 5)]
     assert linhas(top=2) == [("Mercado", 30), ("=Farmácia", 20), (OTHERS, 15)]
-    assert linhas(order="asc") == [(None, 5), ("Padaria", 10), ("=Farmácia", 20), ("Mercado", 30)]
-    # Por nome, "sem cliente" por último.
-    assert linhas(order="name") == [("=Farmácia", 20), ("Mercado", 30), ("Padaria", 10), (None, 5)]
 
 
 def test_periodos_vazios_entram_na_serie() -> None:
@@ -259,17 +236,6 @@ def test_periodos_vazios_entram_na_serie() -> None:
     ]
     dias = run(dados, Block(visual="columns", dimension="day", measures=["hours"]), INICIO, FIM)
     assert len(dias.rows) == 20 and dias.rows[5].values == {"hours": 60}
-    meses = run(
-        dados,
-        Block(visual="columns", dimension="month", measures=["tasks"]),
-        date(2026, 9, 15),
-        date(2026, 11, 2),
-    )
-    assert [(x.key, x.values["tasks"]) for x in meses.rows] == [
-        (date(2026, 9, 1), 0),
-        (date(2026, 10, 1), 2),
-        (date(2026, 11, 1), 0),
-    ]
     # A tela troca o agrupamento por dia de um período longo.
     trocado = run(
         dados,
@@ -286,77 +252,6 @@ def test_lista_de_tarefas() -> None:
     assert len(run(dados, Block(visual="tasks"), INICIO, FIM).tasks) == 2
     so_extras = run(dados, Block(visual="tasks", only_overtime=True), INICIO, FIM)
     assert so_extras.is_list and [t.author_id for t in so_extras.tasks] == [ANA]
-
-
-@pytest.mark.parametrize(
-    ("bloco", "erro"),
-    [
-        (Block(visual="table", dimension="person"), "Escolha ao menos uma medida."),
-        (Block(visual="table", measures=["hours"]), "Escolha o que agrupar."),
-        (
-            Block(visual="bars", dimension="person", measures=["hours", "tasks"]),
-            "Um gráfico mostra uma medida só.",
-        ),
-        (
-            Block(visual="line", dimension="person", measures=["hours"]),
-            "A linha agrupa por dia, semana ou mês.",
-        ),
-        (
-            Block(visual="bars", dimension="day", measures=["hours"]),
-            "As barras agrupam por pessoa, cliente, grupo, status ou idade.",
-        ),
-        (
-            Block(visual="stacked", dimension="day", measures=["hours"]),
-            "As colunas empilhadas mostram as horas no expediente e as extras.",
-        ),
-        (
-            Block(visual="bars", dimension="age", measures=["opened"]),
-            "A idade só vale para a medida Em aberto.",
-        ),
-        (
-            Block(visual="line", dimension="week", measures=["backlog"]),
-            "Em aberto é o retrato do fim do período: não se agrupa por dia, semana ou mês.",
-        ),
-    ],
-)
-def test_combinacoes_recusadas(bloco: Block, erro: str) -> None:
-    with pytest.raises(HTTPException) as exc:
-        check_block(bloco)
-    assert exc.value.status_code == 422 and exc.value.detail == erro
-
-
-def test_o_editor_oferece_so_o_que_o_check_block_aceita() -> None:
-    # Cada visual × agrupamento × medida: o que `dimensions_for` e `measures_for` oferecem passa
-    # no `check_block`; um agrupamento que eles não oferecem é recusado.
-    for visual in VISUALS:
-        if visual == "tasks":
-            continue
-        allowed = dimensions_for(visual)
-        for dimension in (None, *DIMENSIONS):
-            offered = dimension in allowed or (visual == "cards" and dimension is None)
-            if visual == "cards" and dimension is not None:
-                continue
-            if visual == "stacked":
-                candidates = [STACKED]
-            elif visual == "combo":  # os pares de medidas
-                candidates = [[a, b] for a in MEASURES for b in MEASURES if a != b]
-            else:
-                candidates = [[m] for m in MEASURES]
-            for measures in candidates:
-                bloco = Block(visual=visual, dimension=dimension, measures=measures)
-                pair_ok = visual != "combo" or unit(measures[0]) == unit(measures[1])
-                if offered and pair_ok and set(measures) <= set(measures_for(visual, dimension)):
-                    check_block(bloco)
-                else:
-                    with pytest.raises(HTTPException):
-                        check_block(bloco)
-
-
-def test_modelos_prontos_sao_validos() -> None:
-    for config in BUILTINS.values():
-        for bloco in config.blocks:
-            check_block(bloco)
-    check_block(Block(visual="stacked", dimension="client", measures=["hours", "overtime"]))
 
 
 def test_periodos_relativos() -> None:
@@ -416,13 +311,6 @@ def test_periodos_relativos_de_semana_ano_e_n_dias() -> None:
     assert previous_period(date(2026, 10, 2), domingo) == (date(2026, 8, 18), date(2026, 10, 1))
 
 
-def test_dias_do_periodo_ficam_entre_1_e_366() -> None:
-    assert PeriodSpec(kind="ultimos-n-dias", days=366).days == 366
-    for dias in (0, 367):
-        with pytest.raises(ValidationError):
-            PeriodSpec(kind="ultimos-n-dias", days=dias)
-
-
 def _csv(conteudo: bytes, separador: str = ";") -> list[list[str]]:
     return list(csv.reader(io.StringIO(conteudo.decode("utf-8-sig")), delimiter=separador))
 
@@ -445,11 +333,11 @@ def test_csv_de_um_bloco() -> None:
         ["Outros", "0,25", "15", "0"],
         ["Total", "2,25", "135", "1"],
     ]
-    semanas = Block(visual="columns", dimension="month", measures=["overtime"])
-    linhas = _csv(csv_export.render_block(dados, run(dados, semanas, INICIO, FIM), "en"), ",")
+    dias = Block(visual="columns", dimension="day", measures=["overtime"])
+    linhas = _csv(csv_export.render_block(dados, run(dados, dias, INICIO, INICIO), "en"), ",")
     assert linhas == [
-        ["Month", "Overtime", "Overtime (min)"],
-        ["2026-10", "1.00", "60"],
+        ["Day", "Overtime", "Overtime (min)"],
+        ["2026-10-01", "1.00", "60"],
         ["Total", "1.00", "60"],
     ]
     lista = run(dados, Block(visual="tasks", only_overtime=True), INICIO, FIM)
@@ -537,249 +425,19 @@ def test_medidas_de_chamados() -> None:
     assert vazio.total == {"lead_time": None, "reopen_rate": None}
 
 
-def test_medidas_por_dia_da_semana_e_hora() -> None:
-    quinta = date(2026, 10, 1)  # INICIO
-    concluidos = [
-        _chamado(quinta, {ANA}, numero=1, lead=60, hour=9),
-        _chamado(quinta, {ANA}, numero=2, lead=180, hour=9),
-        _chamado(quinta + timedelta(days=1), {BIA}, numero=3, lead=600, hour=17),
-    ]
-    dados = _dados(
-        [_tarefa(ANA, 60, quinta), _tarefa(BIA, 30, quinta + timedelta(days=7))],
-        concluidos=concluidos,
-    )
-    medidas = ["hours", "closed", "lead_time"]
-    dias = run(dados, Block(visual="table", dimension="weekday", measures=medidas), INICIO, FIM)
-    assert [r.key for r in dias.rows] == list(range(7))
-    assert dias.rows[3].values == {"hours": 90, "closed": 2, "lead_time": 120}  # quinta
-    assert dias.rows[4].values == {"hours": 0, "closed": 1, "lead_time": 600}  # sexta
-    assert dias.rows[0].values == {"hours": 0, "closed": 0, "lead_time": None}
-    assert all(r.label is None for r in dias.rows)
-    horas = run(dados, Block(visual="table", dimension="hour", measures=medidas), INICIO, FIM)
-    assert len(horas.rows) == 24
-    assert horas.rows[9].values == {"hours": 0, "closed": 2, "lead_time": 120}
-    assert horas.rows[10].values == {"hours": 90, "closed": 0, "lead_time": None}
-    assert horas.rows[17].values["closed"] == 1
-    # Os N maiores não cortam as listas fixas.
-    corte = Block(visual="table", dimension="hour", measures=["hours"], top=3)
-    assert len(run(dados, corte, INICIO, FIM).rows) == 24
-    # O em aberto não se agrupa por dia da semana nem por hora.
-    with pytest.raises(HTTPException):
-        check_block(Block(visual="table", dimension="weekday", measures=["backlog"]))
-    # O dia da semana sai das somas por dia; a hora tem a sua.
-    assert needs([Block(visual="table", dimension="weekday", measures=["hours"])]).sums == {
-        "hours": {"day"}
-    }
-    assert needs([Block(visual="table", dimension="hour", measures=["opened"])]).sums == {
-        "opened": {"hour"}
-    }
-
-
 def test_medidas_derivadas() -> None:
-    tarefas = [
-        _tarefa(ANA, 60, INICIO, extra=30, numero=1),
-        _tarefa(ANA, 30, INICIO + timedelta(days=1), numero=1),
-        _tarefa(ANA, 30, INICIO + timedelta(days=1), numero=2),
-        _tarefa(BIA, 120, INICIO, extra=60, numero=1),
+    """As horas no expediente (horas − extras), no plano (horas − excedentes) e a cobrar (horas −
+    descontadas), em cada linha e no total, mesmo sem a parte entre as medidas do bloco."""
+    tarefas = [_tarefa(ANA, 60, INICIO, extra=30), _tarefa(BIA, 120, INICIO, extra=20)]
+    dados = _dados(tarefas)
+    bloco = Block(visual="table", dimension="person", measures=["regular", "hours"])
+    r = run(dados, bloco, INICIO, FIM)
+    assert [(x.label, x.values) for x in r.rows] == [
+        ("Bia", {"regular": 100, "hours": 120}),
+        ("Ana", {"regular": 30, "hours": 60}),
     ]
-    dados = _dados(
-        tarefas,
-        registrados=[_chamado(INICIO, {ANA}, numero=1), _chamado(INICIO, {BIA}, numero=2)],
-        concluidos=[_chamado(INICIO, {ANA}, numero=n) for n in (1, 3, 4)],
-    )
-    medidas = ["overtime_rate", "hours_per_ticket", "completion_rate", "tasks_per_workday"]
-    cartoes = run(dados, Block(visual="cards", measures=medidas), INICIO, FIM)
-    # 90 de 240 min fora; 240 min em 2 chamados; 3 concluídos de 2 registrados (passa de 100%);
-    # 4 tarefas em 14 dias úteis (1º a 20 de outubro de 2026, segunda a sexta).
-    assert workdays(INICIO, FIM, Calendar(installation=[])) == 14
-    assert cartoes.total == {
-        "overtime_rate": 3750,
-        "hours_per_ticket": 120,
-        "completion_rate": 15000,
-        "tasks_per_workday": 29,
-    }
-    por_pessoa = run(
-        dados, Block(visual="table", dimension="person", measures=medidas), INICIO, FIM
-    )
-    # Na ordem da primeira medida (a % de hora extra), da maior para a menor.
-    assert [(r.label, r.values) for r in por_pessoa.rows] == [
-        (
-            "Bia",
-            {
-                "overtime_rate": 5000,
-                "hours_per_ticket": 120,
-                "completion_rate": 0,
-                "tasks_per_workday": 7,
-            },
-        ),
-        (
-            "Ana",
-            {
-                "overtime_rate": 2500,
-                "hours_per_ticket": 60,
-                "completion_rate": 30000,
-                "tasks_per_workday": 21,
-            },
-        ),
-    ]
-    # Em "Outros", as horas por chamado ficam sem valor (um chamado pode estar em duas linhas).
-    corte = Block(visual="table", dimension="person", measures=["hours_per_ticket"], top=1)
-    assert [r.values["hours_per_ticket"] for r in run(dados, corte, INICIO, FIM).rows] == [
-        120,
-        None,
-    ]
-    # Sem "Outros": só os N maiores, e o total continua o do período inteiro.
-    sem_outros = run(dados, corte.model_copy(update={"hide_others": True}), INICIO, FIM)
-    assert [r.label for r in sem_outros.rows] == ["Bia"] and sem_outros.cut
-    assert sem_outros.total == {"hours_per_ticket": 120}
-    assert not run(dados, corte, INICIO, FIM).cut
-    # Por dia: os chamados distintos de cada dia.
-    por_dia = run(
-        dados, Block(visual="columns", dimension="day", measures=["hours_per_ticket"]), INICIO, FIM
-    )
-    assert [r.values["hours_per_ticket"] for r in por_dia.rows[:3]] == [180, 30, None]
-    # Sem base, sem valor.
-    vazio = run(_dados([]), Block(visual="cards", measures=medidas), INICIO, FIM)
-    assert vazio.total == {
-        "overtime_rate": None,
-        "hours_per_ticket": None,
-        "completion_rate": None,
-        "tasks_per_workday": 0,
-    }
-    # O que cada uma pede: as somas das partes; os chamados distintos, no agrupamento de cada um.
-    assert needs(
-        [Block(visual="columns", dimension="week", measures=["hours_per_ticket"])]
-    ).sums == {
-        "hours": {"day"},
-        "worked": {"week"},
-    }
-    assert needs(
-        [Block(visual="columns", dimension="day", measures=["hours_per_ticket"])]
-    ).sums == {
-        "hours": {"day"},
-        "worked": {"day", "week"},  # a tela agrupa por semana um período longo
-    }
-    tabela = Block(visual="table", dimension="day", measures=["hours_per_ticket"])
-    assert needs([tabela]).sums == {"hours": {"day"}, "worked": {"day"}}  # fica por dia
-    # O gráfico por dia agrupado por semana (como a tela faz num período longo).
-    semanas = run(
-        dados,
-        Block(visual="columns", dimension="day", measures=["hours_per_ticket"]),
-        INICIO,
-        FIM,
-        dimension="week",
-    )
-    assert [r.values["hours_per_ticket"] for r in semanas.rows] == [120, None, None, None]
-    # Num período que ainda não acabou, os dias úteis contam até hoje.
-    hoje = datetime.now(TZ).date()
-    futuro = run(
-        _dados([_tarefa(ANA, 30, hoje)]),
-        Block(visual="cards", measures=["tasks_per_workday"]),
-        hoje - timedelta(days=13),
-        hoje + timedelta(days=20),
-    )
-    uteis = workdays(hoje - timedelta(days=13), hoje, Calendar(installation=[]))
-    assert futuro.total["tasks_per_workday"] == round(100 / uteis)
-    assert needs([Block(visual="cards", measures=["completion_rate"])]).sums == {
-        "closed": {"day"},
-        "opened": {"day"},
-    }
-    with pytest.raises(HTTPException):
-        check_block(Block(visual="columns", dimension="day", measures=["tasks_per_workday"]))
-    assert "tasks_per_workday" not in measures_for("table", "hour")
-    assert "tasks_per_workday" in measures_for("table", "person")
-
-
-def test_media_dos_tempos_ate_a_conclusao() -> None:
-    concluidos = [
-        _chamado(INICIO, {ANA}, numero=1, lead=60, net_lead=60),
-        _chamado(INICIO, {ANA}, numero=2, lead=120, net_lead=60),
-        _chamado(INICIO, {BIA}, numero=3, lead=600, net_lead=600),
-    ]
-    dados = _dados([], concluidos=concluidos)
-    medidas = ["lead_time", "net_lead_time", "closed"]
-    mediana = run(dados, Block(visual="cards", measures=medidas), INICIO, FIM)
-    assert mediana.total == {"lead_time": 120, "net_lead_time": 60, "closed": 3}
-    assert not mediana.mean
-    media = run(dados, Block(visual="cards", measures=medidas, aggregate="mean"), INICIO, FIM)
-    assert media.total == {
-        "lead_time": 260,
-        "net_lead_time": 240,
-        "closed": 3,
-    }  # as contagens não mudam
-    assert media.mean
-    por_pessoa = run(
-        dados,
-        Block(visual="table", dimension="person", measures=["lead_time"], aggregate="mean"),
-        INICIO,
-        FIM,
-    )
-    assert [r.values["lead_time"] for r in por_pessoa.rows] == [600, 90]
-    # Sem um tempo até a conclusão, a média não tem o que mudar.
-    with pytest.raises(HTTPException):
-        check_block(Block(visual="cards", measures=["hours"], aggregate="mean"))
-
-
-def test_mapa_de_calor() -> None:
-    quinta = INICIO  # 1º de outubro de 2026, às 10h (`_tarefa`)
-    dados = _dados([_tarefa(ANA, 60, quinta), _tarefa(BIA, 30, quinta + timedelta(days=1))])
-    bloco = Block(visual="heatmap", dimension="weekday_hour", measures=["hours"])
-    check_block(bloco)
-    mapa = run(dados, bloco, INICIO, FIM)
-    assert len(mapa.rows) == 168
-    assert mapa.rows[3 * 24 + 10].values["hours"] == 60  # quinta, 10h
-    assert mapa.rows[4 * 24 + 10].values["hours"] == 30  # sexta, 10h
-    assert sum(r.values["hours"] or 0 for r in mapa.rows) == mapa.total["hours"] == 90
-    assert needs([bloco]).sums == {"hours": {"weekday_hour"}}
-    # O mapa é só dia da semana × hora, de uma medida; o cruzamento não vai para outro visual.
-    assert dimensions_for("heatmap") == ("weekday_hour",)
-    assert "weekday_hour" not in dimensions_for("table")
-    for errado in (
-        Block(visual="heatmap", dimension="hour", measures=["hours"]),
-        Block(visual="heatmap", dimension="weekday_hour", measures=["hours", "tasks"]),
-        Block(visual="table", dimension="weekday_hour", measures=["hours"]),
-        Block(visual="heatmap", dimension="weekday_hour", measures=["backlog"]),
-    ):
-        with pytest.raises(HTTPException):
-            check_block(errado)
-
-
-def test_area_e_linha_de_referencia_so_onde_cabem() -> None:
-    check_block(Block(visual="line", dimension="day", measures=["hours"], area=True))
-    check_block(Block(visual="columns", dimension="person", measures=["hours"], reference="mean"))
-    for errado in (
-        Block(visual="columns", dimension="day", measures=["hours"], area=True),
-        Block(visual="bars", dimension="person", measures=["hours"], reference="median"),
-        Block(visual="table", dimension="person", measures=["hours"], reference="mean"),
-    ):
-        with pytest.raises(HTTPException):
-            check_block(errado)
-
-
-def test_barras_e_linha() -> None:
-    check_block(Block(visual="combo", dimension="day", measures=["hours", "overtime"]))
-    check_block(Block(visual="combo", dimension="hour", measures=["opened", "closed"]))
-    for errado in (
-        Block(visual="combo", dimension="day", measures=["hours", "tasks"]),  # outra unidade
-        Block(visual="combo", dimension="day", measures=["hours"]),
-        Block(visual="combo", dimension="day", measures=["hours", "hours"]),
-        Block(visual="combo", dimension="person", measures=["hours", "overtime"]),
-    ):
-        with pytest.raises(HTTPException):
-            check_block(errado)
-    dados = _dados([_tarefa(ANA, 60, INICIO, extra=20)])
-    bloco = Block(visual="combo", dimension="day", measures=["hours", "overtime"])
-    assert run(dados, bloco, INICIO, FIM).rows[0].values == {"hours": 60, "overtime": 20}
-
-
-def test_numero_grande() -> None:
-    check_block(Block(visual="cards", measures=["hours"], big=True))
-    for errado in (
-        Block(visual="cards", measures=["hours", "tasks"], big=True),
-        Block(visual="table", dimension="person", measures=["hours"], big=True),
-    ):
-        with pytest.raises(HTTPException):
-            check_block(errado)
+    assert r.total == {"regular": 130, "hours": 180}
+    assert needs([bloco]).sums == {"hours": {"person"}, "overtime": {"person"}}
 
 
 def test_periodo_anterior() -> None:
@@ -857,42 +515,6 @@ def test_mesmo_periodo_do_ano_anterior() -> None:
     assert comparison_period(*outubro, "year") == year_before(*outubro)
 
 
-def test_configuracao_da_versao_1_e_convertida() -> None:
-    antiga = {"version": 1, "period": {"kind": "mes-atual", "compare": True}, "blocks": []}
-    assert upgrade(antiga)["period"]["compare"] == "previous"
-    assert upgrade(antiga)["version"] == 2
-    sem = {"version": 1, "period": {"kind": "mes-atual", "compare": False}}
-    assert upgrade(sem)["period"]["compare"] == "none"
-    assert upgrade({"version": 1})["version"] == 2  # sem o campo, o padrão
-    modelo = ReportModel(
-        config={**antiga, "blocks": [{"visual": "cards", "measures": ["hours"]}]},
-    )
-    assert config_of(modelo).period.compare == "previous"
-    assert upgrade({"version": 2, "period": {"compare": "year"}})["period"]["compare"] == "year"
-
-
-def test_modelo_salvo_antes_da_extensao_5_abre_com_os_padroes() -> None:
-    """Descrição, PDF, relatório para o cliente e o bloco no PDF entraram com padrões que
-    reproduzem o de antes: a versão continua a 2, sem conversão."""
-    salvo = {"version": 2, "blocks": [{"visual": "cards", "measures": ["hours"]}]}
-    config = config_of(ReportModel(config=salvo))
-    assert config.version == 2 and config.description == ""
-    assert config.pdf.model_dump() == {"orientation": "portrait", "title": "", "footer": ""}
-    assert config.client.model_dump() == {
-        "intro": "",
-        "notes": "",
-        "columns": ["ticket", "title", "opened", "closed", "status"],
-        "show_hours": True,
-    }
-    assert config.blocks[0].in_pdf
-    # As colunas do cliente são uma lista fechada, sem nada de organização interna.
-    for colunas in (["team"], ["hours"], []):
-        with pytest.raises(ValidationError):
-            ReportConfig.model_validate({**salvo, "client": {"columns": colunas}})
-    with pytest.raises(ValidationError):
-        ReportConfig.model_validate({**salvo, "description": "x" * 201})
-
-
 def test_csv_dos_chamados_e_da_porcentagem() -> None:
     concluido = _chamado(INICIO, {ANA}, PADARIA, numero=7, lead=90, net_lead=None, reopened=True)
     concluido.finished_at = concluido.created_at + timedelta(minutes=90)
@@ -911,62 +533,3 @@ def test_csv_dos_chamados_e_da_porcentagem() -> None:
     bloco = Block(visual="table", dimension="person", measures=["reopen_rate", "lead_time"])
     linhas = _csv(csv_export.render_block(dados, run(dados, bloco, INICIO, FIM), "pt-BR"))
     assert linhas[1] == ["Ana", "100,0", "1,50", "90"]
-
-
-def test_filtro_do_bloco_restringe_o_da_tela() -> None:
-    """Campo a campo: com valores nos dois, a interseção; só num, esse; nada em comum, o campo
-    que não combina (o bloco não consulta). O "sem cliente" é um valor do cliente."""
-    a, b, c = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    tela = FilterSpec(teams=[a, b], clients=[c], statuses=[1])
-    filtro, campos = narrow(tela, FilterSpec(teams=[b], people=[a], no_client=True, statuses=[1]))
-    assert filtro == FilterSpec(teams=[b], people=[a], statuses=[1])
-    assert campos == ["clients"]
-    filtro, campos = narrow(FilterSpec(no_client=True, clients=[c]), FilterSpec(no_client=True))
-    assert filtro == FilterSpec(no_client=True) and campos == []
-    assert narrow(FilterSpec(), FilterSpec(statuses=[3])) == (FilterSpec(statuses=[3]), [])
-    assert narrow(tela, FilterSpec()) == (tela, [])
-    # Um modelo salvo antes do filtro e do período do bloco abre com os da tela.
-    bloco = Block.model_validate({"visual": "cards", "measures": ["hours"]})
-    assert bloco.period is None and bloco.filters is None
-
-
-def test_altura_so_nos_graficos_que_a_tem() -> None:
-    check_block(Block(visual="line", dimension="day", measures=["hours"], height="s"))
-    with pytest.raises(HTTPException, match="A altura vale"):
-        check_block(Block(visual="bars", dimension="person", measures=["hours"], height="l"))
-
-
-def test_cor_so_nos_graficos_de_uma_serie() -> None:
-    check_block(Block(visual="bars", dimension="person", measures=["hours"], color="chart-2"))
-    with pytest.raises(HTTPException, match="A cor vale"):
-        check_block(Block(visual="stacked", dimension="day", measures=STACKED, color="chart-2"))
-    with pytest.raises(ValidationError):
-        Block.model_validate({"visual": "bars", "measures": ["hours"], "color": "red"})
-
-
-def test_formato_e_casas_so_onde_valem() -> None:
-    check_block(Block(visual="cards", measures=["overtime_rate"], decimals=0))
-    with pytest.raises(HTTPException, match="O formato das horas"):
-        check_block(Block(visual="cards", measures=["opened"], hours="decimal"))
-    with pytest.raises(HTTPException, match="As casas decimais"):
-        check_block(Block(visual="cards", measures=["opened"], decimals=2))
-
-
-def test_so_os_maiores_nos_cadastros() -> None:
-    check_block(
-        Block(visual="bars", dimension="client", measures=["hours"], top=3, hide_others=True)
-    )
-    with pytest.raises(HTTPException, match="Só os maiores"):
-        check_block(Block(visual="columns", dimension="day", measures=["hours"], top=3))
-    with pytest.raises(HTTPException, match="Só os maiores"):
-        check_block(Block(visual="table", dimension="weekday", measures=["hours"], top=3))
-    with pytest.raises(HTTPException, match="Esconder Outros"):
-        check_block(Block(visual="table", dimension="person", measures=["hours"], hide_others=True))
-
-
-def test_colunas_so_na_lista_de_tarefas() -> None:
-    check_block(Block(visual="tasks", columns=["when", "team"]))
-    with pytest.raises(HTTPException, match="As colunas"):
-        check_block(Block(visual="table", dimension="person", measures=["hours"], columns=["when"]))
-    with pytest.raises(ValidationError):
-        Block(visual="tasks", columns=[])

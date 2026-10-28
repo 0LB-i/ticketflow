@@ -202,7 +202,7 @@
   </form>
 
   {#- Os filtros da tela de Relatórios: cada um uma chave de ligar e desligar (o checkbox
-      escondido, `role=switch`), como a cascata de lá. Desligado, o campo some e vale o do modelo. #}
+      escondido, `role=switch`), como a cascata de lá. Desligado, o campo some e vale o padrão da aba. #}
   <form id="filtros-relatorios" method="post" action="/admin/configuracoes/filtros-relatorios" aria-labelledby="filtros-relatorios-titulo" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div>

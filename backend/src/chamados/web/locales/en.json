@@ -439,11 +439,9 @@
       "chamado": "Ticket",
       "tempo": "Time",
       "foraDoExpediente": "Outside working hours",
-      "cliente": "Client",
-      "grupo": "Team",
-      "status": "Status"
+      "cliente": "Client"
     },
-    "modelos": "Report templates",
+    "modelos": "Report tabs",
     "outros": "Others",
     "nada": "Nothing in this period.",
     "tarefas": "Tasks",
@@ -459,11 +457,6 @@
     "listaCortada": "Showing {n} of {total} tasks. The block CSV has all of them.",
     "acoesBloco": "Actions for {bloco}",
     "baixarCsv": "Download CSV",
-    "filtrosSalvosInvalidos": "Some filters saved in the template no longer apply to you and were left out: {filtros}.",
-    "modeloInvalido": "This template was saved in a format that is no longer valid. Edit it and save it again.",
-    "salvarFiltros": "Save filters",
-    "filtrosSalvos": "Filters saved in the template.",
-    "restaurarFiltros": "Restore saved filters",
     "filtradoPor": "Filtered by:",
     "limparFiltros": "Clear filters",
     "atalhos": {
@@ -481,9 +474,6 @@
       "voltar": "Back to {periodo}",
       "intervalo": "{de} to {ate}"
     },
-    "salvarComoModelo": "Save as template",
-    "editarModelo": "Edit template",
-    "menuModelo": "Template",
     "medidas": {
       "hours": "Hours",
       "overtime": "Overtime",
@@ -499,17 +489,8 @@
       "backlog": "Open at the end",
       "lead_time": "Median time to close",
       "net_lead_time": "Median time to close (net)",
-      "reopen_rate": "Reopened",
-      "overtime_rate": "Overtime %",
-      "hours_per_ticket": "Hours per ticket",
-      "completion_rate": "Completion rate",
-      "tasks_per_workday": "Tasks per working day"
+      "reopen_rate": "Reopened"
     },
-    "medias": {
-      "lead_time": "Mean time to close",
-      "net_lead_time": "Mean time to close (net)"
-    },
-    "acimaDe100": "Above 100%: more tickets closed than opened.",
     "dimensoes": {
       "person": "person",
       "client": "client",
@@ -517,167 +498,15 @@
       "status": "status",
       "day": "day",
       "week": "week",
-      "month": "month",
-      "age": "age",
-      "weekday": "weekday",
-      "hour": "hour of day",
-      "weekday_hour": "weekday and hour"
+      "age": "age"
     },
-    "diasDaSemana": {
-      "seg": "Monday",
-      "ter": "Tuesday",
-      "qua": "Wednesday",
-      "qui": "Thursday",
-      "sex": "Friday",
-      "sab": "Saturday",
-      "dom": "Sunday"
-    },
-    "hora": "{h}:00",
-    "mapa": {
-      "nada": "None",
-      "ate": "up to {valor}",
-      "legenda": "Heat map legend"
-    },
-    "referencia": {
-      "mean": "Mean: {valor}",
-      "median": "Median: {valor}"
-    },
-    "visuais": {
-      "cards": "Cards",
-      "bars": "Bars",
-      "columns": "Columns",
-      "line": "Line",
-      "combo": "Bars + line",
-      "table": "Table",
-      "heatmap": "Heat map (weekday × hour)",
-      "tasks": "Task list",
-      "stacked": "Stacked columns (hours)"
-    },
-    "ordens": {
-      "desc": "Largest first",
-      "asc": "Smallest first",
-      "name": "By name"
-    },
-    "editor": {
-      "novo": "New template",
-      "editar": "Edit template",
-      "nome": "Name",
-      "horas": "Hours",
-      "formatoHm": "Hours and minutes (7h30)",
-      "formatoDecimal": "Decimal (7.5 h)",
-      "inicial": "Open this template when entering Reports",
-      "filtrosNovo": "The period and filters on the screen go into the template. To change them later, adjust the screen and use Save filters.",
-      "filtrosEditar": "The template's period and filters are adjusted on the screen, with Save filters.",
-      "blocos": "Blocks",
-      "bloco": "Block {n}",
-      "subir": "Move block {n} up",
-      "descer": "Move block {n} down",
-      "remover": "Remove block {n}",
-      "visual": "Visual",
-      "titulo": "Title",
-      "semTitulo": "No title",
-      "agrupar": "Group by",
-      "medida": "Measure",
-      "medidas": "Measures",
-      "maiores": "Only the largest",
-      "maioresDica": "Empty shows all; the rest goes into Others.",
-      "ordem": "Order",
-      "soExtras": "Only tasks outside working hours",
-      "adicionar": "Add block",
-      "semBlocos": "Add at least one block.",
-      "excluir": "Delete template",
-      "excluirAviso": "The template {nome} leaves your list. The numbers do not change: they come from the tickets.",
-      "salvo": "Template saved.",
-      "excluido": "Template deleted.",
-      "copiaDe": "Copy of {nome}",
-      "empilhadasAjuda": "Shows the hours within working hours and the overtime, one on top of the other.",
-      "publico": "Audience",
-      "publicos": {
-        "internal": "Internal",
-        "client": "Client (PDF to send)"
-      },
-      "atendeu": "Show who handled it (the assignees)",
-      "clienteAjuda": "The client report has the opening text, the totals, the tickets of the period and the notes, without overtime, teams or the text of the tasks. The blocks are kept for when the template goes back to internal.",
-      "previa": "Preview, {de} to {ate}:",
-      "previaSemPeriodo": "Preview:",
-      "agregacao": "Times to close",
-      "agregacoes": {
-        "median": "Median",
-        "mean": "Mean"
-      },
-      "referencia": "Reference line",
-      "referencias": {
-        "none": "None",
-        "mean": "Mean of the points",
-        "median": "Median of the points"
-      },
-      "area": "Fill the area under the line",
-      "medidaBarras": "Bar measure",
-      "medidaLinha": "Line measure",
-      "grande": "Big number (with the change and the trend)",
-      "periodo": "Block period",
-      "periodoDaTela": "The page's",
-      "filtroDoBloco": "Block filter",
-      "filtroDoBlocoAjuda": "Narrows the page's filter: with values in both, what they have in common applies; with none here, the page's applies.",
-      "comoNaTela": "Same as the page",
-      "largura": "Width",
-      "larguras": {
-        "auto": "Automatic",
-        "half": "Half row",
-        "full": "Full row"
-      },
-      "altura": "Height",
-      "alturas": {
-        "s": "Short",
-        "m": "Medium",
-        "l": "Tall"
-      },
-      "cor": "Color",
-      "cores": {
-        "chart-1": "The installation's",
-        "chart-2": "Second chart color",
-        "chart-3": "Third chart color",
-        "chart-4": "Fourth chart color"
-      },
-      "horasDoModelo": "The template's",
-      "casas": "Decimal places",
-      "casasPadrao": "Default",
-      "casasN": "{n}",
-      "semOutros": "Hide the Others row (the total still includes everything)",
-      "colunas": "Columns",
-      "ordemDasMedidas": "Measure order",
-      "subirMedida": "Move {medida} up",
-      "descerMedida": "Move {medida} down",
-      "descricao": "Description",
-      "descricaoDica": "One sentence about what the template shows: it appears below the title, on screen and in the PDF, and as the tab tooltip.",
-      "pdf": "PDF",
-      "orientacao": "Orientation",
-      "orientacoes": {
-        "portrait": "Portrait (A4 upright)",
-        "landscape": "Landscape (A4 sideways)"
-      },
-      "tituloPdf": "PDF title",
-      "tituloPdfVazio": "No title",
-      "rodape": "Footer",
-      "rodapeDica": "Text on every page, above the generation date and the page number. Empty: just the date and the number.",
-      "foraDoPdf": "Leave out of the PDF (still on screen and in the CSV)",
-      "cliente": {
-        "abertura": "Opening text",
-        "aberturaDica": "Shown right below the client and the period. Empty: nothing.",
-        "observacoes": "Notes",
-        "observacoesDica": "Shown at the end, after the ticket list. Empty: nothing.",
-        "semHoras": "Hide the hours (the column and the total)"
-      }
-    },
+    "bloco": "Block {n}",
     "idades": {
       "0": "up to 1 day",
       "1": "1 to 3 days",
       "2": "3 to 7 days",
       "3": "over 7 days"
     },
-    "noExpediente": "Within working hours",
-    "tituloEmpilhado": "Hours per {dimensao}: within working hours and overtime",
-    "tituloCombo": "{primeira} and {segunda} per {dimensao}",
     "cascata": {
       "campo": "Cascade",
       "dica": "Hides from the client list the clients you already reported on today (PDF downloaded)."
@@ -750,21 +579,6 @@
         "idade": "Age"
       }
     },
-    "paraCliente": {
-      "titulo": "Service report",
-      "umCliente": "The client report needs a client, and just one, in the client filter.",
-      "previa": "Preview of the report for {cliente}: the same text as the PDF, without its page breaks.",
-      "gerado": "Generated on {quando}",
-      "colunas": {
-        "chamado": "Ticket",
-        "titulo": "Title",
-        "registrado": "Opened at",
-        "concluido": "Closed at",
-        "status": "Status",
-        "horas": "Hours",
-        "atendeu": "Handled by"
-      }
-    },
     "pdf": {
       "periodo": "Period: {de} to {ate}",
       "gerado": "Generated on {quando}",
@@ -772,20 +586,6 @@
       "pagina": "Page {n} of {total}",
       "continua": "{titulo} (continued)",
       "resumo": "Period summary"
-    },
-    "filtroNaoCombina": "This block's filter ({filtro}) doesn't match the page's.",
-    "filtroDoBlocoInvalido": "Parts of this block's filter no longer apply to you and were left out: {filtros}.",
-    "totalComTodos": "Period total, all included",
-    "abasSalvas": "Tabs saved.",
-    "organizarAbas": {
-      "menu": "Arrange tabs",
-      "titulo": "Arrange tabs",
-      "ajuda": "The order and the tabs shown in Reports apply only to you. A hidden tab still opens from a link. The default template is always shown.",
-      "mostrar": "Show",
-      "mostrarAba": "Show the {nome} tab",
-      "subir": "Move the {nome} tab up",
-      "descer": "Move the {nome} tab down",
-      "inicial": "The default template is always shown."
     },
     "descricoes": {
       "produtividade": "Hours, overtime, tasks and closed tickets for each person.",
@@ -876,7 +676,7 @@
     "logotipoGrande": "The image is larger than 256 KB.",
     "logotipoTipo": "Upload a PNG, JPEG or WebP image.",
     "logotipoRelatorios": "Report logo",
-    "logotipoRelatoriosDescricao": "Shown in the header of report PDFs and in the client report preview, separate from the menu logo. PNG, JPEG or WebP, up to 256 KB.",
+    "logotipoRelatoriosDescricao": "Shown in the header of report PDFs, separate from the menu logo. PNG, JPEG or WebP, up to 256 KB.",
     "semLogotipoRelatorios": "No logo: PDFs show only the title.",
     "predefinidas": "Ready-made combinations",
     "predefinidasDica": "Pick one to fill in the three colors; check the preview and save.",
@@ -906,7 +706,7 @@
   },
   "filtrosRelatorios": {
     "titulo": "Report filters",
-    "descricao": "The filters shown on the Reports screen, for everyone. When off, the field is hidden and the report uses the template's value.",
+    "descricao": "The filters shown on the Reports screen, for everyone. When off, the field is hidden and the report uses the tab's default value.",
     "salvar": "Save filters"
   },
   "statusConfig": {

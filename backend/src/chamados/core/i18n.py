@@ -172,73 +172,8 @@ EN: dict[str, str] = {
     "O período precisa terminar depois de começar.": "The period must end after it starts.",
     "Data inválida.": "Invalid date.",
     "O período pode ter no máximo 366 dias.": "The period can have at most 366 days.",
-    "Escolha o que agrupar.": "Choose what to group by.",
-    "Escolha ao menos uma medida.": "Choose at least one measure.",
-    "Um gráfico mostra uma medida só.": "A chart shows a single measure.",
-    "O formato das horas vale nas medidas de horas.": ("The hour format applies to hour measures."),
-    "As casas decimais valem nas horas, nas porcentagens e nas taxas.": (
-        "Decimal places apply to hours, percentages and rates."
-    ),
-    "Só os maiores vale ao agrupar por pessoa, cliente, grupo ou status.": (
-        "Top N applies when grouping by person, client, team or status."
-    ),
-    "Esconder Outros vale com só os maiores.": "Hiding Others applies with top N.",
-    "As colunas valem na lista de tarefas.": "Columns apply to the task list.",
-    "A cor vale nas barras, nas colunas e na linha.": (
-        "The color applies to bars, columns and lines."
-    ),
-    "A altura vale nas colunas, na linha e no mapa de calor.": (
-        "The height applies to columns, lines and the heat map."
-    ),
-    "A linha agrupa por dia, semana ou mês.": "A line groups by day, week or month.",
-    "As barras agrupam por pessoa, cliente, grupo, status ou idade.": (
-        "Bars group by person, client, team, status or age."
-    ),
-    "As colunas empilhadas mostram as horas no expediente e as extras.": (
-        "Stacked columns show the hours within working hours and the overtime."
-    ),
-    "A idade só vale para a medida Em aberto.": "Age only applies to the Open measure.",
-    "Em aberto é o retrato do fim do período: não se agrupa por dia, semana ou mês.": (
-        "Open is a snapshot of the end of the period: it is not grouped by day, week or month."
-    ),
-    "Em aberto é o retrato do fim do período: não se agrupa por dia da semana nem hora.": (
-        "Open is a snapshot of the end of the period: it is not grouped by weekday or hour."
-    ),
-    "O mapa de calor cruza o dia da semana com a hora, e só ele.": (
-        "The heat map crosses the weekday with the hour, and only it."
-    ),
-    "A área é uma opção da linha.": "The area is an option of the line chart.",
-    "O número grande é um cartão de uma medida só.": "The big number is a card with one measure.",
-    "As barras + linha mostram duas medidas da mesma unidade.": (
-        "Bars + line show two measures of the same unit."
-    ),
-    "As barras + linha agrupam por dia, semana, mês, dia da semana ou hora.": (
-        "Bars + line group by day, week, month, weekday or hour."
-    ),
-    "A linha de referência vale nas colunas e na linha.": (
-        "The reference line applies to column and line charts."
-    ),
-    "A média só vale para os tempos até a conclusão.": (
-        "The mean only applies to the times to close."
-    ),
-    "Tarefas por dia útil não se agrupa por período, dia da semana nem hora.": (
-        "Tasks per working day is not grouped by period, weekday or hour."
-    ),
-    "Modelo não encontrado.": "Report template not found.",
-    "Este modelo foi salvo num formato que não vale mais.": (
-        "This template was saved in a format that is no longer valid."
-    ),
-    "Informe o nome do modelo.": "Enter the template name.",
-    "O nome do modelo pode ter no máximo 80 caracteres.": (
-        "The template name can have at most 80 characters."
-    ),
-    "Você já tem um modelo com este nome.": "You already have a template with this name.",
-    "Você chegou ao limite de 50 modelos.": "You have reached the limit of 50 templates.",
     "Não foi possível gerar o PDF com estes filtros.": (
         "The PDF could not be generated with these filters."
-    ),
-    "O relatório do cliente precisa de um cliente (só um).": (
-        "The client report needs a client (just one)."
     ),
     "Não foi possível gerar o CSV com estes filtros.": (
         "The CSV could not be generated with these filters."

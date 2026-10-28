@@ -1,12 +1,12 @@
-"""Relatórios (docs/14 §14.7 e §14.8): a tela, com os modelos prontos (Produtividade, Clientes,
-Horas extras, Chamados) e os da pessoa em abas, cada um uma lista de blocos do construtor guiado
-(`reports/builder.py`), os filtros e os downloads. Cada um vê o próprio trabalho; o supervisor, o
+"""Relatórios (docs/14 §14.7 e §14.8): a tela, com as abas prontas (Produtividade, Clientes,
+Horas extras, Chamados), cada uma uma lista de blocos (`reports/builder.py`), os filtros e os
+downloads. Cada um vê o próprio trabalho; o supervisor, o
 dos grupos que supervisiona; admin e auditor, tudo. Quem decide é o service
 (`reports/service.resolve`), como na API: a tela não precisa de requires().
 
 As outras partes: o estado que vem da URL em reports_state.py, os blocos prontos para a tela e
-o PDF em reports_blocks.py, os downloads (PDF, CSV de um bloco, lista de chamados) em
-reports_downloads.py e o editor de modelos em reports_editor.py.
+o PDF em reports_blocks.py e os downloads (PDF, CSV de um bloco, lista de chamados) em
+reports_downloads.py.
 """
 
 import unicodedata
@@ -17,19 +17,12 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 from chamados.db.session import DB
-from chamados.modules.reports import history, saved, service
+from chamados.modules.reports import history, service
 from chamados.modules.reports.builder import CUSTOM
-from chamados.modules.reports.models import ReportModel
 from chamados.modules.system.router import get_report_filters
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_day
 from chamados.web.page import LoggedPage, LoggedPageDep
-from chamados.web.reports_blocks import (
-    block_view,
-    client_preview,
-    scopes,
-    single_client,
-    wide,
-)
+from chamados.web.reports_blocks import block_view, scope, wide
 from chamados.web.reports_state import (
     NO_CLIENT,
     RELATIVE_KEYS,
@@ -50,7 +43,7 @@ from chamados.web.reports_state import (
 router = APIRouter()
 
 
-# A tabela de cada modelo pronto de horas no CSV da API (`reports/csv_export.Table`).
+# A tabela de cada aba pronta de horas no CSV da API (`reports/csv_export.Table`).
 CSV_TABLES = {"produtividade": "people", "clientes": "clients", "horas-extras": "overtime"}
 
 
@@ -68,9 +61,7 @@ async def client_choices(
     sem os já escolhidos (`cliente`, as etiquetas) e, na cascata da aba Clientes, sem os que já
     tiveram relatório da pessoa hoje."""
     text = q.strip()[:200]
-    # No editor, as etiquetas do filtro de um bloco se chamam `b<i>-cliente`.
-    extra = [v for k, v in page.request.query_params.multi_items() if k.endswith("-cliente")]
-    chosen = [*(cliente or []), *extra]
+    chosen = cliente or []
     none_label = page.t("relatorios.semCliente")
     options = []
     if NO_CLIENT not in chosen and _fold(text) in _fold(none_label):
@@ -81,39 +72,20 @@ async def client_choices(
     return page.render("reports/_client_options.html", options=options)
 
 
-def _tab_names(
-    page: LoggedPage, models: list[ReportModel]
-) -> tuple[dict[str, str], dict[str, str]]:
-    """O nome de cada aba e a dica: a descrição; a dos modelos da pessoa, como foi salva (sem
-    converter a configuração de cada um)."""
-    names = {s: page.t(f"relatorios.abas.{key}") for s, key in TABS.items()}
-    names.update({str(m.public_id): m.name for m in models})
-    tips = {s: page.t(f"relatorios.descricoes.{key}") for s, key in TABS.items()}
-    for m in models:
-        tip = m.config.get("description")
-        tips[str(m.public_id)] = tip if isinstance(tip, str) else ""
-    return names, tips
+def _tab(page: LoggedPage, slug: str, url: str) -> tuple[str, str, str, str]:
+    """Uma aba: o slug, o nome, o endereço e a dica (o que ela mostra)."""
+    key = TABS[slug]
+    return slug, page.t(f"relatorios.abas.{key}"), url, page.t(f"relatorios.descricoes.{key}")
 
 
 @router.get("/relatorios/historico")
 async def history_page(page: LoggedPageDep, db: DB) -> HTMLResponse:
     """O Histórico (docs/14 §14.7): os PDFs da aba Clientes que a pessoa baixou com um cliente
-    só, com o link que gera o mesmo de novo. As abas, na ordem da pessoa, sem os filtros."""
-    auth = page.auth
-    models = await saved.list_mine(db, auth)
-    default = next((str(m.public_id) for m in models if m.is_default), None)
-    arranged = saved.arrange(
-        [*TABS, *(str(m.public_id) for m in models)], default, await saved.tab_prefs(db, auth)
-    )
-    names, tips = _tab_names(page, models)
-    found = await history.entries(db, auth.user.id)
+    só, com o link que gera o mesmo de novo. As abas, sem os filtros."""
+    found = await history.entries(db, page.auth.user.id)
     return page.render(
         "reports/history.html",
-        tabs=[
-            (s, names[s], with_query("/relatorios", {"aba": s}), tips[s])
-            for s, shown in arranged
-            if shown
-        ],
+        tabs=[_tab(page, s, with_query("/relatorios", {"aba": s})) for s in TABS],
         entries=[
             {
                 "when": format_datetime(page.locale, e.created_at),
@@ -151,69 +123,44 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     choice, query, options = state.choice, state.query, state.options
     slug = choice.slug
 
-    # As abas na ordem da pessoa, sem as escondidas; a escondida aberta pelo link aparece
-    # enquanto está aberta. Os modelos prontos levam os filtros da tela; o da pessoa abre com os
-    # que ele guarda.
-    tab_names, tips = _tab_names(page, state.models)
-
+    # As abas levam os filtros da tela.
     def tab_query(s: str) -> dict[str, Any]:
-        if s not in TABS:
-            return {"aba": s}
         # A aba Clientes, sem um status na tela, abre com os concluídos (o filtro dela).
         if s == "clientes" and not query["status"]:
             return {**query, "aba": s, "status": closed_statuses(state.lookups)}
         return {**query, "aba": s}
 
-    tabs = [
-        (s, tab_names[s], with_query("/relatorios", tab_query(s)), tips[s])
-        for s, shown in state.tabs
-        if shown or s == slug
-    ]
-    # "Organizar abas": todas, com se aparecem e qual é a inicial (que não se esconde).
-    arranged = [(s, tab_names[s], shown, s == state.initial) for s, shown in state.tabs]
+    tabs = [_tab(page, s, with_query("/relatorios", tab_query(s))) for s in TABS]
 
     blocks: list[dict[str, Any]] = []
     downloads = None
-    client_view = None
     # Na página sem os números: os blocos que o esqueleto imita (o índice, que é o id para onde
     # a paginação da lista rola, o visual e se ocupa a linha inteira).
     skeleton: list[tuple[int, str, bool]] | None = None
     f, config = state.filters, choice.config
-    if f is not None and config is not None and config.audience == "client":
-        # Sem um cliente (só um) no filtro, o aviso não depende dos números.
-        if lazy and single_client(state) is not None:
-            skeleton = [(0, "table", True)]
-        else:
-            client_view = await client_preview(page, db, state, f, config)
-        if single_client(state) is not None:
-            downloads = {"pdf": with_query("/relatorios/pdf", {**query, "aba": slug})}
-    elif f is not None and config is not None and lazy:
+    if f is not None and lazy:
         visuals = [b.visual for b in config.blocks]
-        spans = wide(visuals, [b.width for b in config.blocks])
-        skeleton = list(zip(range(len(visuals)), visuals, spans, strict=True))
-    elif f is not None and config is not None:
+        skeleton = list(zip(range(len(visuals)), visuals, wide(visuals), strict=True))
+    elif f is not None:
         # A página de cada lista de tarefas (`pagina<i>`); sem ela, a primeira.
         numbers = page.request.query_params
+        found = await scope(page, db, state, config.blocks)
         blocks = [
             block_view(
                 page,
                 state,
-                config,
                 block,
                 i,
-                scope,
+                found,
                 page_number=parse_int(numbers.get(f"pagina{i}"), 6) or 1,
             )
-            for i, (block, scope) in enumerate(
-                zip(config.blocks, await scopes(page, db, state, config.blocks), strict=True)
-            )
+            for i, block in enumerate(config.blocks)
         ]
-        spans = wide([b.visual for b in config.blocks], [b.width for b in config.blocks])
-        for view, span in zip(blocks, spans, strict=True):
+        for view, span in zip(blocks, wide([b.visual for b in config.blocks]), strict=True):
             view["wide"] = span
-    if f is not None and config is not None and config.audience != "client":
+    if f is not None:
         # Os CSV da API levam os mesmos filtros, com o idioma da pessoa (um link não escolhe o
-        # Accept-Language). A tabela da aba, só nos modelos prontos de horas.
+        # Accept-Language). A tabela da aba, só nas abas de horas.
         api = {
             "start": f.start.isoformat(),
             "end": f.end.isoformat(),
@@ -224,24 +171,19 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             "status": query["status"],
             "locale": page.locale,
         }
-        # O PDF é sempre o do modelo, com os blocos (§14.8.6), inclusive nos prontos de horas. Na
-        # aba Clientes, ele é o simplificado, e o detalhado traz antes as tarefas de cada cliente.
+        # O PDF tem os blocos da aba (§14.8.6). Na aba Clientes, ele é o simplificado, e o
+        # detalhado traz antes as tarefas de cada cliente.
         pdf = with_query("/relatorios/pdf", {**query, "aba": slug})
         downloads = {"tarefas": with_query("/api/v1/reports/csv", {**api, "table": "tasks"})}
-        if slug == "clientes" and choice.model is None:
+        if slug == "clientes":
             downloads["simplificado"] = pdf
             downloads["detalhado"] = with_query(
                 "/relatorios/pdf", {**query, "aba": slug, "detalhado": "1"}
             )
         else:
             downloads["pdf"] = pdf
-        if slug in CSV_TABLES and choice.model is None:
+        if slug in CSV_TABLES:
             downloads["csv"] = with_query("/api/v1/reports/csv", {**api, "table": CSV_TABLES[slug]})
-
-    # "Salvar filtros": num modelo da pessoa, quando os da tela não são os guardados.
-    filters_changed = False
-    if choice.model is not None and config is not None and state.start and state.end:
-        filters_changed = state.specs() != (config.period, config.filters)
 
     # Os filtros de vários valores (etiquetas): nome, rótulo, opções, escolhidos, o texto de
     # "todos" e os nomes. Grupo só com o que escolher; pessoa, só para quem vê mais que o próprio
@@ -285,7 +227,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         )
 
     # "Filtrado por": cada valor escolhido com o link que o tira, e "Limpar filtros", que tira
-    # todos e mantém a aba e o período (sem nenhum filtro na URL valeriam os salvos do modelo).
+    # todos e mantém a aba e o período.
     here = {**query, "aba": slug}
     names = {
         "grupo": dict(team_options),
@@ -323,16 +265,15 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
     months = last_months(page.locale, today)
     start, end = state.start, state.end
 
-    # Na impressão, no lugar das abas e dos filtros: o nome do modelo e o período.
+    # Na impressão, no lugar das abas e dos filtros: o nome da aba e o período.
     printed = None
     if start and end and start <= end:
-        model_name = next(label for s, label, _, _ in tabs if s == slug)
         period_text = page.t(
             "relatorios.intervalo",
             de=format_day(page.locale, start),
             ate=format_day(page.locale, end),
         )
-        printed = f"{model_name} · {period_text}"
+        printed = f"{choice.name} · {period_text}"
 
     def period_url(first: date, last: date) -> str:
         """O endereço de um período: um mês da lista ou o personalizado."""
@@ -365,11 +306,6 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         "reports/index.html",
         tabs=tabs,
         tab=slug,
-        arranged=arranged,
-        # Depois de mover uma aba, o diálogo volta aberto; ao fechar, o endereço sem o pedido.
-        organize=page.request.query_params.get("organizar") == "1",
-        here_url=with_query("/relatorios", here),
-        model=choice.model,
         show_period=shown.period,
         show_compare=shown.compare,
         period=state.period,
@@ -394,33 +330,21 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         interval=interval_text(page, state),
         query_compare=query["comparar"] or "",
         # Na aba Clientes, a escolha da hora extra ("" é sem separação).
-        query_extras=(query["extras"] or "") if slug == "clientes" and not choice.model else None,
+        query_extras=(query["extras"] or "") if slug == "clientes" else None,
         # Com um cliente só, as horas descontadas.
         query_discount=(query["desconto"] or "") if state.discount_field else None,
-        query_cascade=state.cascade if slug == "clientes" and not choice.model else None,
+        query_cascade=state.cascade if slug == "clientes" else None,
         clients_url="/relatorios/clientes?cascata=1" if state.cascade else "/relatorios/clientes",
         discount_invalid=state.discount_invalid,
         filters=filters,
-        query_fields=[
-            (name, value)
-            for name, values in query.items()
-            if values
-            for value in ([values] if isinstance(values, str) else values)
-        ],
-        filters_changed=filters_changed,
-        # Volta aos filtros salvos: o modelo sem nenhum filtro na URL.
-        restore_url=with_query("/relatorios", {"aba": slug}),
         chosen=chosen,
         clear_url=clear_url,
         drilled=drilled,
         origin=state.origin,
-        new_model_url=with_query("/relatorios/modelos/novo", {**query, "base": slug}),
         blocks=blocks,
         skeleton=skeleton,
-        # A mesma consulta, inclusive a falta de filtros (que vale os salvos) e as páginas.
+        # A mesma consulta, inclusive a falta de filtros e as páginas.
         blocks_url=f"/relatorios/blocos?{page.request.url.query}".rstrip("?"),
-        client_view=client_view,
         error=state.error,
-        warning=state.warning,
         downloads=downloads,
     )

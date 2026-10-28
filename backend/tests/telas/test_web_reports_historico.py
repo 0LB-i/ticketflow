@@ -81,7 +81,7 @@ def test_historico_e_cascata(client: TestClient, cenario: dict[str, Any], db: Se
     r = client.get("/relatorios/blocos", params={**CLIENTES, "aba": "produtividade"})
     assert 'name="cascata"' not in r.text
     # O Histórico vem logo depois da aba Clientes.
-    barra = re.search(r'<nav aria-label="Modelos de relatório".*?</nav>', r.text, re.S)
+    barra = re.search(r'<nav aria-label="Abas de relatório".*?</nav>', r.text, re.S)
     assert barra
     abas = re.findall(r">([^<>]+)</a>", barra.group(0))
     assert abas[abas.index("Clientes") + 1] == "Histórico"

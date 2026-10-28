@@ -78,7 +78,7 @@ class SettingsUpdate(BaseModel):
 
 class ReportFilters(BaseModel):
     """Os filtros que a tela de Relatórios mostra. Desligado, o campo some e o relatório usa o
-    valor do modelo (ou o do endereço)."""
+    padrão da aba (ou o do endereço)."""
 
     period: bool = True
     team: bool = True
@@ -148,7 +148,7 @@ async def branding_logo(db: DB) -> Response:
 
 @router.get("/branding/report-logo", response_class=Response)
 async def branding_report_logo(db: DB) -> Response:
-    """O logotipo dos PDFs de relatório (e da prévia do relatório para o cliente)."""
+    """O logotipo dos PDFs de relatório."""
     return await _image(db, "report_logo")
 
 

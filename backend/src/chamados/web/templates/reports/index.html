@@ -1,11 +1,11 @@
-{#- Relatórios (docs/14 §14.7 e §14.8): os modelos prontos e os da pessoa em abas, os filtros, os
-    blocos do modelo (cartões, gráficos, tabelas, lista de tarefas) e os downloads com os mesmos
-    filtros. Quem vê o quê é decidido pela API. -#}
+{#- Relatórios (docs/14 §14.7 e §14.8): as abas prontas, os filtros, os blocos da aba (cartões,
+    gráficos, tabelas, lista de tarefas) e os downloads com os mesmos filtros. Quem vê o quê é
+    decidido pela API. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, button_class, field, select_field with context %}
 {% from "_fields.html" import chips, client_chips with context %}
 {% from "_icons.html" import icon %}
-{% from "reports/_blocks.html" import block, client_sheet with context %}
+{% from "reports/_blocks.html" import block with context %}
 {% from "reports/_tabs.html" import tabs_nav with context %}
 
 {% block title %}{{ t("relatorios.titulo") }}{% endblock %}
@@ -21,7 +21,7 @@
     que é trocado. #}
 <p id="relatorio-aviso" class="sr-only" aria-live="polite" data-texto="{{ t('relatorios.atualizado') }}"></p>
 {#- Os filtros, as abas e os links de detalhar trocam a página toda menos o menu: o cabeçalho
-    (Salvar filtros, Baixar…) e o intervalo também dependem dos filtros. Enquanto carrega, o
+    (Baixar…) e o intervalo também dependem dos filtros. Enquanto carrega, o
     #relatorio ganha `htmx-request` (os blocos esmaecem) e `aria-busy`. #}
 <div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML" hx-indicator="#relatorio" class="mx-auto flex max-w-7xl flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
@@ -29,35 +29,12 @@
       <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
       <span class="hidden items-center gap-2 text-sm text-muted in-[.htmx-request]:inline-flex print:hidden">{{ icon("loader-circle", "size-4 animate-spin") }} {{ t("relatorios.carregando") }}</span>
     </div>
-    {#- Na impressão, no lugar das abas e dos filtros: o modelo e o período. #}
+    {#- Na impressão, no lugar das abas e dos filtros: a aba e o período. #}
     {%- if printed %}
     <p class="hidden w-full text-muted print:block">{{ printed }}</p>
     {%- endif %}
     <div class="flex flex-wrap items-center gap-2 print:hidden">
-      {%- if filters_changed %}
-      {#- Os filtros da tela entram no modelo da pessoa. #}
-      <form method="post" action="/relatorios/modelos/{{ model.public_id }}/filtros">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        {%- for name, value in query_fields %}
-        <input type="hidden" name="{{ name }}" value="{{ value }}">
-        {%- endfor %}
-        <button type="submit" class="{{ button_class() }}">{{ icon("check", "size-4") }} {{ t("relatorios.salvarFiltros") }}</button>
-      </form>
-      <a href="{{ restore_url }}" hx-boost="true" class="{{ button_class('secondary') }}">{{ t("relatorios.restaurarFiltros") }}</a>
-      {%- endif %}
-      {#- Editar (só nos modelos da pessoa) e salvar como modelo, num menu. #}
-      <details data-menu class="relative">
-        <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden {{ button_class('secondary') }}">{{ t("relatorios.menuModelo") }} {{ icon("chevron-down", "size-4") }}</summary>
-        <div role="menu" class="absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-border bg-surface p-1 text-fg shadow-lg">
-          {%- if model %}
-          <a href="/relatorios/modelos/{{ model.public_id }}/editar" role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("pencil", "size-4") }} {{ t("relatorios.editarModelo") }}</a>
-          {%- endif %}
-          <a href="{{ new_model_url }}" role="menuitem" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("plus", "size-4") }} {{ t("relatorios.salvarComoModelo") }}</a>
-          <button type="button" data-abre-dialogo="organizar-abas" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 hover:bg-surface-raised">{{ icon("list", "size-4") }} {{ t("relatorios.organizarAbas.menu") }}</button>
-        </div>
-      </details>
-      {#- O PDF e o CSV da tabela (modelos prontos) e o CSV de todas as tarefas, com os mesmos
-          filtros. #}
+      {#- O PDF e o CSV da tabela da aba e o CSV de todas as tarefas, com os mesmos filtros. #}
       {%- if downloads %}
       <details data-menu class="relative">
         <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden {{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.baixar.menu") }} {{ icon("chevron-down", "size-4") }}</summary>
@@ -73,42 +50,7 @@
     </div>
   </div>
 
-  {#- Organizar abas: a ordem (↑↓) e as que aparecem, uma preferência da pessoa. Cada seta grava
-      e o diálogo volta aberto (data-abre-ao-carregar); o inicial sempre aparece. #}
-  <dialog id="organizar-abas"{% if organize %} data-abre-ao-carregar data-volta="{{ here_url }}"{% endif %} aria-labelledby="organizar-abas-titulo" class="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-lg border border-border bg-surface p-6 text-fg shadow-xl backdrop:bg-black/50">
-    <h2 id="organizar-abas-titulo" class="text-lg font-semibold">{{ t("relatorios.organizarAbas.titulo") }}</h2>
-    <p class="mt-2 text-muted">{{ t("relatorios.organizarAbas.ajuda") }}</p>
-    <form method="post" action="/relatorios/abas" class="mt-4 flex flex-col gap-4">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="aba" value="{{ tab }}">
-      {%- for name, value in query_fields if name != "origem" %}
-      <input type="hidden" name="{{ name }}" value="{{ value }}">
-      {%- endfor %}
-      <ol class="flex flex-col gap-1">
-        {%- for slug, label, shown, initial in arranged %}
-        <li class="flex items-center justify-between gap-2 rounded-md bg-surface-raised px-3 py-1">
-          <input type="hidden" name="ordem" value="{{ slug }}">
-          <span class="min-w-0 truncate">{{ label }}</span>
-          <span class="flex shrink-0 items-center gap-1">
-            <label class="mr-2 inline-flex cursor-pointer items-center gap-2 text-sm"{% if initial %} title="{{ t('relatorios.organizarAbas.inicial') }}"{% endif %}>
-              <input type="checkbox" name="mostrar" value="{{ slug }}"{% if shown %} checked{% endif %}{% if initial %} disabled{% endif %} class="size-4 accent-(--tf-primary)" aria-label="{{ t('relatorios.organizarAbas.mostrarAba', nome=label) }}">
-              {{ t("relatorios.organizarAbas.mostrar") }}
-            </label>
-            <button type="submit" name="acao" value="subir-{{ loop.index0 }}"{% if loop.first %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface disabled:opacity-40" aria-label="{{ t('relatorios.organizarAbas.subir', nome=label) }}">{{ icon("arrow-up", "size-4") }}</button>
-            <button type="submit" name="acao" value="descer-{{ loop.index0 }}"{% if loop.last %} disabled{% endif %} class="rounded p-1 text-muted hover:bg-surface disabled:opacity-40" aria-label="{{ t('relatorios.organizarAbas.descer', nome=label) }}">{{ icon("arrow-down", "size-4") }}</button>
-          </span>
-        </li>
-        {%- endfor %}
-      </ol>
-      <div class="flex justify-end gap-2">
-        <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
-        <button type="submit" name="acao" value="salvar" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
-      </div>
-    </form>
-    <button type="button" data-fecha-dialogo class="absolute top-4 right-4 rounded p-1 text-muted hover:bg-surface-raised" aria-label="{{ t('comum.fechar') }}">{{ icon("x", "size-4") }}</button>
-  </dialog>
-
-  {#- Os modelos prontos e os da pessoa, e o Histórico. #}
+  {#- As abas prontas e o Histórico. #}
   {{ tabs_nav(tabs, tab) }}
 
   {#- Os filtros são aplicados ao mudar (static/js/app.js; as etiquetas, no chamado.js); a aba
@@ -230,9 +172,6 @@
 
   {#- Os resultados esmaecem enquanto o relatório novo carrega. #}
   <div class="flex flex-col gap-4 transition-opacity in-[.htmx-request]:opacity-50">
-  {%- if warning %}
-  {{ alert(warning, "info") }}
-  {%- endif %}
   {%- if error %}
   {{ alert(error) }}
   {%- elif skeleton %}
@@ -245,21 +184,13 @@
     <noscript><p><a href="{{ blocks_url }}" class="text-primary underline">{{ t("relatorios.verNumeros") }}</a></p></noscript>
     <div class="grid gap-4 lg:grid-cols-2" aria-hidden="true">
       {%- for index, visual, span in skeleton %}
-      <div id="bloco-{{ index }}" class="scroll-mt-4 animate-pulse rounded-lg bg-surface-raised {{ 'h-44' if visual == 'cards' else 'h-72' if visual in ('bars', 'columns', 'stacked', 'line', 'combo', 'heatmap') else 'h-96' }}{% if span %} lg:col-span-2{% endif %}"></div>
+      <div id="bloco-{{ index }}" class="scroll-mt-4 animate-pulse rounded-lg bg-surface-raised {{ 'h-44' if visual == 'cards' else 'h-72' if visual in ('bars', 'columns', 'line') else 'h-96' }}{% if span %} lg:col-span-2{% endif %}"></div>
       {%- endfor %}
     </div>
   </div>
   {%- else %}
   <div id="blocos" class="flex flex-col gap-4">
-  {%- if client_view %}
-  {#- Modelo para o cliente: a prévia do que vai no PDF (totais e chamados), sem os blocos. #}
-  {%- if not client_view.ready %}
-  {{ alert(client_view.message, "info") }}
-  {%- else %}
-  <p class="text-muted">{{ t("relatorios.paraCliente.previa", cliente=client_view.client) }}</p>
-  {{ client_sheet(client_view) }}
-  {%- endif %}
-  {%- elif blocks %}
+  {%- if blocks %}
   <div class="grid gap-4 lg:grid-cols-2">
     {%- for b in blocks %}
     {{ block(b) }}

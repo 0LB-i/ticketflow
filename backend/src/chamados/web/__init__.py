@@ -11,7 +11,6 @@ from chamados.web import (
     company,
     reports,
     reports_downloads,
-    reports_editor,
     settings,
     ticket,
     tickets,
@@ -31,5 +30,4 @@ router.include_router(settings.router)
 router.include_router(company.router)
 router.include_router(reports.router)
 router.include_router(reports_downloads.router)
-router.include_router(reports_editor.router)
 router.include_router(tokens.router)

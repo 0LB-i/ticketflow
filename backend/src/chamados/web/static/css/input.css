@@ -63,29 +63,10 @@
   --tf-gold-hover: #eab308;
   --tf-on-gold: #171717;
 
-  /* Séries dos gráficos (relatórios): 3:1 sobre o fundo; a 1ª é a primary, as 2ª a 4ª se
-     distinguem dela e entre si também para quem não enxerga vermelho ou verde, e a do período
-     anterior é a primary mais clara (web/palette.py as deriva com outras cores) */
+  /* Séries dos gráficos (relatórios): 3:1 sobre o fundo; a 1ª é a primary e a do período
+     anterior é a primary mais clara (web/palette.py a deriva com outras cores) */
   --tf-chart-1: var(--tf-primary);
-  --tf-chart-2: #1d4ed8;
-  --tf-chart-3: #0f766e;
-  --tf-chart-4: #172554;
   --tf-chart-before: #d3785c;
-  /* A escala do mapa de calor: o matiz da primary, de um tom claro até ela (o "sem nada" é a
-     célula vazia, só com a borda); web/palette.py deriva com outras cores */
-  --tf-heat-1: #edc3b5;
-  --tf-heat-2: #e5a490;
-  --tf-heat-3: #db856a;
-  --tf-heat-4: #cf6543;
-  --tf-heat-5: #c2410c;
-
-  /* A folha da prévia do relatório para o cliente: papel branco também no modo escuro, com as
-     cores do PDF (modules/reports/model_pdf.py: INK, MUTED, RULE e HEAD) */
-  --tf-paper: #ffffff;
-  --tf-paper-fg: #171717;
-  --tf-paper-muted: #525252;
-  --tf-paper-rule: #e5e5e5;
-  --tf-paper-head: #f5f5f5;
 
   /* Status e prioridade: texto / fundo (docs/17, tabela de badges) */
   --tf-blue-fg: #1d4ed8;
@@ -118,15 +99,7 @@
     --tf-border: #404040;
     --tf-border-input: #737373;
     --tf-danger: #dc2626;
-    --tf-chart-2: #3b82f6;
-    --tf-chart-3: #14b8a6;
-    --tf-chart-4: #93c5fd;
     --tf-chart-before: #be7844;
-    --tf-heat-1: #4f3523;
-    --tf-heat-2: #774b2b;
-    --tf-heat-3: #a16232;
-    --tf-heat-4: #cd7a37;
-    --tf-heat-5: #fb923c;
 
     --tf-blue-fg: #93c5fd;
     --tf-violet-fg: #c4b5fd;
@@ -146,8 +119,6 @@
 
 @theme inline {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
-  /* A do PDF (a Liberation Sans, com as medidas da Helvetica), na prévia do relatório para o cliente */
-  --font-paper: Helvetica, Arial, sans-serif;
 
   --color-brand: var(--tf-brand);
   --color-primary: var(--tf-primary);
@@ -168,20 +139,7 @@
   --color-gold-hover: var(--tf-gold-hover);
   --color-on-gold: var(--tf-on-gold);
   --color-chart-1: var(--tf-chart-1);
-  --color-chart-2: var(--tf-chart-2);
-  --color-chart-3: var(--tf-chart-3);
-  --color-chart-4: var(--tf-chart-4);
   --color-chart-before: var(--tf-chart-before);
-  --color-heat-1: var(--tf-heat-1);
-  --color-heat-2: var(--tf-heat-2);
-  --color-heat-3: var(--tf-heat-3);
-  --color-heat-4: var(--tf-heat-4);
-  --color-heat-5: var(--tf-heat-5);
-  --color-paper: var(--tf-paper);
-  --color-paper-fg: var(--tf-paper-fg);
-  --color-paper-muted: var(--tf-paper-muted);
-  --color-paper-rule: var(--tf-paper-rule);
-  --color-paper-head: var(--tf-paper-head);
 
   --color-blue-fg: var(--tf-blue-fg);
   --color-blue-bg: var(--tf-blue-bg);

@@ -90,6 +90,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Removido
 
+- Modelos de relatório pessoais: saem o Salvar como modelo, o editor de modelos, o Salvar e o Restaurar filtros, o modelo inicial, o Organizar abas e o relatório para o cliente; Relatórios fica com as quatro abas prontas (Produtividade, Clientes, Horas extras, Chamados), os filtros, a comparação, o detalhar, os CSV e os PDF (que passam a ser sempre A4 em pé, sem título nem rodapé livres). Saem também os visuais e ajustes que só o editor usava (mapa de calor, barras + linha, colunas empilhadas, área, linha de referência, número grande, cor, largura e altura do bloco, casas decimais, período e filtro do bloco, média dos tempos) e os agrupamentos e medidas que nenhuma aba usava. Migração `0044`: apaga as tabelas `report_models` e `report_preferences`, com os modelos e as preferências de abas já salvos; os números não mudam (vêm dos chamados). Um relatório novo passa a ser uma aba pronta, pedida e escrita no código.
 - Setores atendidos: saem a tela Administração → Setores atendidos (`/admin/setores`), a API `/departments` e o campo `department_id` do chamado (na API, `department_id` no registro e no `PATCH` passa a ser ignorado, e `department` sai das respostas). Migração `0034`: apaga a tabela `departments` e a coluna `tickets.department_id`, com os setores cadastrados; o histórico dos chamados e a auditoria continuam com as mudanças antigas.
 
 ### Variáveis de ambiente

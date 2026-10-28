@@ -439,11 +439,9 @@
       "chamado": "Chamado",
       "tempo": "Tempo",
       "foraDoExpediente": "Fora do expediente",
-      "cliente": "Cliente",
-      "grupo": "Grupo",
-      "status": "Status"
+      "cliente": "Cliente"
     },
-    "modelos": "Modelos de relatório",
+    "modelos": "Abas de relatório",
     "outros": "Outros",
     "nada": "Nada no período.",
     "tarefas": "Tarefas",
@@ -459,11 +457,6 @@
     "listaCortada": "Mostrando {n} de {total} tarefas. O CSV do bloco traz todas.",
     "acoesBloco": "Ações de {bloco}",
     "baixarCsv": "Baixar CSV",
-    "filtrosSalvosInvalidos": "Alguns filtros salvos no modelo não valem mais para você e ficaram de fora: {filtros}.",
-    "modeloInvalido": "Este modelo foi salvo num formato que não vale mais. Edite-o e salve de novo.",
-    "salvarFiltros": "Salvar filtros",
-    "filtrosSalvos": "Filtros salvos no modelo.",
-    "restaurarFiltros": "Restaurar filtros salvos",
     "filtradoPor": "Filtrado por:",
     "limparFiltros": "Limpar filtros",
     "atalhos": {
@@ -481,9 +474,6 @@
       "voltar": "Voltar para {periodo}",
       "intervalo": "{de} a {ate}"
     },
-    "salvarComoModelo": "Salvar como modelo",
-    "editarModelo": "Editar modelo",
-    "menuModelo": "Modelo",
     "medidas": {
       "hours": "Horas",
       "overtime": "Horas extras",
@@ -499,17 +489,8 @@
       "backlog": "Em aberto no fim",
       "lead_time": "Mediana até a conclusão",
       "net_lead_time": "Mediana até a conclusão (líquida)",
-      "reopen_rate": "Reabertura",
-      "overtime_rate": "% de hora extra",
-      "hours_per_ticket": "Horas por chamado",
-      "completion_rate": "Taxa de conclusão",
-      "tasks_per_workday": "Tarefas por dia útil"
+      "reopen_rate": "Reabertura"
     },
-    "medias": {
-      "lead_time": "Média até a conclusão",
-      "net_lead_time": "Média até a conclusão (líquida)"
-    },
-    "acimaDe100": "Acima de 100%: concluiu mais do que registrou.",
     "dimensoes": {
       "person": "pessoa",
       "client": "cliente",
@@ -517,167 +498,15 @@
       "status": "status",
       "day": "dia",
       "week": "semana",
-      "month": "mês",
-      "age": "idade",
-      "weekday": "dia da semana",
-      "hour": "hora do dia",
-      "weekday_hour": "dia da semana e hora"
+      "age": "idade"
     },
-    "diasDaSemana": {
-      "seg": "Segunda-feira",
-      "ter": "Terça-feira",
-      "qua": "Quarta-feira",
-      "qui": "Quinta-feira",
-      "sex": "Sexta-feira",
-      "sab": "Sábado",
-      "dom": "Domingo"
-    },
-    "hora": "{h}h",
-    "mapa": {
-      "nada": "Nada",
-      "ate": "até {valor}",
-      "legenda": "Legenda do mapa de calor"
-    },
-    "referencia": {
-      "mean": "Média: {valor}",
-      "median": "Mediana: {valor}"
-    },
-    "visuais": {
-      "cards": "Cartões",
-      "bars": "Barras",
-      "columns": "Colunas",
-      "line": "Linha",
-      "combo": "Barras + linha",
-      "table": "Tabela",
-      "heatmap": "Mapa de calor (dia da semana × hora)",
-      "tasks": "Lista de tarefas",
-      "stacked": "Colunas empilhadas (horas)"
-    },
-    "ordens": {
-      "desc": "Maior primeiro",
-      "asc": "Menor primeiro",
-      "name": "Por nome"
-    },
-    "editor": {
-      "novo": "Novo modelo",
-      "editar": "Editar modelo",
-      "nome": "Nome",
-      "horas": "Horas",
-      "formatoHm": "Horas e minutos (7h30)",
-      "formatoDecimal": "Decimal (7,5 h)",
-      "inicial": "Abrir este modelo ao entrar em Relatórios",
-      "filtrosNovo": "O período e os filtros da tela entram no modelo. Para mudá-los depois, ajuste a tela e use Salvar filtros.",
-      "filtrosEditar": "O período e os filtros do modelo se ajustam na tela, com Salvar filtros.",
-      "blocos": "Blocos",
-      "bloco": "Bloco {n}",
-      "subir": "Subir o bloco {n}",
-      "descer": "Descer o bloco {n}",
-      "remover": "Remover o bloco {n}",
-      "visual": "Visual",
-      "titulo": "Título",
-      "semTitulo": "Sem título",
-      "agrupar": "Agrupar por",
-      "medida": "Medida",
-      "medidas": "Medidas",
-      "maiores": "Só os maiores",
-      "maioresDica": "Vazio mostra todos; o resto entra em Outros.",
-      "ordem": "Ordem",
-      "soExtras": "Só as tarefas fora do expediente",
-      "adicionar": "Adicionar bloco",
-      "semBlocos": "Adicione ao menos um bloco.",
-      "excluir": "Excluir modelo",
-      "excluirAviso": "O modelo {nome} sai da sua lista. Os números não mudam: eles vêm dos chamados.",
-      "salvo": "Modelo salvo.",
-      "excluido": "Modelo excluído.",
-      "copiaDe": "Cópia de {nome}",
-      "empilhadasAjuda": "Mostra as horas no expediente e as horas extras, uma sobre a outra.",
-      "publico": "Público",
-      "publicos": {
-        "internal": "Interno",
-        "client": "Cliente (PDF para enviar)"
-      },
-      "atendeu": "Mostrar quem atendeu (os responsáveis)",
-      "clienteAjuda": "O relatório para o cliente tem a abertura, os totais, os chamados do período e as observações, sem horas extras, grupos nem o texto das tarefas. Os blocos ficam guardados, para quando o modelo voltar a ser interno.",
-      "previa": "Prévia, de {de} a {ate}:",
-      "previaSemPeriodo": "Prévia:",
-      "agregacao": "Tempos até a conclusão",
-      "agregacoes": {
-        "median": "Mediana",
-        "mean": "Média"
-      },
-      "referencia": "Linha de referência",
-      "referencias": {
-        "none": "Nenhuma",
-        "mean": "Média dos pontos",
-        "median": "Mediana dos pontos"
-      },
-      "area": "Preencher a área sob a linha",
-      "medidaBarras": "Medida das barras",
-      "medidaLinha": "Medida da linha",
-      "grande": "Número grande (com a variação e a tendência)",
-      "periodo": "Período do bloco",
-      "periodoDaTela": "O da tela",
-      "filtroDoBloco": "Filtro do bloco",
-      "filtroDoBlocoAjuda": "Restringe o filtro da tela: com valores nos dois, vale o que eles têm em comum; sem nenhum aqui, vale o da tela.",
-      "comoNaTela": "Como na tela",
-      "largura": "Largura",
-      "larguras": {
-        "auto": "Automática",
-        "half": "Meia linha",
-        "full": "Linha inteira"
-      },
-      "altura": "Altura",
-      "alturas": {
-        "s": "Baixa",
-        "m": "Média",
-        "l": "Alta"
-      },
-      "cor": "Cor",
-      "cores": {
-        "chart-1": "A da instalação",
-        "chart-2": "Segunda cor dos gráficos",
-        "chart-3": "Terceira cor dos gráficos",
-        "chart-4": "Quarta cor dos gráficos"
-      },
-      "horasDoModelo": "As do modelo",
-      "casas": "Casas decimais",
-      "casasPadrao": "As de sempre",
-      "casasN": "{n}",
-      "semOutros": "Esconder a linha Outros (o total continua com todos)",
-      "colunas": "Colunas",
-      "ordemDasMedidas": "Ordem das medidas",
-      "subirMedida": "Subir {medida}",
-      "descerMedida": "Descer {medida}",
-      "descricao": "Descrição",
-      "descricaoDica": "Uma frase sobre o que o modelo mostra: aparece abaixo do título, na tela e no PDF, e na dica da aba.",
-      "pdf": "PDF",
-      "orientacao": "Orientação",
-      "orientacoes": {
-        "portrait": "Retrato (A4 em pé)",
-        "landscape": "Paisagem (A4 deitado)"
-      },
-      "tituloPdf": "Título do PDF",
-      "tituloPdfVazio": "Sem título",
-      "rodape": "Rodapé",
-      "rodapeDica": "Um texto em cada página, acima da data de geração e do número da página. Vazio: só a data e o número.",
-      "foraDoPdf": "Deixar fora do PDF (continua na tela e no CSV)",
-      "cliente": {
-        "abertura": "Texto de abertura",
-        "aberturaDica": "Aparece logo abaixo do cliente e do período. Vazio: nada.",
-        "observacoes": "Observações",
-        "observacoesDica": "Aparecem no fim, depois da lista de chamados. Vazio: nada.",
-        "semHoras": "Esconder as horas (a coluna e o total)"
-      }
-    },
+    "bloco": "Bloco {n}",
     "idades": {
       "0": "até 1 dia",
       "1": "1 a 3 dias",
       "2": "3 a 7 dias",
       "3": "mais de 7 dias"
     },
-    "noExpediente": "No expediente",
-    "tituloEmpilhado": "Horas por {dimensao}: no expediente e extras",
-    "tituloCombo": "{primeira} e {segunda} por {dimensao}",
     "cascata": {
       "campo": "Cascata",
       "dica": "Tira da lista de clientes os que já tiveram relatório seu hoje (PDF baixado)."
@@ -750,21 +579,6 @@
         "idade": "Idade"
       }
     },
-    "paraCliente": {
-      "titulo": "Relatório de atendimento",
-      "umCliente": "O relatório para o cliente precisa de um cliente, e só um, no filtro de cliente.",
-      "previa": "Prévia do relatório para {cliente}: os mesmos textos do PDF, sem as quebras de página.",
-      "gerado": "Gerado em {quando}",
-      "colunas": {
-        "chamado": "Chamado",
-        "titulo": "Título",
-        "registrado": "Registrado em",
-        "concluido": "Concluído em",
-        "status": "Status",
-        "horas": "Horas",
-        "atendeu": "Atendido por"
-      }
-    },
     "pdf": {
       "periodo": "Período: {de} a {ate}",
       "gerado": "Gerado em {quando}",
@@ -772,20 +586,6 @@
       "pagina": "Página {n} de {total}",
       "continua": "{titulo} (continuação)",
       "resumo": "Resumo do período"
-    },
-    "filtroNaoCombina": "O filtro deste bloco ({filtro}) não combina com o da tela.",
-    "filtroDoBlocoInvalido": "Partes do filtro deste bloco não valem mais para você e ficaram de fora: {filtros}.",
-    "totalComTodos": "Total do período, com todos",
-    "abasSalvas": "Abas salvas.",
-    "organizarAbas": {
-      "menu": "Organizar abas",
-      "titulo": "Organizar abas",
-      "ajuda": "A ordem e as abas que aparecem em Relatórios valem só para você. Uma aba escondida continua abrindo pelo link. O modelo inicial sempre aparece.",
-      "mostrar": "Mostrar",
-      "mostrarAba": "Mostrar a aba {nome}",
-      "subir": "Subir a aba {nome}",
-      "descer": "Descer a aba {nome}",
-      "inicial": "O modelo inicial sempre aparece."
     },
     "descricoes": {
       "produtividade": "Horas, horas extras, tarefas e chamados concluídos de cada pessoa.",
@@ -876,7 +676,7 @@
     "logotipoGrande": "A imagem passa de 256 KB.",
     "logotipoTipo": "Envie uma imagem PNG, JPEG ou WebP.",
     "logotipoRelatorios": "Logotipo dos relatórios",
-    "logotipoRelatoriosDescricao": "Aparece no cabeçalho dos PDFs de relatório e na prévia do relatório para o cliente, separado do logotipo do menu. PNG, JPEG ou WebP, até 256 KB.",
+    "logotipoRelatoriosDescricao": "Aparece no cabeçalho dos PDFs de relatório, separado do logotipo do menu. PNG, JPEG ou WebP, até 256 KB.",
     "semLogotipoRelatorios": "Sem logotipo: os PDFs saem só com o título.",
     "predefinidas": "Combinações prontas",
     "predefinidasDica": "Escolha uma para preencher as três cores; confira na prévia e salve.",
@@ -906,7 +706,7 @@
   },
   "filtrosRelatorios": {
     "titulo": "Filtros dos relatórios",
-    "descricao": "Os filtros que aparecem na tela de Relatórios, para todas as pessoas. Desligado, o campo some e o relatório usa o valor do modelo.",
+    "descricao": "Os filtros que aparecem na tela de Relatórios, para todas as pessoas. Desligado, o campo some e o relatório usa o valor padrão da aba.",
     "salvar": "Salvar filtros"
   },
   "statusConfig": {

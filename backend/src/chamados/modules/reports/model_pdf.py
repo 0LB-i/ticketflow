@@ -1,5 +1,5 @@
-"""PDF de um modelo de relatório, o relatório para o cliente (docs/14 §14.8.5 e §14.8.6) e o
-relatório de horas da API (§14.7, `render_hours`).
+"""PDF de uma aba de Relatórios (docs/14 §14.8.6) e o relatório de horas da API (§14.7,
+`render_hours`).
 
 O desenho recebe os textos prontos, já traduzidos e formatados por quem chama (a tela,
 web/reports_downloads.py, que é quem sabe o idioma e o formato das horas). A exceção é o PDF da
@@ -7,23 +7,23 @@ API (`GET /reports/pdf`), que não passa pela tela: `render_hours` monta os bloc
 partir do `service.build`, com os textos de `HOURS_TEXTS` (os módulos não dependem de web/, onde
 estão os catálogos da tela). Os gráficos são desenhados no próprio ReportLab, em vetor, como os
 da tela e com as mesmas cores de série do modo claro (`Series`, web/palette.py). A fonte é a
-Liberation Sans, que vem junto (fonts/), sem pacotes do sistema. A página (A4 em pé ou deitado)
-e o rodapé de cada uma, com o número dela, vêm em `Page`.
+Liberation Sans, que vem junto (fonts/), sem pacotes do sistema. A página é A4 em pé; o rodapé
+de cada uma, com o número dela, vem em `Page`.
 """
 
 import io
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal
 from xml.sax.saxutils import escape
 
-from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, PolyLine, Rect, String
+from reportlab.graphics.shapes import Circle, Drawing, Line, PolyLine, Rect, String
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.lib.utils import ImageReader, simpleSplit
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import registerFont, registerFontFamily, stringWidth
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
@@ -55,10 +55,9 @@ CHART_HEIGHT = 48 * mm
 FOOT_SIZE = 7.5  # o corpo do rodapé de cada página
 FOOT_LEADING = 9
 FOOT_BASE = 10 * mm  # a linha de baixo do rodapé, a partir da borda da folha
-FOOT_LINES = 3  # o texto livre do rodapé, no máximo em três linhas
 BARS = 20  # as barras de cada desenho: um desenho não se divide entre as páginas
 
-# A Liberation Sans tem as medidas da Helvetica (a da prévia do relatório para o cliente) e o que
+# A Liberation Sans tem as medidas da Helvetica e o que
 # as fontes padrão do PDF não têm: o sinal de menos, o Δ, o latim de outras línguas, o grego e o
 # cirílico. Emoji e ideogramas, não (saem como um retângulo vazio).
 FONT, BOLD = "LiberationSans", "LiberationSans-Bold"
@@ -70,60 +69,39 @@ registerFontFamily(FONT, normal=FONT, bold=BOLD, italic=FONT, boldItalic=BOLD)
 
 @dataclass
 class Page:
-    """A página e o rodapé de cada uma: `generated` ("Gerado em…") à esquerda e `numbering` à
-    direita ("Página {n} de {total}", com os marcadores), e, acima deles, o texto livre do
-    modelo (`footer`; vazio, nada). `continued`: o título de uma tabela que passa para a página
-    seguinte, com o marcador {titulo}."""
+    """O rodapé de cada página: `generated` ("Gerado em…") à esquerda e `numbering` à direita
+    ("Página {n} de {total}", com os marcadores). `continued`: o título de uma tabela que passa
+    para a página seguinte, com o marcador {titulo}."""
 
     generated: str
     numbering: str
-    footer: str = ""
-    landscape: bool = False
     continued: str = "{titulo}"
-
-    @property
-    def size(self) -> tuple[float, float]:
-        return landscape(A4) if self.landscape else A4
 
     @property
     def width(self) -> float:
         """A largura útil (sem as margens): a dos blocos."""
-        return self.size[0] - 2 * MARGIN
-
-    def footer_lines(self) -> list[str]:
-        if not self.footer.strip():
-            return []
-        lines = simpleSplit(self.footer, FONT, FOOT_SIZE, self.width)
-        return list(lines[:FOOT_LINES])
+        return A4[0] - 2 * MARGIN
 
 
 @dataclass
 class Cards:
     title: str
     items: list[tuple[str, str, str]]  # rótulo, valor, nota (a comparação; vazia sem ela)
-    big: bool = False  # o número grande (uma medida só)
-    subtitle: str = ""  # o período e o filtro próprios do bloco (vazio sem eles)
 
 
 @dataclass
 class Chart:
-    """Um gráfico: `kind` é bars, columns, stacked, line ou combo. Cada ponto é (rótulo, valor,
-    parte de cima nas empilhadas ou o valor da linha nas barras + linha, valor escrito);
+    """Um gráfico: `kind` é bars, columns ou line. Cada ponto é (rótulo, valor, valor escrito);
     `ticks`, as marcas do eixo (valor, texto); `before`, o valor do período comparado na
     posição de cada ponto (comparar; None onde não há), desenhado mais claro."""
 
     title: str
     kind: str
-    points: list[tuple[str, int, int, str]]
+    points: list[tuple[str, int, str]]
     ticks: list[tuple[int, str]] = field(default_factory=list)
     legend: tuple[str, str] | None = None
     empty: str = ""
     before: list[int | None] = field(default_factory=list)
-    reference: tuple[int, str] | None = None  # a linha de referência: o valor e o nome
-    area: bool = False  # a linha com a área preenchida
-    subtitle: str = ""
-    scale: float = 1.0  # a altura escolhida no bloco, sobre a média (CHART_HEIGHT)
-    color: str = "chart-1"  # o token da cor da série (`Series.named`)
 
 
 @dataclass
@@ -137,37 +115,18 @@ class Grid:
     total_label: str = ""
     empty: str = ""
     note: str = ""
-    subtitle: str = ""
 
 
-@dataclass
-class Heatmap:
-    """O mapa de calor: as horas (rótulos de cima), cada dia (rótulo e o tom de cada hora, de 0,
-    sem nada, a 5) e a legenda (tom, texto)."""
-
-    title: str
-    hours: list[str]
-    days: list[tuple[str, list[int]]]
-    legend: list[tuple[int, str]]
-    empty: str = ""
-    subtitle: str = ""
-    scale: float = 1.0  # a altura das linhas, sobre a média
-
-
-Block = Cards | Chart | Grid | Heatmap
+Block = Cards | Chart | Grid
 
 
 @dataclass
 class Series:
-    """As cores dos gráficos: a série (`chart-1`, a primary, ou a cor do bloco), as horas extras
-    das colunas empilhadas e a linha das barras + linha (`chart-2`) e o período comparado
-    (`chart-before`); `named`, as de cada token, para a cor escolhida no bloco (`Chart.color`)."""
+    """As cores dos gráficos: a série (`chart-1`, a primary) e o período comparado
+    (`chart-before`)."""
 
     first: colors.Color
-    second: colors.Color
     before: colors.Color
-    heat: list[colors.Color] = field(default_factory=list)  # `heat-1` a `heat-5`
-    named: dict[str, colors.Color] = field(default_factory=dict)
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -183,7 +142,6 @@ def _styles() -> dict[str, ParagraphStyle]:
             "company_name", parent=body, fontName=BOLD, fontSize=15, leading=18
         ),
         "value": ParagraphStyle("value", parent=body, fontName=BOLD, fontSize=14, leading=18),
-        "big": ParagraphStyle("big", parent=body, fontName=BOLD, fontSize=32, leading=38),
         "h1": ParagraphStyle(
             "h1", parent=sheet["Heading1"], fontName=BOLD, fontSize=16, textColor=INK, spaceAfter=2
         ),
@@ -204,11 +162,8 @@ def _p(text: str, style: ParagraphStyle) -> Paragraph:
 
 
 def _head(block: Block, st: dict[str, ParagraphStyle]) -> list[Flowable]:
-    """O título do bloco e, quando ele tem período ou filtro próprio, o subtítulo que os diz."""
-    flow: list[Flowable] = [_p(block.title, st["h2"])] if block.title else []
-    if block.subtitle:
-        flow.append(_p(block.subtitle, st["muted"]))
-    return flow
+    """O título do bloco, quando ele tem."""
+    return [_p(block.title, st["h2"])] if block.title else []
 
 
 PADDING = 12  # o respiro de uma célula da tabela (6 pt de cada lado, o padrão do ReportLab)
@@ -293,7 +248,7 @@ def _cards(block: Cards, st: dict[str, ParagraphStyle], width: float) -> list[Fl
     cells = [
         [
             _p(label, st["muted"]),
-            _p(value, st["big" if block.big else "value"]),
+            _p(value, st["value"]),
             *([_p(note, st["muted"])] if note else []),
         ]
         for label, value, note in block.items
@@ -353,7 +308,7 @@ def _bars(block: Chart, primary: colors.Color, width: float) -> list[Flowable]:
     for start in range(0, len(block.points), BARS):
         part = block.points[start : start + BARS]
         drawing = Drawing(width, row * len(part) + 2)
-        for i, (label, value, _, text) in enumerate(part):
+        for i, (label, value, text) in enumerate(part):
             y = drawing.height - (i + 1) * row
             drawing.add(_text(0, y + 3, _fit(label, label_width - 3 * mm, 8), 8, INK))
             length = value / top * area
@@ -368,7 +323,7 @@ def _columns(block: Chart, series: Series, page_width: float) -> Drawing:
     primary = series.first
     axis = 16 * mm
     bottom = 10
-    full = CHART_HEIGHT * block.scale
+    full = CHART_HEIGHT
     height = full - bottom
     area = page_width - axis
     drawing = Drawing(page_width, full)
@@ -382,8 +337,7 @@ def _columns(block: Chart, series: Series, page_width: float) -> Drawing:
     every = max(1, -(-count // 6))  # uns seis rótulos embaixo
     line: list[float] = []
     old: list[float] = []  # a linha de antes
-    second: list[float] = []  # a linha das barras + linha
-    for i, (label, value, extra, _) in enumerate(block.points):
+    for i, (label, value, _) in enumerate(block.points):
         x = axis + i * slot
         if i % every == 0:
             drawing.add(_text(x + slot / 2, 0, _short(label, 14), anchor="middle"))
@@ -401,37 +355,12 @@ def _columns(block: Chart, series: Series, page_width: float) -> Drawing:
             if before:
                 drawing.add(_rect(left, bottom, width, before / top * height, series.before))
             left += width
-        if block.kind == "combo":
-            second += [x + slot / 2, bottom + extra / top * height]
-        if block.kind == "stacked" and value:
-            lower = (value - extra) / top * height
-            drawing.add(_rect(left, bottom, width, lower, primary))
-            drawing.add(_rect(left, bottom + lower, width, h - lower, series.second))
-        elif value:
+        if value:
             drawing.add(_rect(left, bottom, width, h, primary))
-    if block.reference is not None:
-        value, text = block.reference
-        y = bottom + value / top * height
-        drawing.add(
-            Line(axis, y, page_width, y, strokeColor=MUTED, strokeWidth=1, strokeDashArray=[4, 3])
-        )
-        # O nome acima da linha; no topo do gráfico, abaixo dela, para não sair do desenho.
-        drawing.add(_text(page_width, y + 2 if y + 10 < full else y - 8, text, anchor="end"))
-    if line and block.area:
-        fill = colors.Color(primary.red, primary.green, primary.blue, alpha=0.15)
-        drawing.add(
-            Polygon([line[0], bottom, *line, line[-2], bottom], fillColor=fill, strokeWidth=0)
-        )
     if len(old) >= 4:
         drawing.add(
             PolyLine(old, strokeColor=series.before, strokeWidth=1.5, strokeDashArray=[3, 2])
         )
-    if second:
-        drawing.add(PolyLine(second, strokeColor=series.second, strokeWidth=1.5))
-        for j in range(0, len(second), 2):
-            drawing.add(
-                Circle(second[j], second[j + 1], 1.8, fillColor=series.second, strokeWidth=0)
-            )
     if line:
         drawing.add(PolyLine(line, strokeColor=primary, strokeWidth=1.5))
         for j in range(0, len(line), 2):
@@ -445,7 +374,6 @@ def _chart(
     flow = _head(block, st)
     if not block.points:
         return [*flow, _p(block.empty, st["muted"])]
-    series = replace(series, first=series.named.get(block.color, series.first))
     # O título fica com o primeiro desenho; os outros pedaços das barras seguem soltos.
     rest: list[Flowable] = []
     if block.kind == "bars":
@@ -456,8 +384,7 @@ def _chart(
     if block.legend:
         legend = Drawing(width, 16)  # 4 pt de respiro acima, longe dos rótulos do eixo
         x = 0.0
-        second = series.second if block.kind in ("stacked", "combo") else series.before
-        for color, label in zip((series.first, second), block.legend, strict=True):
+        for color, label in zip((series.first, series.before), block.legend, strict=True):
             legend.add(_rect(x, 2, 7, 7, color))
             legend.add(_text(x + 10, 3, label, size=8))
             x += 10 + stringWidth(label, FONT, 8) + 12
@@ -465,52 +392,14 @@ def _chart(
     return [KeepTogether(flow), *rest]
 
 
-def _heatmap(
-    block: Heatmap, st: dict[str, ParagraphStyle], series: Series, width: float
-) -> list[Flowable]:
-    flow = _head(block, st)
-    if not block.legend:
-        return [*flow, _p(block.empty, st["muted"])]
-    label = 10 * mm
-    cell = (width - label) / len(block.hours)
-    row = 5 * mm * block.scale
-    tones = [colors.white, *series.heat]  # sem nada, a célula vazia, só com a borda
-    drawing = Drawing(width, row * (len(block.days) + 1))
-    for i, hour in enumerate(block.hours):
-        if i % 3 == 0:
-            drawing.add(
-                _text(label + i * cell + cell / 2, drawing.height - 8, hour, anchor="middle")
-            )
-    for d, (name, levels) in enumerate(block.days):
-        y = drawing.height - (d + 2) * row
-        drawing.add(_text(0, y + 4, name))
-        for i, level in enumerate(levels):
-            box = _rect(label + i * cell + 0.4, y + 0.4, cell - 0.8, row - 0.8, tones[level])
-            if not level:
-                box.strokeColor, box.strokeWidth = RULE, 0.5
-            drawing.add(box)
-    legend = Drawing(width, 12)
-    x = 0.0
-    for level, text in block.legend:
-        swatch = _rect(x, 2, 7, 7, tones[level])
-        if not level:
-            swatch.strokeColor, swatch.strokeWidth = RULE, 0.5
-        legend.add(swatch)
-        legend.add(_text(x + 10, 3, text, size=8))
-        x += 10 + stringWidth(text, FONT, 8) + 12
-    return [KeepTogether([*flow, drawing, legend])]
-
-
 def _footer(canvas: Canvas, page: Page, number: int, total: int) -> None:
-    """O rodapé de uma página: o texto livre do modelo, o "Gerado em…" e o número da página."""
+    """O rodapé de uma página: o "Gerado em…" e o número da página."""
     canvas.saveState()
     canvas.setFont(FONT, FOOT_SIZE)
     canvas.setFillColor(MUTED)
     canvas.drawString(MARGIN, FOOT_BASE, page.generated)
     numbering = page.numbering.replace("{n}", str(number)).replace("{total}", str(total))
     canvas.drawRightString(MARGIN + page.width, FOOT_BASE, numbering)
-    for k, line in enumerate(reversed(page.footer_lines()), 1):
-        canvas.drawString(MARGIN, FOOT_BASE + k * FOOT_LEADING, line)
     canvas.restoreState()
 
 
@@ -539,11 +428,11 @@ def _numbered(page: Page) -> type[Canvas]:
 
 def _document(story: list[Flowable], title: str, page: Page) -> bytes:
     buffer = io.BytesIO()
-    # O rodapé ocupa a linha do "Gerado em…" e as do texto livre, com um respiro acima.
-    footer = FOOT_BASE + FOOT_LEADING * (len(page.footer_lines()) + 1) + 4 * mm
+    # O rodapé ocupa a linha do "Gerado em…", com um respiro acima.
+    footer = FOOT_BASE + FOOT_LEADING + 4 * mm
     doc = BaseDocTemplate(
         buffer,
-        pagesize=page.size,
+        pagesize=A4,
         leftMargin=MARGIN,
         rightMargin=MARGIN,
         topMargin=MARGIN,
@@ -565,25 +454,17 @@ def render_model(
     lines: list[str],
     blocks: list[Block],
     page: Page,
-    series: dict[str, str],
-    heat: tuple[str, ...],
+    series: tuple[str, str],
     logo: bytes | None = None,
     company: list[str] | None = None,
 ) -> bytes:
-    """O PDF de um modelo: o cabeçalho (`_heading`), embaixo dele o título (vazio, nenhum) e as
-    linhas (descrição, período, filtros, expediente), os blocos na ordem e, em cada página, o rodapé
-    (`page`). `series`: as cores da paleta por token (`chart-1` a `chart-4` e
-    `chart-before`); `heat`, as do mapa de calor."""
+    """O PDF de uma aba: o cabeçalho (`_heading`), embaixo dele o título (vazio, nenhum) e as
+    linhas (descrição, período, filtros, expediente), os blocos na ordem e, em cada página, o
+    rodapé (`page`). `series`: as cores da série (`chart-1`) e do período comparado
+    (`chart-before`)."""
     st = _styles()
     width = page.width
-    named = {token: colors.HexColor(c) for token, c in series.items()}
-    palette = Series(
-        named["chart-1"],
-        named["chart-2"],
-        named["chart-before"],
-        [colors.HexColor(c) for c in heat],
-        named,
-    )
+    palette = Series(*(colors.HexColor(c) for c in series))
     story = _heading(logo, width, company)
     if title:
         story.append(_p(title, st["h1"]))
@@ -594,8 +475,6 @@ def render_model(
             story += _cards(block, st, width)
         elif isinstance(block, Chart):
             story += _chart(block, st, palette, width)
-        elif isinstance(block, Heatmap):
-            story += _heatmap(block, st, palette, width)
         else:
             story += _grid(block, st, width, page.continued)
     return _document(story, title, page)
@@ -625,40 +504,6 @@ def _heading(logo: bytes | None, width: float, company: list[str] | None = None)
         TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (0, 0), 0)])
     )
     return [header, Spacer(1, 6)]
-
-
-def _free(text: str, style: ParagraphStyle) -> list[Flowable]:
-    """Um texto livre do modelo (escapado), com as quebras de linha de quem escreveu."""
-    if not text.strip():
-        return []
-    return [Paragraph(escape(text.strip()).replace("\n", "<br/>"), style)]
-
-
-def render_client(
-    logo: bytes | None,
-    title: str,
-    lines: list[str],
-    intro: str,
-    totals: list[tuple[str, str]],
-    tickets: Grid,
-    notes: str,
-    page: Page,
-    company: list[str] | None = None,
-) -> bytes:
-    """O relatório para o cliente: o cabeçalho (`_heading`), o título, o cliente e o período, o
-    texto de abertura, os totais, os chamados e as observações. Nada de organização interna (quem
-    chama já deixou de fora)."""
-    st = _styles()
-    width = page.width
-    story = _heading(logo, width, company)
-    story += [_p(title, st["h1"]), *(_p(line, st["body"]) for line in lines)]
-    if intro.strip():
-        story += [Spacer(1, 8), *_free(intro, st["body"])]
-    story += _cards(Cards("", [(label, value, "") for label, value in totals]), st, width)
-    story += [Spacer(1, 4), *_grid(tickets, st, width)]
-    if notes.strip():
-        story += [Spacer(1, 8), *_free(notes, st["body"])]
-    return _document(story, title, page)
 
 
 # --- O PDF da API (§14.7) --------------------------------------------------------------------
@@ -871,5 +716,4 @@ def render_hours(
         continued=t["continued"],
     )
     # As cores não importam: o PDF da API não tem gráficos.
-    black = {token: "#000000" for token in ("chart-1", "chart-2", "chart-before")}
-    return render_model(t["title"], lines, blocks, page, black, (), logo, company)
+    return render_model(t["title"], lines, blocks, page, ("#000000", "#000000"), logo, company)

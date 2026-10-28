@@ -1,6 +1,6 @@
-"""Relatórios: os downloads da tela (docs/14 §14.8.4 a §14.8.6), com os mesmos filtros e o
-idioma da pessoa: o PDF de um modelo (ou o relatório para o cliente), o CSV de um bloco e a lista
-dos chamados por trás de um número (detalhar), com o CSV dela. Todo download vai para a
+"""Relatórios: os downloads da tela (docs/14 §14.8.4 e §14.8.6), com os mesmos filtros e o
+idioma da pessoa: o PDF de uma aba, o CSV de um bloco e a lista dos chamados por trás de um
+número (detalhar), com o CSV dela. Todo download vai para a
 auditoria (`report.exported`).
 """
 
@@ -16,7 +16,7 @@ from chamados.core.i18n import Locale
 from chamados.db.session import DB
 from chamados.modules.reports import builder, csv_export, history, model_pdf, service
 from chamados.modules.reports import router as reports_api
-from chamados.modules.reports.builder import CHARTS, ELAPSED, TICKET_SETS
+from chamados.modules.reports.builder import CHARTS, TICKET_SETS
 from chamados.modules.system.company import get_letterhead
 from chamados.modules.system.service import get_report_logo
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_elapsed
@@ -27,9 +27,8 @@ from chamados.web.reports_blocks import (
     Format,
     Point,
     block_view,
-    client_preview,
     formatter,
-    scopes,
+    scope,
     uses_overtime,
     work_hours_line,
 )
@@ -44,13 +43,10 @@ from chamados.web.reports_state import (
 
 router = APIRouter()
 
-# A altura escolhida no bloco (`Block.height`) sobre a média, como na tela (h-28, h-40, h-56).
-SCALE = {"s": 0.7, "m": 1.0, "l": 1.4}
-
 
 def _ticks(points: list[Point], step: int, fmt: Format) -> list[tuple[int, str]]:
     """As marcas do eixo, como as do _charts.html: o topo, a metade e o zero."""
-    highest = max((max(p.value, p.before or 0, p.extra) for p in points), default=0)
+    highest = max((max(p.value, p.before or 0) for p in points), default=0)
     top = max(step, -(-highest // step) * step)
     return [(top, fmt(top)), (top // 2, fmt(top // 2)), (0, fmt(0))]
 
@@ -60,12 +56,7 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
     blocks: list[model_pdf.Block] = []
     for v in views:
         visual = v["visual"]
-        # O período e o filtro próprios do bloco, quando ele tem, debaixo do título.
-        # O aviso do filtro do bloco que deixou de valer vai junto.
-        subtitle = " · ".join(p for p in (v["period"], v["warning"]) if p) if v["own"] else ""
-        if "message" in v:  # o filtro do bloco não combina com o da tela
-            blocks.append(model_pdf.Grid(v["title"], [], [], empty=v["message"], subtitle=subtitle))
-        elif visual == "cards":
+        if visual == "cards":
             items = []
             for card in v["cards"]:
                 note = ""
@@ -79,40 +70,19 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                         if card["change"]
                         else page.t("relatorios.comparacao.soAntes", anterior=card["before"])
                     )
-                if card.get("hint"):
-                    note = f"{note} · {card['hint']}" if note else card["hint"]
                 items.append((card["label"], card["value"], note))
-            blocks.append(
-                model_pdf.Cards(v["title"], items, big=v.get("big", False), subtitle=subtitle)
-            )
+            blocks.append(model_pdf.Cards(v["title"], items))
         elif visual in CHARTS:
             fmt = v["fmt"]
             blocks.append(
                 model_pdf.Chart(
                     v["title"],
                     visual,
-                    [(p.label, p.value, p.extra, fmt(p.value)) for p in v["points"]],
+                    [(p.label, p.value, fmt(p.value)) for p in v["points"]],
                     ticks=_ticks(v["points"], v["step"], fmt),
-                    legend=v.get("labels") or v.get("legend"),
-                    empty=v.get("empty", ""),
-                    before=[p.before for p in v["points"]] if "legend" in v else [],
-                    reference=v.get("reference"),
-                    area=v.get("area", False),
-                    subtitle=subtitle,
-                    scale=SCALE[v["height"]],
-                    color=v["color"],
-                )
-            )
-        elif visual == "heatmap":
-            blocks.append(
-                model_pdf.Heatmap(
-                    v["title"],
-                    v["hours"],
-                    [(short, [c["level"] for c in cells]) for short, _, cells in v["days"]],
-                    v["legend"],
+                    legend=v.get("legend"),
                     empty=v["empty"],
-                    subtitle=subtitle,
-                    scale=SCALE[v["height"]],
+                    before=[p.before for p in v["points"]] if "legend" in v else [],
                 )
             )
         elif visual == "table":
@@ -124,11 +94,10 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     total=[text for text, _ in v["total"]],
                     total_label=v["total_label"],
                     empty=page.t("relatorios.nada"),
-                    subtitle=subtitle,
                 )
             )
         else:
-            # As colunas escolhidas no bloco, como na tela; o chamado é o número e o título.
+            # As colunas da tela; o chamado é o número e o título.
             texts: dict[str, Callable[[dict[str, Any]], str]] = {
                 "when": lambda t: format_datetime(page.locale, t["done_at"]),
                 "ticket": lambda t: f"#{t['number']} {t['title']}",
@@ -146,7 +115,6 @@ def _pdf_blocks(page: LoggedPage, views: list[dict[str, Any]]) -> list[model_pdf
                     note=page.t("relatorios.listaCortada", n=len(v["tasks"]), total=v["count"])
                     if v["count"] > len(v["tasks"])
                     else "",
-                    subtitle=subtitle,
                 )
             )
     return blocks
@@ -166,7 +134,7 @@ def _filters_line(page: LoggedPage, state: State) -> str:
 
 
 async def _client_tasks(
-    page: LoggedPage, db: DB, state: State, f: service.Filters, config: builder.ReportConfig
+    page: LoggedPage, db: DB, state: State, f: service.Filters
 ) -> list[model_pdf.Block]:
     """O PDF detalhado da aba Clientes: uma tabela por cliente (pelo nome, "Sem cliente" no
     fim) com cada tarefa do período (o dia, o chamado e o tempo; antes dele, com a hora extra
@@ -175,7 +143,7 @@ async def _client_tasks(
     tarefa, só o chamado: o texto dela pode ter anotações internas."""
     want = service.Want(rows={"tasks"}, sums={"excess": set(), "discounted": set()})
     data = await service.facts(db, page.auth, f, want, state.lookups)
-    hours = formatter(page, config, "hours")
+    hours = formatter(page, "hours")
     by_client: dict[int | None, list[service.TaskFact]] = {}
     for t in data.tasks:
         by_client.setdefault(t.client_id, []).append(t)
@@ -229,12 +197,12 @@ async def _client_tasks(
 async def report_pdf(
     page: LoggedPageDep, db: DB, params: ParamsDep, detalhado: bool = False
 ) -> Response:
-    """O PDF do modelo aberto (§14.8.6) ou, num modelo para o cliente, o relatório para ele
-    (§14.8.5); com os filtros da tela, e vai para a auditoria. Na aba Clientes, `detalhado`
-    põe as tarefas de cada cliente antes dos blocos, que ficam como o resumo."""
+    """O PDF da aba aberta (§14.8.6), com os filtros da tela; vai para a auditoria. Na aba
+    Clientes, `detalhado` põe as tarefas de cada cliente antes dos blocos, que ficam como o
+    resumo."""
     state = await load_state(page, db, params)
     f, config = state.filters, state.choice.config
-    if state.error or f is None or config is None:
+    if state.error or f is None:
         raise HTTPException(422, "Não foi possível gerar o PDF com estes filtros.")
     locale = page.locale
     now = format_datetime(locale, datetime.now(TIMEZONE))
@@ -244,99 +212,54 @@ async def report_pdf(
     period = page.t(
         "relatorios.pdf.periodo", de=format_date(locale, f.start), ate=format_date(locale, f.end)
     )
-    # O logotipo dos relatórios e os dados da empresa (Empresa), no cabeçalho dos dois.
-    logo = await get_report_logo(db)
-    if config.audience == "client":
-        view = await client_preview(page, db, state, f, config)
-        if not view["ready"]:
-            raise HTTPException(422, "O relatório do cliente precisa de um cliente (só um).")
-        content = await run_in_threadpool(
-            model_pdf.render_client,
-            logo,
-            view["title"],
-            view["lines"],
-            view["intro"],
-            view["totals"],
-            model_pdf.Grid("", view["columns"], view["rows"], empty=page.t("relatorios.nada")),
-            view["notes"],
-            model_pdf.Page(view["footer"], numbering),
-            view["company"],
-        )
-        table = "client"
-    else:
-        # Só os blocos do PDF (`Block.in_pdf`); os de fora nem são calculados. Com um cliente
-        # só no filtro, os blocos por cliente (a tabela, as barras dos maiores) teriam só ele:
-        # ficam de fora também.
-        one_client = len(f.clients) == 1 and not f.no_client
-        blocks = [
-            b for b in config.blocks if b.in_pdf and not (one_client and b.dimension == "client")
-        ]
-        found = await scopes(page, db, state, blocks)
-        views = [
-            block_view(page, state, config, block, i, scope)
-            for i, (block, scope) in enumerate(zip(blocks, found, strict=True))
-        ]
-        # A descrição do modelo, logo abaixo do título; o período, o comparado e os filtros
-        # numa linha só.
-        when = [period]
-        if compared_period := state.comparison():
-            first, last = compared_period
-            when.append(
-                page.t(
-                    "relatorios.pdf.comparado",
-                    de=format_date(locale, first),
-                    ate=format_date(locale, last),
-                )
+    # Com um cliente só no filtro, os blocos por cliente (a tabela, as barras dos maiores) teriam
+    # só ele: ficam de fora.
+    one_client = len(f.clients) == 1 and not f.no_client
+    blocks = [b for b in config.blocks if not (one_client and b.dimension == "client")]
+    found = await scope(page, db, state, blocks)
+    views = [block_view(page, state, block, i, found) for i, block in enumerate(blocks)]
+    # A descrição da aba, logo abaixo do cabeçalho; o período, o comparado e os filtros numa
+    # linha só.
+    when = [period]
+    if compared_period := state.comparison():
+        first, last = compared_period
+        when.append(
+            page.t(
+                "relatorios.pdf.comparado",
+                de=format_date(locale, first),
+                ate=format_date(locale, last),
             )
-        when.append(_filters_line(page, state))
-        lines = [description_of(page, state.choice), " · ".join(w for w in when if w)]
-        if uses_overtime(blocks):  # o expediente usado, como na tela
-            lines.append(await work_hours_line(page, db, state, f))
-        colors = page.branding.colors
-        light = palette(colors.model_dump() if colors else None)["light"]
-        # As séries do modo claro, pelo nome do token (a `chart-1` é a primary).
-        series = {
-            "chart-1": light["primary"],
-            **{t: light[t] for t in ("chart-2", "chart-3", "chart-4", "chart-before")},
-        }
-        heat = tuple(light[f"heat-{k}"] for k in range(1, 6))
-        spec = config.pdf
-        pdf_blocks = _pdf_blocks(page, views)
-        table = "model"
-        if detalhado and state.choice.slug == "clientes" and state.choice.model is None:
-            # Os blocos, depois das tarefas, são o resumo (os cartões, que vêm primeiro, não
-            # têm título).
-            summary = pdf_blocks[0]
-            if not summary.title:
-                summary.title = page.t("relatorios.pdf.resumo")
-            pdf_blocks = [*await _client_tasks(page, db, state, f, config), *pdf_blocks]
-            table = "detailed"
-        content = await run_in_threadpool(
-            model_pdf.render_model,
-            spec.title,  # vazio, sem título: o nome do modelo não vai para o PDF
-            [line for line in lines if line],
-            pdf_blocks,
-            model_pdf.Page(
-                page.t("relatorios.pdf.gerado", quando=now),
-                numbering,
-                spec.footer,
-                spec.orientation == "landscape",
-                continued,
-            ),
-            series,
-            heat,
-            logo,
-            await get_letterhead(db),
         )
+    when.append(_filters_line(page, state))
+    lines = [description_of(page, state.choice), " · ".join(w for w in when if w)]
+    if uses_overtime(blocks):  # o expediente usado, como na tela
+        lines.append(await work_hours_line(page, db, state, f))
+    colors = page.branding.colors
+    light = palette(colors.model_dump() if colors else None)["light"]
+    pdf_blocks = _pdf_blocks(page, views)
+    table = "model"
+    if detalhado and state.choice.slug == "clientes":
+        # Os blocos, depois das tarefas, são o resumo (os cartões, que vêm primeiro, não têm
+        # título).
+        summary = pdf_blocks[0]
+        if not summary.title:
+            summary.title = page.t("relatorios.pdf.resumo")
+        pdf_blocks = [*await _client_tasks(page, db, state, f), *pdf_blocks]
+        table = "detailed"
+    content = await run_in_threadpool(
+        model_pdf.render_model,
+        "",  # sem título: o nome da aba não vai para o PDF
+        [line for line in lines if line],
+        pdf_blocks,
+        model_pdf.Page(page.t("relatorios.pdf.gerado", quando=now), numbering, continued),
+        (light["primary"], light["chart-before"]),
+        await get_report_logo(db),
+        await get_letterhead(db),
+    )
     reports_api.record_export(
         db, page.request, page.auth, f, format="pdf", table=table, model=state.choice.name
     )
-    if (
-        state.choice.slug == "clientes"
-        and state.choice.model is None
-        and len(f.clients) == 1
-        and not f.no_client
-    ):
+    if state.choice.slug == "clientes" and one_client:
         # O Histórico e a cascata: com as datas do período (um relativo, como o mês atual, seria
         # outro depois), sem a cascata, que é da tela.
         again = {
@@ -378,31 +301,20 @@ async def block_csv(
     """O CSV de um bloco (docs/14 §14.8.4), com os filtros da tela; vai para a auditoria."""
     state = await load_state(page, db, params)
     f, config = state.filters, state.choice.config
-    if state.error or f is None or config is None:
+    if state.error or f is None:
         raise HTTPException(422, "Não foi possível gerar o CSV com estes filtros.")
     if not 0 <= bloco < len(config.blocks):
         raise HTTPException(404)
     block = config.blocks[bloco]
-    # O período e os filtros do bloco (os próprios, quando ele tem), como na tela.
-    (scope,) = await scopes(page, db, state, [block])
-    if scope.filters is None or scope.data is None:
-        raise HTTPException(422, "Não foi possível gerar o CSV com estes filtros.")
-    f = scope.filters
-    result = builder.run(scope.data, block, f.start, f.end)
+    found = await scope(page, db, state, [block])
+    result = builder.run(found.data, block, f.start, f.end)
     # Com a comparação, o bloco no período comparado, como na tela (sem a lista de tarefas e
-    # sem as barras e as empilhadas, que não comparam).
+    # sem as barras, que não comparam).
     previous = None
-    if scope.before is not None and scope.comparison:
-        first, last = scope.comparison
-        previous = builder.run(scope.before, block, first, last)
-    content = csv_export.render_block(
-        scope.data,
-        result,
-        cast(Locale, page.locale),
-        previous,
-        block.decimals,
-        block.columns or builder.CSV_COLUMNS,
-    )
+    if found.before is not None and found.comparison:
+        first, last = found.comparison
+        previous = builder.run(found.before, block, first, last)
+    content = csv_export.render_block(found.data, result, cast(Locale, page.locale), previous)
     reports_api.record_export(
         db, page.request, page.auth, f, format="csv", table="block", model=state.choice.name
     )
@@ -422,7 +334,6 @@ async def ticket_list(
     params: ParamsDep,
     medida: str,
     formato: str | None = None,
-    agregacao: str | None = None,
 ) -> Response:
     """Os chamados por trás de um número (detalhar, docs/14 §14.8.3), com os filtros da tela, e
     o CSV deles (`formato=csv`, que vai para a auditoria)."""
@@ -434,11 +345,7 @@ async def ticket_list(
     f = state.filters
     base = {**state.query, "aba": state.choice.slug}
     context: dict[str, Any] = {
-        "title": page.t(
-            f"relatorios.medias.{measure}"
-            if agregacao == "media" and measure in ELAPSED
-            else f"relatorios.medidas.{measure}"
-        ),
+        "title": page.t(f"relatorios.medidas.{measure}"),
         "kind": kind,
         "back": with_query("/relatorios", base),
         "interval": interval_text(page, state),

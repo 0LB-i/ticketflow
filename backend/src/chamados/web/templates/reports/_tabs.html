@@ -1,22 +1,17 @@
-{#- As abas de Relatórios: os modelos prontos e os da pessoa e, logo depois da Clientes (no fim,
-    se ela está escondida), o Histórico (docs/14 §14.7). `boost`: na tela dos relatórios, as abas
-    trocam só o #relatorio; no Histórico, que não carrega o JavaScript dos filtros, a página toda. -#}
+{#- As abas de Relatórios: as prontas e, logo depois da Clientes, o Histórico (docs/14 §14.7).
+    `boost`: na tela dos relatórios, as abas trocam só o #relatorio; no Histórico, que não carrega
+    o JavaScript dos filtros, a página toda. -#}
 {% macro tab_link(url, label, current, tip="") -%}
 <a href="{{ url }}"{% if tip %} title="{{ tip }}"{% endif %} class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if current else 'border-transparent text-muted hover:text-fg' }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
 {%- endmacro %}
 
 {% macro tabs_nav(tabs, tab, boost=True) -%}
-{%- set ns = namespace(history=false) %}
 <nav aria-label="{{ t('relatorios.modelos') }}" hx-boost="{{ 'true' if boost else 'false' }}" class="flex flex-wrap gap-1 border-b border-border print:hidden">
   {%- for slug, label, url, tip in tabs %}
   {{ tab_link(url, label, slug == tab, tip) }}
   {%- if slug == "clientes" %}
-  {%- set ns.history = true %}
   {{ tab_link("/relatorios/historico", t("relatorios.abas.historico"), tab == "historico") }}
   {%- endif %}
   {%- endfor %}
-  {%- if not ns.history %}
-  {{ tab_link("/relatorios/historico", t("relatorios.abas.historico"), tab == "historico") }}
-  {%- endif %}
 </nav>
 {%- endmacro %}
