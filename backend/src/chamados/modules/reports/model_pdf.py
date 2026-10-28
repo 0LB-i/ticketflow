@@ -180,7 +180,7 @@ def _styles() -> dict[str, ParagraphStyle]:
         "muted": ParagraphStyle("muted", parent=body, textColor=MUTED),
         "company": ParagraphStyle("company", parent=body, fontSize=8, leading=10, textColor=MUTED),
         "company_name": ParagraphStyle(
-            "company_name", parent=body, fontName=BOLD, fontSize=13, leading=16
+            "company_name", parent=body, fontName=BOLD, fontSize=15, leading=18
         ),
         "value": ParagraphStyle("value", parent=body, fontName=BOLD, fontSize=14, leading=18),
         "big": ParagraphStyle("big", parent=body, fontName=BOLD, fontSize=32, leading=38),

@@ -873,7 +873,7 @@ def test_relatorio_para_o_cliente(
     folha = _folha(client.get("/relatorios/blocos", params=filtros).text)
     assert f"<p>{linhas[1]}</p>" in folha and f">{titulo}</h2>" in folha
     assert '<img src="/api/v1/branding/report-logo?v=x"' in folha
-    assert '<p class="text-[1.63em] font-bold text-paper-fg">TI Ltda</p>' in folha
+    assert '<p class="text-[1.88em] font-bold text-paper-fg">TI Ltda</p>' in folha
     sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     assert sem_cliente.status_code == 422
 
