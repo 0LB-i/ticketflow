@@ -200,6 +200,9 @@ fi
 ln -sf /etc/nginx/sites-available/$SERVICO /etc/nginx/sites-enabled/$SERVICO
 rm -f /etc/nginx/sites-enabled/default
 nginx -t -q
+# As respostas e os envios grandes (o ZIP dos relatórios, os anexos) passam por estas pastas: se
+# um nginx rodado como root sem o `user www-data` as deixar com o nobody, eles quebram no meio.
+chown www-data:root /var/lib/nginx/{body,fastcgi,proxy,scgi,uwsgi}
 systemctl enable -q --now nginx
 systemctl reload nginx
 if ufw status 2>/dev/null | grep -q '^Status: active'; then
