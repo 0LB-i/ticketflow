@@ -17,7 +17,7 @@ from chamados.db.session import DB
 from chamados.modules.reports import builder, csv_export, history, model_pdf, service
 from chamados.modules.reports import router as reports_api
 from chamados.modules.reports.builder import CHARTS, ELAPSED, TICKET_SETS
-from chamados.modules.system.service import get_logo
+from chamados.modules.system.service import get_report_logo
 from chamados.web.formatting import TIMEZONE, format_date, format_datetime, format_elapsed
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.palette import palette
@@ -252,7 +252,7 @@ async def report_pdf(
     period = page.t(
         "relatorios.pdf.periodo", de=format_date(locale, f.start), ate=format_date(locale, f.end)
     )
-    logo = await get_logo(db)  # o da instalação, no cabeçalho dos dois
+    logo = await get_report_logo(db)  # o dos relatórios (Configurações), no cabeçalho dos dois
     if config.audience == "client":
         view = await client_preview(page, db, state, f, config)
         if not view["ready"]:

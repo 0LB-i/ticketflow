@@ -1,4 +1,5 @@
-"""Configurações da instalação: idioma padrão, cores e logotipo (docs/13: /admin/configuracoes).
+"""Configurações da instalação: idioma padrão, cores, logotipo e o logotipo dos relatórios
+(docs/13: /admin/configuracoes).
 
 `GET /branding` é público: a tela de login também usa as cores, o logotipo e o idioma.
 Alterar exige admin.settings, e toda mudança vai para a auditoria (docs/08 §8.8).
@@ -65,6 +66,7 @@ class Branding(BaseModel):
     default_locale: Locale
     colors: Colors | None = Field(description="nulo: cores padrão do TicketFlow")
     logo_url: str | None
+    report_logo_url: str | None = Field(description="o logotipo dos PDFs de relatório")
 
 
 class SettingsUpdate(BaseModel):
@@ -78,24 +80,32 @@ class LogoIn(BaseModel):
     )
 
 
+# A chave de cada logotipo nas configurações → o endereço da imagem e o nome na auditoria.
+LOGOS = {"logo": "logo", "report_logo": "report-logo"}
+
+
+def _logo_url(key: str, sha: str | None) -> str | None:
+    # A versão no endereço deixa o navegador guardar a imagem sem consultar de novo.
+    return f"/api/v1/branding/{LOGOS[key]}?v={sha[:12]}" if sha else None
+
+
 async def load_branding(db: AsyncSession) -> Branding:
-    # Toda tela lê a marca: uma consulta só. Do logotipo vem só o hash, não a imagem.
+    # Toda tela lê a marca: uma consulta só. Dos logotipos vem só o hash, não a imagem.
     rows = await db.execute(
         select(
             SystemSetting.key,
             case(
-                (SystemSetting.key == "logo", SystemSetting.value["sha256"]),
+                (SystemSetting.key.in_(LOGOS), SystemSetting.value["sha256"]),
                 else_=SystemSetting.value,
             ),
-        ).where(SystemSetting.key.in_(("locale", "colors", "logo")))
+        ).where(SystemSetting.key.in_(("locale", "colors", *LOGOS)))
     )
     values: dict[str, Any] = {key: value for key, value in rows}
-    logo_sha = values.get("logo")
     return Branding(
         default_locale=values.get("locale") or "pt-BR",
         colors=values.get("colors"),
-        # A versão no endereço deixa o navegador guardar a imagem sem consultar de novo.
-        logo_url=f"/api/v1/branding/logo?v={logo_sha[:12]}" if logo_sha else None,
+        logo_url=_logo_url("logo", values.get("logo")),
+        report_logo_url=_logo_url("report_logo", values.get("report_logo")),
     )
 
 
@@ -104,9 +114,8 @@ async def branding(db: DB) -> Branding:
     return await load_branding(db)
 
 
-@router.get("/branding/logo", response_class=Response)
-async def branding_logo(db: DB) -> Response:
-    logo = await get_value(db, "logo")
+async def _image(db: AsyncSession, key: str) -> Response:
+    logo = await get_value(db, key)
     if not logo:
         raise HTTPException(404, "Nenhum logotipo cadastrado.")
     return Response(
@@ -117,6 +126,17 @@ async def branding_logo(db: DB) -> Response:
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+@router.get("/branding/logo", response_class=Response)
+async def branding_logo(db: DB) -> Response:
+    return await _image(db, "logo")
+
+
+@router.get("/branding/report-logo", response_class=Response)
+async def branding_report_logo(db: DB) -> Response:
+    """O logotipo dos PDFs de relatório (e da prévia do relatório para o cliente)."""
+    return await _image(db, "report_logo")
 
 
 @router.patch("/admin/settings", response_model=Branding)
@@ -149,8 +169,9 @@ async def update_settings(data: SettingsUpdate, auth: Admin, request: Request, d
     return await load_branding(db)
 
 
-@router.put("/admin/settings/logo", response_model=Branding)
-async def set_logo(data: LogoIn, auth: Admin, request: Request, db: DB) -> Branding:
+async def _save_logo(
+    key: str, data: LogoIn, auth: Auth, request: Request, db: AsyncSession
+) -> Branding:
     header, _, encoded = data.data_url.partition(",")
     content_type = header.removeprefix("data:").removesuffix(";base64")
     try:
@@ -163,10 +184,10 @@ async def set_logo(data: LogoIn, auth: Admin, request: Request, db: DB) -> Brand
         raise HTTPException(422, "O logotipo pode ter no máximo 256 KB.")
     sha = hashlib.sha256(raw).hexdigest()
     value = {"content_type": content_type, "data": base64.b64encode(raw).decode(), "sha256": sha}
-    await set_value(db, "logo", value, auth.user.id)
+    await set_value(db, key, value, auth.user.id)
     record(
         db,
-        "settings.logo_changed",
+        f"settings.{key}_changed",
         request=request,
         actor_user_id=auth.user.id,
         target_type="settings",
@@ -176,15 +197,14 @@ async def set_logo(data: LogoIn, auth: Admin, request: Request, db: DB) -> Brand
     return await load_branding(db)
 
 
-@router.delete("/admin/settings/logo", response_model=Branding)
-async def remove_logo(auth: Admin, request: Request, db: DB) -> Branding:
-    logo = await get_value(db, "logo")
+async def _remove_logo(key: str, auth: Auth, request: Request, db: AsyncSession) -> Branding:
+    logo = await get_value(db, key)
     if not logo:
         raise HTTPException(404, "Nenhum logotipo cadastrado.")
-    await set_value(db, "logo", None, auth.user.id)
+    await set_value(db, key, None, auth.user.id)
     record(
         db,
-        "settings.logo_removed",
+        f"settings.{key}_removed",
         request=request,
         actor_user_id=auth.user.id,
         target_type="settings",
@@ -192,6 +212,27 @@ async def remove_logo(auth: Admin, request: Request, db: DB) -> Branding:
     )
     await db.commit()
     return await load_branding(db)
+
+
+@router.put("/admin/settings/logo", response_model=Branding)
+async def set_logo(data: LogoIn, auth: Admin, request: Request, db: DB) -> Branding:
+    return await _save_logo("logo", data, auth, request, db)
+
+
+@router.delete("/admin/settings/logo", response_model=Branding)
+async def remove_logo(auth: Admin, request: Request, db: DB) -> Branding:
+    return await _remove_logo("logo", auth, request, db)
+
+
+@router.put("/admin/settings/report-logo", response_model=Branding)
+async def set_report_logo(data: LogoIn, auth: Admin, request: Request, db: DB) -> Branding:
+    """O logotipo dos PDFs de relatório, separado do logotipo do aplicativo."""
+    return await _save_logo("report_logo", data, auth, request, db)
+
+
+@router.delete("/admin/settings/report-logo", response_model=Branding)
+async def remove_report_logo(auth: Admin, request: Request, db: DB) -> Branding:
+    return await _remove_logo("report_logo", auth, request, db)
 
 
 @router.get("/work-hours", response_model=WorkHours)

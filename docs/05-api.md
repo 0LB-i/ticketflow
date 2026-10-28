@@ -99,10 +99,12 @@ Um chamado que o usuário não pode ver responde `403` ("Você não tem acesso a
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/branding` | **Pública** (a tela de login usa): idioma padrão, as 3 cores (`null` = padrão) e o endereço do logotipo |
+| `GET` | `/branding` | **Pública** (a tela de login usa): idioma padrão, as 3 cores (`null` = padrão) e os endereços do logotipo e do logotipo dos relatórios |
 | `GET` | `/branding/logo` | Imagem do logotipo (endereço versionado, guardado em cache pelo navegador) |
+| `GET` | `/branding/report-logo` | Imagem do logotipo dos relatórios (PDFs e prévia do relatório para o cliente), como a do logotipo |
 | `PATCH` | `/admin/settings` | `{"default_locale": "pt-BR" \| "en", "colors": {"brand", "neutral", "background"} \| null}` (`admin.settings`) |
 | `PUT` / `DELETE` | `/admin/settings/logo` | Envia (`{"data_url": "data:image/png;base64,..."}`, PNG, JPEG ou WebP até 256 KB) ou remove o logotipo |
+| `PUT` / `DELETE` | `/admin/settings/report-logo` | O mesmo, para o logotipo dos relatórios, separado do logotipo do aplicativo |
 | `PATCH` | `/me` | Preferências da pessoa: `{"locale": "en" \| "pt-BR" \| null}` (nulo segue o padrão do sistema) |
 
 ### Demais recursos

@@ -15,9 +15,9 @@ async def get_value(db: AsyncSession, key: str) -> Any:
     return await db.scalar(select(SystemSetting.value).where(SystemSetting.key == key))
 
 
-async def get_logo(db: AsyncSession) -> bytes | None:
-    """A imagem do logotipo da instalação (os PDFs); sem ele, None."""
-    stored = await get_value(db, "logo")
+async def get_report_logo(db: AsyncSession) -> bytes | None:
+    """A imagem do logotipo dos relatórios (os PDFs), separado do aplicativo; sem ele, None."""
+    stored = await get_value(db, "report_logo")
     return base64.b64decode(stored["data"]) if stored else None
 
 

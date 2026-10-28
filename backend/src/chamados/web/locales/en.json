@@ -874,6 +874,9 @@
     "logotipoRemovido": "Logo removed",
     "logotipoGrande": "The image is larger than 256 KB.",
     "logotipoTipo": "Upload a PNG, JPEG or WebP image.",
+    "logotipoRelatorios": "Report logo",
+    "logotipoRelatoriosDescricao": "Shown in the header of report PDFs and in the client report preview, separate from the menu logo. PNG, JPEG or WebP, up to 256 KB.",
+    "semLogotipoRelatorios": "No logo: PDFs show only the title.",
     "predefinidas": "Ready-made combinations",
     "predefinidasDica": "Pick one to fill in the three colors; check the preview and save.",
     "predefinida": {

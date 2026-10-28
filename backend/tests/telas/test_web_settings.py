@@ -93,6 +93,25 @@ def test_logotipo(client: TestClient, db: Session) -> None:
     assert _valor(db, "logo") is None
 
 
+def test_logotipo_dos_relatorios(client: TestClient, db: Session) -> None:
+    """Uma seção própria, separada do logotipo do aplicativo, com as mesmas regras."""
+    _admin(client, db)
+    envio = _form(client)
+    r = client.get(URL)
+    assert 'id="logotipo-relatorios"' in r.text and "Sem logotipo: os PDFs saem" in r.text
+    arquivo = {"logo": ("logo.gif", b"GIF89a", "image/gif")}
+    r = client.post(f"{URL}/logo-relatorios", data=envio, files=arquivo)
+    assert _aviso(r.text) == "Envie uma imagem PNG, JPEG ou WebP."
+    arquivo = {"logo": ("logo.png", PNG, "image/png")}
+    r = client.post(f"{URL}/logo-relatorios", data=envio, files=arquivo)
+    assert _aviso(r.text) == "Logotipo atualizado"
+    assert '<img src="/api/v1/branding/report-logo?v=' in r.text
+    assert _valor(db, "logo") is None and _valor(db, "report_logo")
+    r = client.post(f"{URL}/logo-relatorios/remover", data=envio)
+    assert _aviso(r.text) == "Logotipo removido"
+    assert _valor(db, "report_logo") is None
+
+
 def test_status(client: TestClient, db: Session) -> None:
     _admin(client, db)
     r = client.post(f"{URL}/status/novo", data=_form(client, name="Em análise", kind="open"))

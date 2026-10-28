@@ -874,6 +874,9 @@
     "logotipoRemovido": "Logotipo removido",
     "logotipoGrande": "A imagem passa de 256 KB.",
     "logotipoTipo": "Envie uma imagem PNG, JPEG ou WebP.",
+    "logotipoRelatorios": "Logotipo dos relatórios",
+    "logotipoRelatoriosDescricao": "Aparece no cabeçalho dos PDFs de relatório e na prévia do relatório para o cliente, separado do logotipo do menu. PNG, JPEG ou WebP, até 256 KB.",
+    "semLogotipoRelatorios": "Sem logotipo: os PDFs saem só com o título.",
     "predefinidas": "Combinações prontas",
     "predefinidasDica": "Escolha uma para preencher as três cores; confira na prévia e salve.",
     "predefinida": {

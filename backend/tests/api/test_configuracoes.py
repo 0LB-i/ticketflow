@@ -30,7 +30,12 @@ def _data_url(tipo: str, dados: bytes) -> str:
 def test_identidade_visual_e_publica(client: TestClient, db: Session) -> None:
     r = client.get("/api/v1/branding")
     assert r.status_code == 200
-    assert r.json() == {"default_locale": "pt-BR", "colors": None, "logo_url": None}
+    assert r.json() == {
+        "default_locale": "pt-BR",
+        "colors": None,
+        "logo_url": None,
+        "report_logo_url": None,
+    }
 
 
 def test_so_admin_altera(client: TestClient, db: Session) -> None:
@@ -40,6 +45,11 @@ def test_so_admin_altera(client: TestClient, db: Session) -> None:
     r = client.put("/api/v1/admin/settings/logo", json={"data_url": _data_url("image/png", PNG)})
     assert r.status_code == 403
     assert client.delete("/api/v1/admin/settings/logo").status_code == 403
+    r = client.put(
+        "/api/v1/admin/settings/report-logo", json={"data_url": _data_url("image/png", PNG)}
+    )
+    assert r.status_code == 403
+    assert client.delete("/api/v1/admin/settings/report-logo").status_code == 403
 
 
 def test_idioma_e_cores(client: TestClient, db: Session) -> None:
@@ -89,6 +99,22 @@ def test_logotipo(client: TestClient, db: Session) -> None:
     entrar(client, "admin@x.com")
     assert client.delete(url).json()["logo_url"] is None
     assert client.get("/api/v1/branding/logo").status_code == 404
+    assert client.delete(url).status_code == 404
+
+
+def test_logotipo_dos_relatorios(client: TestClient, db: Session) -> None:
+    """O logotipo dos PDFs de relatório é outro, separado do logotipo do aplicativo."""
+    _admin(client, db)
+    url = "/api/v1/admin/settings/report-logo"
+    assert client.put(url, json={"data_url": _data_url("image/jpeg", PNG)}).status_code == 422
+    r = client.put(url, json={"data_url": _data_url("image/png", PNG)})
+    assert r.json()["logo_url"] is None  # o do aplicativo continua sem
+    report_logo_url = r.json()["report_logo_url"]
+    assert report_logo_url.startswith("/api/v1/branding/report-logo?v=")
+    assert client.get(report_logo_url).content == PNG
+    assert client.get("/api/v1/branding/logo").status_code == 404
+    assert client.delete(url).json()["report_logo_url"] is None
+    assert client.get("/api/v1/branding/report-logo").status_code == 404
     assert client.delete(url).status_code == 404
 
 

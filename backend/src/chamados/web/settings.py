@@ -1,4 +1,4 @@
-"""Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, logotipo, status
+"""Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, logotipos, status
 dos chamados e expediente. Exige admin.settings (conferido aqui por `requires`: na API fica numa
 dependência que não roda na chamada direta). Cada seção grava pela rota da API dela.
 """
@@ -164,17 +164,14 @@ async def save_branding(
     )
 
 
-@router.post("/admin/configuracoes/logo")
-async def save_logo(
-    page: SettingsAdmin,
-    request: Request,
-    db: DB,
-    csrf_token: Field = "",
-    logo: Annotated[UploadFile | None, File()] = None,
+async def _upload(
+    page: LoggedPage,
+    anchor: str,
+    logo: UploadFile | None,
+    save: Callable[[LogoIn], Awaitable[object]],
 ) -> Response:
     """PNG, JPEG ou WebP até 256 KB; a API confere de novo, pelos primeiros bytes."""
-    check_csrf(page, csrf_token)
-    response = RedirectResponse(f"{HOME}#logotipo", status_code=303)
+    response = RedirectResponse(f"{HOME}#{anchor}", status_code=303)
     if logo is None or not logo.filename:
         return response
     if logo.content_type not in LOGO_TYPES:
@@ -187,9 +184,23 @@ async def save_logo(
     data_url = f"data:{logo.content_type};base64,{base64.b64encode(raw).decode()}"
     return await _run(
         page,
-        f"{HOME}#logotipo",
-        lambda: system_api.set_logo(LogoIn(data_url=data_url), page.auth, request, db),
+        f"{HOME}#{anchor}",
+        lambda: save(LogoIn(data_url=data_url)),
         page.t("configuracoes.logotipoSalvo"),
+    )
+
+
+@router.post("/admin/configuracoes/logo")
+async def save_logo(
+    page: SettingsAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    logo: Annotated[UploadFile | None, File()] = None,
+) -> Response:
+    check_csrf(page, csrf_token)
+    return await _upload(
+        page, "logotipo", logo, lambda data: system_api.set_logo(data, page.auth, request, db)
     )
 
 
@@ -202,6 +213,37 @@ async def remove_logo(
         page,
         f"{HOME}#logotipo",
         lambda: system_api.remove_logo(page.auth, request, db),
+        page.t("configuracoes.logotipoRemovido"),
+    )
+
+
+@router.post("/admin/configuracoes/logo-relatorios")
+async def save_report_logo(
+    page: SettingsAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    logo: Annotated[UploadFile | None, File()] = None,
+) -> Response:
+    """O logotipo dos PDFs de relatório, separado do logotipo do aplicativo."""
+    check_csrf(page, csrf_token)
+    return await _upload(
+        page,
+        "logotipo-relatorios",
+        logo,
+        lambda data: system_api.set_report_logo(data, page.auth, request, db),
+    )
+
+
+@router.post("/admin/configuracoes/logo-relatorios/remover")
+async def remove_report_logo(
+    page: SettingsAdmin, request: Request, db: DB, csrf_token: Field = ""
+) -> Response:
+    check_csrf(page, csrf_token)
+    return await _run(
+        page,
+        f"{HOME}#logotipo-relatorios",
+        lambda: system_api.remove_report_logo(page.auth, request, db),
         page.t("configuracoes.logotipoRemovido"),
     )
 

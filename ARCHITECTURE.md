@@ -203,10 +203,10 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 
 ### 3.7 Configurações (`modules/system/`)
 
-- Tabela `settings` com chave e valor (jsonb). Sem a linha, vale o padrão. Chaves: `locale`, `colors` (`brand`, `neutral`, `background`), `logo` (imagem em base64, tipo e sha256) e `work_hours` (desde a 0040, só os feriados: `holidays`, que valem para todos).
+- Tabela `settings` com chave e valor (jsonb). Sem a linha, vale o padrão. Chaves: `locale`, `colors` (`brand`, `neutral`, `background`), `logo` e `report_logo` (o do aplicativo e o dos PDFs de relatório; imagem em base64, tipo e sha256) e `work_hours` (desde a 0040, só os feriados: `holidays`, que valem para todos).
 - **Expediente** (`work_hours.py`, docs/14 §14.7): dias (`weekdays`, 0 = segunda), início e fim e o intervalo opcional (`break_start`–`break_end`, dentro do horário e fora do expediente), em vigências (`work_schedules`, a partir de `valid_from`; nulo, desde sempre) da instalação, de um grupo ou de uma pessoa; sem dias e horário, a vigência devolve a pessoa ou o grupo ao de cima. Precedência num dia: o da pessoa > o do grupo (de quem está em **um só** grupo ativo com expediente, pela participação atual: não há histórico de participação) > o da instalação (padrão seg–sex 08:00–18:00 com intervalo 12:00–13:30). `Calendar` (lido por `load_calendar`, uma vez por requisição: as vigências e as participações nos grupos que têm alguma) responde o expediente de (pessoa, dia) (`source`: de onde vem, e `conflict`, os grupos de quem está em dois ou mais) e a janela do dia em UTC (`window`, em cache: uma faixa, ou duas com o intervalo entre elas). Gravar uma vigência (`save_vigency`) substitui a da mesma data, e uma igual à anterior não fica gravada; `set_schedule` grava a de um grupo ou de uma pessoa com a auditoria (`team.work_hours_set`/`user.work_hours_set`, antes e depois). `GET /work-hours` (todos) responde o da instalação de hoje, com os feriados; `PUT /admin/settings/work-hours` grava uma vigência da instalação a partir de `valid_from` (sem ele, hoje) e os feriados (`settings.updated`).
 - `GET /branding` é **público**: a tela de login também usa as cores, o logotipo e o idioma.
-- O logotipo é servido por `GET /branding/logo?v=<hash>`, com cache permanente (o endereço muda quando a imagem muda). Só PNG, JPEG e WebP, conferidos pelos primeiros bytes; SVG é recusado porque pode conter scripts.
+- O logotipo é servido por `GET /branding/logo?v=<hash>` (o dos relatórios, por `/branding/report-logo`), com cache permanente (o endereço muda quando a imagem muda). Só PNG, JPEG e WebP, conferidos pelos primeiros bytes; SVG é recusado porque pode conter scripts.
 - O backend guarda só as **três cores**; a paleta inteira é derivada em `web/palette.py` (4.2).
 
 ### 3.7.1 Clientes (`modules/clients/`)
@@ -322,7 +322,7 @@ web/
 ├── ticket.py            registro, detalhe, ações da lateral, tarefas e a busca de clientes
 ├── clients.py           cadastro de clientes (lista e formulário)
 ├── admin.py             usuários e grupos (e membros), com o painel lateral
-├── settings.py          Configurações: idioma, cores (prévia pelo HTMX), logotipo, status, expediente
+├── settings.py          Configurações: idioma, cores (prévia pelo HTMX), logotipos, status, expediente
 ├── work_hours.py        expediente nas telas: vigências em texto, o que vale hoje, o formulário
 ├── reports.py           relatórios: a tela (abas dos modelos, filtros, blocos, menu Baixar)
 ├── reports_state.py     relatórios: o que vem da URL (Params: modelo, período, filtros) e o estado
@@ -440,7 +440,7 @@ A interface é toda renderizada pelo servidor (3.11, [ADR 0011](docs/adr/0011-in
 | `/admin/tokens` | Tokens de API ativos de todas as pessoas (inclusive os vencidos e os de quem está inativo), com o filtro por pessoa e o botão Revogar | `admin.users` |
 | `/meus-tokens` | Tokens de API da pessoa (no menu do usuário): criar com nome, acesso (leitura ou leitura e escrita) e validade (30, 90 ou 365 dias), ver o último uso, revogar. O valor aparece uma vez, na resposta da criação, sem redirecionar | Logado |
 | `/relatorios` | Abas com os modelos prontos (Produtividade, Clientes, Horas extras, Chamados) e os da pessoa, cada um uma lista de blocos (cartões, barras, colunas, colunas empilhadas, linha, tabela, lista de tarefas) com o CSV de cada um e os links de detalhar; comparar com o período anterior; filtros de período (relativo, mês ou datas), grupo, pessoa, cliente e status (vários valores); Salvar como modelo, Editar modelo, Salvar filtros; menu Baixar (PDF e CSV da aba nos prontos, CSV de todas as tarefas). Editor de modelo em `/relatorios/modelos/…`; a lista de chamados de um número em `/relatorios/chamados`; o Histórico (os PDFs da aba Clientes com um cliente só, de cada pessoa) em `/relatorios/historico`. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
-| `/admin/configuracoes` | Idioma, cores, logotipo, status dos chamados e expediente | `admin.settings` |
+| `/admin/configuracoes` | Idioma, cores, logotipo, logotipo dos relatórios, status dos chamados e expediente | `admin.settings` |
 
 Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.can(permissão)`. O botão "Novo chamado" e a busca global ficam no cabeçalho (`app.html`): `1234` ou `#1234` abre o chamado, texto abre a aba Todos com `q`. Endereço desconhecido fora de `/api` mostra a página de erro (`error.html`).
 

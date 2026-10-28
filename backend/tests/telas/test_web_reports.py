@@ -785,11 +785,12 @@ def test_pdf_do_modelo(
     assert pagina.generated.endswith("por Ana") and pagina.numbering == "Página {n} de {total}"
     assert (pagina.footer, pagina.landscape) == ("", False)
     assert pagina.continued == "{titulo} (continuação)"
-    # Sem logotipo nas Configurações, sem imagem; com ele, no cabeçalho.
+    # Sem o logotipo dos relatórios, sem imagem; com ele, no cabeçalho.
     assert logo is None
     db.add(
         SystemSetting(
-            key="logo", value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"}
+            key="report_logo",
+            value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"},
         )
     )
     db.commit()
@@ -845,10 +846,11 @@ def test_relatorio_para_o_cliente(
     assert ">Gerado em " in folha and "<img" not in folha
 
     assert client.get(_link_pdf(r.text)).content.startswith(b"%PDF-1")  # desenhado de verdade
-    # O PDF leva o logotipo da instalação.
+    # O PDF leva o logotipo dos relatórios (o do aplicativo, não).
     db.add(
         SystemSetting(
-            key="logo", value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"}
+            key="report_logo",
+            value={"data": "aGVsbG8=", "content_type": "image/png", "sha256": "x"},
         )
     )
     db.commit()
@@ -866,7 +868,7 @@ def test_relatorio_para_o_cliente(
     # A prévia: os mesmos textos, e o logotipo como nas Configurações.
     folha = _folha(client.get("/relatorios/blocos", params=filtros).text)
     assert f"<p>{linhas[1]}</p>" in folha and f">{titulo}</h2>" in folha
-    assert '<img src="/api/v1/branding/logo?v=x"' in folha
+    assert '<img src="/api/v1/branding/report-logo?v=x"' in folha
     sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     assert sem_cliente.status_code == 422
 

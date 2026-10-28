@@ -565,7 +565,7 @@ def render_model(
     heat: tuple[str, ...],
     logo: bytes | None = None,
 ) -> bytes:
-    """O PDF de um modelo: o logotipo da instalação (sem ele, nada), o título, as linhas de
+    """O PDF de um modelo: o logotipo dos relatórios (sem ele, nada), o título, as linhas de
     cabeçalho (descrição, período, filtros, expediente), os blocos na ordem e, em cada página,
     o rodapé (`page`). `series`: as cores da paleta por token (`chart-1` a `chart-4` e
     `chart-before`); `heat`, as do mapa de calor."""
@@ -595,7 +595,7 @@ def render_model(
 
 
 def _heading(logo: bytes | None, head: list[Flowable], width: float) -> list[Flowable]:
-    """O cabeçalho do PDF: com o logotipo da instalação, ele à esquerda e o título e as linhas
+    """O cabeçalho do PDF: com o logotipo dos relatórios, ele à esquerda e o título e as linhas
     (`head`) ao lado; sem ele, só o título e as linhas."""
     if not logo:
         return head
@@ -625,7 +625,7 @@ def render_client(
     notes: str,
     page: Page,
 ) -> bytes:
-    """O relatório para o cliente: o logotipo da instalação, o título, o cliente e o período, o
+    """O relatório para o cliente: o logotipo dos relatórios, o título, o cliente e o período, o
     texto de abertura, os totais, os chamados e as observações. Nada de organização interna
     (quem chama já deixou de fora)."""
     st = _styles()
@@ -760,8 +760,8 @@ def render_hours(
     locale: Locale,
     logo: bytes | None = None,
 ) -> bytes:
-    """O PDF de `GET /reports/pdf`, um modelo fixo com o conteúdo de sempre: o logotipo da
-    instalação, o período, os filtros e o expediente usado no cabeçalho (`use`), os totais, por
+    """O PDF de `GET /reports/pdf`, um modelo fixo com o conteúdo de sempre: o logotipo dos
+    relatórios, o período, os filtros e o expediente usado no cabeçalho (`use`), os totais, por
     pessoa, por cliente e as tarefas fora do expediente (as `HOURS_LISTED` primeiras, com a
     nota), em A4 em pé."""
     t = HOURS_TEXTS[locale]
