@@ -2,7 +2,16 @@
 
 Sistema interno de chamados para as equipes da empresa, em que os próprios membros registram, distribuem e executam as tarefas. Escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
 
-> **Status:** Fase 1 (MVP) do [roadmap](docs/07-roadmap.md): fundação, identidade e organização, núcleo dos chamados e configurações (idioma, cores, logotipo) prontos; a próxima é a Sprint 4 (anexos, notificações, filas e busca). O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
+> **Status:** Fase 1 (MVP) do [roadmap](docs/07-roadmap.md), na Sprint 5 (ciclo completo e preparação do piloto): fundação, identidade e organização, núcleo dos chamados, anexos, notificações, filas e busca prontos, e as telas já renderizadas no servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Faltam a instalação no servidor da empresa, a carga inicial e o treinamento. O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
+
+## O que o sistema faz
+
+- **Chamados:** registro com grupo, categoria, cliente e responsáveis; tarefas com o tempo gasto, @menções, observadores e anexos; assumir, atribuir, transferir, aguardar, concluir, reabrir e cancelar; histórico de tudo.
+- **Filas e Kanban:** filas (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos) com busca em português, e o quadro por status em `/quadro`.
+- **Relatórios** (`/relatorios`): produtividade, clientes (com as horas no plano do contrato e as excedentes), horas extras e indicadores de chamados, com filtros, comparação de períodos e PDF; a aba Clientes geral gera o relatório de cada cliente e o ZIP com todos os PDFs.
+- **Notificações por e-mail**, enviadas pelo worker no idioma de quem recebe.
+- **Administração:** usuários, grupos, papéis e permissões, clientes, categorias, status, expediente, dados da empresa, idioma, cores e logotipo, e a auditoria.
+- **Integrações:** API REST com tokens por pessoa (`/api/docs`) e servidor MCP em `/mcp`, para assistentes de IA.
 
 ## Documentação
 
@@ -40,11 +49,36 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 - **Tarefas assíncronas:** fila no próprio PostgreSQL (`SELECT ... FOR UPDATE SKIP LOCKED`)
 - **Interface web:** telas renderizadas no servidor com Jinja2 + HTMX + Tailwind CSS (binário standalone, sem Node), [ADR 0011](docs/adr/0011-interface-web-no-servidor.md); editor Tiptap (Markdown). A API REST continua para integrações
 - **Idiomas:** português e inglês (padrão do sistema + escolha de cada usuário)
-- **Repositório:** Git local, com verificação por script; GitHub quando houver remoto
+- **Repositório:** [GitHub](https://github.com/0LB-i/ticketflow), com a verificação por script na própria máquina (sem CI); os commits vão direto para a `main`
 - **Produção:** serviços systemd (uvicorn) + nginx + PostgreSQL 17 no mesmo servidor
 - **IA (depois da v1.0):** uma única API genérica (formato compatível com OpenAI), configurada por URL, chave e nome do modelo, sem código específico de provedor
 
 A estrutura do código está no [ARCHITECTURE.md](ARCHITECTURE.md); as justificativas, em [docs/03-arquitetura.md](docs/03-arquitetura.md) e nos [ADRs](docs/adr/).
+
+## Instalação em produção (VM)
+
+Numa VM com **Ubuntu 24.04 LTS** nova (8 vCPU, 4 GB de RAM e 50 GB de disco, [docs/18 §18.2](docs/18-manual-do-servidor.md#182-requisitos)), com acesso ao GitHub:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/0LB-i/ticketflow/main/install.sh
+sudo bash install.sh                    # domínio padrão ticketflow.local; ou: sudo bash install.sh DOMINIO
+```
+
+O script instala o PostgreSQL 17, o uv, o nginx e o código em `/opt/ticketflow` (só o que a produção usa: sem testes, benchmark e `docs/`), cria o `/etc/ticketflow/env`, o banco e os serviços `ticketflow` e `ticketflow-worker`, e publica o sistema em HTTPS com um certificado autoassinado. Numa máquina ainda em UTC, acerta o fuso para `America/Sao_Paulo` (outro: `sudo FUSO=America/Manaus bash install.sh`). Pode rodar de novo: mantém a configuração, o banco e o certificado.
+
+Logo depois:
+
+1. **Entre com `admin` / `admin` e troque a senha:** até lá, qualquer pessoa que alcance o servidor entra como administrador.
+2. **Configure o SMTP** no `/etc/ticketflow/env` (sem ele, convites e notificações não saem) e reinicie: `sudo systemctl restart ticketflow` (o worker vai junto).
+3. **Domínio e certificado definitivos:** `server_name` e certificado em `/etc/nginx/sites-available/ticketflow` (ou `certbot --nginx -d DOMINIO`), `APP_BASE_URL` no `/etc/ticketflow/env`, e então `sudo systemctl reload nginx && sudo systemctl restart ticketflow`.
+
+**Atualizar** para a versão mais nova da `main` (baixa o código, instala as dependências, gera o CSS e aplica as migrações; quem reinicia é o administrador):
+
+```bash
+sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh && sudo systemctl restart ticketflow
+```
+
+Estado e log: `systemctl status ticketflow ticketflow-worker` e `journalctl -u ticketflow -u ticketflow-worker -f`. Backup, rotina e problemas comuns no [Manual do servidor](docs/18-manual-do-servidor.md).
 
 ## Como rodar (desenvolvimento)
 
@@ -56,7 +90,6 @@ sudo bash preparar-maquina-dev.sh              # com --servico, instala também 
 ```
 
 No fim ele mostra a chave pública, para cadastrar no GitHub como *deploy key* com escrita (Settings → Deploy keys).
-
 
 Requisitos: [uv](https://docs.astral.sh/uv/) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
 
@@ -88,7 +121,7 @@ scripts/check.sh                        # uma vez, antes do commit: tipos e os t
 scripts/check.sh --completo             # antes de uma versão: todos os testes, também no PostgreSQL 16, e auditoria
 ```
 
-Detalhes em [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci). Produção: `sudo bash install.sh` num Ubuntu 24.04 novo ([Manual do servidor](docs/18-manual-do-servidor.md)).
+Detalhes em [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci).
 
 ## Convenções
 
