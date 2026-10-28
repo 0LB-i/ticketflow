@@ -183,10 +183,11 @@ async def _client_tasks(
     page: LoggedPage, db: DB, state: State, f: service.Filters, config: builder.ReportConfig
 ) -> list[model_pdf.Block]:
     """O PDF detalhado da aba Clientes: uma tabela por cliente (pelo nome, "Sem cliente" no
-    fim) com cada tarefa do período (o dia, o chamado e o tempo; com a hora extra separada, o
-    tempo no expediente e o extra antes dele) e o total dele. Da tarefa, só o chamado: o texto
-    dela pode ter anotações internas."""
-    data = await service.facts(db, page.auth, f, service.Want(rows={"tasks"}), state.lookups)
+    fim) com cada tarefa do período (o dia, o chamado e o tempo; antes dele, com a hora extra
+    separada, o tempo no expediente e o extra e, sempre, o no plano do cliente e o excedente)
+    e o total dele. Da tarefa, só o chamado: o texto dela pode ter anotações internas."""
+    want = service.Want(rows={"tasks"}, sums={"excess": set()})
+    data = await service.facts(db, page.auth, f, want, state.lookups)
     hours = formatter(page, config, "hours")
     by_client: dict[int | None, list[service.TaskFact]] = {}
     for t in data.tasks:
@@ -196,14 +197,14 @@ async def _client_tasks(
         found = data.clients.get(client_id) if client_id else None
         return found.label if found else page.t("relatorios.semCliente")
 
-    def times(minutes: int, overtime: int) -> list[str]:
-        if not state.separate:
-            return [hours(minutes)]
-        return [hours(minutes - overtime), hours(overtime), hours(minutes)]
+    def times(minutes: int, overtime: int, excess: int) -> list[str]:
+        separated = [hours(minutes - overtime), hours(overtime)] if state.separate else []
+        return [*separated, hours(minutes - excess), hours(excess), hours(minutes)]
 
     columns = [page.t(f"relatorios.colunas.{c}") for c in ("quando", "chamado")]
     if state.separate:
         columns += [page.t(f"relatorios.medidas.{m}") for m in ("regular", "overtime")]
+    columns += [page.t(f"relatorios.medidas.{m}") for m in ("in_plan", "excess")]
     columns.append(page.t("relatorios.colunas.tempo"))
     return [
         model_pdf.Grid(
@@ -213,13 +214,17 @@ async def _client_tasks(
                 [
                     format_date(page.locale, t.done_at),
                     f"#{t.ticket_number} {t.ticket_title}",
-                    *times(t.minutes, t.overtime),
+                    *times(t.minutes, t.overtime, t.excess),
                 ]
                 for t in tasks
             ],
             total=[
                 "",
-                *times(sum(t.minutes for t in tasks), sum(t.overtime for t in tasks)),
+                *times(
+                    sum(t.minutes for t in tasks),
+                    sum(t.overtime for t in tasks),
+                    sum(t.excess for t in tasks),
+                ),
             ],
             total_label=page.t("relatorios.total"),
         )

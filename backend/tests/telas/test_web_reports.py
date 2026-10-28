@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.catalog.models import TicketStatus
+from chamados.modules.clients.models import Client
 from chamados.modules.organization.models import Team
 from chamados.modules.reports import model_pdf
 from chamados.modules.reports.builder import previous_period, relative_period, year_before
@@ -923,20 +924,23 @@ def test_aba_clientes(
     client.get(detalhado)
     (_, _, simples, *_), (_, _, blocos, *_) = chamadas
     assert isinstance(simples[0], model_pdf.Cards) and simples[0].title == ""
-    # Um cliente por tabela, pelo nome; cada tarefa com o dia, o chamado e o tempo, e o total.
-    # O chamado em aberto fica de fora, como no resumo.
+    # Um cliente por tabela, pelo nome; cada tarefa com o dia, o chamado, as horas no plano e as
+    # excedentes (sem contrato, todas) e o tempo, e o total. O chamado em aberto fica de fora,
+    # como no resumo.
     (mercado_, padaria_), resumo = blocos[:2], blocos[2:]
     assert isinstance(mercado_, model_pdf.Grid) and isinstance(padaria_, model_pdf.Grid)
     assert (mercado_.title, padaria_.title) == ("Mercado Bom Preço", "Padaria Pão Quente")
-    assert mercado_.columns == ["Quando", "Chamado", "Tempo"]
+    assert mercado_.columns == [
+        "Quando", "Chamado", "Horas no plano", "Horas excedentes", "Tempo"
+    ]  # fmt: skip
     um, dois = dia.strftime("%d/%m/%Y"), (dia + timedelta(days=1)).strftime("%d/%m/%Y")
     caixa = f"#{numeros['Caixa travado']} Caixa travado"
-    assert mercado_.rows == [[um, caixa, "1h30"]]
+    assert mercado_.rows == [[um, caixa, "0min", "1h30", "1h30"]]
     assert padaria_.rows == [
-        [um, f"#{numeros['Forno parado']} Forno parado", "1h30"],
-        [dois, f"#{numeros['Forno parado']} Forno parado", "30min"],
+        [um, f"#{numeros['Forno parado']} Forno parado", "0min", "1h30", "1h30"],
+        [dois, f"#{numeros['Forno parado']} Forno parado", "0min", "30min", "30min"],
     ]
-    assert (padaria_.total_label, padaria_.total) == ("Total", ["", "2h"])
+    assert (padaria_.total_label, padaria_.total) == ("Total", ["", "0min", "2h", "2h"])
     # No fim, os blocos do simplificado, com o título do resumo. Sem a hora extra: nem nos
     # cartões, nem a frase do expediente no cabeçalho.
     assert len(resumo) == len(simples) and resumo[0].title == "Resumo do período"
@@ -965,15 +969,94 @@ def test_aba_clientes(
     mercado_ = blocos[0]
     assert isinstance(mercado_, model_pdf.Grid)
     assert mercado_.columns == [
-        "Quando", "Chamado", "Horas no expediente", "Horas extras", "Tempo"
-    ]  # fmt: skip
-    assert mercado_.rows == [[um, caixa, "30min", "1h", "1h30"]]
-    assert mercado_.total == ["", "30min", "1h", "1h30"]
+        "Quando",
+        "Chamado",
+        "Horas no expediente",
+        "Horas extras",
+        "Horas no plano",
+        "Horas excedentes",
+        "Tempo",
+    ]
+    assert mercado_.rows == [[um, caixa, "30min", "1h", "0min", "1h30", "1h30"]]
+    assert mercado_.total == ["", "30min", "1h", "0min", "1h30", "1h30"]
     resumo = blocos[2]
     assert isinstance(resumo, model_pdf.Cards)
     assert [rotulo for rotulo, _, _ in resumo.items][:3] == [
         "Horas", "Horas no expediente", "Horas extras"
     ]  # fmt: skip
+
+
+def test_aba_clientes_plano_do_contrato(
+    client: TestClient, cenario: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """As horas além do plano vêm separadas: o mensal por mês do calendário, o anual por ano,
+    com todo o trabalho feito para o cliente (o de antes do período e o que a pessoa não vê
+    também consomem), na ordem em que as tarefas terminaram. Avulso e sem cliente: tudo
+    excedente."""
+    padrao = cenario["cliente"]
+    mercado = criar_cliente(db, "Mercado Bom Preço", "11444777000161")
+    loja = criar_cliente(db, "Loja Avulsa", "11222333000181")
+    for public_id, tipo, horas in (
+        (padrao, "monthly", 2),
+        (mercado, "annual", 3),
+        (loja, "on_demand", None),
+    ):
+        db.execute(
+            update(Client)
+            .where(Client.public_id == public_id)
+            .values(contract_type=tipo, contract_hours=horas)
+        )
+    db.commit()
+    numeros: dict[str | None, int] = {
+        cliente: registrar(client, cenario, title=titulo, client_id=cliente)["number"]
+        for titulo, cliente in (("Rede", padrao), ("Caixa", mercado), ("Vitrine", loja))
+    }
+    # Sem cliente (os chamados antigos): o cliente sai no banco.
+    numeros[None] = registrar(client, cenario, title="Interno")["number"]
+    db.execute(update(Ticket).where(Ticket.number == numeros[None]).values(client_id=None))
+    db.commit()
+    bia = outra_sessao(client)
+    entrar(bia, "bia@x.com")
+    # Mensal de 2h: fevereiro é outro mês; a tarefa da Bia (que a Ana não vê) já gasta 1h30 de
+    # março, antes do período.
+    tarefa(client, numeros[padrao], 90, em(date(2026, 2, 27), 10))
+    tarefa(bia, numeros[padrao], 90, em(date(2026, 3, 2), 10))
+    tarefa(client, numeros[padrao], 60, em(date(2026, 3, 3), 10))  # 30min no plano
+    tarefa(client, numeros[padrao], 45, em(date(2026, 3, 4), 10))  # toda excedente
+    # Anual de 3h: 2025 é outro ano; janeiro já gasta 2h30.
+    tarefa(client, numeros[mercado], 200, em(date(2025, 12, 30), 10))
+    tarefa(client, numeros[mercado], 150, em(date(2026, 1, 15), 10))
+    tarefa(client, numeros[mercado], 60, em(date(2026, 3, 3), 14))  # 30min no plano
+    tarefa(client, numeros[loja], 40, em(date(2026, 3, 3), 15))
+    tarefa(client, numeros[None], 20, em(date(2026, 3, 4), 16))
+
+    chamadas = _capturar(monkeypatch, "render_model")
+    filtros = {
+        "aba": "clientes",
+        "periodo": "personalizado",
+        "de": "2026-03-03",
+        "ate": "2026-03-04",
+    }
+    assert client.get("/relatorios/pdf", params={**filtros, "detalhado": "1"}).status_code == 200
+    _, _, blocos, *_ = chamadas[-1]
+    tabelas = {b.title: (b.rows, b.total) for b in blocos if isinstance(b, model_pdf.Grid)}
+    assert tabelas["Cliente Padrão"] == (
+        [
+            ["03/03/2026", f"#{numeros[padrao]} Rede", "30min", "30min", "1h"],
+            ["04/03/2026", f"#{numeros[padrao]} Rede", "0min", "45min", "45min"],
+        ],
+        ["", "30min", "1h15", "1h45"],
+    )
+    assert tabelas["Mercado Bom Preço"][1] == ["", "30min", "30min", "1h"]
+    assert tabelas["Loja Avulsa"][1] == ["", "0min", "40min", "40min"]
+    assert tabelas["Sem cliente"][1] == ["", "0min", "20min", "20min"]
+    resumo = next(b for b in blocos if isinstance(b, model_pdf.Cards))
+    valores = {rotulo: valor for rotulo, valor, _ in resumo.items}
+    assert (valores["Horas"], valores["Horas no plano"], valores["Horas excedentes"]) == (
+        "3h45",
+        "1h",
+        "2h45",
+    )
 
 
 def _com_blocos(client: TestClient, url: str) -> Any:

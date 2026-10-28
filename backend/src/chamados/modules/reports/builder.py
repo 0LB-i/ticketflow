@@ -55,6 +55,8 @@ Measure = Literal[
     "hours",
     "overtime",
     "regular",
+    "in_plan",
+    "excess",
     "tasks",
     "opened",
     "closed",
@@ -114,6 +116,8 @@ MEASURES: tuple[Measure, ...] = (
     "hours",
     "overtime",
     "regular",
+    "in_plan",
+    "excess",
     "tasks",
     "opened",
     "closed",
@@ -127,7 +131,15 @@ MEASURES: tuple[Measure, ...] = (
     "completion_rate",
     "tasks_per_workday",
 )
-DURATIONS: tuple[Measure, ...] = ("hours", "overtime", "regular", "hours_per_ticket")  # minutos
+# Em minutos.
+DURATIONS: tuple[Measure, ...] = (
+    "hours",
+    "overtime",
+    "regular",
+    "in_plan",
+    "excess",
+    "hours_per_ticket",
+)
 ELAPSED: tuple[Measure, ...] = ("lead_time", "net_lead_time")  # minutos, pela mediana
 # Em centésimos de ponto (1250 = 12,5%); a taxa de conclusão passa de 100% quando se conclui
 # mais do que se registra.
@@ -149,18 +161,20 @@ def unit(measure: Measure) -> str:
 
 
 # As medidas derivadas: uma conta entre duas somas que já existem (`service.Sums`), em cada
-# linha e no total; sem base (o divisor zero), None. As horas no expediente (`regular`) são uma
-# diferença, as horas menos as extras (DIFFERENCES); as outras, uma divisão. As tarefas por dia
+# linha e no total; sem base (o divisor zero), None. As horas no expediente (`regular`) e as no
+# plano do cliente (`in_plan`) são uma diferença, as horas menos as extras ou as excedentes
+# (DIFFERENCES); as outras, uma divisão. As tarefas por dia
 # útil dividem pelos dias do expediente no período (`workdays`), e por isso não se agrupam por
 # período, dia da semana nem hora (o dia de folga daria divisão por zero).
 DERIVED: dict[Measure, tuple[Summed, Summed | None]] = {
     "regular": ("hours", "overtime"),
+    "in_plan": ("hours", "excess"),
     "overtime_rate": ("overtime", "hours"),
     "hours_per_ticket": ("hours", "worked"),  # ÷ os chamados distintos com tarefa
     "completion_rate": ("closed", "opened"),
     "tasks_per_workday": ("tasks", None),
 }
-DIFFERENCES: tuple[Measure, ...] = ("regular",)
+DIFFERENCES: tuple[Measure, ...] = ("regular", "in_plan")
 # A direção boa de cada medida, para a cor da variação dos cartões: 1, subir é bom; -1, subir é
 # ruim. As que não estão aqui são neutras (horas, tarefas, registrados e cancelados).
 GOOD_DIRECTION: dict[Measure, int] = {
@@ -394,6 +408,7 @@ def narrow(screen: FilterSpec, own: FilterSpec) -> tuple[FilterSpec, list[Filter
 
 
 _CARDS = Block(visual="cards", measures=["hours", "overtime", "tasks", "opened", "closed"])
+_PLAN: list[Measure] = ["in_plan", "excess"]  # as horas no plano do cliente e as além dele
 
 # Os modelos prontos (as telas da §14.7 e os indicadores de chamados da §14.3): não se apagam;
 # duplicar leva os blocos.
@@ -411,12 +426,17 @@ BUILTINS: dict[str, ReportConfig] = {
         ]
     ),
     # Sem a hora extra: para o cliente, todo o tempo é de trabalho normal (CLIENTS_OVERTIME
-    # separa as horas no expediente e as extras).
+    # separa as horas no expediente e as extras). As horas no plano do cliente e as excedentes,
+    # sempre.
     "clientes": ReportConfig(
         blocks=[
-            Block(visual="cards", measures=["hours", "tasks", "opened", "closed"]),
+            Block(visual="cards", measures=["hours", *_PLAN, "tasks", "opened", "closed"]),
             Block(visual="bars", dimension="client", measures=["hours"], top=10),
-            Block(visual="table", dimension="client", measures=["hours", "opened", "closed"]),
+            Block(
+                visual="table",
+                dimension="client",
+                measures=["hours", *_PLAN, "opened", "closed"],
+            ),
         ]
     ),
     "horas-extras": ReportConfig(
@@ -445,8 +465,8 @@ BUILTINS: dict[str, ReportConfig] = {
 }
 
 # A aba Clientes com a hora extra separada (a escolha "Hora extra" da tela): as horas no
-# expediente e as extras ao lado do total, nos cartões e na tabela.
-_SEPARATED: list[Measure] = ["hours", "regular", "overtime"]
+# expediente e as extras ao lado do total, nos cartões e na tabela (antes das do plano).
+_SEPARATED: list[Measure] = ["hours", "regular", "overtime", *_PLAN]
 CLIENTS_OVERTIME = ReportConfig(
     blocks=[
         Block(visual="cards", measures=[*_SEPARATED, "tasks", "opened", "closed"]),
@@ -711,6 +731,7 @@ def matching(previous: Result, index: int, row: Row) -> Row | None:
 SUMS: dict[Measure, Summed] = {
     "hours": "hours",
     "overtime": "overtime",
+    "excess": "excess",
     "tasks": "tasks",
     "opened": "opened",
     "closed": "closed",

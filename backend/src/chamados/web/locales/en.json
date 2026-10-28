@@ -488,6 +488,8 @@
       "hours": "Hours",
       "overtime": "Overtime",
       "regular": "Regular hours",
+      "in_plan": "Hours within plan",
+      "excess": "Hours over plan",
       "tasks": "Tasks",
       "opened": "Tickets opened",
       "closed": "Tickets closed",
