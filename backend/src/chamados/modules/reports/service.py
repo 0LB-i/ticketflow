@@ -100,16 +100,15 @@ class Filters:
 def outside_minutes(end: datetime, minutes: int, cal: Calendar, user_id: int | None = None) -> int:
     """Minutos da tarefa fora do expediente de quem a fez (`user_id`; sem ele, o da instalação).
     A tarefa vai de `end - minutes` até `end` (done_at é quando ela terminou), no horário da
-    máquina; cada dia que ela atravessa usa a janela daquele dia (o expediente pode mudar de um
-    dia para o outro)."""
+    máquina; cada dia que ela atravessa usa as faixas daquele dia (o expediente pode mudar de um
+    dia para o outro, e o intervalo fica fora)."""
     begin = end - timedelta(minutes=minutes)
     inside = timedelta()
     day = begin.astimezone(TZ).date()
     last = end.astimezone(TZ).date()
     while day <= last:
-        window = cal.window(user_id, day)
-        if window is not None:
-            overlap = min(end, window[1]) - max(begin, window[0])
+        for w_start, w_end in cal.window(user_id, day) or ():
+            overlap = min(end, w_end) - max(begin, w_start)
             if overlap > timedelta():
                 inside += overlap
         day += timedelta(days=1)
@@ -597,18 +596,21 @@ def _task_group(group: Group) -> Any:
     return _local_day(TicketComment.done_at)
 
 
-Windows = tuple[tuple[datetime | None, ...], tuple[datetime | None, ...]]
+Windows = tuple[tuple[datetime | None, ...], ...]
 
 
 def _windows(f: Filters, cal: Calendar, user_id: int | None) -> Windows:
     """As janelas do expediente de uma pessoa (None: a instalação), uma por dia do período: os
-    inícios e os fins (nulos nos dias de folga e nos feriados)."""
+    inícios, os fins (nulos nos dias de folga e nos feriados) e o início e o fim do intervalo
+    (nulos sem ele)."""
     found = [
         cal.window(user_id, f.start + timedelta(days=i)) for i in range((f.end - f.start).days + 1)
     ]
     return (
-        tuple(w[0] if w else None for w in found),
-        tuple(w[1] if w else None for w in found),
+        tuple(w[0][0] if w else None for w in found),
+        tuple(w[-1][1] if w else None for w in found),
+        tuple(w[0][1] if w and len(w) > 1 else None for w in found),
+        tuple(w[1][0] if w and len(w) > 1 else None for w in found),
     )
 
 
@@ -616,11 +618,12 @@ def _may_have_overtime(f: Filters, cal: Calendar) -> ColumnElement[bool]:
     """As tarefas que podem ter hora extra: com tempo e que não cabem inteiras na janela do
     expediente de quem a fez, no dia em que terminam (as outras têm zero). As janelas são as do
     mesmo `Calendar.window` do `outside_minutes`, uma por dia do período, e cada tarefa pega a do
-    seu dia pelo índice; a hora extra das que passam continua sendo calculada em Python.
+    seu dia pelo índice; a que encosta no intervalo também passa. A hora extra das que passam
+    continua sendo calculada em Python.
 
-    Com o expediente da instalação para todos (o caso comum), um par de vetores só. Quem tem
-    outras janelas no período (o próprio ou o do grupo) ganha o par dele, escolhido pelo autor
-    num CASE; as pessoas com as mesmas janelas dividem o par."""
+    Com o expediente da instalação para todos (o caso comum), um jogo de vetores só. Quem tem
+    outras janelas no período (o próprio ou o do grupo) ganha o jogo dele, escolhido pelo autor
+    num CASE; as pessoas com as mesmas janelas dividem o jogo."""
     base = _windows(f, cal, None)
     others: dict[Windows, list[int]] = defaultdict(list)
     for user_id in {*cal.users, *cal.member_of}:
@@ -634,16 +637,20 @@ def _may_have_overtime(f: Filters, cal: Calendar) -> ColumnElement[bool]:
         # Entre parênteses: o PostgreSQL não aceita o índice logo depois do `::timestamptz[]`.
         return Grouping(bindparam(None, list(vector), type_=windows))[index]
 
-    w_start, w_end = at(base[0]), at(base[1])
+    w_start, w_end, b_start, b_end = (at(vector) for vector in base)
     if others:
         by_author = [(_among(TicketComment.author_id, ids), w) for w, ids in others.items()]
-        w_start = case(*((cond, at(w[0])) for cond, w in by_author), else_=w_start)
-        w_end = case(*((cond, at(w[1])) for cond, w in by_author), else_=w_end)
+        w_start, w_end, b_start, b_end = (
+            case(*((cond, at(w[i])) for cond, w in by_author), else_=column)
+            for i, column in enumerate((w_start, w_end, b_start, b_end))
+        )
     spent = func.make_interval(0, 0, 0, 0, 0, TicketComment.time_spent_minutes)
+    begin = TicketComment.done_at - spent
     inside = and_(
         w_start.is_not(None),
-        TicketComment.done_at - spent >= w_start,
+        begin >= w_start,
         TicketComment.done_at <= w_end,
+        or_(b_start.is_(None), TicketComment.done_at <= b_start, begin >= b_end),
     )
     return and_(TicketComment.time_spent_minutes > 0, not_(inside))
 
@@ -1509,6 +1516,8 @@ async def build(
             weekdays=list(installation.weekdays),
             start=installation.start,
             end=installation.end,
+            break_start=installation.break_start,
+            break_end=installation.break_end,
             holidays=sorted(data.calendar.holidays),
         ),
         totals=Totals(

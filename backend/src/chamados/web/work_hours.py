@@ -62,18 +62,29 @@ def rows(page: Page, found: Vigencies) -> list[dict[str, Any]]:
 
 
 def form_values(schedule: Schedule) -> dict[str, Any]:
-    """O formulário "Nova vigência" preenchido com o expediente que vale hoje, a partir de hoje."""
+    """O formulário "Nova vigência" preenchido com o expediente que vale hoje, a partir de hoje;
+    sem intervalo, sugere o padrão (apagar os dois campos grava sem intervalo)."""
+    break_start = schedule.break_start or DEFAULT_SCHEDULE.break_start
+    break_end = schedule.break_end or DEFAULT_SCHEDULE.break_end
     return {
         "valid_from": today().isoformat(),
         "weekdays": list(schedule.weekdays),
         "start": f"{schedule.start:%H:%M}",
         "end": f"{schedule.end:%H:%M}",
+        "break_start": f"{break_start:%H:%M}" if break_start else "",
+        "break_end": f"{break_end:%H:%M}" if break_end else "",
         "none": False,
     }
 
 
 def typed(
-    valid_from: str, weekdays: list[int] | None, start: str, end: str, none: bool
+    valid_from: str,
+    weekdays: list[int] | None,
+    start: str,
+    end: str,
+    break_start: str,
+    break_end: str,
+    none: bool,
 ) -> dict[str, Any]:
     """O que veio do formulário, para ler (`read_form`) e para devolver na tela com o erro."""
     return {
@@ -81,13 +92,16 @@ def typed(
         "weekdays": weekdays or [],
         "start": start,
         "end": end,
+        "break_start": break_start,
+        "break_end": break_end,
         "none": none,
     }
 
 
 def read_form(page: Page, form: dict[str, Any]) -> tuple[date, Schedule | None] | str:
     """A vigência digitada, ou a mensagem do erro (data inválida, nenhum dia, fim antes do
-    início). Com "sem expediente próprio", os dias e o horário não contam."""
+    início, intervalo pela metade ou fora do horário). Com "sem expediente próprio", os dias e
+    o horário não contam."""
     try:
         valid_from = date.fromisoformat(form["valid_from"])
     except ValueError:
@@ -103,8 +117,21 @@ def read_form(page: Page, form: dict[str, Any]) -> tuple[date, Schedule | None] 
         return page.t("expediente.horarioInvalido")
     if end <= start:
         return page.t("expediente.horarioInvalido")
+    break_start = break_end = None
+    if form["break_start"] or form["break_end"]:
+        try:
+            break_start = time.fromisoformat(form["break_start"])
+            break_end = time.fromisoformat(form["break_end"])
+        except ValueError:
+            return page.t("expediente.intervaloInvalido")
+        if not start < break_start < break_end < end:
+            return page.t("expediente.intervaloInvalido")
     return valid_from, Schedule(
-        weekdays, start.replace(second=0, microsecond=0), end.replace(second=0, microsecond=0)
+        weekdays,
+        start.replace(second=0, microsecond=0),
+        end.replace(second=0, microsecond=0),
+        break_start.replace(second=0, microsecond=0) if break_start else None,
+        break_end.replace(second=0, microsecond=0) if break_end else None,
     )
 
 

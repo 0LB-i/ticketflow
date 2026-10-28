@@ -206,11 +206,21 @@ async def set_work_hours(data: WorkHoursIn, auth: Admin, request: Request, db: D
     continuam com o de antes) e os feriados, que valem sempre."""
     if data.end <= data.start:
         raise HTTPException(422, "O fim do expediente precisa ser depois do início.")
+    if (data.break_start is None) != (data.break_end is None):
+        raise HTTPException(422, "Informe o início e o fim do intervalo, ou nenhum dos dois.")
+    if (
+        data.break_start
+        and data.break_end
+        and not data.start < data.break_start < data.break_end < data.end
+    ):
+        raise HTTPException(422, "O intervalo precisa ficar dentro do expediente.")
     valid_from = data.valid_from or datetime.now(TZ).date()
     schedule = Schedule(
         tuple(sorted(set(data.weekdays))),
         data.start.replace(second=0, microsecond=0),
         data.end.replace(second=0, microsecond=0),
+        data.break_start.replace(second=0, microsecond=0) if data.break_start else None,
+        data.break_end.replace(second=0, microsecond=0) if data.break_end else None,
     )
     holidays = sorted(set(data.holidays))
     before_holidays = await get_holidays(db)
@@ -239,5 +249,10 @@ async def set_work_hours(data: WorkHoursIn, auth: Admin, request: Request, db: D
         )
     await db.commit()
     return WorkHours(
-        weekdays=list(schedule.weekdays), start=schedule.start, end=schedule.end, holidays=holidays
+        weekdays=list(schedule.weekdays),
+        start=schedule.start,
+        end=schedule.end,
+        break_start=schedule.break_start,
+        break_end=schedule.break_end,
+        holidays=holidays,
     )

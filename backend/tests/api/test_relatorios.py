@@ -39,7 +39,7 @@ SEGUNDA = date(2026, 10, 5)
         (em(SEGUNDA, 8, 30), 60, 30),  # 07:30–08:30
         (em(SEGUNDA + timedelta(days=5), 10), 45, 45),  # sábado
         (em(SEGUNDA + timedelta(days=1), 1), 180, 180),  # 22:00–01:00, virando o dia
-        (em(SEGUNDA, 20), 13 * 60, 3 * 60),  # 07:00–20:00
+        (em(SEGUNDA, 20), 13 * 60, 3 * 60 + 90),  # 07:00–20:00, com o intervalo 12:00–13:30
     ],
 )
 def test_minutos_fora_do_expediente(fim: datetime, minutos: int, fora: int) -> None:
@@ -268,7 +268,7 @@ def test_csv(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
             "30",
             "0,00",
             "0",
-            "seg–sex 08:00–18:00",
+            "seg–sex 08:00–12:00, 13:30–18:00",
         ],
         [
             f"{dia:%d/%m/%Y} 19:00",
@@ -280,14 +280,14 @@ def test_csv(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
             "90",
             "1,00",
             "60",
-            "seg–sex 08:00–18:00",
+            "seg–sex 08:00–12:00, 13:30–18:00",
         ],
     ]
     # As horas extras, em inglês: vírgula como separador e ponto decimal.
     extras = baixar("overtime", "en")
     assert extras[0][0] == "When" and len(extras) == 2
     assert extras[1][0] == f"{dia:%Y-%m-%d} 19:00"
-    assert extras[1][5:] == ["1.50", "90", "1.00", "60", "Mon–Fri 08:00–18:00"]
+    assert extras[1][5:] == ["1.50", "90", "1.00", "60", "Mon–Fri 08:00–12:00, 13:30–18:00"]
     assert baixar("people", "pt-BR") == [
         [
             "Pessoa",
@@ -354,6 +354,8 @@ def test_expediente(client: TestClient, cenario: dict[str, Any], db: Session) ->
         "weekdays": [0, 1, 2, 3, 4],
         "start": "08:00:00",
         "end": "18:00:00",
+        "break_start": "12:00:00",
+        "break_end": "13:30:00",
         "holidays": [],
     }
     novo = {"weekdays": [5, 0, 1], "start": "07:00", "end": "17:00", "holidays": ["2026-12-25"]}
@@ -369,6 +371,17 @@ def test_expediente(client: TestClient, cenario: dict[str, Any], db: Session) ->
     assert r.status_code == 422
     r = client.put("/api/v1/admin/settings/work-hours", json={**novo, "weekdays": [7]})
     assert r.status_code == 422
+    for intervalo in ({"break_start": "12:00"}, {"break_start": "16:00", "break_end": "18:00"}):
+        r = client.put("/api/v1/admin/settings/work-hours", json={**novo, **intervalo})
+        assert r.status_code == 422, intervalo
+    r = client.put(
+        "/api/v1/admin/settings/work-hours",
+        json={**novo, "break_start": "12:00", "break_end": "13:00"},
+    )
+    assert r.status_code == 200, r.text
+    assert client.get("/api/v1/work-hours").json()["break_end"] == "13:00:00"
+    r = client.put("/api/v1/admin/settings/work-hours", json=novo)
+    assert client.get("/api/v1/work-hours").json()["break_start"] is None
     assert db.scalar(select(AuditLog).where(AuditLog.action == "settings.updated")) is not None
 
     # O relatório usa o expediente novo a partir do dia dele: 17:30–19:00 fica todo fora
@@ -381,6 +394,20 @@ def test_expediente(client: TestClient, cenario: dict[str, Any], db: Session) ->
     t = registrar(client, cenario, assignee="me")["number"]
     tarefa(client, t, 90, em(dia, 19))
     assert relatorio(client, dia)["totals"]["overtime_minutes"] == 90
+
+
+def test_hora_extra_no_intervalo(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
+    """O intervalo do padrão (12:00–13:30) fica fora do expediente. O pré-filtro do SQL deixa
+    passar a tarefa que encosta nele, e o total bate com o das tarefas calculadas em Python."""
+    dia = dia_util_passado()
+    t = registrar(client, cenario, assignee="me")["number"]
+    tarefa(client, t, 60, em(dia, 12))  # 11:00–12:00: até o intervalo
+    tarefa(client, t, 60, em(dia, 14, 30))  # 13:30–14:30: depois dele
+    tarefa(client, t, 60, em(dia, 13))  # 12:00–13:00: dentro dele
+    tarefa(client, t, 120, em(dia, 14))  # 12:00–14:00: 90 dele
+    dados = relatorio(client, dia)
+    assert dados["totals"]["overtime_minutes"] == 150
+    assert sorted(r["overtime_minutes"] for r in dados["overtime_tasks"]) == [60, 90]
 
 
 def test_hora_extra_pelo_expediente_do_grupo_e_proprio(

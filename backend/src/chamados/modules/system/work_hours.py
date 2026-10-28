@@ -38,6 +38,12 @@ class WorkHours(BaseModel):
     )
     start: time = Field(description="início do expediente (hora da máquina)")
     end: time = Field(description="fim do expediente; depois do início")
+    break_start: time | None = Field(
+        default=None, description="início do intervalo (fora do expediente); sem ele, sem intervalo"
+    )
+    break_end: time | None = Field(
+        default=None, description="fim do intervalo; entre o início dele e o fim do expediente"
+    )
     holidays: list[date] = Field(default=[], max_length=200, description="feriados e folgas")
 
 
@@ -51,15 +57,30 @@ class WorkHoursIn(WorkHours):
 
 @dataclass(frozen=True)
 class Schedule:
-    """Dias e horário de um expediente (sem os feriados, que são da instalação)."""
+    """Dias e horário de um expediente (sem os feriados, que são da instalação), com o
+    intervalo opcional: o tempo nele fica fora do expediente."""
 
     weekdays: tuple[int, ...]  # 0 = segunda, em ordem
     start: time
     end: time
+    break_start: time | None = None
+    break_end: time | None = None
+
+    def periods(self) -> tuple[tuple[time, time], ...]:
+        """O horário em faixas: uma, ou duas com o intervalo entre elas."""
+        if self.break_start is None or self.break_end is None:
+            return ((self.start, self.end),)
+        return ((self.start, self.break_start), (self.break_end, self.end))
 
 
-DEFAULT_SCHEDULE = Schedule((0, 1, 2, 3, 4), time(8), time(18))
-DEFAULT = WorkHours(weekdays=[0, 1, 2, 3, 4], start=time(8), end=time(18))
+DEFAULT_SCHEDULE = Schedule((0, 1, 2, 3, 4), time(8), time(18), time(12), time(13, 30))
+DEFAULT = WorkHours(
+    weekdays=[0, 1, 2, 3, 4],
+    start=time(8),
+    end=time(18),
+    break_start=time(12),
+    break_end=time(13, 30),
+)
 
 # As vigências de um dono, em ordem: o primeiro dia (date.min: desde sempre) e o expediente (None:
 # segue o de cima).
@@ -93,16 +114,24 @@ def weekday_ranges(weekdays: Sequence[int], names: Sequence[str]) -> str:
 
 
 def describe(schedule: Schedule, names: Sequence[str]) -> str:
-    """Um expediente em texto curto: "seg–sex 08:00–18:00"."""
-    return f"{weekday_ranges(schedule.weekdays, names)} {schedule.start:%H:%M}–{schedule.end:%H:%M}"
+    """Um expediente em texto curto: "seg–sex 08:00–18:00" ou, com intervalo, "seg–sex
+    08:00–12:00, 13:30–18:00"."""
+    hours = ", ".join(f"{a:%H:%M}–{b:%H:%M}" for a, b in schedule.periods())
+    return f"{weekday_ranges(schedule.weekdays, names)} {hours}"
+
+
+# As faixas do expediente num dia, em UTC: uma, ou duas com o intervalo entre elas.
+Window = tuple[tuple[datetime, datetime], ...]
 
 
 @lru_cache(maxsize=4096)
-def work_window(day: date, start: time, end: time) -> tuple[datetime, datetime]:
+def work_window(day: date, schedule: Schedule) -> Window:
     """O expediente do dia em UTC (somar e subtrair datas no mesmo fuso do zoneinfo ignora a
     troca de horário). Em cache: num relatório de um ano, cada dia volta milhares de vezes."""
-    w_start = datetime.combine(day, start, TZ).astimezone(UTC)
-    return w_start, datetime.combine(day, end, TZ).astimezone(UTC)
+    return tuple(
+        (datetime.combine(day, a, TZ).astimezone(UTC), datetime.combine(day, b, TZ).astimezone(UTC))
+        for a, b in schedule.periods()
+    )
 
 
 @dataclass(frozen=True)
@@ -126,9 +155,7 @@ class Calendar:
     teams: dict[int, Vigencies] = field(default_factory=dict)
     member_of: dict[int, tuple[int, ...]] = field(default_factory=dict)  # só grupos com vigência
     holidays: frozenset[date] = frozenset()
-    _windows: dict[tuple[int | None, date], tuple[datetime, datetime] | None] = field(
-        default_factory=dict, repr=False
-    )
+    _windows: dict[tuple[int | None, date], Window | None] = field(default_factory=dict, repr=False)
 
     @property
     def personal(self) -> bool:
@@ -166,19 +193,15 @@ class Calendar:
     def works(self, schedule: Schedule, day: date) -> bool:
         return day.weekday() in schedule.weekdays and day not in self.holidays
 
-    def window(self, user_id: int | None, day: date) -> tuple[datetime, datetime] | None:
-        """A janela do expediente de uma pessoa num dia, em UTC; None num dia sem expediente
+    def window(self, user_id: int | None, day: date) -> Window | None:
+        """As faixas do expediente de uma pessoa num dia, em UTC; None num dia sem expediente
         (folga ou feriado). Em cache na requisição: a hora extra pergunta por cada tarefa."""
         key = (self.who(user_id), day)
         try:
             return self._windows[key]
         except KeyError:
             schedule = self.source(key[0], day).schedule
-            window = (
-                work_window(day, schedule.start, schedule.end)
-                if self.works(schedule, day)
-                else None
-            )
+            window = work_window(day, schedule) if self.works(schedule, day) else None
             self._windows[key] = window
             return window
 
@@ -186,7 +209,7 @@ class Calendar:
 def _schedule(row: Any) -> Schedule | None:
     if row.weekdays is None:
         return None
-    return Schedule(tuple(sorted(row.weekdays)), row.start, row.end)
+    return Schedule(tuple(sorted(row.weekdays)), row.start, row.end, row.break_start, row.break_end)
 
 
 async def get_holidays(db: AsyncSession) -> list[date]:
@@ -204,6 +227,8 @@ async def load_calendar(db: AsyncSession) -> Calendar:
             WorkSchedule.weekdays,
             WorkSchedule.start,
             WorkSchedule.end,
+            WorkSchedule.break_start,
+            WorkSchedule.break_end,
         ).order_by(WorkSchedule.valid_from.asc().nulls_first())
     )
     cal = Calendar(installation=[], holidays=frozenset(await get_holidays(db)))
@@ -233,7 +258,13 @@ async def get_work_hours(db: AsyncSession, day: date | None = None) -> WorkHours
     day = day or datetime.now(TZ).date()
     row = (
         await db.execute(
-            select(WorkSchedule.weekdays, WorkSchedule.start, WorkSchedule.end)
+            select(
+                WorkSchedule.weekdays,
+                WorkSchedule.start,
+                WorkSchedule.end,
+                WorkSchedule.break_start,
+                WorkSchedule.break_end,
+            )
             .where(
                 WorkSchedule.user_id.is_(None),
                 WorkSchedule.team_id.is_(None),
@@ -248,6 +279,8 @@ async def get_work_hours(db: AsyncSession, day: date | None = None) -> WorkHours
         weekdays=list(schedule.weekdays),
         start=schedule.start,
         end=schedule.end,
+        break_start=schedule.break_start,
+        break_end=schedule.break_end,
         holidays=await get_holidays(db),
     )
 
@@ -273,7 +306,14 @@ async def vigencies(
 ) -> Vigencies:
     """As vigências de um dono (sem pessoa nem grupo: a instalação), em ordem."""
     rows = await db.execute(
-        select(WorkSchedule.valid_from, WorkSchedule.weekdays, WorkSchedule.start, WorkSchedule.end)
+        select(
+            WorkSchedule.valid_from,
+            WorkSchedule.weekdays,
+            WorkSchedule.start,
+            WorkSchedule.end,
+            WorkSchedule.break_start,
+            WorkSchedule.break_end,
+        )
         .where(*_owner(user_id, team_id))
         .order_by(WorkSchedule.valid_from.asc().nulls_first())
     )
@@ -284,11 +324,15 @@ def snapshot(schedule: Schedule | None) -> dict[str, Any] | None:
     """O expediente na auditoria (None: sem expediente próprio)."""
     if schedule is None:
         return None
-    return {
+    found: dict[str, Any] = {
         "weekdays": list(schedule.weekdays),
         "start": schedule.start.isoformat("minutes"),
         "end": schedule.end.isoformat("minutes"),
     }
+    if schedule.break_start and schedule.break_end:
+        found["break_start"] = schedule.break_start.isoformat("minutes")
+        found["break_end"] = schedule.break_end.isoformat("minutes")
+    return found
 
 
 async def save_vigency(
@@ -320,6 +364,8 @@ async def save_vigency(
         row.weekdays = list(schedule.weekdays) if schedule else None
         row.start = schedule.start if schedule else None
         row.end = schedule.end if schedule else None
+        row.break_start = schedule.break_start if schedule else None
+        row.break_end = schedule.break_end if schedule else None
         db.add(row)
     await db.flush()
     return before, schedule

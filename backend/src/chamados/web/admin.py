@@ -426,13 +426,17 @@ async def set_user_work_hours(
     weekdays: Weekdays = None,
     start: Field = "",
     end: Field = "",
+    break_start: Field = "",
+    break_end: Field = "",
     sem_proprio: Field = "",
 ) -> Response:
     check_csrf(page, csrf_token)
     user = await db.scalar(select(User).where(User.public_id == user_id, User.deleted_at.is_(None)))
     if user is None:
         raise HTTPException(404, "Usuário não encontrado.")
-    form = work_hours.typed(valid_from, weekdays, start, end, sem_proprio == "1")
+    form = work_hours.typed(
+        valid_from, weekdays, start, end, break_start, break_end, sem_proprio == "1"
+    )
     return await _save_work_hours(
         page,
         request,
@@ -661,13 +665,17 @@ async def set_team_work_hours(
     weekdays: Weekdays = None,
     start: Field = "",
     end: Field = "",
+    break_start: Field = "",
+    break_end: Field = "",
     sem_proprio: Field = "",
 ) -> Response:
     check_csrf(page, csrf_token)
     team = await db.scalar(select(Team).where(Team.public_id == team_id))
     if team is None:
         raise HTTPException(404, "Grupo não encontrado.")
-    form = work_hours.typed(valid_from, weekdays, start, end, sem_proprio == "1")
+    form = work_hours.typed(
+        valid_from, weekdays, start, end, break_start, break_end, sem_proprio == "1"
+    )
     return await _save_work_hours(
         page,
         request,

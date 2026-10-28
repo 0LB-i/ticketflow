@@ -2697,10 +2697,10 @@ def test_expediente_usado_so_de_quem_a_pessoa_ve(
     inicio = "Hora extra é o tempo de tarefa fora do expediente: o da instalação (seg–sex"
     esperado = {
         # A supervisora do TI: ela segue o do grupo; a Ana tem o próprio; o Caio fica de fora.
-        "bia@x.com": " 08:00–18:00), o do grupo TI (1 pessoa) e o próprio de Ana, sem",
-        "ana@x.com": " 08:00–18:00) e o próprio de Ana, sem",
-        "admin@x.com": " 08:00–18:00), o do grupo TI (1 pessoa) e o próprio de 2 pessoas"
-        " (Ana, Caio), sem",
+        "bia@x.com": " 08:00–12:00, 13:30–18:00), o do grupo TI (1 pessoa) e o próprio de Ana, sem",
+        "ana@x.com": " 08:00–12:00, 13:30–18:00) e o próprio de Ana, sem",
+        "admin@x.com": " 08:00–12:00, 13:30–18:00), o do grupo TI (1 pessoa) e o próprio de"
+        " 2 pessoas (Ana, Caio), sem",
     }
     chamadas = _capturar(monkeypatch, "render_model")
     for email, texto in esperado.items():

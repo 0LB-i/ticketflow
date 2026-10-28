@@ -127,8 +127,10 @@ def test_expediente(client: TestClient, db: Session) -> None:
     hoje = datetime.now(TZ).date()
     # Sem vigência gravada, a lista mostra o padrão desde sempre.
     r = client.get(URL)
-    assert "Desde sempre</span>" in r.text and "Seg–Sex 08:00–18:00" in r.text
+    assert "Desde sempre</span>" in r.text and "Seg–Sex 08:00–12:00, 13:30–18:00" in r.text
     assert f'name="valid_from" type="date" value="{hoje.isoformat()}"' in r.text
+    assert 'name="break_start" type="time" value="12:00"' in r.text
+    assert 'name="break_end" type="time" value="13:30"' in r.text
     dados = {
         "valid_from": hoje.isoformat(),
         "weekdays": ["0", "1", "2", "3"],
@@ -151,6 +153,9 @@ def test_expediente(client: TestClient, db: Session) -> None:
     assert "Seg–Qui 09:00–17:30" in r.text
     r = client.post(f"{URL}/expediente", data=_form(client, **{**dados, "end": "08:00"}))
     assert _aviso(r.text) == "O fim precisa ser depois do início."
+    for intervalo in ({"break_start": "12:00"}, {"break_start": "17:00", "break_end": "18:00"}):
+        r = client.post(f"{URL}/expediente", data=_form(client, **{**dados, **intervalo}))
+        assert _aviso(r.text).startswith("O intervalo precisa"), intervalo
     r = client.post(f"{URL}/expediente", data=_form(client, **{**dados, "valid_from": "x"}))
     assert _aviso(r.text) == "Informe uma data válida."
     # Uma vigência futura entra na lista, sem a marca de "Vale hoje".
@@ -161,6 +166,15 @@ def test_expediente(client: TestClient, db: Session) -> None:
     r = client.post(f"{URL}/expediente", data=_form(client, **futura))
     assert "A partir de 01/01/2099" in r.text
     assert r.text.count(">Vale hoje</span>") == 1
+    # Com intervalo: a vigência de hoje passa a tê-lo.
+    r = client.post(
+        f"{URL}/expediente",
+        data=_form(client, **{**dados, "break_start": "12:00", "break_end": "13:00"}),
+    )
+    assert "Seg–Qui 09:00–12:00, 13:00–17:30" in r.text
+    db.expire_all()
+    vigencia = db.scalars(select(WorkSchedule).where(WorkSchedule.valid_from == hoje)).one()
+    assert (vigencia.break_start, vigencia.break_end) == (time(12), time(13))
 
 
 def test_marca_lida_numa_consulta(client: TestClient, db: Session) -> None:

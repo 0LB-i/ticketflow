@@ -21,7 +21,7 @@
 </ul>
 {%- endmacro %}
 
-{#- A data de início, os dias e o horário; `none_label`: a opção "sem expediente próprio" (só
+{#- A data de início, os dias, o horário e o intervalo (opcional); `none_label`: a opção "sem expediente próprio" (só
     grupo e pessoa: a instalação sempre tem um). -#}
 {% macro schedule_fields(form, form_id, none_label=None) -%}
 {{ field("valid_from", t("expediente.novaVigencia"), type="date", value=form.valid_from, hint=t("expediente.novaVigenciaDica"), required=True, form=form_id) }}
@@ -39,6 +39,8 @@
 <div class="grid max-w-md gap-4 sm:grid-cols-2">
   {{ field("start", t("expediente.inicio"), type="time", value=form.start, required=True, form=form_id) }}
   {{ field("end", t("expediente.fim"), type="time", value=form.end, hint=t("expediente.horarioInvalido"), required=True, form=form_id) }}
+  {{ field("break_start", t("expediente.intervaloInicio"), type="time", value=form.break_start, form=form_id) }}
+  {{ field("break_end", t("expediente.intervaloFim"), type="time", value=form.break_end, hint=t("expediente.intervaloDica"), form=form_id) }}
 </div>
 {%- endmacro %}
 

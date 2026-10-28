@@ -104,7 +104,11 @@ async def settings_page(
         renaming=renomear,
         kind_options=[(k, page.t(f"statusConfig.comportamentos.{k}")) for k in KINDS],
         installation_rows=await work_hours.installation(page, db),
-        hours_form=work_hours.form_values(Schedule(tuple(hours.weekdays), hours.start, hours.end)),
+        hours_form=work_hours.form_values(
+            Schedule(
+                tuple(hours.weekdays), hours.start, hours.end, hours.break_start, hours.break_end
+            )
+        ),
         holidays=[(h.isoformat(), format_date(page.locale, h)) for h in hours.holidays],
     )
 
@@ -303,6 +307,8 @@ async def save_work_hours(
     weekdays: Annotated[list[int] | None, Form()] = None,
     start: Field = "",
     end: Field = "",
+    break_start: Field = "",
+    break_end: Field = "",
     holidays: Annotated[list[str] | None, Form()] = None,
 ) -> Response:
     """Uma vigência da instalação (dias e horário a partir de uma data: os dias antes continuam
@@ -311,7 +317,7 @@ async def save_work_hours(
     check_csrf(page, csrf_token)
     back = f"{HOME}#expediente"
     found = work_hours.read_form(
-        page, work_hours.typed(valid_from, weekdays, start, end, none=False)
+        page, work_hours.typed(valid_from, weekdays, start, end, break_start, break_end, none=False)
     )
     if isinstance(found, str):
         response = RedirectResponse(back, status_code=303)
@@ -327,6 +333,8 @@ async def save_work_hours(
                     "weekdays": weekdays or [],
                     "start": start,
                     "end": end,
+                    "break_start": break_start or None,
+                    "break_end": break_end or None,
                     "holidays": [h for h in holidays or [] if h],
                     "valid_from": day,
                 }

@@ -65,7 +65,7 @@ def test_vigencia_do_grupo(client: TestClient, db: Session) -> None:
     suporte = grupo(db, "Suporte")
     url = f"/admin/grupos?editar={suporte.public_id}"
     r = client.get(url)
-    assert "Segue o da instalação (Seg–Sex 08:00–18:00)" in r.text
+    assert "Segue o da instalação (Seg–Sex 08:00–12:00, 13:30–18:00)" in r.text
     assert 'action="/admin/grupos/' in r.text and "/expediente" in r.text
 
     dados = _form(client, valid_from=_hoje(), **SEG_A_QUI)
@@ -121,7 +121,7 @@ def test_vigencia_da_pessoa(client: TestClient, db: Session) -> None:
     bia = criar_usuario(db, "bia@x.com", nome="Bia")
     url = f"/admin/usuarios?editar={bia.public_id}"
     r = client.get(url)
-    assert "Segue o da instalação (Seg–Sex 08:00–18:00)" in r.text
+    assert "Segue o da instalação (Seg–Sex 08:00–12:00, 13:30–18:00)" in r.text
     # Os campos ficam dentro do formulário do usuário e apontam o formulário do expediente.
     acao = f'<form id="form-expediente" method="post" action="/admin/usuarios/{bia.public_id}/'
     assert acao in r.text
@@ -178,7 +178,7 @@ def test_origem_do_grupo_e_aviso_de_dois_grupos(client: TestClient, db: Session)
         data=_form(client, valid_from=_hoje(), weekdays=["4"], start="10:00", end="14:00"),
     )
     r = client.get(url)
-    assert "Segue o da instalação (Seg–Sex 08:00–18:00)" in r.text
+    assert "Segue o da instalação (Seg–Sex 08:00–12:00, 13:30–18:00)" in r.text
     assert "Está em mais de um grupo com expediente (Redes, Suporte)" in r.text
     assert "Defina o expediente" in client.get("/admin/usuarios").text  # o sinal na lista
 

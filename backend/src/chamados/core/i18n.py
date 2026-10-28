@@ -165,6 +165,10 @@ EN: dict[str, str] = {
     "Informe as horas do contrato.": "Enter the contract hours.",
     "Cliente não encontrado.": "Client not found.",
     "O fim do expediente precisa ser depois do início.": "Working hours must end after they start.",
+    "Informe o início e o fim do intervalo, ou nenhum dos dois.": (
+        "Enter both the start and the end of the break, or neither."
+    ),
+    "O intervalo precisa ficar dentro do expediente.": "The break must be within working hours.",
     "O período precisa terminar depois de começar.": "The period must end after it starts.",
     "Data inválida.": "Invalid date.",
     "O período pode ter no máximo 366 dias.": "The period can have at most 366 days.",

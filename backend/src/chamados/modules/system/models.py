@@ -41,6 +41,7 @@ class WorkSchedule(Base):
     """Uma vigência do expediente: da instalação (sem pessoa nem grupo), de um grupo ou de uma
     pessoa, a partir de `valid_from` (nulo: desde sempre) até a próxima do mesmo dono. Sem dias
     e horário, a pessoa ou o grupo volta a seguir o de cima (o do grupo ou o da instalação).
+    O intervalo (`break_start`–`break_end`, opcional) fica dentro do horário e fora do expediente.
     Mudar o expediente grava uma vigência nova (a da mesma data é substituída): a hora extra dos
     dias de antes continua a mesma."""
 
@@ -56,6 +57,11 @@ class WorkSchedule(Base):
             name="installation",
         ),
         CheckConstraint('"end" > start', name="range"),
+        CheckConstraint(
+            "(break_start IS NULL) = (break_end IS NULL) AND (break_start IS NULL OR "
+            '(start < break_start AND break_start < break_end AND break_end < "end"))',
+            name="break",
+        ),
         CheckConstraint("weekdays <@ '{0,1,2,3,4,5,6}'::smallint[]", name="weekdays"),
         # Uma vigência por dono e data; o "desde sempre" (nulo) também é um só.
         UniqueConstraint("user_id", "team_id", "valid_from", postgresql_nulls_not_distinct=True),
@@ -69,4 +75,6 @@ class WorkSchedule(Base):
     weekdays: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger))  # 0 = segunda
     start: Mapped[time | None] = mapped_column(Time)
     end: Mapped[time | None] = mapped_column(Time)
+    break_start: Mapped[time | None] = mapped_column(Time)
+    break_end: Mapped[time | None] = mapped_column(Time)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

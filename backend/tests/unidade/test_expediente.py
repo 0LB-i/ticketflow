@@ -37,6 +37,10 @@ def test_dias_em_faixas(dias: list[int], texto: str) -> None:
 
 def test_expediente_em_texto() -> None:
     assert describe(Schedule((0, 1, 2, 3, 4), time(8), time(18)), DIAS) == "seg–sex 08:00–18:00"
+    assert (
+        describe(Schedule((0, 1, 2, 3, 4), time(8), time(18), time(12), time(13, 30)), DIAS)
+        == "seg–sex 08:00–12:00, 13:30–18:00"
+    )
 
 
 # --- o expediente de (pessoa, dia) ----------------------------------------------------------
@@ -99,7 +103,7 @@ def test_vigencia_sem_expediente_proprio_volta_ao_de_cima() -> None:
 def test_janela_e_feriado() -> None:
     cal = _calendario()
     quinta = SEGUNDA + timedelta(days=3)
-    assert cal.window(ANA, SEGUNDA) == work_window(SEGUNDA, time(10), time(19))
+    assert cal.window(ANA, SEGUNDA) == work_window(SEGUNDA, SUPORTE)
     assert cal.window(ANA, quinta) is None  # feriado vale para todos
     assert cal.window(DANI, SEGUNDA + timedelta(days=5)) is None  # sábado
     assert cal.window(ANA, SEGUNDA + timedelta(days=5)) is not None  # o Suporte trabalha
@@ -123,3 +127,20 @@ def test_hora_extra_pelo_expediente_de_quem_fez(
     quem: int, fim: datetime, minutos: int, fora: int
 ) -> None:
     assert outside_minutes(fim, minutos, _calendario(), quem) == fora
+
+
+ALMOCO = Schedule((0, 1, 2, 3, 4), time(8), time(18), time(12), time(13, 30))
+
+
+@pytest.mark.parametrize(
+    ("fim", "minutos", "fora"),
+    [
+        (em(SEGUNDA, 12), 60, 0),  # 11:00–12:00: até o intervalo
+        (em(SEGUNDA, 15), 90, 0),  # 13:30–15:00: depois dele
+        (em(SEGUNDA, 13), 60, 60),  # 12:00–13:00: dentro dele
+        (em(SEGUNDA, 14), 180, 90),  # 11:00–14:00: atravessa os 90 minutos dele
+    ],
+)
+def test_intervalo_fica_fora_do_expediente(fim: datetime, minutos: int, fora: int) -> None:
+    cal = Calendar(installation=[(date.min, ALMOCO)])
+    assert outside_minutes(fim, minutos, cal) == fora
