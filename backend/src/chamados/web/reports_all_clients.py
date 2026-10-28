@@ -1,14 +1,17 @@
 """Relatórios: a aba Clientes geral (docs/14 §14.7). Só o período e o status (que abre com os
 concluídos, como a aba Clientes); ao gerar, o relatório detalhado de cada cliente com horas no
 período, um depois do outro: os cartões da aba Clientes e as tarefas, com o PDF detalhado dele
-(o mesmo da aba Clientes com um cliente só, que vai para o Histórico). Sem os gráficos e sem
-"Sem cliente".
+(o mesmo da aba Clientes com um cliente só, que vai para o Histórico) e o ZIP com o de todos.
+Sem os gráficos e sem "Sem cliente".
 """
 
+import io
+import zipfile
+from dataclasses import replace
 from typing import Any
 
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import HTMLResponse, Response
 
 from chamados.db.session import DB
 from chamados.modules.reports import builder, service
@@ -17,6 +20,7 @@ from chamados.web.formatting import format_date
 from chamados.web.page import LoggedPage, LoggedPageDep
 from chamados.web.reports import period_view, tab
 from chamados.web.reports_blocks import formatter
+from chamados.web.reports_downloads import attachment, render_pdf
 from chamados.web.reports_state import TABS, Params, State, Values, load_state, with_query
 
 router = APIRouter()
@@ -117,6 +121,7 @@ async def all_clients_page(
         query_status=query["status"],
         error=state.error,
         clients=clients,
+        zip_url=with_query(f"{PATH}/zip", query),
         columns=[
             page.t("relatorios.colunas.quando"),
             page.t("relatorios.colunas.chamado"),
@@ -124,3 +129,41 @@ async def all_clients_page(
             page.t("relatorios.colunas.tempo"),
         ],
     )
+
+
+@router.get(f"{PATH}/zip")
+async def all_clients_zip(
+    page: LoggedPageDep,
+    db: DB,
+    periodo: str | None = None,
+    de: str | None = None,
+    ate: str | None = None,
+    dias: str | None = None,
+    status: Values = None,
+) -> Response:
+    """Os PDFs detalhados de todos os clientes com horas no período, num ZIP: cada um é o do botão
+    do cliente (com o nome dele no arquivo, na auditoria e no Histórico)."""
+    params = Params(aba="clientes", periodo=periodo, de=de, ate=ate, dias=dias, status=status)
+    state = await load_state(page, db, params)
+    f = state.filters
+    if state.error or f is None:
+        raise HTTPException(422, "Não foi possível gerar os PDFs com estes filtros.")
+    want = service.Want(sums={"hours": {"client"}})
+    data = await service.facts(db, page.auth, f, want, state.lookups)
+    hours = data.sums["hours"].by["client"]
+    clients = [data.clients[k].public_id for k, minutes in hours.items() if k and minutes]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        used: set[str] = set()
+        for public_id in clients:
+            one = await load_state(page, db, replace(params, cliente=[str(public_id)]))
+            content, name = await render_pdf(page, db, one, detalhado=True)
+            # Dois clientes com o mesmo nome: o segundo ganha um número.
+            stem, n = name.removesuffix(".pdf"), 2
+            while name in used:
+                name, n = f"{stem} ({n}).pdf", n + 1
+            used.add(name)
+            archive.writestr(name, content)
+    await db.commit()
+    name = f"relatorios-clientes-{f.start:%Y-%m-%d}-a-{f.end:%Y-%m-%d}.zip"
+    return Response(buffer.getvalue(), media_type="application/zip", headers=attachment(name))

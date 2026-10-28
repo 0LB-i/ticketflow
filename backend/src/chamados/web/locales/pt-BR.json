@@ -517,7 +517,9 @@
       "gerar": "Gerar",
       "nenhum": "Nenhum cliente com horas no período.",
       "baixarPdf": "Baixar PDF detalhado",
-      "baixarPdfDe": "Baixar o PDF detalhado de {cliente}"
+      "baixarPdfDe": "Baixar o PDF detalhado de {cliente}",
+      "quantos": "Clientes com horas no período: {n}.",
+      "baixarTodos": "Baixar todos os PDFs (ZIP)"
     },
     "historico": {
       "explicacao": "Os PDFs da aba Clientes que você baixou com um cliente só. Gerar de novo usa os mesmos filtros e período, com os dados de hoje.",

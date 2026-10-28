@@ -1,6 +1,6 @@
 {#- A aba Clientes geral de Relatórios (docs/14 §14.7): o período e o status e, ao gerar, o
     relatório detalhado de cada cliente com horas no período (reports_all_clients.py), cada um
-    com o PDF detalhado dele. -#}
+    com o PDF detalhado dele, e o ZIP com o de todos. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, button_class with context %}
 {% from "_fields.html" import chips with context %}
@@ -39,6 +39,13 @@
   {{ alert(error) }}
   {%- elif clients is not none and not clients %}
   <p class="rounded-lg border border-border bg-surface p-4 text-muted">{{ t("relatorios.clientesGeral.nenhum") }}</p>
+  {%- endif %}
+  {%- if clients %}
+  {#- Os PDFs de todos, num ZIP (o mesmo de cada botão, com o nome do cliente no arquivo). #}
+  <div class="flex flex-wrap items-center justify-between gap-2 print:hidden">
+    <p class="text-muted">{{ t("relatorios.clientesGeral.quantos", n=clients | length) }}</p>
+    <a href="{{ zip_url }}" download class="{{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.clientesGeral.baixarTodos") }}</a>
+  </div>
   {%- endif %}
   {%- for c in clients or [] %}
   {#- Um cliente: o nome e o PDF, os cartões e as tarefas com o total. Na impressão, cada um

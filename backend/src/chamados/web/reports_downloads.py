@@ -4,9 +4,12 @@ número (detalhar), com o CSV dela. Todo download vai para a
 auditoria (`report.exported`).
 """
 
+import re
+import unicodedata
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any, cast
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -193,6 +196,20 @@ async def _client_tasks(
     ]
 
 
+def attachment(name: str) -> dict[str, str]:
+    """O cabeçalho do download com o nome do arquivo: o nome com acentos (`filename*`) e, para
+    quem não o entende, o mesmo sem eles (`filename`)."""
+    plain = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    return {
+        "Content-Disposition": f"attachment; filename=\"{plain}\"; filename*=UTF-8''{quote(name)}"
+    }
+
+
+def file_name(text: str) -> str:
+    """Um nome que serve de nome de arquivo: sem / \\ : * ? " < > | e controles."""
+    return re.sub(r'[\x00-\x1f/\\:*?"<>|]+', " ", text).strip(" .") or "cliente"
+
+
 @router.get("/relatorios/pdf")
 async def report_pdf(
     page: LoggedPageDep, db: DB, params: ParamsDep, detalhado: bool = False
@@ -201,6 +218,16 @@ async def report_pdf(
     Clientes, `detalhado` põe as tarefas de cada cliente antes dos blocos, que ficam como o
     resumo."""
     state = await load_state(page, db, params)
+    content, name = await render_pdf(page, db, state, detalhado=detalhado)
+    await db.commit()
+    return Response(content, media_type="application/pdf", headers=attachment(name))
+
+
+async def render_pdf(
+    page: LoggedPage, db: DB, state: State, *, detalhado: bool
+) -> tuple[bytes, str]:
+    """O PDF e o nome do arquivo (o do cliente, com um cliente só), já na auditoria e, na aba
+    Clientes com um cliente só, no Histórico; quem chama faz o commit."""
     f, config = state.filters, state.choice.config
     if state.error or f is None:
         raise HTTPException(422, "Não foi possível gerar o PDF com estes filtros.")
@@ -282,13 +309,10 @@ async def report_pdf(
             f.end,
             {k: v for k, v in again.items() if v},
         )
-    await db.commit()
     name = f"relatorio-{f.start:%Y-%m-%d}-a-{f.end:%Y-%m-%d}.pdf"
-    return Response(
-        content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{name}"'},
-    )
+    if one_client:  # com o nome do cliente
+        name = f"{file_name(f.clients[0].label)} - {name}"
+    return content, name
 
 
 @router.get("/relatorios/csv")

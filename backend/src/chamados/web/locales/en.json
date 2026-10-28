@@ -517,7 +517,9 @@
       "gerar": "Generate",
       "nenhum": "No client with hours in the period.",
       "baixarPdf": "Download detailed PDF",
-      "baixarPdfDe": "Download the detailed PDF of {cliente}"
+      "baixarPdfDe": "Download the detailed PDF of {cliente}",
+      "quantos": "Clients with hours in the period: {n}.",
+      "baixarTodos": "Download all PDFs (ZIP)"
     },
     "historico": {
       "explicacao": "The Clients tab PDFs you downloaded with a single client. Generate again uses the same filters and period, with today's data.",

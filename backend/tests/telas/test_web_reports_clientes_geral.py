@@ -1,11 +1,13 @@
 """A aba Clientes geral (docs/14 §14.7): o período e o status e, ao gerar, o relatório detalhado
-de cada cliente com horas, com o PDF detalhado dele."""
+de cada cliente com horas, com o PDF detalhado dele e o ZIP com o de todos."""
 
+import io
 import re
+import zipfile
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from chamados.modules.reports.models import ReportExport
@@ -58,12 +60,28 @@ def test_clientes_geral(client: TestClient, cenario: dict[str, Any], db: Session
     r = client.get(PAGINA, params={**SEMANA, "gerar": "1"})
     assert _clientes(r.text) == ["Cliente Padrão", "Mercado Bom Preço"]
 
-    # O PDF é o detalhado da aba Clientes com o cliente: entra no Histórico.
+    # O PDF é o detalhado da aba Clientes com o cliente, com o nome dele: entra no Histórico.
     r = client.get(pdf[1].replace("&amp;", "&"))
     assert r.status_code == 200, r.text
     assert r.content.startswith(b"%PDF-1")
+    disposicao = r.headers["content-disposition"]
+    assert 'filename="Cliente Padrao - relatorio-' in disposicao
+    assert "filename*=UTF-8''Cliente%20Padr%C3%A3o%20-%20relatorio-" in disposicao
     gerado = db.scalars(select(ReportExport)).one()
     assert gerado.kind == "detailed" and gerado.query["cliente"] == [cenario["cliente"]]
+
+    # Baixar todos: um ZIP com o PDF de cada cliente com horas, cada um com o nome dele.
+    r = client.get(PAGINA, params={**SEMANA, "gerar": "1"})
+    zip_url = re.search(r'<a href="(/relatorios/clientes-geral/zip[^"]*)" download', r.text)
+    assert zip_url is not None
+    r = client.get(zip_url[1].replace("&amp;", "&"))
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(r.content)) as arquivo:
+        nomes = sorted(arquivo.namelist())
+        assert [n.split(" - ")[0] for n in nomes] == ["Cliente Padrão", "Mercado Bom Preço"]
+        assert all(arquivo.read(n).startswith(b"%PDF-1") for n in nomes)
+    assert db.scalar(select(func.count()).select_from(ReportExport)) == 3
 
     # Nenhum cliente com horas no período.
     r = client.get(PAGINA, params={"periodo": "ano-anterior", "gerar": "1"})
