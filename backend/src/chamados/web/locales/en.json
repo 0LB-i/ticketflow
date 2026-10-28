@@ -767,7 +767,7 @@
     },
     "pdf": {
       "periodo": "Period: {de} to {ate}",
-      "gerado": "Generated on {quando} by {quem}",
+      "gerado": "Generated on {quando}",
       "comparado": "Compared with {de} to {ate}",
       "pagina": "Page {n} of {total}",
       "continua": "{titulo} (continued)",

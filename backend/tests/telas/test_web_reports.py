@@ -782,7 +782,7 @@ def test_pdf_do_modelo(
     assert blocos[2].columns == ["Pessoa", "Horas", "Δ"]
     assert blocos[2].rows == [["Ana", "1h30", ""]] and blocos[2].total == ["1h30", ""]
     # O rodapé de cada página: quando e quem gerou, e o número da página.
-    assert pagina.generated.endswith("por Ana") and pagina.numbering == "Página {n} de {total}"
+    assert "Ana" not in pagina.generated and pagina.numbering == "Página {n} de {total}"
     assert (pagina.footer, pagina.landscape) == ("", False)
     assert pagina.continued == "{titulo} (continuação)"
     # Sem o logotipo dos relatórios e sem os dados da empresa, nada; com eles, no cabeçalho.

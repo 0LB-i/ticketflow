@@ -677,7 +677,7 @@ HOURS_TEXTS: dict[Locale, dict[str, str]] = {
         "all": "Todos",
         "work_hours": "Expediente",
         "holidays": "{n} feriado(s) cadastrado(s)",
-        "generated": "Gerado em {when} por {who}",
+        "generated": "Gerado em {when}",
         "page": "Página {n} de {total}",
         "continued": "{titulo} (continuação)",
         "hours": "Horas",
@@ -707,7 +707,7 @@ HOURS_TEXTS: dict[Locale, dict[str, str]] = {
         "all": "All",
         "work_hours": "Working hours",
         "holidays": "{n} holiday(s) registered",
-        "generated": "Generated on {when} by {who}",
+        "generated": "Generated on {when}",
         "page": "Page {n} of {total}",
         "continued": "{titulo} (continued)",
         "hours": "Hours",
@@ -776,7 +776,6 @@ def render_hours(
     report: Report,
     f: Filters,
     use: ScheduleUse,
-    who: str,
     locale: Locale,
     logo: bytes | None = None,
     company: list[str] | None = None,
@@ -867,7 +866,7 @@ def render_hours(
     period = t["period"].format(start=_day(report.start, locale), end=_day(report.end, locale))
     lines = [f"{period} · {filters}", f"{t['work_hours']}: {work}"]
     page = Page(
-        t["generated"].format(when=_moment(datetime.now(TZ), locale), who=who),
+        t["generated"].format(when=_moment(datetime.now(TZ), locale)),
         t["page"],
         continued=t["continued"],
     )

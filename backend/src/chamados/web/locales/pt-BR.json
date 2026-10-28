@@ -767,7 +767,7 @@
     },
     "pdf": {
       "periodo": "Período: {de} a {ate}",
-      "gerado": "Gerado em {quando} por {quem}",
+      "gerado": "Gerado em {quando}",
       "comparado": "Comparado com {de} a {ate}",
       "pagina": "Página {n} de {total}",
       "continua": "{titulo} (continuação)",

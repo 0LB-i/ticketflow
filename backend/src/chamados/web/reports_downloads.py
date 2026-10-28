@@ -317,7 +317,7 @@ async def report_pdf(
             [line for line in lines if line],
             pdf_blocks,
             model_pdf.Page(
-                page.t("relatorios.pdf.gerado", quando=now, quem=page.auth.user.display_name),
+                page.t("relatorios.pdf.gerado", quando=now),
                 numbering,
                 spec.footer,
                 spec.orientation == "landscape",

@@ -110,7 +110,6 @@ async def report_pdf(
         data,
         f,
         use,
-        auth.user.display_name,
         locale or request_locale(request),
         await get_report_logo(db),
         await get_letterhead(db),

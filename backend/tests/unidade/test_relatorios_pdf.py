@@ -324,7 +324,7 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
         people=["Ana"],
     )
     for idioma in ("pt-BR", "en"):
-        pdf = model_pdf.render_hours(relatorio, filtros, uso, "Ana", idioma, b"logo", ["Padaria"])
+        pdf = model_pdf.render_hours(relatorio, filtros, uso, idioma, b"logo", ["Padaria"])
         assert pdf == b"%PDF"
     titulo, linhas, blocos, pagina, _, _, logo, empresa = chamadas[0]
     assert logo == b"logo"  # o logotipo dos relatórios, no cabeçalho
@@ -346,7 +346,7 @@ def test_pdf_da_api_com_as_200_primeiras(monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(lista.rows) == 200
     assert lista.rows[0] == ["20/10/2026 19:00", "Ana", "#0 Servidor", "1:30", "1:00"]
     assert lista.note == "Mostrando as 200 primeiras de 250 tarefas. O CSV traz todas."
-    assert pagina.generated.startswith("Gerado em ") and pagina.generated.endswith(" por Ana")
+    assert pagina.generated.startswith("Gerado em ") and " por " not in pagina.generated
     assert pagina.numbering == "Página {n} de {total}" and not pagina.landscape
     assert pagina.continued == "{titulo} (continuação)"
     titulo, linhas, blocos, pagina, *_ = chamadas[1]
