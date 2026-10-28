@@ -80,11 +80,12 @@ def test_historico_e_cascata(client: TestClient, cenario: dict[str, Any], db: Se
     assert 'hx-get="/relatorios/clientes?cascata=1"' in r.text
     r = client.get("/relatorios/blocos", params={**CLIENTES, "aba": "produtividade"})
     assert 'name="cascata"' not in r.text
-    # O Histórico vem logo depois da aba Clientes.
+    # A Clientes geral e o Histórico vêm logo depois da aba Clientes.
     barra = re.search(r'<nav aria-label="Abas de relatório".*?</nav>', r.text, re.S)
     assert barra
     abas = re.findall(r">([^<>]+)</a>", barra.group(0))
-    assert abas[abas.index("Clientes") + 1] == "Histórico"
+    i = abas.index("Clientes")
+    assert abas[i + 1 : i + 3] == ["Clientes geral", "Histórico"]
 
     # O Histórico: o mais recente primeiro, com o link que gera o mesmo PDF de novo.
     r = client.get("/relatorios/historico")

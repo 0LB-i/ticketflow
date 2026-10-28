@@ -489,7 +489,7 @@ def test_comparar_e_detalhar_por_linha(client: TestClient, cenario: dict[str, An
     assert "+100% · antes: 30min" in r.text  # 1h contra 30min
     # O "comparar=1" dos links antigos é o período anterior.
     assert '<option value="anterior" selected>O período anterior</option>' in r.text
-    (aba,) = _links(r.text, "Clientes")
+    (aba,) = _links(r.text, "Clientes</a>")
     assert "comparar=anterior" in aba
 
     # A coluna do dia aplica o dia como período; a barra da pessoa, a pessoa.
@@ -1076,7 +1076,7 @@ def test_comparar_com_o_ano_anterior(client: TestClient, cenario: dict[str, Any]
     assert f"comparado com {antes} a {antes}" in r.text
     assert "+100% · antes: 30min" in r.text
     assert "Mesmo período do ano anterior</li>" in r.text  # a legenda da série de antes
-    (aba,) = _links(r.text, "Clientes")
+    (aba,) = _links(r.text, "Clientes</a>")
     assert "comparar=ano" in aba
 
     # Semanas inteiras: as 52 semanas antes, de segunda a domingo.

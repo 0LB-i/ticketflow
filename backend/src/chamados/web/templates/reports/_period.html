@@ -1,0 +1,39 @@
+{#- O campo de período dos relatórios (`reports.period_view`): o relativo ou o mês, os N dias, as
+    datas do personalizado com os atalhos e o intervalo. Células da grade do formulário. -#}
+{% from "_ui.html" import button_class, field with context %}
+
+{% macro period_fields(p) -%}
+<div class="flex flex-col gap-1">
+  <label for="campo-periodo" class="font-medium">{{ t("relatorios.periodo") }}</label>
+  <select id="campo-periodo" name="periodo" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
+    {%- for group, options in p.groups %}
+    <optgroup label="{{ group }}">
+      {%- for value, text in options %}
+      <option value="{{ value }}"{% if value == p.value %} selected{% endif %}>{{ text }}</option>
+      {%- endfor %}
+    </optgroup>
+    {%- endfor %}
+    <option value="personalizado"{% if p.value == "personalizado" %} selected{% endif %}>{{ t("relatorios.personalizado") }}</option>
+  </select>
+  {%- if p.interval %}
+  <p class="text-sm text-muted">{{ p.interval }}</p>
+  {%- endif %}
+</div>
+{#- Os N dias aparecem só nesse período; aplicam ao sair do campo ou com o Enter. #}
+{%- if p.value == "ultimos-n-dias" %}
+{{ field("dias", t("relatorios.dias"), type="number", value=p.days, min="1", max="366", step="1", inputmode="numeric") }}
+{%- endif %}
+{%- if p.value == "personalizado" %}
+{{ field("de", t("relatorios.de"), type="date", value=p.start) }}
+{{ field("ate", t("relatorios.ate"), type="date", value=p.end, error=None if p.ok else t("relatorios.periodoInvalido")) }}
+{#- As datas não aplicam ao mudar (app.js): o botão ou o Enter. mt-6: a altura do rótulo (20 px
+    do text-sm mais o gap-1), na linha dos campos. #}
+<div><button type="submit" class="mt-6 {{ button_class('secondary') }}">{{ t("relatorios.aplicar") }}</button></div>
+<div hx-boost="true" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:col-span-2 lg:col-span-4">
+  <span class="text-muted">{{ t("relatorios.atalhos.rotulo") }}</span>
+  {%- for label, url in p.shortcuts %}
+  <a href="{{ url }}" class="text-primary underline">{{ label }}</a>
+  {%- endfor %}
+</div>
+{%- endif %}
+{%- endmacro %}

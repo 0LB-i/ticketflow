@@ -29,6 +29,7 @@ from chamados.web.reports_state import (
     TABS,
     Params,
     ParamsDep,
+    State,
     Values,
     closed_statuses,
     interval_text,
@@ -72,10 +73,62 @@ async def client_choices(
     return page.render("reports/_client_options.html", options=options)
 
 
-def _tab(page: LoggedPage, slug: str, url: str) -> tuple[str, str, str, str]:
+def tab(page: LoggedPage, slug: str, url: str) -> tuple[str, str, str, str]:
     """Uma aba: o slug, o nome, o endereço e a dica (o que ela mostra)."""
     key = TABS[slug]
     return slug, page.t(f"relatorios.abas.{key}"), url, page.t(f"relatorios.descricoes.{key}")
+
+
+def period_view(page: LoggedPage, state: State, path: str, here: dict[str, Any]) -> dict[str, Any]:
+    """O campo de período (reports/_period.html): os relativos e os meses, as datas do
+    personalizado, os atalhos (endereços em `path`, com a query `here`) e o intervalo de um
+    período relativo ou de um mês (que não aparece nos campos de data) e o de comparação."""
+    today = datetime.now(TIMEZONE).date()
+    months = last_months(page.locale, today)
+    start, end = state.start, state.end
+
+    def period_url(first: date, last: date) -> str:
+        """O endereço de um período: um mês da lista ou o personalizado."""
+        month = next((m for m in months if (m.start, m.end) == (first, last)), None)
+        period: dict[str, str | None]
+        if month is None:
+            period = {
+                "periodo": CUSTOM,
+                "de": first.isoformat(),
+                "ate": last.isoformat(),
+                "dias": None,
+            }
+        else:
+            period = {"periodo": month.value, "de": None, "ate": None, "dias": None}
+        return with_query(path, {**here, "origem": None, **period})
+
+    # Atalhos do personalizado: as semanas (segunda a domingo) e os meses, inteiros.
+    monday = today - timedelta(days=today.weekday())
+    shortcuts = [
+        (page.t(f"relatorios.atalhos.{key}"), period_url(first, last))
+        for key, (first, last) in (
+            ("estaSemana", (monday, monday + timedelta(days=6))),
+            ("semanaPassada", (monday - timedelta(days=7), monday - timedelta(days=1))),
+            ("esteMes", (months[0].start, months[0].end)),
+            ("mesPassado", (months[1].start, months[1].end)),
+        )
+    ]
+    return {
+        "value": state.period,
+        "groups": [
+            (
+                page.t("relatorios.periodosRelativos"),
+                [(s, page.t(f"relatorios.periodos.{key}")) for s, key in RELATIVE_KEYS.items()],
+            ),
+            (page.t("relatorios.meses"), [(m.value, m.label) for m in months]),
+        ],
+        "start": state.start_text,
+        "end": state.end_text,
+        "days": state.days,
+        "ok": bool(start and end and start <= end),
+        "shortcuts": shortcuts,
+        "interval": interval_text(page, state),
+    }
 
 
 @router.get("/relatorios/historico")
@@ -85,7 +138,7 @@ async def history_page(page: LoggedPageDep, db: DB) -> HTMLResponse:
     found = await history.entries(db, page.auth.user.id)
     return page.render(
         "reports/history.html",
-        tabs=[_tab(page, s, with_query("/relatorios", {"aba": s})) for s in TABS],
+        tabs=[tab(page, s, with_query("/relatorios", {"aba": s})) for s in TABS],
         entries=[
             {
                 "when": format_datetime(page.locale, e.created_at),
@@ -130,7 +183,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             return {**query, "aba": s, "status": closed_statuses(state.lookups)}
         return {**query, "aba": s}
 
-    tabs = [_tab(page, s, with_query("/relatorios", tab_query(s))) for s in TABS]
+    tabs = [tab(page, s, with_query("/relatorios", tab_query(s))) for s in TABS]
 
     blocks: list[dict[str, Any]] = []
     downloads = None
@@ -261,12 +314,9 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             ),
         )
 
-    today = datetime.now(TIMEZONE).date()
-    months = last_months(page.locale, today)
-    start, end = state.start, state.end
-
     # Na impressão, no lugar das abas e dos filtros: o nome da aba e o período.
     printed = None
+    start, end = state.start, state.end
     if start and end and start <= end:
         period_text = page.t(
             "relatorios.intervalo",
@@ -275,59 +325,14 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         )
         printed = f"{choice.name} · {period_text}"
 
-    def period_url(first: date, last: date) -> str:
-        """O endereço de um período: um mês da lista ou o personalizado."""
-        month = next((m for m in months if (m.start, m.end) == (first, last)), None)
-        period: dict[str, str | None]
-        if month is None:
-            period = {
-                "periodo": CUSTOM,
-                "de": first.isoformat(),
-                "ate": last.isoformat(),
-                "dias": None,
-            }
-        else:
-            period = {"periodo": month.value, "de": None, "ate": None, "dias": None}
-        return with_query("/relatorios", {**here, "origem": None, **period})
-
-    # Atalhos do personalizado: as semanas (segunda a domingo) e os meses, inteiros.
-    monday = today - timedelta(days=today.weekday())
-    shortcuts = [
-        (page.t(f"relatorios.atalhos.{key}"), period_url(first, last))
-        for key, (first, last) in (
-            ("estaSemana", (monday, monday + timedelta(days=6))),
-            ("semanaPassada", (monday - timedelta(days=7), monday - timedelta(days=1))),
-            ("esteMes", (months[0].start, months[0].end)),
-            ("mesPassado", (months[1].start, months[1].end)),
-        )
-    ]
-
     return page.render(
         "reports/index.html",
         tabs=tabs,
         tab=slug,
         show_period=shown.period,
         show_compare=shown.compare,
-        period=state.period,
-        period_groups=[
-            (
-                page.t("relatorios.periodosRelativos"),
-                [(s, page.t(f"relatorios.periodos.{key}")) for s, key in RELATIVE_KEYS.items()],
-            ),
-            (
-                page.t("relatorios.meses"),
-                [(m.value, m.label) for m in months],
-            ),
-        ],
-        start=state.start_text,
-        end=state.end_text,
-        days=state.days,
-        period_ok=bool(start and end and start <= end),
-        shortcuts=shortcuts,
+        period=period_view(page, state, "/relatorios", here),
         printed=printed,
-        # O intervalo de um período relativo ou de um mês (que não aparece nos campos de data)
-        # e o de comparação.
-        interval=interval_text(page, state),
         query_compare=query["comparar"] or "",
         # Na aba Clientes, a escolha da hora extra ("" é sem separação).
         query_extras=(query["extras"] or "") if slug == "clientes" else None,

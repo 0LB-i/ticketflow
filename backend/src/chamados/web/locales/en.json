@@ -431,6 +431,7 @@
       "clientes": "Clients",
       "horasExtras": "Overtime",
       "chamados": "Tickets",
+      "clientesGeral": "All clients",
       "historico": "History"
     },
     "colunas": {
@@ -511,6 +512,13 @@
       "campo": "Cascade",
       "dica": "Hides from the client list the clients you already reported on today (PDF downloaded)."
     },
+    "clientesGeral": {
+      "explicacao": "Choose the period and the status and click Generate: you get the detailed report of each client with hours in the period.",
+      "gerar": "Generate",
+      "nenhum": "No client with hours in the period.",
+      "baixarPdf": "Download detailed PDF",
+      "baixarPdfDe": "Download the detailed PDF of {cliente}"
+    },
     "historico": {
       "explicacao": "The Clients tab PDFs you downloaded with a single client. Generate again uses the same filters and period, with today's data.",
       "quando": "Generated at",
@@ -590,6 +598,7 @@
     "descricoes": {
       "produtividade": "Hours, overtime, tasks and closed tickets for each person.",
       "clientes": "Hours and opened tickets.",
+      "clientesGeral": "The detailed report of each client with hours in the period.",
       "horasExtras": "Task time outside working hours, by day and by person, and the tasks that had it.",
       "chamados": "Opened, closed and open tickets, time to close, reopen rate and open tickets by age, status and team."
     }

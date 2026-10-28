@@ -1,0 +1,76 @@
+{#- A aba Clientes geral de Relatórios (docs/14 §14.7): o período e o status e, ao gerar, o
+    relatório detalhado de cada cliente com horas no período (reports_all_clients.py), cada um
+    com o PDF detalhado dele. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class with context %}
+{% from "_fields.html" import chips with context %}
+{% from "_icons.html" import icon %}
+{% from "reports/_blocks.html" import table with context %}
+{% from "reports/_period.html" import period_fields with context %}
+{% from "reports/_tabs.html" import tabs_nav with context %}
+
+{% block title %}{{ t("relatorios.abas.clientesGeral") }} · {{ t("relatorios.titulo") }}{% endblock %}
+
+{% block head %}
+{#- As etiquetas do status estão no chamado.js. #}
+<script src="{{ static('js/chamado.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+{#- O mesmo #relatorio da tela dos relatórios: as abas de lá trocam só ele. Mudar o período ou o
+    status mostra os campos novos e tira os relatórios; o Gerar (`gerar`) os traz. #}
+<div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML" hx-indicator="#relatorio" class="mx-auto flex max-w-7xl flex-col gap-4">
+  <div class="flex items-center gap-3">
+    <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
+    <span class="hidden items-center gap-2 text-sm text-muted in-[.htmx-request]:inline-flex print:hidden">{{ icon("loader-circle", "size-4 animate-spin") }} {{ t("relatorios.carregando") }}</span>
+  </div>
+  {{ tabs_nav(tabs, "clientes-geral") }}
+  <p class="text-muted print:hidden">{{ t("relatorios.clientesGeral.explicacao") }}</p>
+
+  <form method="get" action="/relatorios/clientes-geral" data-envia-ao-mudar hx-get="/relatorios/clientes-geral" hx-push-url="true" hx-sync="this:replace" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+    {{ period_fields(period) }}
+    {{ chips("status", t("relatorios.status"), status_options, query_status, status_names, t("relatorios.adicionar") if query_status else t("relatorios.todosOsStatus"), "relatorios.tirarFiltro") }}
+    {#- mt-6: na linha dos campos, como o Aplicar do período. #}
+    <div><button type="submit" name="gerar" value="1" class="mt-6 {{ button_class() }}">{{ t("relatorios.clientesGeral.gerar") }}</button></div>
+  </form>
+
+  <div class="flex flex-col gap-4 transition-opacity in-[.htmx-request]:opacity-50">
+  {%- if error %}
+  {{ alert(error) }}
+  {%- elif clients is not none and not clients %}
+  <p class="rounded-lg border border-border bg-surface p-4 text-muted">{{ t("relatorios.clientesGeral.nenhum") }}</p>
+  {%- endif %}
+  {%- for c in clients or [] %}
+  {#- Um cliente: o nome e o PDF, os cartões e as tarefas com o total. Na impressão, cada um
+      começa numa página. #}
+  <section class="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md print:shadow-none{% if not loop.first %} print:break-before-page{% endif %}">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-lg font-semibold">{{ c.name }}</h2>
+      <a href="{{ c.pdf }}" download aria-label="{{ t('relatorios.clientesGeral.baixarPdfDe', cliente=c.name) }}" class="print:hidden {{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.clientesGeral.baixarPdf") }}</a>
+    </div>
+    <div class="overflow-hidden rounded-md border border-border">
+      <dl class="-mt-px -ml-px flex flex-wrap">
+        {%- for label, value in c.cards %}
+        <div class="flex-1 basis-40 border-t border-l border-border px-4 py-3">
+          <dt class="text-muted">{{ label }}</dt>
+          <dd class="mt-1 text-2xl font-semibold tabular-nums">{{ value }}</dd>
+        </div>
+        {%- endfor %}
+      </dl>
+    </div>
+    {% call table(c.name, columns, t("relatorios.vazio"), c.tasks | length, c.total, numeric=[2, 3, 4]) %}
+      {%- for day, number, title, times in c.tasks %}
+      <tr class="border-t border-border">
+        <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ day }}</td>
+        <td class="px-3 py-2"><a href="/chamados/{{ number }}" class="text-primary underline tabular-nums">#{{ number }}</a> {{ title }}</td>
+        {%- for value in times %}
+        <td class="px-3 py-2 text-right tabular-nums">{{ value }}</td>
+        {%- endfor %}
+      </tr>
+      {%- endfor %}
+    {% endcall %}
+  </section>
+  {%- endfor %}
+  </div>
+</div>
+{% endblock %}

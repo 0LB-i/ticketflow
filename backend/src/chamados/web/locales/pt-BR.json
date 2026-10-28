@@ -431,6 +431,7 @@
       "clientes": "Clientes",
       "horasExtras": "Horas extras",
       "chamados": "Chamados",
+      "clientesGeral": "Clientes geral",
       "historico": "Histórico"
     },
     "colunas": {
@@ -511,6 +512,13 @@
       "campo": "Cascata",
       "dica": "Tira da lista de clientes os que já tiveram relatório seu hoje (PDF baixado)."
     },
+    "clientesGeral": {
+      "explicacao": "Escolha o período e o status e clique em Gerar: sai o relatório detalhado de cada cliente com horas no período.",
+      "gerar": "Gerar",
+      "nenhum": "Nenhum cliente com horas no período.",
+      "baixarPdf": "Baixar PDF detalhado",
+      "baixarPdfDe": "Baixar o PDF detalhado de {cliente}"
+    },
     "historico": {
       "explicacao": "Os PDFs da aba Clientes que você baixou com um cliente só. Gerar de novo usa os mesmos filtros e período, com os dados de hoje.",
       "quando": "Gerado em",
@@ -590,6 +598,7 @@
     "descricoes": {
       "produtividade": "Horas, horas extras, tarefas e chamados concluídos de cada pessoa.",
       "clientes": "Horas e chamados registrados.",
+      "clientesGeral": "O relatório detalhado de cada cliente com horas no período.",
       "horasExtras": "O tempo de tarefa fora do expediente, por dia e por pessoa, e as tarefas que o tiveram.",
       "chamados": "Registrados, concluídos e em aberto, tempos até a conclusão, reabertura e o em aberto por idade, status e grupo."
     }
