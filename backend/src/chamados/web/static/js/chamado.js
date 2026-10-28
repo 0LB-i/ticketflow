@@ -493,6 +493,14 @@ document.addEventListener('click', (e) => {
   if (opcao) opcao.hidden = opcao.disabled = false
   etiqueta.remove()
   if (select) atualizarTodos(select)
+  // Na cascata (aba Clientes), tirar o cliente só tira a etiqueta e abre a lista: o relatório
+  // vem com o próximo escolhido.
+  const busca = caixa.querySelector('[data-cliente] [role=combobox]')
+  if (busca && caixa.closest('form')?.querySelector('[name=cascata]:checked')) {
+    busca.focus()
+    htmx.trigger(busca, 'abrir')
+    return
+  }
   aplicarFiltro(caixa)
 })
 htmx.onLoad((raiz) => raiz.querySelectorAll('[data-chips-adiciona]').forEach(atualizarTodos))

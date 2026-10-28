@@ -70,9 +70,10 @@ def test_historico_e_cascata(client: TestClient, cenario: dict[str, Any], db: Se
     entrar(bia, "bia@x.com")
     assert "Mercado Bom Preço" in _opcoes(bia, cascata="1")
 
-    # A caixa fica só na aba Clientes; ligada, a busca de clientes leva a cascata.
+    # A chave fica só na aba Clientes; ligada, a busca de clientes leva a cascata.
     r = client.get("/relatorios/blocos", params=CLIENTES)
-    assert '<input type="checkbox" name="cascata" value="1" aria-describedby' in r.text
+    # Uma chave de ligar e desligar (o checkbox com `role=switch`), desligada por padrão.
+    assert '<input type="checkbox" role="switch" name="cascata" value="1" aria-labelledby' in r.text
     assert 'hx-get="/relatorios/clientes"' in r.text
     r = client.get("/relatorios/blocos", params={**CLIENTES, "cascata": "1"})
     assert 'name="cascata" value="1" checked' in r.text

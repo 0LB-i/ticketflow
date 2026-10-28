@@ -189,13 +189,20 @@
     {{ select_field("extras", t("relatorios.extras.campo"), [("", t("relatorios.extras.opcoes.juntas")), ("separada", t("relatorios.extras.opcoes.separada"))], query_extras) }}
     {%- endif %}
     {#- Na aba Clientes: a cascata tira da lista de clientes os que já tiveram relatório da
-        pessoa hoje. #}
+        pessoa hoje. Uma chave de ligar e desligar (o checkbox escondido, `role=switch`), na
+        altura dos campos: o trilho cinza com a bolinha à esquerda, desligada; verde com ela à
+        direita, ligada. #}
     {%- if query_cascade is not none %}
-    <label class="inline-flex cursor-pointer items-center gap-2 self-end pb-2" title="{{ t('relatorios.cascata.dica') }}">
-      <input type="checkbox" name="cascata" value="1"{% if query_cascade %} checked{% endif %} aria-describedby="campo-cascata-dica" class="size-4 accent-(--tf-primary)">
-      {{ t("relatorios.cascata.campo") }}
+    <div class="flex flex-col gap-1">
+      <span id="campo-cascata-rotulo" class="font-medium">{{ t("relatorios.cascata.campo") }}</span>
+      <label title="{{ t('relatorios.cascata.dica') }}" class="group inline-flex h-10 w-fit cursor-pointer items-center">
+        <input type="checkbox" role="switch" name="cascata" value="1"{% if query_cascade %} checked{% endif %} aria-labelledby="campo-cascata-rotulo" aria-describedby="campo-cascata-dica" class="sr-only">
+        <span aria-hidden="true" class="relative h-6 w-11 rounded-full bg-border-input transition-colors group-has-checked:bg-green-fg group-has-focus-visible:outline-2 group-has-focus-visible:outline-offset-2 group-has-focus-visible:outline-focus motion-reduce:transition-none">
+          <span class="absolute top-0.5 left-0.5 size-5 rounded-full bg-surface shadow transition-transform group-has-checked:translate-x-5 motion-reduce:transition-none"></span>
+        </span>
+      </label>
       <span id="campo-cascata-dica" class="sr-only">{{ t("relatorios.cascata.dica") }}</span>
-    </label>
+    </div>
     {%- endif %}
     {#- Com um cliente só: as horas descontadas do excedente (horas e minutos). #}
     {%- if query_discount is not none %}
