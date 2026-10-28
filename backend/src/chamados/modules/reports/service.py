@@ -1416,6 +1416,7 @@ BUILD_SUMS: dict[Summed, set[Group]] = {
     "hours": {"person", "client", "day"},
     "tasks": {"person", "client"},
     "overtime": {"person", "day"},
+    "excess": {"client"},
     "opened": {"client"},
     "closed": {"person", "client"},
 }
@@ -1462,7 +1463,12 @@ async def build(
     add(
         clients,
         "client",
-        {"minutes": "hours", "tickets_opened": "opened", "tickets_closed": "closed"},
+        {
+            "minutes": "hours",
+            "excess_minutes": "excess",
+            "tickets_opened": "opened",
+            "tickets_closed": "closed",
+        },
     )
     days = {f.start + timedelta(days=i): Counter[str]() for i in range((f.end - f.start).days + 1)}
     add(days, "day", {"minutes": "hours", "overtime_minutes": "overtime"})
@@ -1503,6 +1509,8 @@ async def build(
             minutes=s["minutes"],
             tickets_opened=s["tickets_opened"],
             tickets_closed=s["tickets_closed"],
+            in_plan_minutes=s["minutes"] - s["excess_minutes"],
+            excess_minutes=s["excess_minutes"],
         )
         for client_id, s in clients.items()
     ]

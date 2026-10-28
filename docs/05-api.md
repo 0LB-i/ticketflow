@@ -40,7 +40,7 @@ Authorization: Bearer tf_...
 | `read` | Só `GET`: listar e ler chamados, tarefas, histórico, anexos, opções dos formulários |
 | `write` | Também criar e alterar chamados, comentar, anexar |
 
-- **Fora da administração:** as rotas que exigem uma permissão de administração respondem 403 a qualquer token, mesmo o de um administrador: usuários, tokens de todos, a gestão de grupos, categorias, status e códigos de resolução (criar, alterar, ordenar, remover), configurações, auditoria e o cadastro de clientes. As leituras abertas a qualquer pessoa logada continuam: `GET /teams` (sem os e-mails dos membros), `/departments`, `/categories`, `/statuses`, `/resolution-codes`, `/clients/options`, `/work-hours`.
+- **Fora da administração:** as rotas que exigem uma permissão de administração respondem 403 a qualquer token, mesmo o de um administrador: usuários, tokens de todos, a gestão de grupos, categorias, status e códigos de resolução (criar, alterar, ordenar, remover), configurações, auditoria e o cadastro de clientes. As leituras abertas a qualquer pessoa logada continuam: `GET /teams` (sem os e-mails dos membros), `/categories`, `/statuses`, `/resolution-codes`, `/clients/options`, `/work-hours`.
 - **Só pela interface:** sair e trocar a senha (403 com token).
 - Token inválido, revogado, vencido ou de usuário inativo/excluído: 401. Desativar ou excluir a pessoa revoga os tokens dela: reativar a conta não os traz de volta. Requisições com token não usam cookie nem CSRF.
 
@@ -108,6 +108,8 @@ Um chamado que o usuário não pode ver responde `403` ("Você não tem acesso a
 ### Demais recursos
 
 `/auth/*` e `/me` (ver [Login e autenticação](09-login-e-autenticacao.md#99-endpoints)), `/users`, `/teams`, `/roles`, `/categories`, `/statuses`, `/resolution-codes`, `/notifications`, `/kb/articles`, `/reports/*`, `/admin/audit-log`, `/admin/settings`
+
+No `GET /reports`, cada linha de `clients` traz também o plano do contrato do cliente: `in_plan_minutes` e `excess_minutes` (`minutes` é a soma dos dois; sem plano mensal ou anual, tudo é excedente). O CSV `clients` tem as mesmas colunas, no fim. As horas descontadas da aba Clientes são só da tela.
 
 Futuro: `/saved-views`, `/admin/idp-mappings`, `/admin/api-clients`, `/admin/webhooks`, `/admin/ai`
 

@@ -48,6 +48,10 @@ class ClientRow(BaseModel):
     minutes: int
     tickets_opened: int
     tickets_closed: int
+    # O plano do contrato (mensal ou anual, `service.plan_usage`): `minutes` = no plano +
+    # excedentes. Sem plano (avulso, sem contrato, sem cliente), todos os minutos são excedentes.
+    in_plan_minutes: int
+    excess_minutes: int
 
 
 class DayRow(BaseModel):

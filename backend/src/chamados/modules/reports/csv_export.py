@@ -199,9 +199,18 @@ def render(report: Report, table: Table, locale: Locale) -> bytes:
             for p in report.people
         ]
     elif table == "clients":
+        # O plano do cliente no fim: as colunas de antes não mudam de lugar.
         head = [t["client"], *time("hours"), t["opened"], t["closed"]]
+        head += [*time("in_plan"), *time("excess")]
         rows = [
-            [_text(c.name or t["no_client"]), *hours(c.minutes), c.tickets_opened, c.tickets_closed]
+            [
+                _text(c.name or t["no_client"]),
+                *hours(c.minutes),
+                c.tickets_opened,
+                c.tickets_closed,
+                *hours(c.in_plan_minutes),
+                *hours(c.excess_minutes),
+            ]
             for c in report.clients
         ]
     else:

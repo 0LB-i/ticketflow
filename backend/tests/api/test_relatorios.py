@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from chamados.config import Settings
 from chamados.modules.audit.models import AuditLog
+from chamados.modules.clients.models import Client
 from chamados.modules.identity.models import User
 from chamados.modules.organization.models import TeamMember
 from chamados.modules.reports import model_pdf
@@ -200,6 +201,33 @@ def test_varios_clientes_sem_cliente_e_status(
     assert client.get(REPORTS, params={**params, "status": 999}).status_code == 404
 
 
+def test_plano_do_cliente(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
+    """As horas no plano e as excedentes de cada cliente, como na aba Clientes: o mensal conta
+    o mês inteiro (o trabalho de antes do período também consome); avulso, tudo excedente."""
+    padrao = cenario["cliente"]
+    avulso = criar_cliente(db, "Loja Avulsa", "11222333000181")
+    for public_id, tipo, horas in ((padrao, "monthly", 2), (avulso, "on_demand", None)):
+        db.execute(
+            update(Client)
+            .where(Client.public_id == public_id)
+            .values(contract_type=tipo, contract_hours=horas)
+        )
+    db.commit()
+    rede = registrar(client, cenario, client_id=padrao)["number"]
+    vitrine = registrar(client, cenario, client_id=avulso)["number"]
+    tarefa(client, rede, 90, em(date(2026, 3, 2), 10))  # antes do período: 1h30 do plano
+    tarefa(client, rede, 60, em(date(2026, 3, 3), 10))  # 30min no plano
+    tarefa(client, vitrine, 40, em(date(2026, 3, 3), 11))
+
+    r = client.get(REPORTS, params={"start": "2026-03-03", "end": "2026-03-03"})
+    assert r.status_code == 200, r.text
+    linhas = {
+        c["name"]: (c["minutes"], c["in_plan_minutes"], c["excess_minutes"])
+        for c in r.json()["clients"]
+    }
+    assert linhas == {"Cliente Padrão": (60, 30, 30), "Loja Avulsa": (40, 0, 40)}
+
+
 def test_periodo_invalido(client: TestClient, cenario: dict[str, Any]) -> None:
     r = client.get(REPORTS, params={"start": "2026-10-10", "end": "2026-10-01"})
     assert r.status_code == 422
@@ -300,7 +328,10 @@ def test_csv(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
         ],
         ["Ana", "2,00", "120", "1,00", "60", "2", "0"],
     ]
-    assert baixar("clients", "pt-BR")[1] == ["Cliente Padrão", "2,00", "120", "0", "0"]
+    # Sem contrato, tudo é excedente: as colunas do plano vêm no fim.
+    assert baixar("clients", "pt-BR")[1] == [
+        "Cliente Padrão", "2,00", "120", "0", "0", "0,00", "0", "2,00", "120"
+    ]  # fmt: skip
 
     r = client.get(f"{REPORTS}/csv", params=periodo)
     assert r.status_code == 422  # sem a tabela
