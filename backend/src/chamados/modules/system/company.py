@@ -77,22 +77,12 @@ async def get_company(db: AsyncSession) -> Company | None:
 
 
 def letterhead(company: Company | None) -> list[str]:
-    """As linhas da empresa no cabeçalho dos PDFs: a razão social, os documentos, o endereço e o
-    contato (as que tiverem algo). Sem os dados cadastrados, nenhuma."""
+    """As linhas da empresa no cabeçalho dos PDFs: o nome fantasia (quando há), a razão social, o
+    CNPJ e o e-mail (quando há). Sem os dados cadastrados, nenhuma."""
     if company is None:
         return []
-    documents = [f"CNPJ {doc.format_document(company.document, 'company')}"]
-    if company.state_registration:
-        documents.append(f"IE {company.state_registration}")
-    if company.municipal_registration:
-        documents.append(f"IM {company.municipal_registration}")
-    street = ", ".join(p for p in (company.street, company.number, company.complement) if p)
-    place = "/".join(p for p in (company.city, company.state) if p)
-    postal = f"CEP {doc.format_postal_code(company.postal_code)}" if company.postal_code else ""
-    address = [p for p in (street, company.district, place, postal) if p]
-    phone = doc.format_phone(company.phone) if company.phone else ""
-    contact = [p for p in (phone, company.email, company.website) if p]
-    lines = [company.name, " · ".join(documents), " · ".join(address), " · ".join(contact)]
+    cnpj = f"CNPJ {doc.format_document(company.document, 'company')}"
+    lines = [company.trade_name, company.name, cnpj, company.email]
     return [line for line in lines if line]
 
 

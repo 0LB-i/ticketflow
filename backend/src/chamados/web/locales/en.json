@@ -657,7 +657,7 @@
         "landscape": "Landscape (A4 sideways)"
       },
       "tituloPdf": "PDF title",
-      "tituloPdfVazio": "The template name",
+      "tituloPdfVazio": "No title",
       "rodape": "Footer",
       "rodapeDica": "Text on every page, above the generation date and the page number. Empty: just the date and the number.",
       "foraDoPdf": "Leave out of the PDF (still on screen and in the CSV)",

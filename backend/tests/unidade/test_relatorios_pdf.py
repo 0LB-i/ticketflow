@@ -88,13 +88,13 @@ def test_relatorio_para_o_cliente_com_logotipo() -> None:
             [("Horas", "1h")], chamados, "", PAGINA,
         )  # fmt: skip
         assert conteudo.startswith(b"%PDF")
-        # O PDF do modelo leva o mesmo logotipo, à esquerda do título.
+        # O PDF do modelo leva o mesmo logotipo, no cabeçalho.
         conteudo = model_pdf.render_model("M", ["Período"], [], PAGINA, SERIES, (), logo)
         assert conteudo.startswith(b"%PDF")
 
 
 def test_dados_da_empresa_no_cabecalho() -> None:
-    """As linhas da empresa (as que têm algo) ficam à direita do título, com ou sem logotipo."""
+    """As linhas da empresa (as que têm algo) ficam à direita do logotipo, ou sozinhas sem ele."""
     assert letterhead(None) == []
     empresa = Company(name="Padaria Pão Quente Ltda", document="11222333000181")
     assert letterhead(empresa) == ["Padaria Pão Quente Ltda", "CNPJ 11.222.333/0001-81"]
@@ -112,19 +112,23 @@ def test_dados_da_empresa_no_cabecalho() -> None:
         }
     )
     linhas = letterhead(empresa)
-    assert linhas[1:] == [
-        "CNPJ 11.222.333/0001-81 · IE ISENTO",
-        "Av. Paulista, 1000 · Bela Vista · São Paulo/SP · CEP 01310-100",
-        "(11) 3333-4444 · contato@padaria.com.br",
+    # Só o nome fantasia, a razão social, o CNPJ e o e-mail.
+    assert linhas == [
+        "Padaria Pão Quente Ltda",
+        "CNPJ 11.222.333/0001-81",
+        "contato@padaria.com.br",
     ]
+    linhas = letterhead(empresa.model_copy(update={"trade_name": "Pão Quente"}))
+    assert linhas[:2] == ["Pão Quente", "Padaria Pão Quente Ltda"]
     imagem = io.BytesIO()
     Image.new("RGB", (200, 80), "#C2410C").save(imagem, format="PNG")
     chamados = model_pdf.Grid("", ["Chamado", "Horas"], [["#1000", "1h"]])
     for logo in (imagem.getvalue(), None):
-        cabecalho = model_pdf._heading(logo, [], 180 * mm, linhas)[0]
+        cabecalho = model_pdf._heading(logo, 180 * mm, linhas)[0]
         assert isinstance(cabecalho, Table)
-        larguras = [180 * mm - 62 * mm, 62 * mm] if logo is None else [45 * mm, 73 * mm, 62 * mm]
-        assert cabecalho._colWidths == larguras  # type: ignore[attr-defined]
+        # O logotipo (200 x 80 cabe em 40 x 16 mm) com o respiro, e os dados no resto.
+        larguras = [180 * mm] if logo is None else [40 * mm + 12, 140 * mm - 12]
+        assert cabecalho._colWidths == pytest.approx(larguras)  # type: ignore[attr-defined]
         conteudo = model_pdf.render_model("M", ["Período"], [], PAGINA, SERIES, (), logo, linhas)
         assert conteudo.startswith(b"%PDF")
         conteudo = model_pdf.render_client(

@@ -657,7 +657,7 @@
         "landscape": "Paisagem (A4 deitado)"
       },
       "tituloPdf": "Título do PDF",
-      "tituloPdfVazio": "O nome do modelo",
+      "tituloPdfVazio": "Sem título",
       "rodape": "Rodapé",
       "rodapeDica": "Um texto em cada página, acima da data de geração e do número da página. Vazio: só a data e o número.",
       "foraDoPdf": "Deixar fora do PDF (continua na tela e no CSV)",

@@ -20,7 +20,6 @@ from xml.sax.saxutils import escape
 
 from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, PolyLine, Rect, String
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -58,7 +57,6 @@ FOOT_LEADING = 9
 FOOT_BASE = 10 * mm  # a linha de baixo do rodapé, a partir da borda da folha
 FOOT_LINES = 3  # o texto livre do rodapé, no máximo em três linhas
 BARS = 20  # as barras de cada desenho: um desenho não se divide entre as páginas
-COMPANY_WIDTH = 62 * mm  # os dados da empresa, à direita no cabeçalho
 
 # A Liberation Sans tem as medidas da Helvetica (a da prévia do relatório para o cliente) e o que
 # as fontes padrão do PDF não têm: o sinal de menos, o Δ, o latim de outras línguas, o grego e o
@@ -180,11 +178,9 @@ def _styles() -> dict[str, ParagraphStyle]:
     return {
         "body": body,
         "muted": ParagraphStyle("muted", parent=body, textColor=MUTED),
-        "company": ParagraphStyle(
-            "company", parent=body, fontSize=7.5, leading=9.5, textColor=MUTED, alignment=TA_RIGHT
-        ),
+        "company": ParagraphStyle("company", parent=body, fontSize=8, leading=10, textColor=MUTED),
         "company_name": ParagraphStyle(
-            "company_name", parent=body, fontName=BOLD, fontSize=8.5, alignment=TA_RIGHT
+            "company_name", parent=body, fontName=BOLD, fontSize=11, leading=14
         ),
         "value": ParagraphStyle("value", parent=body, fontName=BOLD, fontSize=14, leading=18),
         "big": ParagraphStyle("big", parent=body, fontName=BOLD, fontSize=32, leading=38),
@@ -574,9 +570,8 @@ def render_model(
     logo: bytes | None = None,
     company: list[str] | None = None,
 ) -> bytes:
-    """O PDF de um modelo: o logotipo dos relatórios (sem ele, nada), o título, as linhas de
-    cabeçalho (descrição, período, filtros, expediente), os dados da empresa (`company`, as
-    linhas de `system.company.letterhead`), os blocos na ordem e, em cada página, o rodapé
+    """O PDF de um modelo: o cabeçalho (`_heading`), embaixo dele o título (vazio, nenhum) e as
+    linhas (descrição, período, filtros, expediente), os blocos na ordem e, em cada página, o rodapé
     (`page`). `series`: as cores da paleta por token (`chart-1` a `chart-4` e
     `chart-before`); `heat`, as do mapa de calor."""
     st = _styles()
@@ -589,8 +584,10 @@ def render_model(
         [colors.HexColor(c) for c in heat],
         named,
     )
-    head: list[Flowable] = [_p(title, st["h1"]), *(_p(line, st["muted"]) for line in lines)]
-    story = _heading(logo, head, width, company)
+    story = _heading(logo, width, company)
+    if title:
+        story.append(_p(title, st["h1"]))
+    story += [_p(line, st["muted"]) for line in lines]
     story.append(HRFlowable(width="100%", thickness=0.5, color=RULE, spaceBefore=6))
     for block in blocks:
         if isinstance(block, Cards):
@@ -604,14 +601,12 @@ def render_model(
     return _document(story, title, page)
 
 
-def _heading(
-    logo: bytes | None, head: list[Flowable], width: float, company: list[str] | None = None
-) -> list[Flowable]:
-    """O cabeçalho do PDF: o logotipo dos relatórios à esquerda, o título e as linhas (`head`) no
-    meio e os dados da empresa (`company`: a razão social e as outras linhas, menores) à direita;
-    sem o logotipo nem os dados, só o título e as linhas."""
+def _heading(logo: bytes | None, width: float, company: list[str] | None = None) -> list[Flowable]:
+    """O cabeçalho do PDF: o logotipo dos relatórios e, logo à direita dele, os dados da empresa
+    (`company`, as linhas de `system.company.letterhead`: a primeira em destaque); sem o logotipo
+    nem os dados, nada."""
     if not logo and not company:
-        return head
+        return []
     row: list[Any] = []
     widths: list[float] = []
     if logo:
@@ -619,17 +614,17 @@ def _heading(
         natural, tall = image.getSize()
         scale = min(40 * mm / natural, 18 * mm / tall)
         row.append(Image(io.BytesIO(logo), width=natural * scale, height=tall * scale))
-        widths.append(45 * mm)
-    row.append(head)
+        widths.append(natural * scale + PADDING)
     if company:
         st = _styles()
         name, *rest = company
         row.append([_p(name, st["company_name"]), *(_p(line, st["company"]) for line in rest)])
-        widths.append(COMPANY_WIDTH)
-    widths.insert(1 if logo else 0, width - sum(widths))
-    header = Table([row], colWidths=widths)
-    header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-    return [header]
+        widths.append(width - sum(widths))
+    header = Table([row], colWidths=widths, hAlign="LEFT")
+    header.setStyle(
+        TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (0, 0), 0)])
+    )
+    return [header, Spacer(1, 6)]
 
 
 def _free(text: str, style: ParagraphStyle) -> list[Flowable]:
@@ -650,13 +645,13 @@ def render_client(
     page: Page,
     company: list[str] | None = None,
 ) -> bytes:
-    """O relatório para o cliente: o logotipo dos relatórios, os dados da empresa, o título, o
-    cliente e o período, o texto de abertura, os totais, os chamados e as observações. Nada de
-    organização interna (quem chama já deixou de fora)."""
+    """O relatório para o cliente: o cabeçalho (`_heading`), o título, o cliente e o período, o
+    texto de abertura, os totais, os chamados e as observações. Nada de organização interna (quem
+    chama já deixou de fora)."""
     st = _styles()
     width = page.width
-    head: list[Flowable] = [_p(title, st["h1"]), *(_p(line, st["body"]) for line in lines)]
-    story = _heading(logo, head, width, company)
+    story = _heading(logo, width, company)
+    story += [_p(title, st["h1"]), *(_p(line, st["body"]) for line in lines)]
     if intro.strip():
         story += [Spacer(1, 8), *_free(intro, st["body"])]
     story += _cards(Cards("", [(label, value, "") for label, value in totals]), st, width)

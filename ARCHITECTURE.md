@@ -208,7 +208,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - `GET /branding` é **público**: a tela de login também usa as cores, o logotipo e o idioma.
 - O logotipo é servido por `GET /branding/logo?v=<hash>` (o dos relatórios, por `/branding/report-logo`), com cache permanente (o endereço muda quando a imagem muda). Só PNG, JPEG e WebP, conferidos pelos primeiros bytes; SVG é recusado porque pode conter scripts.
 - O backend guarda só as **três cores**; a paleta inteira é derivada em `web/palette.py` (4.2).
-- **Dados da empresa** (`company.py`): razão social e CNPJ obrigatórios, o resto opcional, normalizados como os dos clientes (`clients/documents.py`, que também formata CNPJ, telefone e CEP para exibir, nas telas e no PDF). `GET`/`PUT /admin/settings/company` (auditoria `settings.company_changed`, só os campos). `letterhead()` dá as linhas do cabeçalho dos PDFs de relatório (`model_pdf._heading`, à direita do título), lidas por `get_letterhead` em quem gera o PDF (a tela e a API).
+- **Dados da empresa** (`company.py`): razão social e CNPJ obrigatórios, o resto opcional, normalizados como os dos clientes (`clients/documents.py`, que também formata CNPJ, telefone e CEP para exibir, nas telas e no PDF). `GET`/`PUT /admin/settings/company` (auditoria `settings.company_changed`, só os campos). `letterhead()` dá as linhas do cabeçalho dos PDFs de relatório (`model_pdf._heading`, à direita do logotipo), lidas por `get_letterhead` em quem gera o PDF (a tela e a API).
 
 ### 3.7.1 Clientes (`modules/clients/`)
 

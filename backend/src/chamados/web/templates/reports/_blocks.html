@@ -102,7 +102,7 @@
 
 {#- A prévia do relatório para o cliente (reports_blocks.client_preview) com cara de folha A4: os
     mesmos textos e a mesma ordem do PDF (model_pdf.render_client), com os dados da empresa à
-    direita, a tipografia dele (9 pt no corpo, 16 pt no título, 14 pt nos totais) e papel branco
+    direita do logotipo, a tipografia dele (9 pt no corpo, 16 pt no título, 14 pt nos totais) e papel branco
     também no modo escuro. As margens de 15 mm são 15/210 da largura (o padding em % vem da
     largura do pai, que tem a da folha); o aspect-ratio é só a altura mínima: a folha cresce com
     a lista, sem prometer as quebras de página do PDF. No celular, a letra diminui um pouco e as
@@ -110,26 +110,26 @@
 {% macro client_sheet(v) -%}
 <div class="mx-auto w-full max-w-[210mm]">
   <article aria-label="{{ v.title }}" class="aspect-[210/297] w-full rounded-sm border border-border bg-paper p-[7.14%] font-paper text-[11px] leading-[1.35] text-paper-fg shadow-md sm:text-[12px]">
-    <header class="flex items-center gap-4">
+    {#- O logotipo e, logo à direita dele, os dados da empresa (a primeira linha em destaque). #}
+    {%- if branding.report_logo_url or v.company %}
+    <header class="mb-[0.6em] flex items-center gap-4">
       {%- if branding.report_logo_url %}
       <img src="{{ branding.report_logo_url }}" alt="" class="max-h-[18mm] max-w-[40mm] shrink-0 object-contain">
       {%- endif %}
-      <div class="min-w-0">
-        <h2 class="mb-[0.2em] text-[1.78em] leading-tight font-bold">{{ v.title }}</h2>
-        {%- for line in v.lines %}
-        <p>{{ line }}</p>
-        {%- endfor %}
-      </div>
-      {#- Os dados da empresa, à direita e menores (62 mm no PDF). #}
       {%- if v.company %}
-      <div class="ml-auto w-[34%] shrink-0 text-right text-[0.83em] leading-snug text-paper-muted">
-        <p class="text-[1.13em] font-bold text-paper-fg">{{ v.company[0] }}</p>
+      <div class="min-w-0 text-[0.89em] leading-snug text-paper-muted">
+        <p class="text-[1.38em] font-bold text-paper-fg">{{ v.company[0] }}</p>
         {%- for line in v.company[1:] %}
         <p>{{ line }}</p>
         {%- endfor %}
       </div>
       {%- endif %}
     </header>
+    {%- endif %}
+    <h2 class="mb-[0.2em] text-[1.78em] leading-tight font-bold">{{ v.title }}</h2>
+    {%- for line in v.lines %}
+    <p>{{ line }}</p>
+    {%- endfor %}
     {#- Os textos do modelo: o Jinja escapa; as quebras de linha ficam (whitespace-pre-line). #}
     {%- if v.intro %}
     <p class="mt-[1.2em] whitespace-pre-line">{{ v.intro }}</p>

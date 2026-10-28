@@ -762,7 +762,7 @@ def test_pdf_do_modelo(
     assert r.headers["content-type"] == "application/pdf"
     titulo, linhas, blocos, pagina, cores, calor, logo, empresa = chamadas[0]
     assert calor == ("#EDC3B5", "#E5A490", "#DB856A", "#CF6543", "#C2410C")
-    assert titulo == "Mensal"
+    assert titulo == ""  # sem o título do PDF no modelo, sem título (o nome do modelo, não)
     assert cores == {
         "chart-1": "#C2410C",
         "chart-2": "#1D4ED8",
@@ -873,7 +873,7 @@ def test_relatorio_para_o_cliente(
     folha = _folha(client.get("/relatorios/blocos", params=filtros).text)
     assert f"<p>{linhas[1]}</p>" in folha and f">{titulo}</h2>" in folha
     assert '<img src="/api/v1/branding/report-logo?v=x"' in folha
-    assert '<p class="text-[1.13em] font-bold text-paper-fg">TI Ltda</p>' in folha
+    assert '<p class="text-[1.38em] font-bold text-paper-fg">TI Ltda</p>' in folha
     sem_cliente = client.get("/relatorios/pdf", params=_um_dia(dia, aba=modelo))
     assert sem_cliente.status_code == 422
 
@@ -2641,7 +2641,7 @@ def test_pdf_configuravel(
     r = client.get("/relatorios/blocos", params=_um_dia(dia, aba="horas-extras"))
     client.get(_link_pdf(r.text))
     titulo, linhas, blocos, pagina, *_ = chamadas[1]
-    assert titulo == "Horas extras"
+    assert titulo == ""  # o nome do modelo não é o título do PDF
     assert (
         linhas[0]
         == "O tempo de tarefa fora do expediente, por dia e por pessoa, e as tarefas que o tiveram."

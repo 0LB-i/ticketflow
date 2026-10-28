@@ -321,7 +321,7 @@ async def report_pdf(
             table = "detailed"
         content = await run_in_threadpool(
             model_pdf.render_model,
-            spec.title or state.choice.name,
+            spec.title,  # vazio, sem título: o nome do modelo não vai para o PDF
             [line for line in lines if line],
             pdf_blocks,
             model_pdf.Page(
