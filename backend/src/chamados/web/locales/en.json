@@ -490,7 +490,7 @@
       "in_plan": "Hours within plan",
       "excess": "Hours over plan",
       "discounted": "Discounted hours",
-      "charged": "Overage to bill",
+      "charged": "Hours to bill",
       "tasks": "Tasks",
       "opened": "Tickets opened",
       "closed": "Tickets closed",

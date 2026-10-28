@@ -168,15 +168,15 @@ def unit(measure: Measure) -> str:
 
 # As medidas derivadas: uma conta entre duas somas que já existem (`service.Sums`), em cada
 # linha e no total; sem base (o divisor zero), None. As horas no expediente (`regular`), as no
-# plano do cliente (`in_plan`) e o excedente a cobrar (`charged`) são uma diferença: as horas
-# menos as extras ou as excedentes, e as excedentes menos as descontadas (DIFFERENCES); as
+# plano do cliente (`in_plan`) e as a cobrar (`charged`) são uma diferença: as horas menos as
+# extras, as excedentes ou as descontadas (DIFFERENCES); as
 # outras, uma divisão. As tarefas por dia
 # útil dividem pelos dias do expediente no período (`workdays`), e por isso não se agrupam por
 # período, dia da semana nem hora (o dia de folga daria divisão por zero).
 DERIVED: dict[Measure, tuple[Summed, Summed | None]] = {
     "regular": ("hours", "overtime"),
     "in_plan": ("hours", "excess"),
-    "charged": ("excess", "discounted"),
+    "charged": ("hours", "discounted"),
     "overtime_rate": ("overtime", "hours"),
     "hours_per_ticket": ("hours", "worked"),  # ÷ os chamados distintos com tarefa
     "completion_rate": ("closed", "opened"),
@@ -417,7 +417,7 @@ def narrow(screen: FilterSpec, own: FilterSpec) -> tuple[FilterSpec, list[Filter
 
 _CARDS = Block(visual="cards", measures=["hours", "overtime", "tasks", "opened", "closed"])
 _PLAN: list[Measure] = ["in_plan", "excess"]  # as horas no plano do cliente e as além dele
-# As horas descontadas na tela e o excedente a cobrar (`with_discount`).
+# As horas descontadas na tela e as horas a cobrar (`with_discount`).
 _DISCOUNT: list[Measure] = ["discounted", "charged"]
 
 # Os modelos prontos (as telas da §14.7 e os indicadores de chamados da §14.3): não se apagam;
@@ -487,11 +487,13 @@ CLIENTS_OVERTIME = ReportConfig(
 
 
 def with_discount(config: ReportConfig) -> ReportConfig:
-    """A aba Clientes com horas descontadas: o desconto e o excedente a cobrar logo depois das
-    horas excedentes, nos blocos que as mostram."""
+    """A aba Clientes com horas descontadas: o desconto e as horas a cobrar logo depois das
+    horas, nos cartões e na tabela; nos gráficos, as horas a cobrar no lugar das horas."""
 
     def measures(block: Block) -> list[Measure]:
-        return [n for m in block.measures for n in ([m, *_DISCOUNT] if m == "excess" else [m])]
+        if block.visual not in ("cards", "table"):
+            return ["charged" if m == "hours" else m for m in block.measures]
+        return [n for m in block.measures for n in ([m, *_DISCOUNT] if m == "hours" else [m])]
 
     blocks = [b.model_copy(update={"measures": measures(b)}) for b in config.blocks]
     return config.model_copy(update={"blocks": blocks})

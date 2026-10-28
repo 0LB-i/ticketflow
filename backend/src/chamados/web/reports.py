@@ -383,7 +383,7 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         query_compare=query["comparar"] or "",
         # Na aba Clientes, a escolha da hora extra ("" é sem separação).
         query_extras=(query["extras"] or "") if slug == "clientes" and not choice.model else None,
-        # Com um cliente só, as horas descontadas do excedente.
+        # Com um cliente só, as horas descontadas.
         query_discount=(query["desconto"] or "") if state.discount_field else None,
         query_cascade=state.cascade if slug == "clientes" and not choice.model else None,
         clients_url="/relatorios/clientes?cascata=1" if state.cascade else "/relatorios/clientes",

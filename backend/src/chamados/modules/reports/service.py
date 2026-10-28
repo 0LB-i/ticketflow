@@ -92,8 +92,8 @@ class Filters:
     clients: list[Client] = field(default_factory=list)
     no_client: bool = False  # os chamados sem cliente (junto com os de `clients`)
     statuses: list[TicketStatus] = field(default_factory=list)  # o status atual do chamado
-    # Minutos descontados do excedente do plano (a aba Clientes, com um cliente só): abatem os
-    # primeiros excedentes do período. Só o período da tela; o comparado fica sem.
+    # Minutos descontados das horas (a aba Clientes, com um cliente só): abatem as primeiras
+    # tarefas do período. Só o período da tela; o comparado fica sem.
     discount: int = 0
 
 
@@ -346,7 +346,7 @@ class TaskFact:
     team_id: int
     status_id: int
     excess: int = 0  # minutos além do plano do cliente (só quando pedidos: `Plan`)
-    discounted: int = 0  # dos excedentes, os abatidos pelo desconto (`Filters.discount`)
+    discounted: int = 0  # dos minutos, os abatidos pelo desconto (`Filters.discount`)
 
     @property
     def day(self) -> date:
@@ -966,9 +966,8 @@ async def facts(
     ]
     if people_ids:
         task_conds.append(TicketComment.author_id.in_(people_ids))
-    # O excedente do plano: pedido nas somas (ou o desconto, que sai dele), também preenche o
-    # das linhas.
-    wants_plan = "excess" in want.sums or "discounted" in want.sums
+    # O excedente do plano: pedido nas somas, também preenche o das linhas.
+    wants_plan = "excess" in want.sums
     plan = await plan_usage(db, f) if wants_plan else None
     tasks: list[TaskFact] = []
     overtime_tasks: list[TaskFact] = []
@@ -1002,14 +1001,14 @@ async def facts(
         if plan is not None:
             sums["excess"] = excess
     if "discounted" in want.sums:
-        # O desconto abate os primeiros excedentes do período, na ordem das tarefas; as linhas
+        # O desconto abate as primeiras horas do período, na ordem das tarefas; as linhas
         # vêm só para ele, quando há (é de um cliente só).
         rows = tasks
         if "tasks" not in parts and f.discount:
             rows = await _task_rows(db, task_conds, cal, plan)
         left = f.discount
         for t in rows:
-            t.discounted = min(t.excess, left)
+            t.discounted = min(t.minutes, left)
             left -= t.discounted
         sums["discounted"] = add_up(((t, t.discounted) for t in rows), task_groups)
     if "overtime" in want.sums:

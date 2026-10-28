@@ -95,7 +95,7 @@ class Params:
     # Na aba Clientes, "separada": as horas no expediente e as extras à parte (sem, todo o tempo
     # é de trabalho normal). Não é filtro: não conta para "sem nenhum filtro na URL".
     extras: str | None = None
-    # Na aba Clientes, com um cliente só: as horas descontadas do excedente ("2:30", "2h30").
+    # Na aba Clientes, com um cliente só: as horas descontadas ("2:30", "2h30").
     # Também não é filtro.
     desconto: str | None = None
     # Na aba Clientes, "1": a cascata (os clientes com relatório da pessoa hoje saem da lista de
@@ -395,7 +395,7 @@ async def load_state(page: LoggedPage, db: DB, params: Params) -> State:
         origin = None
 
     # As horas descontadas: na aba Clientes, filtrada por um cliente só; com elas, o desconto e
-    # o excedente a cobrar entram nos blocos.
+    # as horas a cobrar entram nos blocos.
     discount_field = (
         choice.model is None and choice.slug == "clientes" and len(clients) == 1 and not no_client
     )

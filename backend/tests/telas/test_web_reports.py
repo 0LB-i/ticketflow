@@ -22,7 +22,7 @@ from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.clients.models import Client
 from chamados.modules.organization.models import Team
 from chamados.modules.reports import model_pdf
-from chamados.modules.reports.builder import relative_period, year_before
+from chamados.modules.reports.builder import BUILTINS, relative_period, with_discount, year_before
 from chamados.modules.reports.models import ReportModel
 from chamados.modules.system.models import SystemSetting, WorkSchedule
 from chamados.modules.tickets.models import Ticket
@@ -1013,7 +1013,7 @@ def test_aba_clientes_plano_do_contrato(
     """As horas além do plano vêm separadas: o mensal por mês do calendário, o anual por ano,
     com todo o trabalho feito para o cliente (o de antes do período e o que a pessoa não vê
     também consomem), na ordem em que as tarefas terminaram. Avulso e sem cliente: tudo
-    excedente. As horas descontadas da tela (com um cliente só) abatem do excedente."""
+    excedente. As horas descontadas da tela (com um cliente só) abatem das horas."""
     padrao = cenario["cliente"]
     mercado = criar_cliente(db, "Mercado Bom Preço", "11444777000161")
     loja = criar_cliente(db, "Loja Avulsa", "11222333000181")
@@ -1080,15 +1080,18 @@ def test_aba_clientes_plano_do_contrato(
     )
     assert "Horas descontadas" not in valores
 
-    # As horas descontadas: o campo só aparece com um cliente só; o desconto abate os primeiros
-    # excedentes do período, e a tela ganha o desconto e o excedente a cobrar.
+    # As horas descontadas: o campo só aparece com um cliente só; o desconto abate as primeiras
+    # horas do período (no plano ou não), e a tela ganha o desconto e as horas a cobrar; as
+    # barras mostram as horas a cobrar.
     r = client.get("/relatorios/blocos", params=filtros)
     assert 'name="desconto"' not in r.text
     um_cliente = {**filtros, "cliente": padrao}
     r = client.get("/relatorios/blocos", params=um_cliente)
     assert '<input id="campo-desconto" name="desconto" value=""' in r.text
     r = client.get("/relatorios/blocos", params={**um_cliente, "desconto": "1h"})
-    assert re.search(r"<dt[^>]*>Excedente a cobrar</dt>", r.text)
+    assert re.search(r"<dt[^>]*>Horas a cobrar</dt>", r.text)
+    medidas = [b.measures for b in with_discount(BUILTINS["clientes"]).blocks]
+    assert medidas[0][:3] == ["hours", "discounted", "charged"] and medidas[1] == ["charged"]
     (detalhado,) = _links(r.text, "PDF detalhado")
     assert parse_qs(urlsplit(detalhado).query)["desconto"] == ["1h"]
     client.get(detalhado)
@@ -1100,22 +1103,22 @@ def test_aba_clientes_plano_do_contrato(
         "Chamado",
         "Horas no plano",
         "Horas excedentes",
-        "Horas descontadas",
-        "Excedente a cobrar",
         "Tempo",
+        "Horas descontadas",
+        "Horas a cobrar",
     ]
     assert [linha[2:] for linha in padrao_.rows] == [
-        ["30min", "30min", "30min", "0min", "1h"],
-        ["0min", "45min", "30min", "15min", "45min"],
+        ["30min", "30min", "1h", "1h", "0min"],
+        ["0min", "45min", "45min", "0min", "45min"],
     ]
-    assert padrao_.total == ["", "30min", "1h15", "1h", "15min", "1h45"]
+    assert padrao_.total == ["", "30min", "1h15", "1h45", "1h", "45min"]
     resumo = next(b for b in blocos if isinstance(b, model_pdf.Cards))
     valores = {rotulo: valor for rotulo, valor, _ in resumo.items}
-    assert (valores["Horas descontadas"], valores["Excedente a cobrar"]) == ("1h", "15min")
+    assert (valores["Horas descontadas"], valores["Horas a cobrar"]) == ("1h", "45min")
     # O que não se entende fica de fora, com o aviso.
     r = client.get("/relatorios/blocos", params={**um_cliente, "desconto": "uma hora"})
     assert "Use horas e minutos, ex.: 2:30." in r.text
-    assert not re.search(r"<dt[^>]*>Excedente a cobrar</dt>", r.text)
+    assert not re.search(r"<dt[^>]*>Horas a cobrar</dt>", r.text)
 
 
 @pytest.mark.parametrize(

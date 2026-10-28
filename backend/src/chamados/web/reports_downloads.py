@@ -179,8 +179,8 @@ async def _client_tasks(
     """O PDF detalhado da aba Clientes: uma tabela por cliente (pelo nome, "Sem cliente" no
     fim) com cada tarefa do período (o dia, o chamado e o tempo; antes dele, com a hora extra
     separada, o tempo no expediente e o extra; sempre, o no plano do cliente e o excedente; com
-    horas descontadas, o desconto e o excedente a cobrar) e o total dele. Da tarefa, só o
-    chamado: o texto dela pode ter anotações internas."""
+    horas descontadas, depois do tempo, o desconto e o tempo a cobrar) e o total dele. Da
+    tarefa, só o chamado: o texto dela pode ter anotações internas."""
     want = service.Want(rows={"tasks"}, sums={"excess": set(), "discounted": set()})
     data = await service.facts(db, page.auth, f, want, state.lookups)
     hours = formatter(page, config, "hours")
@@ -194,16 +194,16 @@ async def _client_tasks(
 
     def times(minutes: int, overtime: int, excess: int, discounted: int) -> list[str]:
         separated = [hours(minutes - overtime), hours(overtime)] if state.separate else []
-        discount = [hours(discounted), hours(excess - discounted)] if f.discount else []
-        return [*separated, hours(minutes - excess), hours(excess), *discount, hours(minutes)]
+        discount = [hours(discounted), hours(minutes - discounted)] if f.discount else []
+        return [*separated, hours(minutes - excess), hours(excess), hours(minutes), *discount]
 
     columns = [page.t(f"relatorios.colunas.{c}") for c in ("quando", "chamado")]
     if state.separate:
         columns += [page.t(f"relatorios.medidas.{m}") for m in ("regular", "overtime")]
     columns += [page.t(f"relatorios.medidas.{m}") for m in ("in_plan", "excess")]
+    columns.append(page.t("relatorios.colunas.tempo"))
     if f.discount:
         columns += [page.t(f"relatorios.medidas.{m}") for m in ("discounted", "charged")]
-    columns.append(page.t("relatorios.colunas.tempo"))
     return [
         model_pdf.Grid(
             name(client_id),
