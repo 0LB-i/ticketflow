@@ -646,23 +646,21 @@ def test_aba_clientes(
     client.get(detalhado)
     (_, _, simples, *_), (_, _, blocos, *_) = chamadas
     assert isinstance(simples[0], model_pdf.Cards) and simples[0].title == ""
-    # Um cliente por tabela, pelo nome; cada tarefa com o dia, o chamado, as horas no plano e as
-    # excedentes (sem contrato, todas) e o tempo, e o total. O chamado em aberto fica de fora,
-    # como no resumo.
+    # Um cliente por tabela, pelo nome; cada tarefa com o dia, o chamado e o tempo, e o total
+    # (as horas no plano e as excedentes só nos cartões do resumo). O chamado em aberto fica de
+    # fora, como no resumo.
     (mercado_, padaria_), resumo = blocos[:2], blocos[2:]
     assert isinstance(mercado_, model_pdf.Grid) and isinstance(padaria_, model_pdf.Grid)
     assert (mercado_.title, padaria_.title) == ("Mercado Bom Preço", "Padaria Pão Quente")
-    assert mercado_.columns == [
-        "Quando", "Chamado", "Horas no plano", "Horas excedentes", "Tempo"
-    ]  # fmt: skip
+    assert mercado_.columns == ["Quando", "Chamado", "Tempo"]
     um, dois = dia.strftime("%d/%m/%Y"), (dia + timedelta(days=1)).strftime("%d/%m/%Y")
     caixa = f"#{numeros['Caixa travado']} Caixa travado"
-    assert mercado_.rows == [[um, caixa, "0min", "1h30", "1h30"]]
+    assert mercado_.rows == [[um, caixa, "1h30"]]
     assert padaria_.rows == [
-        [um, f"#{numeros['Forno parado']} Forno parado", "0min", "1h30", "1h30"],
-        [dois, f"#{numeros['Forno parado']} Forno parado", "0min", "30min", "30min"],
+        [um, f"#{numeros['Forno parado']} Forno parado", "1h30"],
+        [dois, f"#{numeros['Forno parado']} Forno parado", "30min"],
     ]
-    assert (padaria_.total_label, padaria_.total) == ("Total", ["", "0min", "2h", "2h"])
+    assert (padaria_.total_label, padaria_.total) == ("Total", ["", "2h"])
     # No fim, os blocos do simplificado, com o título do resumo. Sem a hora extra: nem nos
     # cartões, nem a frase do expediente no cabeçalho.
     assert len(resumo) == len(simples) and resumo[0].title == "Resumo do período"
@@ -701,12 +699,10 @@ def test_aba_clientes(
         "Chamado",
         "Horas no expediente",
         "Horas extras",
-        "Horas no plano",
-        "Horas excedentes",
         "Tempo",
     ]
-    assert mercado_.rows == [[um, caixa, "30min", "1h", "0min", "1h30", "1h30"]]
-    assert mercado_.total == ["", "30min", "1h", "0min", "1h30", "1h30"]
+    assert mercado_.rows == [[um, caixa, "30min", "1h", "1h30"]]
+    assert mercado_.total == ["", "30min", "1h", "1h30"]
     resumo = blocos[2]
     assert isinstance(resumo, model_pdf.Cards)
     assert [rotulo for rotulo, _, _ in resumo.items][:3] == [
@@ -770,14 +766,18 @@ def test_aba_clientes_plano_do_contrato(
     tabelas = {b.title: (b.rows, b.total) for b in blocos if isinstance(b, model_pdf.Grid)}
     assert tabelas["Cliente Padrão"] == (
         [
-            ["03/03/2026", f"#{numeros[padrao]} Rede", "30min", "30min", "1h"],
-            ["04/03/2026", f"#{numeros[padrao]} Rede", "0min", "45min", "45min"],
+            ["03/03/2026", f"#{numeros[padrao]} Rede", "1h"],
+            ["04/03/2026", f"#{numeros[padrao]} Rede", "45min"],
         ],
-        ["", "30min", "1h15", "1h45"],
+        ["", "1h45"],
     )
-    assert tabelas["Mercado Bom Preço"][1] == ["", "30min", "30min", "1h"]
-    assert tabelas["Loja Avulsa"][1] == ["", "0min", "40min", "40min"]
-    assert tabelas["Sem cliente"][1] == ["", "0min", "20min", "20min"]
+    # O plano de cada cliente, na tabela por cliente do resumo: as horas, as no plano e as
+    # excedentes.
+    por_cliente = {linha[0]: linha[1:4] for linha in blocos[-1].rows}
+    assert por_cliente["Cliente Padrão"] == ["1h45", "30min", "1h15"]
+    assert por_cliente["Mercado Bom Preço"] == ["1h", "30min", "30min"]
+    assert por_cliente["Loja Avulsa"] == ["40min", "0min", "40min"]
+    assert por_cliente["Sem cliente"] == ["20min", "0min", "20min"]
     resumo = next(b for b in blocos if isinstance(b, model_pdf.Cards))
     valores = {rotulo: valor for rotulo, valor, _ in resumo.items}
     assert (valores["Horas"], valores["Horas no plano"], valores["Horas excedentes"]) == (
@@ -808,17 +808,15 @@ def test_aba_clientes_plano_do_contrato(
     assert padrao_.columns == [
         "Quando",
         "Chamado",
-        "Horas no plano",
-        "Horas excedentes",
         "Tempo",
         "Horas descontadas",
         "Horas a cobrar",
     ]
     assert [linha[2:] for linha in padrao_.rows] == [
-        ["30min", "30min", "1h", "1h", "0min"],
-        ["0min", "45min", "45min", "0min", "45min"],
+        ["1h", "1h", "0min"],
+        ["45min", "0min", "45min"],
     ]
-    assert padrao_.total == ["", "30min", "1h15", "1h45", "1h", "45min"]
+    assert padrao_.total == ["", "1h45", "1h", "45min"]
     resumo = next(b for b in blocos if isinstance(b, model_pdf.Cards))
     valores = {rotulo: valor for rotulo, valor, _ in resumo.items}
     assert (valores["Horas descontadas"], valores["Horas a cobrar"]) == ("1h", "45min")

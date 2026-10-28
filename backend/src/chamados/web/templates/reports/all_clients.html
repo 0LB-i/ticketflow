@@ -47,13 +47,22 @@
   </div>
   {%- endif %}
   {%- for c in clients or [] %}
-  {#- Um cliente: o nome e o PDF, os cartões e as tarefas com o total. Na impressão, cada um
-      começa numa página. #}
+  {#- Um cliente: o nome e o PDF, as tarefas com o total e, no fim, os cartões (o comparativo
+      das horas com as do plano e as excedentes). Na impressão, cada um começa numa página. #}
   <section class="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md print:shadow-none{% if not loop.first %} print:break-before-page{% endif %}">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="text-lg font-semibold">{{ c.name }}</h2>
       <a href="{{ c.pdf }}" download aria-label="{{ t('relatorios.clientesGeral.baixarPdfDe', cliente=c.name) }}" class="print:hidden {{ button_class('secondary') }}">{{ icon("download", "size-4") }} {{ t("relatorios.clientesGeral.baixarPdf") }}</a>
     </div>
+    {% call table(c.name, columns, t("relatorios.vazio"), c.tasks | length, c.total, numeric=[2]) %}
+      {%- for day, number, title, time in c.tasks %}
+      <tr class="border-t border-border">
+        <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ day }}</td>
+        <td class="px-3 py-2"><a href="/chamados/{{ number }}" class="text-primary underline tabular-nums">#{{ number }}</a> {{ title }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ time }}</td>
+      </tr>
+      {%- endfor %}
+    {% endcall %}
     <div class="overflow-hidden rounded-md border border-border">
       <dl class="-mt-px -ml-px flex flex-wrap">
         {%- for label, value in c.cards %}
@@ -64,17 +73,6 @@
         {%- endfor %}
       </dl>
     </div>
-    {% call table(c.name, columns, t("relatorios.vazio"), c.tasks | length, c.total, numeric=[2, 3, 4]) %}
-      {%- for day, number, title, times in c.tasks %}
-      <tr class="border-t border-border">
-        <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ day }}</td>
-        <td class="px-3 py-2"><a href="/chamados/{{ number }}" class="text-primary underline tabular-nums">#{{ number }}</a> {{ title }}</td>
-        {%- for value in times %}
-        <td class="px-3 py-2 text-right tabular-nums">{{ value }}</td>
-        {%- endfor %}
-      </tr>
-      {%- endfor %}
-    {% endcall %}
   </section>
   {%- endfor %}
   </div>

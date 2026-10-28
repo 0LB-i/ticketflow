@@ -1,6 +1,6 @@
 """Relatórios: a aba Clientes geral (docs/14 §14.7). Só o período e o status (que abre com os
 concluídos, como a aba Clientes); ao gerar, o relatório detalhado de cada cliente com horas no
-período, um depois do outro: os cartões da aba Clientes e as tarefas, com o PDF detalhado dele
+período, um depois do outro: as tarefas e os cartões da aba Clientes, com o PDF detalhado dele
 (o mesmo da aba Clientes com um cliente só, que vai para o Histórico) e o ZIP com o de todos.
 Sem os gráficos e sem "Sem cliente".
 """
@@ -37,8 +37,8 @@ BY_CLIENT = Block(
 async def _clients(
     page: LoggedPage, db: DB, state: State, f: service.Filters
 ) -> list[dict[str, Any]]:
-    """Cada cliente com horas no período, pelo nome: os cartões, as tarefas (o dia, o chamado, as
-    horas no plano, as excedentes e o tempo) com o total e o link do PDF detalhado."""
+    """Cada cliente com horas no período, pelo nome: os cartões, as tarefas (o dia, o chamado e o
+    tempo) com o total e o link do PDF detalhado."""
     want = builder.needs([BY_CLIENT])
     want.rows.add("tasks")
     data = await service.facts(db, page.auth, f, want, state.lookups)
@@ -47,9 +47,6 @@ async def _clients(
     by_client: dict[int | None, list[service.TaskFact]] = {}
     for t in data.tasks:
         by_client.setdefault(t.client_id, []).append(t)
-
-    def times(minutes: int, excess: int) -> list[str]:
-        return [hours(minutes - excess), hours(excess), hours(minutes)]
 
     clients = []
     for row in sorted(result.rows, key=lambda r: (r.label or "").casefold()):
@@ -69,20 +66,12 @@ async def _clients(
                         format_date(page.locale, t.done_at),
                         t.ticket_number,
                         t.ticket_title,
-                        times(t.minutes, t.excess),
+                        hours(t.minutes),
                     )
                     for t in tasks
                 ],
                 # A linha do total (reports/_blocks.html, `table`): da coluna do chamado em diante.
-                "total": [
-                    ("", None),
-                    *(
-                        (text, None)
-                        for text in times(
-                            sum(t.minutes for t in tasks), sum(t.excess for t in tasks)
-                        )
-                    ),
-                ],
+                "total": [("", None), (hours(sum(t.minutes for t in tasks)), None)],
                 "pdf": with_query(
                     "/relatorios/pdf",
                     {**state.query, "aba": "clientes", "cliente": [public_id], "detalhado": "1"},
@@ -125,7 +114,6 @@ async def all_clients_page(
         columns=[
             page.t("relatorios.colunas.quando"),
             page.t("relatorios.colunas.chamado"),
-            *(page.t(f"relatorios.medidas.{m}") for m in ("in_plan", "excess")),
             page.t("relatorios.colunas.tempo"),
         ],
     )

@@ -53,6 +53,9 @@ def test_clientes_geral(client: TestClient, cenario: dict[str, Any], db: Session
     assert r.status_code == 200, r.text
     assert _clientes(r.text) == ["Cliente Padrão"]
     assert "Rede lenta" in r.text and "1h30" in r.text
+    # Nas tarefas, só o tempo; as horas no plano e as excedentes, nos cartões depois delas.
+    assert '<th scope="col" class="px-3 py-2 font-medium">Horas excedentes</th>' not in r.text
+    assert r.text.index("</table>") < r.text.index(">Horas excedentes</dt>")
     pdf = re.search(r'<a href="(/relatorios/pdf\?[^"]+)" download', r.text)
     assert pdf is not None
 
