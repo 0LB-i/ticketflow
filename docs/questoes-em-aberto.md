@@ -18,7 +18,6 @@ Decisões pendentes, ordenadas pelo impacto. Quando uma for decidida, registre u
 | 7 | Arquivos **compactados** (zip, 7z) permitidos? | Bloqueados na v1.0 (sem antivírus); o admin pode liberar | [11.2](11-anexos-e-arquivos.md#112-tipos-de-arquivo) |
 | 8 | **Duração da sessão** | 8 h sem uso; 7 dias no máximo | [9.7](09-login-e-autenticacao.md#97-sessões) |
 | 9 | **Política de retenção** de chamados concluídos e anexos | Definir com jurídico / DPO; configurável por instalação | — |
-| 10 | **Licença e distribuição** do produto | Definir antes de distribuir para outras empresas | — |
 
 | 11 | **Código hex oficial do laranja** da empresa | Escala `orange` do Tailwind até chegar o oficial; quando chegar, o admin digita em Configurações | [17.2](17-identidade-visual.md#172-cores) |
 | 12 | **Data da virada** da TI | Terça ou quarta-feira no fim da Sprint 5, fora de fechamento de mês | [16.3](16-implantacao.md#163-cronograma) |
@@ -58,3 +57,4 @@ Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvi
 | 2026-10-10 | **Editor Tiptap** na descrição e nos comentários, gravando Markdown | [05](05-api.md#chamados) |
 | 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (equipes da empresa) | [01](01-visao-geral.md#público) |
 | 2026-10-23 | **Sem setores atendidos**: saem o cadastro, a tela e o campo do chamado (migração `0034`); para quem é o trabalho fica no cliente e no contato | [08](08-organizacao-e-permissoes.md), [10](10-chamados.md) |
+| 2026-10-30 | **Licença MIT** (era a questão 10, licença e distribuição) | [`LICENSE`](../LICENSE) |

@@ -128,3 +128,7 @@ Detalhes em [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md
 - Documentação em **português**; identificadores de código e banco em **inglês** (`ticket`, `comment`, `assignee`). Ver [ADR 0001](docs/adr/0001-registro-de-decisoes.md).
 - Decisões relevantes viram um ADR em `docs/adr/` (status: proposta → aceita / rejeitada / substituída).
 - Commits seguindo [Conventional Commits](https://www.conventionalcommits.org/pt-br/) (`feat:`, `fix:`, `docs:` …).
+
+## Licença
+
+[MIT](LICENSE): livre para baixar, usar, alterar e redistribuir, inclusive comercialmente, desde que se mantenha o aviso de copyright.
