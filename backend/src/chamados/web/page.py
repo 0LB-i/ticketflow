@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from chamados.core.i18n import LOCALES
 from chamados.core.i18n import translate as translate_api
-from chamados.core.permissions import P, can, effective_permissions
+from chamados.core.permissions import CLIENT_ROLE, P, can, effective_permissions
 from chamados.core.timezone import LOCAL_TZ
 from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, SettingsDep, session_auth
@@ -28,6 +28,9 @@ from chamados.web.templating import templates
 HOME = "/chamados"
 # Com a senha provisória, só isto abre até a troca (docs/09 §9.2).
 ALLOWED_BEFORE_PASSWORD_CHANGE = {"/trocar-senha", "/sair"}
+# O papel Cliente só abre o painel da empresa (web/client_panel.py), além da conta.
+CLIENT_PANEL = "/painel"
+ALLOWED_TO_CLIENTS = {CLIENT_PANEL, "/trocar-senha", "/sair", "/idioma"}
 FLASH_COOKIE = "tf_aviso"
 FlashKind = Literal["success", "error"]
 
@@ -91,6 +94,11 @@ class Page:
             secure=self.request.app.state.settings.cookie_secure,
             samesite="lax",
         )
+
+    @property
+    def is_client(self) -> bool:
+        """O papel Cliente: o menu só tem o painel da empresa."""
+        return self.auth is not None and self.auth.actor.role == CLIENT_ROLE
 
     def can(self, permission: str) -> bool:
         """Só para mostrar ou esconder botões: quem decide é a rota (ARCHITECTURE 3.4)."""
@@ -167,6 +175,8 @@ async def get_logged_page(page: PageDep) -> LoggedPage:
     path = request.url.path
     if page.auth.user.must_change_password and path not in ALLOWED_BEFORE_PASSWORD_CHANGE:
         raise Redirect("/trocar-senha")
+    if page.auth.actor.role == CLIENT_ROLE and path not in ALLOWED_TO_CLIENTS:
+        raise Redirect(CLIENT_PANEL)
     return LoggedPage(request=request, auth=page.auth, branding=page.branding, locale=page.locale)
 
 

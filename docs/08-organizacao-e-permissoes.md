@@ -2,6 +2,8 @@
 
 Este documento define **quem é quem** no sistema e **quem pode fazer o quê**. As regras daqui são a referência para o motor de permissões do backend e para os testes de permissão.
 
+> **Papel Cliente (pedido do usuário, 2026-10-30):** a exceção ao modelo abaixo. Uma pessoa de uma empresa atendida pode ter conta com o papel **Cliente**, ligada a **uma** empresa do cadastro de clientes, só para ver o painel dela ([docs/14 §14.9](14-relatorios-e-indicadores.md#149-painel-do-cliente-pedido-do-usuário-2026-10-30)).
+
 > **Modelo (decisão de 2026-10-10):** o TicketFlow é a **ferramenta de trabalho das equipes**. Só os membros das equipes têm conta: eles mesmos registram os chamados (as tarefas da equipe), distribuem entre si e acompanham. Os demais colaboradores da empresa **não** entram no sistema; quando uma tarefa é para alguém de fora, o chamado só registra o cliente e o contato (quem pediu), para os relatórios. Os setores atendidos saíram em 2026-10-23.
 
 ## 8.1 Conceitos
@@ -24,7 +26,7 @@ erDiagram
 
 ### Regras da estrutura
 
-- Todo usuário tem **exatamente um papel global** e é membro de **pelo menos um grupo** (exceto o auditor, que pode não ter grupo).
+- Todo usuário tem **exatamente um papel global** e é membro de **pelo menos um grupo** (exceto o auditor, que pode não ter grupo, e o cliente, que não entra em grupos).
 - Em cada grupo, o usuário é `member` ou `supervisor`. Um grupo pode ter vários supervisores.
 - Um grupo tem: nome, categorias atendidas, forma de aviso de chamado novo e se está ativo.
 - Uma categoria tem: grupo padrão, tipo padrão (incidente, requisição, tarefa), se exige aprovação do supervisor e se é **confidencial**.
@@ -37,6 +39,7 @@ erDiagram
 | **Agente** (`agent`) | Membros das equipes | Registra e trabalha os chamados dos **grupos de que é membro** |
 | **Administrador** (`admin`) | Responsáveis pelo sistema | Configura tudo; vê todos os chamados |
 | **Auditor** (`auditor`) | Compliance, controle interno | **Leitura** de tudo (chamados e auditoria), sem alterar nada |
+| **Cliente** (`client`) | Uma pessoa de uma empresa atendida | Nenhuma permissão: só o **painel** da empresa dela (`users.client_id`, obrigatória e só neste papel; qualquer cadastro, ativo ou inativo). Não entra em grupos (a API recusa com 422, e mudar para Cliente quem está num grupo, com 409); não usa a API (403, menos `/me`, a troca de senha e sair), os tokens de API nem o MCP; as outras telas levam ao painel |
 
 ### Atribuições contextuais (somam-se ao papel)
 
@@ -121,6 +124,8 @@ Futuro: `admin.roles` (papéis personalizados), `admin.integrations` (tokens de 
 
 **Legenda:** ✅ sim · — não · 👤 só para quem é **supervisor** do grupo do chamado
 
+O papel Cliente não tem nenhuma das permissões da tabela.
+
 ## 8.4 Regras de visibilidade de chamados
 
 Um usuário **vê** um chamado se **pelo menos uma** condição for verdadeira:
@@ -133,6 +138,7 @@ Um usuário **vê** um chamado se **pelo menos uma** condição for verdadeira:
 | 4 | É **observador** (inclui quem foi mencionado com `@nome`, que vira observador automaticamente) |
 | 5 | Tem `ticket.view_all` e a categoria **não** é confidencial |
 | 6 | É **administrador** ou **auditor**. O acesso a chamados confidenciais fica registrado na auditoria |
+| 7 | Tem o papel **Cliente** e o chamado é da **empresa dele** (`tickets.client_id`), inclusive os confidenciais. Para esse papel, só esta regra vale |
 
 Todos os comentários e anexos são visíveis a quem vê o chamado: não existe mais a separação entre comentário público e nota interna, porque não há solicitante de fora da equipe.
 

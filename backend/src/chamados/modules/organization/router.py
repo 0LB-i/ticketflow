@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from chamados.core.permissions import P, can
+from chamados.core.permissions import CLIENT_ROLE, P, can
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import Auth, CurrentAuth, require
@@ -190,6 +190,8 @@ async def put_member(
     user = await db.scalar(select(User).where(User.public_id == user_id, User.deleted_at.is_(None)))
     if user is None:
         raise HTTPException(404, "Usuário não encontrado.")
+    if user.role.code == CLIENT_ROLE:
+        raise HTTPException(422, "Quem tem o papel Cliente não entra em grupos.")
     member = next((m for m in team.members if m.user_id == user.id), None)
     before = {"role": member.role} if member else None
     if member is None:

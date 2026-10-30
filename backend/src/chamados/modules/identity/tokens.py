@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from chamados.core.permissions import CLIENT_ROLE
 from chamados.modules.audit.service import record
 from chamados.modules.identity.models import ApiToken, User
 from chamados.modules.organization.models import TeamMember
@@ -47,7 +48,8 @@ def new_api_token(
 
 
 async def load_api_token(db: AsyncSession, raw: str) -> ApiToken | None:
-    """Token válido: não revogado, dentro do prazo e de usuário ativo (o excluído é inativo)."""
+    """Token válido: não revogado, dentro do prazo e de usuário ativo (o excluído é inativo) e
+    que não seja do papel Cliente."""
     if not raw.startswith(API_TOKEN_PREFIX):
         return None
     token = await db.scalar(
@@ -64,6 +66,8 @@ async def load_api_token(db: AsyncSession, raw: str) -> ApiToken | None:
         or token.revoked_at is not None
         or (token.expires_at is not None and token.expires_at <= t)
         or not token.user.is_active
+        # O papel Cliente não usa a API nem o MCP: um token de antes da troca de papel não vale.
+        or token.user.role.code == CLIENT_ROLE
     ):
         return None
     if token.last_used_at is None or t - token.last_used_at > _TOUCH_EVERY:

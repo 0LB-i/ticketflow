@@ -120,6 +120,15 @@ EN: dict[str, str] = {
     'Responsável: use "me" ou o id.': 'Assignee: use "me" or the id.',
     "Categoria não encontrada ou inativa.": "Category not found or inactive.",
     "Grupo não encontrado ou inativo.": "Team not found or inactive.",
+    "Escolha a empresa do usuário com o papel Cliente.": (
+        "Choose the company of the user with the Client role."
+    ),
+    "Quem tem o papel Cliente não entra em grupos.": (
+        "Users with the Client role cannot join teams."
+    ),
+    "Tire a pessoa dos grupos antes de mudar o papel para Cliente.": (
+        "Remove the person from their teams before changing the role to Client."
+    ),
     "Cliente não encontrado ou inativo.": "Client not found or inactive.",
     "O chamado precisa de um cliente.": "The ticket needs a client.",
     # Anexos

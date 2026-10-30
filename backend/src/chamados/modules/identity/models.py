@@ -38,6 +38,8 @@ class User(Base):
     # O nome que aparece no sistema; o completo fica no cadastro (tela de Usuários, auditoria).
     display_name: Mapped[str] = mapped_column(Text)
     role_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("roles.id"))
+    # A empresa (o cadastro de clientes) de quem tem o papel Cliente; nos outros papéis, nula.
+    client_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("clients.id"), index=True)
     password_hash: Mapped[str | None] = mapped_column(Text)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Senha provisória (admin/admin na instalação): a API só libera o uso depois da troca.
@@ -57,6 +59,7 @@ class User(Base):
     )
 
     role: Mapped[Role] = relationship(lazy="joined")
+    client: Mapped["Client | None"] = relationship()  # type: ignore[name-defined]  # noqa: F821
     memberships: Mapped[list[TeamMember]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

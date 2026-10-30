@@ -264,9 +264,11 @@ async def client_options(
     _: CurrentAuth,
     db: DB,
     q: Annotated[str | None, Query(max_length=200, description="nome ou nome fantasia")] = None,
+    inactive: Annotated[bool, Query(description="inclui os inativos")] = False,
 ) -> ClientOptions:
-    """Clientes ativos para escolher no chamado e nos relatórios: só o id e o nome."""
-    stmt = select(Client).where(Client.is_active)
+    """Clientes ativos para escolher no chamado e nos relatórios: só o id e o nome. Com
+    `inactive`, também os inativos (a empresa de um usuário com o papel Cliente)."""
+    stmt = select(Client) if inactive else select(Client).where(Client.is_active)
     if q and q.strip():
         term = func.unaccent(contains_pattern(q.strip()))
         stmt = stmt.where(

@@ -118,14 +118,14 @@
 {#- Cliente: busca por nome ou nome fantasia (HTMX em /clientes/opcoes). Envia client_id.
     `submit_on_pick`: escolher já envia o formulário (troca na lateral do chamado). A busca fica
     fora do formulário (`form` sem dono): o HTMX ainda a manda, mas ela não vai no envio nem dispara o
-    data-envia-ao-mudar. -#}
-{% macro client_picker(label, selected_id="", selected_name="", error=None, submit_on_pick=False) -%}
+    data-envia-ao-mudar. `url`: de onde vêm as opções (a empresa de um usuário aceita os inativos). -#}
+{% macro client_picker(label, selected_id="", selected_name="", error=None, submit_on_pick=False, url="/clientes/opcoes") -%}
 <div data-cliente{% if submit_on_pick %} data-envia-ao-escolher{% endif %} class="relative flex flex-col gap-1">
   <label for="campo-cliente" class="font-medium">{{ label }}<span class="text-danger" aria-hidden="true"> *</span></label>
   <input type="hidden" name="client_id" value="{{ selected_id }}">
   <input type="hidden" name="cliente_nome" value="{{ selected_name }}">
   <div class="inline-flex h-10 items-center gap-1 rounded-md border bg-surface pr-2 pl-3 {{ 'border-danger' if error else 'border-border-input' }}">
-    <input id="campo-cliente" type="text" name="q" form="sem-formulario" value="{{ selected_name }}" role="combobox" aria-expanded="false" aria-controls="clientes-opcoes" aria-autocomplete="list" autocomplete="off" placeholder="{{ t('chamado.buscarCliente') }}"{% if error %} aria-invalid="true" aria-describedby="campo-cliente-erro"{% endif %} hx-get="/clientes/opcoes" hx-trigger="input changed delay:300ms" hx-target="#clientes-opcoes" hx-sync="this:replace" class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted">
+    <input id="campo-cliente" type="text" name="q" form="sem-formulario" value="{{ selected_name }}" role="combobox" aria-expanded="false" aria-controls="clientes-opcoes" aria-autocomplete="list" autocomplete="off" placeholder="{{ t('chamado.buscarCliente') }}"{% if error %} aria-invalid="true" aria-describedby="campo-cliente-erro"{% endif %} hx-get="{{ url }}" hx-trigger="input changed delay:300ms" hx-target="#clientes-opcoes" hx-sync="this:replace" class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted">
     {{ icon("chevron-down", "size-4 shrink-0 text-muted") }}
   </div>
   <ul id="clientes-opcoes" role="listbox" data-opcoes hidden class="absolute inset-x-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 text-fg shadow-lg"></ul>

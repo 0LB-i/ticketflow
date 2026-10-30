@@ -17,7 +17,8 @@
     "relatorios": "Relatórios",
     "empresa": "Empresa",
     "configuracoes": "Configurações",
-    "tokens": "Tokens de API"
+    "tokens": "Tokens de API",
+    "painel": "Painel"
   },
   "tema": {
     "titulo": "Tema",
@@ -94,6 +95,8 @@
     "usuario": "Usuário",
     "usuarioDica": "Para entrar no sistema, junto com o e-mail. Letras sem acento, números, ponto, hífen ou sublinhado.",
     "papel": "Papel",
+    "empresa": "Empresa",
+    "empresaDica": "O usuário vê só o painel desta empresa: as horas do plano e os chamados do mês.",
     "grupos": "Grupos",
     "situacao": "Situação",
     "ultimoAcesso": "Último acesso",
@@ -124,7 +127,8 @@
     "papeis": {
       "agent": "Agente",
       "admin": "Administrador",
-      "auditor": "Auditor"
+      "auditor": "Auditor",
+      "client": "Cliente"
     },
     "status": {
       "ativo": "Ativo",
@@ -875,5 +879,21 @@
     "pessoa": "Pessoa",
     "todasAsPessoas": "Todas as pessoas",
     "nenhum": "Nenhum token ativo."
+  },
+  "painel": {
+    "titulo": "Painel",
+    "periodo": "Situação em {periodo}",
+    "horas": "Horas em {periodo}",
+    "plano": "Horas do plano",
+    "porMes": "por mês",
+    "porAno": "por ano",
+    "semPlano": "Sem plano",
+    "trabalhadas": "Horas trabalhadas",
+    "excedentes": "Horas excedentes",
+    "chamados": "Chamados do mês",
+    "chamadosDica": "Os registrados ou trabalhados neste mês e os que ainda estão em aberto.",
+    "total": "Total",
+    "tempoPorChamado": "Tempo trabalhado em cada chamado",
+    "semChamados": "Nenhum chamado neste mês."
   }
 }

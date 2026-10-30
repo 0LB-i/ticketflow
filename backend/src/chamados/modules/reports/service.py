@@ -37,14 +37,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, load_only
 from sqlalchemy.sql.elements import Grouping
 
-from chamados.core.permissions import P, can
+from chamados.core.permissions import CLIENT_ROLE, P, can
 from chamados.core.text import LIKE_ESCAPE, contains_pattern
 from chamados.core.timezone import LOCAL_TZ
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.clients.models import Client, label_of
 from chamados.modules.identity.deps import Auth
 from chamados.modules.identity.models import User
-from chamados.modules.organization.models import Team, TeamMember
+from chamados.modules.organization.models import Role, Team, TeamMember
 from chamados.modules.reports.schemas import (
     ClientRow,
     DayRow,
@@ -148,7 +148,8 @@ async def choices(
     actor = auth.actor
     if statuses is None:
         statuses = list(await db.scalars(select(TicketStatus).order_by(TicketStatus.sort_order)))
-    people = select(User).where(User.deleted_at.is_(None))
+    # Quem tem o papel Cliente não trabalha nos chamados: não é uma pessoa dos filtros.
+    people = select(User).join(User.role).where(User.deleted_at.is_(None), Role.code != CLIENT_ROLE)
     teams = select(Team).where(Team.is_active)
     if not can(actor, P.REPORT_VIEW_ALL):
         teams = teams.where(Team.id.in_(actor.supervises))

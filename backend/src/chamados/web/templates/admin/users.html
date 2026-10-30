@@ -1,10 +1,15 @@
 {#- Usuários (Administração): lista com filtros e edição no painel lateral. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, badge, button_class, checkbox, field, panel_link, select_field, side_panel with context %}
-{% from "_fields.html" import dialog with context %}
+{% from "_fields.html" import client_picker, dialog with context %}
 {% from "admin/_expediente.html" import form_tag, panel_section with context %}
 
 {% block title %}{{ t("usuarios.titulo") }}{% endblock %}
+
+{#- A busca da empresa do papel Cliente (o campo de cliente) está no chamado.js. #}
+{% block head %}
+<script src="{{ static('js/chamado.js') }}" defer></script>
+{% endblock %}
 
 {%- set status_colors = {"ativo": "green", "convite_pendente": "teal", "inativo": "gray"} %}
 
@@ -43,6 +48,7 @@
           <td class="px-3 py-2">{{ t("usuarios.papeis." ~ u.role) }}</td>
           <td class="px-3 py-2">
             {%- if u.teams %}{{ u.teams | map(attribute="name") | join(", ") }}
+            {%- elif u.role == "client" %}<span class="text-muted">{{ u.client.name if u.client else "" }}</span>
             {%- elif u.role != "auditor" %}<span class="text-muted">{{ t("usuarios.semGrupo") }}</span>{% endif -%}
             {#- Em dois ou mais grupos com expediente: falta definir o dela (o painel explica). #}
             {%- if u.id in conflicts %} {{ badge(t("expediente.conflitoCurto"), "red") }}{% endif -%}
@@ -62,7 +68,7 @@
   {%- if edited or creating %}
   {%- set description = (edited.email or t("usuarios.usuarioLogin", usuario=edited.username)) if edited else None %}
   {% call side_panel(t("usuarios.editar") if edited else t("usuarios.novo"), back, description) %}
-  <form id="form-usuario" method="post" action="/admin/usuarios/{{ edited.id if edited else 'novo' }}" class="flex min-h-0 flex-1 flex-col">
+  <form id="form-usuario" data-por-papel method="post" action="/admin/usuarios/{{ edited.id if edited else 'novo' }}" class="flex min-h-0 flex-1 flex-col">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="volta" value="{{ back }}">
     <div class="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
       {%- if error %}
@@ -76,8 +82,15 @@
       {{ field("password", t("usuarios.senhaInicial"), type="password", hint=t("usuarios.senhaInicialDica"), required=True, autocomplete="new-password", minlength="8") }}
       {%- endif %}
       {{ select_field("role", t("usuarios.papel"), role_options, form.role) }}
+      {#- O papel Cliente pede a empresa e não entra em grupos (app.js troca ao mudar o papel). #}
+      {%- set is_client = form.role == "client" %}
+      {%- set staff = "agent admin auditor" %}
+      <fieldset data-se-papel="client" class="flex min-w-0 flex-col gap-1"{% if not is_client %} hidden disabled{% endif %}>
+        {{ client_picker(t("usuarios.empresa"), form.client_id or "", form.cliente_nome or "", url="/clientes/opcoes?inativos=1") }}
+        <p class="text-sm text-muted">{{ t("usuarios.empresaDica") }}</p>
+      </fieldset>
       {%- if not edited %}
-      <fieldset class="flex flex-col gap-2">
+      <fieldset data-se-papel="{{ staff }}" class="flex flex-col gap-2"{% if is_client %} hidden disabled{% endif %}>
         <legend class="mb-1 font-medium">{{ t("usuarios.membroDosGrupos") }}</legend>
         {%- for value, name in team_options %}
         {{ checkbox("team_ids", name, value in (form.team_ids or []), value) }}
@@ -86,7 +99,7 @@
         {%- endfor %}
       </fieldset>
       {%- else %}
-      <p class="text-muted">{{ t("usuarios.gruposAviso") }}</p>
+      <p data-se-papel="{{ staff }}" class="text-muted"{% if is_client %} hidden{% endif %}>{{ t("usuarios.gruposAviso") }}</p>
       <div class="flex flex-col gap-3 border-t border-border pt-4">
         <p>{{ badge(t("usuarios.status." ~ edited.status), status_colors[edited.status]) }}</p>
         {%- if edited.status != "inativo" %}
@@ -98,7 +111,7 @@
         <button type="button" data-abre-dialogo="confirmar-exclusao" class="{{ button_class('danger') }}">{{ t("usuarios.excluir") }}</button>
         {%- endif %}
       </div>
-      {%- if hours %}
+      {%- if hours and edited.role != "client" %}
       {{ panel_section(hours, "form-expediente", t("expediente.semProprioUsuario")) }}
       {%- endif %}
       {%- endif %}

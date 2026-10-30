@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, Request
 
 from chamados.config import Settings
-from chamados.core.permissions import CLIENT_MANAGERS_TEAM, Actor, P, can
+from chamados.core.permissions import CLIENT_MANAGERS_TEAM, CLIENT_ROLE, Actor, P, can
 from chamados.db.session import DB
 from chamados.modules.identity.models import ApiToken, User, UserSession
 from chamados.modules.identity.sessions import CSRF_HEADER, SESSION_COOKIE, csrf_ok, load_session
@@ -58,6 +58,13 @@ async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
         and (request.method, request.url.path) not in ALLOWED_BEFORE_PASSWORD_CHANGE
     ):
         raise HTTPException(403, "Troque a senha provisória antes de continuar.")
+    # O papel Cliente só usa o painel da empresa (as telas): da API, só o mesmo que a senha
+    # provisória deixa (os tokens dele já não valem: load_api_token).
+    if (
+        session.user.role.code == CLIENT_ROLE
+        and (request.method, request.url.path) not in ALLOWED_BEFORE_PASSWORD_CHANGE
+    ):
+        raise HTTPException(403, "Você não tem permissão para esta ação.")
     return session_auth(session)
 
 
@@ -91,6 +98,7 @@ def actor_of(user: User) -> Actor:
             m.team.is_active and m.team.name.strip().casefold() == CLIENT_MANAGERS_TEAM
             for m in user.memberships
         ),
+        client_id=user.client_id,
     )
 
 

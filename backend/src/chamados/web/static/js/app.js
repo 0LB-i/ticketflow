@@ -131,6 +131,15 @@ document.addEventListener('change', (e) => {
   if (!e.target.matches('[data-chips-adiciona]')) form.requestSubmit()
 })
 
+// Cadastro de usuário: os campos que dependem do papel (a empresa do Cliente; os grupos dos
+// outros). Os de outro papel ficam num <fieldset disabled>, que o navegador não valida nem envia.
+document.addEventListener('change', (e) => {
+  if (e.target.name !== 'role' || !e.target.form?.matches('[data-por-papel]')) return
+  for (const el of e.target.form.querySelectorAll('[data-se-papel]')) {
+    el.hidden = el.disabled = !el.dataset.sePapel.split(' ').includes(e.target.value)
+  }
+})
+
 // Status em massa (lista de chamados): a janela do pé da tela aparece com a primeira seleção.
 function atualizarSelecao() {
   const barra = document.getElementById('em-massa')

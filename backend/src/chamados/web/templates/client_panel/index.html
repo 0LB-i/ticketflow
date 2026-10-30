@@ -1,0 +1,80 @@
+{#- Painel do papel Cliente (docs/14 §14.9): só leitura, sem filtros. As horas do plano no mês
+    (no ano, no contrato anual) e os chamados do mês com o status e o tempo total de cada um; as
+    barras são as do bar_chart dos relatórios, com o status ao lado. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import status_badge with context %}
+
+{% block title %}{{ t("painel.titulo") }}{% endblock %}
+
+{%- macro cards(items) %}
+<div class="overflow-hidden rounded-lg border border-border bg-surface shadow-md">
+  <dl class="-mt-px -ml-px flex flex-wrap">
+    {%- for label, value, hint in items %}
+    <div class="flex-1 basis-40 border-t border-l border-border px-4 py-3">
+      <dt class="text-muted">{{ label }}</dt>
+      <dd class="mt-1 text-2xl font-semibold tabular-nums">{{ value }}</dd>
+      {%- if hint %}
+      <dd class="mt-1 text-sm text-muted">{{ hint }}</dd>
+      {%- endif %}
+    </div>
+    {%- endfor %}
+  </dl>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="mx-auto flex max-w-6xl flex-col gap-6">
+  <div class="flex flex-col gap-1">
+    <h1 class="text-xl font-semibold">{{ panel.client.label }}</h1>
+    <p class="text-muted">{{ t("painel.periodo", periodo=month) }}</p>
+  </div>
+
+  <section class="flex flex-col gap-3" aria-labelledby="painel-horas">
+    <h2 id="painel-horas" class="font-semibold">{{ t("painel.horas", periodo=period) }}</h2>
+    {%- if panel.plan is not none %}
+    {{ cards([
+      (t("painel.plano"), duration(panel.plan), t("painel.porAno") if panel.yearly else t("painel.porMes")),
+      (t("painel.trabalhadas"), duration(panel.worked), None),
+      (t("painel.excedentes"), duration(panel.excess), None),
+    ]) }}
+    {%- else %}
+    {{ cards([
+      (t("painel.plano"), t("painel.semPlano"), None),
+      (t("painel.trabalhadas"), duration(panel.worked), None),
+    ]) }}
+    {%- endif %}
+  </section>
+
+  <section class="flex flex-col gap-3" aria-labelledby="painel-chamados">
+    <div class="flex flex-col gap-1">
+      <h2 id="painel-chamados" class="font-semibold">{{ t("painel.chamados") }}</h2>
+      <p class="text-sm text-muted">{{ t("painel.chamadosDica") }}</p>
+    </div>
+    {%- set counts = namespace(items=[(t("painel.total"), panel.tickets | length, None)]) %}
+    {%- for status, count in panel.statuses %}{% set counts.items = counts.items + [(status.name, count, None)] %}{% endfor %}
+    {{ cards(counts.items) }}
+  </section>
+
+  <section class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="painel-grafico">
+    <h2 id="painel-grafico" class="font-semibold">{{ t("painel.tempoPorChamado") }}</h2>
+    {%- set top = ([1] + panel.tickets | map(attribute="minutes") | list) | max %}
+    <ul class="flex flex-col gap-2">
+      {%- for item in panel.tickets %}
+      {%- set label = "#" ~ item.number ~ " " ~ item.title %}
+      <li class="grid grid-cols-[minmax(0,10rem)_auto_1fr] items-center gap-3 lg:grid-cols-[minmax(0,20rem)_8rem_1fr]">
+        <span class="line-clamp-2 break-words text-muted" title="{{ label }}">{{ label }}</span>
+        <span>{{ status_badge(item.status.kind, item.status.name) }}</span>
+        <span class="flex items-center gap-2">
+          {%- if item.minutes %}
+          <svg width="{{ '%.2f' | format(item.minutes / top * 85) }}%" height="16" class="shrink-0 fill-chart-1" aria-hidden="true"><rect width="100%" height="100%" rx="4"/><rect width="50%" height="100%"/></svg>
+          {%- endif %}
+          <span class="text-sm whitespace-nowrap tabular-nums">{{ duration(item.minutes) }}</span>
+        </span>
+      </li>
+      {%- else %}
+      <li class="text-muted">{{ t("painel.semChamados") }}</li>
+      {%- endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

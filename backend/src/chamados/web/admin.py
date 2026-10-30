@@ -45,7 +45,7 @@ Ids = Annotated[list[str] | None, Form()]
 Weekdays = Annotated[list[int] | None, Form()]
 UUID = TypeAdapter(uuid.UUID)
 
-ROLES = ("agent", "admin", "auditor")
+ROLES = ("agent", "admin", "auditor", "client")
 STATUSES = ("ativo", "convite_pendente", "inativo")
 
 
@@ -193,6 +193,8 @@ async def _users_page(
             "email": edited.email or "",
             "username": edited.username or "",
             "role": edited.role,
+            "client_id": str(edited.client.id) if edited.client else "",
+            "cliente_nome": edited.client.name if edited.client else "",
         }
     owner = await db.scalar(select(User).where(User.public_id == edited.id)) if edited else None
     return page.render(
@@ -257,6 +259,8 @@ async def create_user(
     password: Field = "",
     role: Field = "agent",
     team_ids: Ids = None,
+    client_id: Field = "",
+    cliente_nome: Field = "",
 ) -> Response:
     check_csrf(page, csrf_token)
     form = {
@@ -266,9 +270,13 @@ async def create_user(
         "username": username,
         "role": role,
         "team_ids": team_ids or [],
+        "client_id": client_id,
+        "cliente_nome": cliente_nome,
     }
     try:
-        data = UserCreate.model_validate({**form, "password": password})
+        data = UserCreate.model_validate(
+            {**form, "password": password, "client_id": client_id or None}
+        )
         await users_api.create_user(data, page.auth, request, db)
     except ValidationError:
         error = page.t("comum.erroInesperado")
@@ -302,6 +310,8 @@ async def update_user(
     email: Field = "",
     username: Field = "",
     role: Field = "agent",
+    client_id: Field = "",
+    cliente_nome: Field = "",
 ) -> Response:
     check_csrf(page, csrf_token)
     current = await users_api.get_user(user_id, page.auth, db)
@@ -311,9 +321,16 @@ async def update_user(
         "email": email,
         "username": username,
         "role": role,
+        "client_id": client_id,
+        "cliente_nome": cliente_nome,
     }
     # E-mail e usuário só vão quando mudam (e nunca vazios: a API não os apaga).
-    changes: dict[str, Any] = {"full_name": full_name, "display_name": display_name, "role": role}
+    changes: dict[str, Any] = {
+        "full_name": full_name,
+        "display_name": display_name,
+        "role": role,
+        "client_id": client_id or None,
+    }
     if email.strip() and email.strip() != current.email:
         changes["email"] = email.strip()
     if username.strip() and username.strip() != current.username:

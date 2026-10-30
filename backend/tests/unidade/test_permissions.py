@@ -100,7 +100,15 @@ def test_papeis_da_migracao_batem_com_o_catalogo() -> None:
     # grupo Administradores).
     novas = [_migracao(n).NEW_PERMISSIONS for n in ("0010", "0015")]
     retiradas = [_migracao(n).REMOVED_PERMISSIONS for n in ("0016", "0027", "0029")]
-    for codigo, _, permissoes in _migracao("0002").SYSTEM_ROLES:
+    papeis = _migracao("0002").SYSTEM_ROLES + _migracao("0045").SYSTEM_ROLES  # 0045: Cliente
+    assert {codigo for codigo, _, _ in papeis} == set(ROLES)
+    for codigo, _, permissoes in papeis:
         esperado = set(permissoes).union(*(n.get(codigo, []) for n in novas))
         esperado -= set().union(*(r.get(codigo, []) for r in retiradas))
         assert esperado == {str(p) for p in ROLES[codigo]}, codigo
+
+
+def test_papel_cliente_nao_tem_nenhuma_permissao() -> None:
+    cliente = Actor(user_id=9, role="client", client_id=1)
+    assert effective_permissions(cliente) == []
+    assert not any(can(cliente, p, SUPERVISIONADO) for p in P)

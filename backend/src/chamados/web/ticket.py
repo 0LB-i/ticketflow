@@ -321,9 +321,16 @@ async def create_ticket(
 
 
 @router.get("/clientes/opcoes")
-async def client_options(page: LoggedPageDep, db: DB, q: str = "") -> HTMLResponse:
-    """Opções do campo de cliente (HTMX): busca por nome ou nome fantasia, só os ativos."""
-    options = (await clients_api.client_options(page.auth, db, q=q.strip()[:200] or None)).items
+async def client_options(
+    page: LoggedPageDep, db: DB, q: str = "", inativos: bool = False
+) -> HTMLResponse:
+    """Opções do campo de cliente (HTMX): busca por nome ou nome fantasia, só os ativos (com
+    `inativos`, todos: a empresa de um usuário com o papel Cliente)."""
+    options = (
+        await clients_api.client_options(
+            page.auth, db, q=q.strip()[:200] or None, inactive=inativos
+        )
+    ).items
     return page.render("tickets/_client_options.html", options=options)
 
 

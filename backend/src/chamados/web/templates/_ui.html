@@ -98,10 +98,11 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
 {{ badge(label, {"open": "blue", "waiting": "violet", "approval": "teal", "delivered": "teal", "closed": "green", "canceled": "gray"}[kind]) }}
 {%- endmacro %}
 
-{#- Menu lateral: os itens aparecem conforme a permissão (só esconde; a rota é que decide). -#}
+{#- Menu lateral: os itens aparecem conforme a permissão (só esconde; a rota é que decide). O papel
+    Cliente só tem o painel da empresa. -#}
 {% macro side_nav() -%}
 {%- set path = page.request.url.path -%}
-{%- set sections = [
+{%- set sections = [(None, [("/painel", "menu.painel", "chart-column", None)])] if page.is_client else [
   (None, [
     ("/chamados", "menu.chamados", "ticket", None),
     ("/quadro", "menu.quadro", "square-kanban", None),
@@ -167,9 +168,11 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
       {%- endfor %}
     </form>
     <div class="my-1 h-px bg-border" role="separator"></div>
+    {%- if not page.is_client %}
     <a href="/meus-tokens" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 text-left hover:bg-surface-raised">
       {{ icon("key-round", "size-4") }} {{ t("usuario.tokens") }}
     </a>
+    {%- endif %}
     <form method="post" action="/sair">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 text-left hover:bg-surface-raised">

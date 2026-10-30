@@ -6,7 +6,7 @@
 
 from sqlalchemy import ColumnElement, and_, exists, false, or_, true
 
-from chamados.core.permissions import Actor, P, can
+from chamados.core.permissions import CLIENT_ROLE, Actor, P, can
 from chamados.modules.catalog.models import Category
 from chamados.modules.tickets.models import Ticket, TicketCoAssignee, TicketTeam, TicketWatcher
 
@@ -27,6 +27,10 @@ def assigned_to(user_id: int) -> ColumnElement[bool]:
 def ticket_visibility_filter(actor: Actor) -> ColumnElement[bool]:
     if actor.role in SEE_EVERYTHING:
         return true()
+    if actor.role == CLIENT_ROLE:
+        # Regra 7: o papel Cliente vê os chamados da empresa dele, todos (inclusive os
+        # confidenciais), e nenhum outro.
+        return Ticket.client_id == actor.client_id if actor.client_id else false()
     not_confidential = ~exists().where(Category.id == Ticket.category_id, Category.is_confidential)
     rules: list[ColumnElement[bool]] = [
         assigned_to(actor.user_id),  # 3

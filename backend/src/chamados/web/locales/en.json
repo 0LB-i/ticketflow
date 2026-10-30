@@ -17,7 +17,8 @@
     "relatorios": "Reports",
     "empresa": "Company",
     "configuracoes": "Settings",
-    "tokens": "API tokens"
+    "tokens": "API tokens",
+    "painel": "Dashboard"
   },
   "tema": {
     "titulo": "Theme",
@@ -94,6 +95,8 @@
     "usuario": "Username",
     "usuarioDica": "To sign in, besides the email. Unaccented letters, digits, dot, hyphen or underscore.",
     "papel": "Role",
+    "empresa": "Company",
+    "empresaDica": "The user only sees this company's dashboard: the plan hours and the month's tickets.",
     "grupos": "Teams",
     "situacao": "Status",
     "ultimoAcesso": "Last access",
@@ -124,7 +127,8 @@
     "papeis": {
       "agent": "Agent",
       "admin": "Administrator",
-      "auditor": "Auditor"
+      "auditor": "Auditor",
+      "client": "Client"
     },
     "status": {
       "ativo": "Active",
@@ -875,5 +879,21 @@
     "pessoa": "Person",
     "todasAsPessoas": "Everyone",
     "nenhum": "No active tokens."
+  },
+  "painel": {
+    "titulo": "Dashboard",
+    "periodo": "Status for {periodo}",
+    "horas": "Hours in {periodo}",
+    "plano": "Plan hours",
+    "porMes": "per month",
+    "porAno": "per year",
+    "semPlano": "No plan",
+    "trabalhadas": "Hours worked",
+    "excedentes": "Excess hours",
+    "chamados": "Tickets this month",
+    "chamadosDica": "Tickets registered or worked on this month and those still open.",
+    "total": "Total",
+    "tempoPorChamado": "Time worked on each ticket",
+    "semChamados": "No tickets this month."
   }
 }

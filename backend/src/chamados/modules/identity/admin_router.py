@@ -12,9 +12,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from chamados.core.permissions import P
+from chamados.core.permissions import CLIENT_ROLE, P
 from chamados.db.session import DB
 from chamados.modules.audit.service import record
+from chamados.modules.clients.models import Client
 from chamados.modules.identity.deps import Auth, SettingsDep, require
 from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import MAX_LENGTH, hash_password, password_problem
@@ -27,7 +28,7 @@ from chamados.modules.tickets import service as tickets
 
 router = APIRouter(prefix="/users", tags=["usuários"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_USERS))]
-RoleCode = Literal["agent", "admin", "auditor"]
+RoleCode = Literal["agent", "admin", "auditor", "client"]
 # O mínimo vale depois de tirar os espaços: "  " viraria um nome vazio na tela e nos e-mails.
 FullName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=200)]
 DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)]
@@ -39,6 +40,11 @@ class UserTeam(BaseModel):
     role: Literal["member", "supervisor"]
 
 
+class UserClient(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
 class UserOut(BaseModel):
     id: uuid.UUID
     email: str | None
@@ -48,6 +54,7 @@ class UserOut(BaseModel):
     role: RoleCode
     status: Literal["ativo", "convite_pendente", "inativo"]
     teams: list[UserTeam]
+    client: UserClient | None = Field(default=None, description="a empresa do papel Cliente")
     last_login_at: datetime | None
     created_at: datetime
 
@@ -64,6 +71,9 @@ class UserCreate(BaseModel):
     role: RoleCode = "agent"
     password: str = Field(max_length=MAX_LENGTH, description="senha inicial, trocada no 1º acesso")
     team_ids: list[uuid.UUID] = Field(default=[], description="grupos em que entra como membro")
+    client_id: uuid.UUID | None = Field(
+        default=None, description="a empresa (cliente), obrigatória e só no papel Cliente"
+    )
 
 
 class UserUpdate(BaseModel):
@@ -72,6 +82,9 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     username: str | None = Field(default=None, max_length=50)
     role: RoleCode | None = None
+    client_id: uuid.UUID | None = Field(
+        default=None, description="a empresa (cliente) do papel Cliente; sem ela, fica a atual"
+    )
     is_active: bool | None = None
 
 
@@ -103,6 +116,9 @@ def _out(user: User) -> UserOut:
             UserTeam(id=m.team.public_id, name=m.team.name, role=m.role)
             for m in sorted(user.memberships, key=lambda m: m.team.name)
         ],
+        client=(
+            UserClient(id=user.client.public_id, name=user.client.label) if user.client else None
+        ),
         last_login_at=user.last_login_at,
         created_at=user.created_at,
     )
@@ -115,16 +131,17 @@ def _snapshot(user: User) -> dict[str, object]:
         "full_name": user.full_name,
         "display_name": user.display_name,
         "role": user.role.code,
+        "client": str(user.client.public_id) if user.client else None,
         "is_active": user.is_active,
     }
 
 
-_LOAD = selectinload(User.memberships).selectinload(TeamMember.team)
+_LOAD = (selectinload(User.memberships).selectinload(TeamMember.team), selectinload(User.client))
 
 
 async def _get(db: AsyncSession, user_id: uuid.UUID) -> User:
     user = await db.scalar(
-        select(User).where(User.public_id == user_id, User.deleted_at.is_(None)).options(_LOAD)
+        select(User).where(User.public_id == user_id, User.deleted_at.is_(None)).options(*_LOAD)
     )
     if user is None:
         raise HTTPException(404, "Usuário não encontrado.")
@@ -170,6 +187,18 @@ async def _role(db: AsyncSession, code: str) -> Role:
     return role
 
 
+async def _client(db: AsyncSession, role: str, client_id: uuid.UUID | None) -> Client | None:
+    """A empresa do papel Cliente (qualquer cadastro, ativo ou não); nos outros papéis, nenhuma."""
+    if role != CLIENT_ROLE:
+        return None
+    if client_id is None:
+        raise HTTPException(422, "Escolha a empresa do usuário com o papel Cliente.")
+    client = await db.scalar(select(Client).where(Client.public_id == client_id))
+    if client is None:
+        raise HTTPException(422, "Cliente não encontrado.")
+    return client
+
+
 async def _send_link(
     request: Request, db: AsyncSession, settings: SettingsDep, tasks: BackgroundTasks, user: User
 ) -> LinkOut:
@@ -191,7 +220,7 @@ async def _send_link(
 async def list_users(_: Admin, db: DB) -> UserList:
     users = (
         await db.scalars(
-            select(User).where(User.deleted_at.is_(None)).options(_LOAD).order_by(User.full_name)
+            select(User).where(User.deleted_at.is_(None)).options(*_LOAD).order_by(User.full_name)
         )
     ).all()
     return UserList(items=[_out(u) for u in users])
@@ -215,12 +244,16 @@ async def create_user(data: UserCreate, auth: Admin, request: Request, db: DB) -
     ).all()
     if len(teams) != len(set(data.team_ids)):
         raise HTTPException(422, "Grupo não encontrado ou inativo.")
+    if teams and data.role == CLIENT_ROLE:
+        raise HTTPException(422, "Quem tem o papel Cliente não entra em grupos.")
+    client = await _client(db, data.role, data.client_id)
     user = User(
         email=data.email,
         username=username,
         full_name=data.full_name.strip(),
         display_name=data.display_name.strip(),
         role=await _role(db, data.role),
+        client=client,
         password_hash=await run_in_threadpool(hash_password, data.password),
         password_changed_at=now(),
         must_change_password=True,
@@ -275,7 +308,15 @@ async def update_user(
     if data.username is not None and data.username.strip().lower() != user.username:
         user.username = await _username(db, data.username, user.id)
     if data.role is not None:
+        if data.role == CLIENT_ROLE and user.role.code != CLIENT_ROLE and user.memberships:
+            raise HTTPException(
+                409, "Tire a pessoa dos grupos antes de mudar o papel para Cliente."
+            )
         user.role = await _role(db, data.role)
+    if user.role.code != CLIENT_ROLE:
+        user.client = None
+    elif data.client_id is not None or user.client is None:
+        user.client = await _client(db, CLIENT_ROLE, data.client_id)
     if data.is_active is not None and data.is_active != user.is_active:
         user.is_active = data.is_active
         if not data.is_active:

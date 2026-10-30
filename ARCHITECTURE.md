@@ -49,7 +49,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0038
+│   ├── migrations/        Alembic: env.py e versions/0001…0045
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   ├── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
 │   └── bench/             benchmark: tempo e precisão com 50 mil chamados (seção 7.1)
@@ -132,7 +132,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `system` | `models` (SystemSetting, WorkSchedule), `router`, `service`, `work_hours` (expediente e vigências), `company` (dados da empresa e as linhas do cabeçalho dos PDFs) | Configurações da instalação: idioma padrão, cores, logotipos, dados da empresa, expediente, filtros da tela de Relatórios; idioma efetivo de um usuário | `/branding`, `/admin/settings`, `/work-hours` |
 | `audit` | `models` (AuditLog), `service` (`record()`), `router` | Auditoria de login e administração | `/admin/audit-log` |
 | `attachments` | `models` (Attachment), `router`, `service` (vínculo, lista, limpeza), `files` (tipos aceitos, limites, nome saneado), `storage` (disco) | Anexos dos chamados: envio em duas etapas, download com a permissão do chamado | `/uploads`, `/attachments/{id}` |
-| `reports` | `models` (ReportExport), `schemas`, `service` (escopo, dados do período, horas fora do expediente), `builder` (os blocos e as abas prontas), `history` (o Histórico e a cascata da aba Clientes), `model_pdf` (ReportLab: PDF de uma aba e o da API), `csv_export`, `router` | Relatórios de horas: por pessoa, cliente e dia, horas extras, PDF e CSV; as abas prontas feitas de blocos (3.7.2) | `/reports`, `/reports/options`, `/reports/pdf`, `/reports/csv` |
+| `reports` | `models` (ReportExport), `schemas`, `service` (escopo, dados do período, horas fora do expediente), `builder` (os blocos e as abas prontas), `history` (o Histórico e a cascata da aba Clientes), `model_pdf` (ReportLab: PDF de uma aba e o da API), `csv_export`, `client_panel` (o painel do papel Cliente), `router` | Relatórios de horas: por pessoa, cliente e dia, horas extras, PDF e CSV; as abas prontas feitas de blocos (3.7.2); o painel do papel Cliente (3.4.1) | `/reports`, `/reports/options`, `/reports/pdf`, `/reports/csv` |
 | `notifications` | `email` (`Mailer`), `handlers` (quem recebe o quê), `messages` (textos), `tasks` (envio pelo worker) | E-mail por SMTP ou para o log; notificações dos chamados (3.13) | — |
 | `mcp_server` | `server` (ferramentas, `running()` no lifespan, rota `Endpoint`) | Servidor MCP para assistentes de IA, com o token de API da pessoa (3.14) | `/mcp` (fora de `/api`) |
 | `jobs` | `models` (OutboxEvent, Job), `service` (outbox, fila, repasse, agenda, limpeza), `worker` (loop, tarefas, rotinas, handlers) | Outbox de eventos, fila de tarefas e o processo `chamados worker` (3.12) | — |
@@ -157,6 +157,16 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - O detalhe responde **403** quando o chamado existe mas não é visível e **404** quando não existe. O acesso de admin ou auditor a um chamado confidencial, fora das regras 1, 3 e 4, vai para a auditoria.
 - A interface **nunca decide**: ela só mostra ou esconde botões conforme `allowed_actions` e `me.permissions`.
 - **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, mais as permissões acrescentadas depois em `NEW_PERMISSIONS` das migrações, como a 0010 e a 0015, menos as retiradas em `REMOVED_PERMISSIONS`, como a 0016; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
+
+### 3.4.1 Papel Cliente
+
+Quem é de uma empresa atendida ([docs/08 §8.2](docs/08-organizacao-e-permissoes.md#82-papéis-globais)): o papel `client` (`CLIENT_ROLE`), sem nenhuma permissão, com a empresa em `users.client_id` (`Actor.client_id`). O bloqueio fica em três pontos, e não em cada rota:
+
+- **Telas:** `get_logged_page` leva a pessoa para `/painel` (`CLIENT_PANEL`) em qualquer tela fora de `ALLOWED_TO_CLIENTS` (o painel, trocar a senha, sair, idioma). `page.is_client` deixa no menu só o Painel e tira a busca e os Tokens de API.
+- **API:** `get_auth` responde 403 fora das rotas que a senha provisória também deixa (`/me`, trocar a senha, sair), e `load_api_token` não aceita o token de quem tem o papel (a API, o MCP e a `Idempotency-Key` passam por ele).
+- **Chamados:** `ticket_visibility_filter` dá ao papel só os chamados com `client_id` da empresa dele, todos (regra 7).
+
+O cadastro (`identity/admin_router`) exige a empresa no papel e a apaga nos outros; o papel não entra em grupos (no registro e no `PUT` de membro, 422; mudar para Cliente quem está num grupo, 409). A tela é `web/client_panel.py`, com os números de `reports/client_panel.py` (docs/14 §14.9).
 
 ### 3.5 Chamados (`modules/tickets/`)
 
@@ -295,6 +305,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 | `0042` | `report_exports`: os PDFs da aba Clientes baixados com um cliente só (o Histórico e a cascata de Relatórios) |
 | `0043` | `work_schedules.break_start`/`break_end`: o intervalo do expediente (opcional, dentro do horário); as vigências que já existem ficam sem intervalo |
 | `0044` | Sem modelos de relatório: saem `report_models` e `report_preferences` (o downgrade as recria vazias) |
+| `0045` | Papel Cliente: o papel do sistema `client` (sem permissões) e `users.client_id` (a empresa); o downgrade passa quem tem o papel a Agente inativo |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -334,6 +345,7 @@ web/
 ├── reports_downloads.py relatórios: PDF da aba, CSV de um bloco, lista de chamados
 ├── reports_all_clients.py relatórios: a aba Clientes geral (o relatório detalhado de cada cliente, o ZIP)
 ├── tokens.py            meus tokens de API: criar (o valor aparece só na resposta), listar, revogar
+├── client_panel.py      o painel do papel Cliente (/painel), a única tela dele (3.4.1)
 ├── admin_tokens.py      tokens de API de todas as pessoas (admin.users): filtro por pessoa, revogar
 ├── formatting.py        datas, "há 3 dias", duração, tamanho e os campos de data e hora (fuso da máquina)
 ├── markdown.py          render_markdown(): markdown-it-py com as regras do antigo markdown.ts
@@ -343,7 +355,7 @@ web/
 ├── locales/             pt-BR.json e en.json, com as mesmas chaves (4.3)
 ├── templates/           base.html, card.html (cartão sem menu), app.html (menu e cabeçalho),
 │                        _ui.html (macros), _fields.html (campos das telas de chamado), clients/, admin/,
-│                        _icons.html, auth/, tickets/, board/, reports/ (index.html, history.html, tickets.html, _tabs.html: a barra de abas com o Histórico, _blocks.html: os blocos da tela, e _charts.html: gráficos em SVG)
+│                        _icons.html, auth/, tickets/, board/, client_panel/, reports/ (index.html, history.html, tickets.html, _tabs.html: a barra de abas com o Histórico, _blocks.html: os blocos da tela, e _charts.html: gráficos em SVG)
 └── static/              css/input.css (→ app.css gerado), js/ (tema.js, app.js, chamado.js, clientes.js,
                          configuracoes.js, quadro.js, vendor/htmx, vendor/tiptap), fonts/
 ```
@@ -371,7 +383,7 @@ web/
 - **Ações do chamado:** cada botão da lateral é um formulário (POST com `csrf_token`) que chama a função da API e volta ao chamado com o aviso (`_act`). Erro numa tarefa nova ou na edição devolve a página com o texto preenchido (422), sem perder o que foi escrito.
 - **Kanban (`/quadro`):** os chamados de que a pessoa é responsável (principal ou não) e, do supervisor, também os dos grupos que supervisiona, com o filtro por responsável; o admin vê todos (`tickets.service.board`). Concluídos e cancelados só de um mês, escolhido no topo, à esquerda do responsável (mês atual ou passado, no horário da máquina; `?mes=passado`): os concluídos pelo `closed_at` e os cancelados pelo `canceled_at`. No mês passado, o topo ganha à esquerda (o mês e o responsável não saem do lugar) os campos "Concluir em" e "Cancelar em" (`?concluir_em=`, `?cancelar_em=`; só dias do mês passado, o último de início), e o cartão solto numa dessas colunas (`data-data-de`) leva o dia do campo às 23:59 em `conclusao_data`/`conclusao_hora`, que a rota de status repassa como `finished_at`. Mudar um campo não recarrega o quadro: o `quadro.js` só o põe no endereço, que vira a `volta`. No máximo 500 cartões (os mais antigos, com aviso). Uma coluna por status na ordem das Configurações, os cancelados por último (fundo `bg-danger/20`); cada coluna vai, no mínimo, até o pé da tela. O cartão mostra o cliente (empresa pelo nome fantasia, se houver; as outras telas usam a razão social), o responsável principal com "+N" para os outros (todos os nomes no `title`) e a data da última alteração e leva, escondido, o formulário de status do detalhe com `volta` para o quadro e os status permitidos em `data-destinos` (as mesmas regras do seletor do detalhe); o `quadro.js` só aceita soltar nessas colunas, preenche o status e envia, sem confirmação (também para cancelar). Mudar o status só se faz arrastando (sem teclado nem toque; para isso, o detalhe do chamado).
 - **Colisão (docs/10 §10.6):** os formulários de status, cliente e "Marcar como entregue" levam o `etag` em `versao`, repassado como `If-Match`; no 412, a tela volta atualizada com o aviso `chamado.mudou`. O cabeçalho do detalhe inclui `_presence.html` (`hx-get` em `/chamados/{n}/presenca?desde=…`, `every 20s` e `visibilitychange`): quem mais está vendo e quantas tarefas novas chegaram. Com a aba escondida o pedido é cancelado (`chamado.js`): quem esconde a aba sai da lista em até 45 s (abrir o chamado numa aba de fundo ainda conta por esse tempo). Sem sessão, essa rota é a exceção ao redirecionamento: responde 286 com `HX-Reswap: none` (o HTMX para de perguntar e não troca nada), em vez de levar ao login e apagar o texto do editor. Essa rota passa pela visibilidade, mas não grava a visita nem audita. O "Adicionar tarefa" leva `visto_ate` (a data da última tarefa mostrada): se chegou tarefa de outra pessoa depois, não grava e devolve a página com ela à vista e o texto preservado (422); o envio seguinte passa.
-- **Telas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/quadro`, `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/tokens`, `/admin/grupos`, `/admin/empresa` (com `/logo` e `/logo-relatorios`, e o `/remover` de cada), `/admin/configuracoes` (com as ações de cada um; o expediente em `/admin/usuarios/{id}/expediente`, `/admin/grupos/{id}/expediente` e `/admin/configuracoes/expediente`), `/relatorios` (com `/relatorios/csv`, `/relatorios/pdf`, `/relatorios/chamados`, `/relatorios/historico` e `/relatorios/clientes-geral`, com `/zip`) e `/meus-tokens` (com `/{id}/revogar`).
+- **Telas:** `/login`, `/sair`, `/esqueci-senha`, `/convite/{token}`, `/redefinir-senha/{token}`, `/trocar-senha`, `/idioma`, `/`, `/chamados` (com `/chamados/status-em-massa`), `/chamados/novo`, `/chamados/{n}` (e as ações em `/chamados/{n}/...`), `/quadro`, `/clientes/opcoes`, `/admin/clientes` (com `/novo` e `/{id}`), `/admin/usuarios`, `/admin/tokens`, `/admin/grupos`, `/admin/empresa` (com `/logo` e `/logo-relatorios`, e o `/remover` de cada), `/admin/configuracoes` (com as ações de cada um; o expediente em `/admin/usuarios/{id}/expediente`, `/admin/grupos/{id}/expediente` e `/admin/configuracoes/expediente`), `/relatorios` (com `/relatorios/csv`, `/relatorios/pdf`, `/relatorios/chamados`, `/relatorios/historico` e `/relatorios/clientes-geral`, com `/zip`) `/meus-tokens` (com `/{id}/revogar`) e `/painel`.
 
 ### 3.12 Worker, outbox e fila de tarefas (`modules/jobs/`)
 
@@ -445,6 +457,7 @@ A interface é toda renderizada pelo servidor (3.11, [ADR 0011](docs/adr/0011-in
 | `/meus-tokens` | Tokens de API da pessoa (no menu do usuário): criar com nome, acesso (leitura ou leitura e escrita) e validade (30, 90 ou 365 dias), ver o último uso, revogar. O valor aparece uma vez, na resposta da criação, sem redirecionar | Logado |
 | `/relatorios` | As abas prontas (Produtividade, Clientes, Horas extras, Chamados), cada uma uma lista de blocos (cartões, barras, colunas, linha, tabela, lista de tarefas) com o CSV de cada um e os links de detalhar; comparar com o período anterior; filtros de período (relativo, mês ou datas), grupo, pessoa, cliente e status (vários valores); menu Baixar (PDF e CSV da aba, CSV de todas as tarefas). A lista de chamados de um número em `/relatorios/chamados`; o Histórico (os PDFs da aba Clientes com um cliente só, de cada pessoa) em `/relatorios/historico`; a Clientes geral (só o período e o status; ao gerar, o relatório detalhado de cada cliente com horas, com o PDF detalhado dele e o ZIP com o de todos) em `/relatorios/clientes-geral`. O filtro de grupo/pessoa só aparece com opções (`GET /reports/options`) | Logado (a API limita os números) |
 | `/admin/configuracoes` | Idioma, cores, status dos chamados, expediente e os filtros que a tela de Relatórios mostra | `admin.settings` |
+| `/painel` | Painel da empresa, só leitura e sem filtros: as horas do plano, trabalhadas e excedentes, os chamados do mês por status e o tempo total de cada um ([docs/14 §14.9](docs/14-relatorios-e-indicadores.md#149-painel-do-cliente-pedido-do-usuário-2026-10-30)). As outras telas levam quem tem o papel Cliente para cá | Papel Cliente |
 
 Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.can(permissão)`. O botão "Novo chamado" e a busca global ficam no cabeçalho (`app.html`): `1234` ou `#1234` abre o chamado, texto abre a aba Todos com `q`. Endereço desconhecido fora de `/api` mostra a página de erro (`error.html`).
 

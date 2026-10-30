@@ -27,6 +27,7 @@ from chamados.modules.tickets import router as tickets
 from chamados.web import admin, auth, company, settings, ticket, tokens
 from chamados.web import admin_tokens as web_admin_tokens
 from chamados.web import board as web_board
+from chamados.web import client_panel as web_client_panel
 from chamados.web import clients as web_clients
 from chamados.web import reports as web_reports
 from chamados.web import reports_all_clients as web_reports_all_clients
@@ -48,7 +49,7 @@ WEB: tuple[ModuleType, ...] = (
     web_reports_all_clients,
     web_reports_downloads,
 )
-WEB += (web_tickets, web_admin_tokens, web_board)
+WEB += (web_tickets, web_admin_tokens, web_board, web_client_panel)
 
 # Cada área da administração e o que as telas dela exigem.
 AREAS = {

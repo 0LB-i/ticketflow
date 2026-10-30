@@ -161,3 +161,12 @@ O PDF segue a aba: o cabeçalho, a descrição, o período (e o de comparação)
 | 4 | PDF do modelo com gráficos e relatório para o cliente (prévia na tela e PDF com o logotipo) | F2-S8-07 |
 | 2026-10-28 | Simplificação: saem os modelos pessoais, o editor, o relatório para o cliente e os ajustes que só o editor usava; ficam as quatro abas prontas (migração `0044`) | F2-S8-15 |
 | Depois | Envio agendado por e-mail, usando o worker e o outbox ([ARCHITECTURE 3.12](../ARCHITECTURE.md)) | — |
+
+## 14.9 Painel do cliente (pedido do usuário, 2026-10-30)
+
+A única tela de quem tem o papel Cliente ([docs/08 §8.2](08-organizacao-e-permissoes.md#82-papéis-globais)), em `/painel`. Só leitura: sem filtros, sem comparar e sem baixar. Os números são da empresa do usuário e do mês atual, no fuso da máquina.
+
+- **Horas:** as **horas do plano** (o contrato do cliente: as horas por mês, ou por ano no contrato anual), as **horas trabalhadas** (todas as tarefas dos chamados da empresa no período) e as **horas excedentes** (o que passa do plano no período: o mesmo que a soma do excedente das tarefas na aba Clientes, §14.7). No contrato anual, o período das três é o ano. No avulso e sem contrato, o plano aparece como "Sem plano", com as horas trabalhadas do mês e sem as excedentes.
+- **Chamados do mês:** os registrados no mês, os que tiveram tarefa no mês e os que ainda estão em aberto (Pendente, Aguardando, Entregue), mesmo que sejam de meses anteriores. O total e a quantidade em cada status, todos na ordem das Configurações.
+- **Tempo por chamado:** as barras com cada um desses chamados (número e título), o status e o **tempo total** trabalhado nele (de sempre, não só do mês), do mais trabalhado para o menos.
+- **Visibilidade:** todos os chamados da empresa, inclusive os de categoria confidencial (a regra 7 do docs/08 §8.4).

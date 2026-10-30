@@ -26,7 +26,9 @@
       </dialog>
       <span class="md:hidden">{{ logo() }}</span>
 
-      {#- Busca global (docs/13 §13.1): "1234" ou "#1234" abre o chamado; texto vai para a aba Todos. #}
+      {#- Busca global (docs/13 §13.1): "1234" ou "#1234" abre o chamado; texto vai para a aba Todos.
+          O papel Cliente não busca (só tem o painel). #}
+      {%- if not page.is_client %}
       <form role="search" method="get" action="/chamados" class="hidden max-w-md flex-1 md:mr-auto md:flex">
         <input type="hidden" name="aba" value="todos">
         <label class="relative flex-1">
@@ -35,6 +37,7 @@
           <input type="search" name="q" required placeholder="{{ t('app.buscar') }}" class="h-9 w-full rounded-md border border-border-input bg-surface pr-3 pl-9 text-fg placeholder:text-muted">
         </label>
       </form>
+      {%- endif %}
 
       <div class="ml-auto flex items-center gap-1 md:ml-0">
         {#- Sempre visível para quem registra chamados (docs/13 §13.1) #}

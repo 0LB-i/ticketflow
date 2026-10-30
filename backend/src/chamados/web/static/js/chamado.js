@@ -641,7 +641,7 @@ document.addEventListener('focusin', (e) => {
   const campo = e.target.closest?.('[data-cliente] [role=combobox]')
   if (!campo || campo.closest('[data-chips]')) return
   campo.select()
-  htmx.ajax('GET', '/clientes/opcoes', { target: campo.closest('[data-cliente]').querySelector('[data-opcoes]') })
+  htmx.ajax('GET', campo.getAttribute('hx-get'), { target: campo.closest('[data-cliente]').querySelector('[data-opcoes]') })
 })
 document.addEventListener('focusout', (e) => {
   const caixa = e.target.closest?.('[data-cliente]')
