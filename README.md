@@ -93,7 +93,7 @@ sudo bash preparar-maquina-dev.sh              # com --servico, instala também 
 
 No fim ele mostra a chave pública, para cadastrar no GitHub como *deploy key* com escrita (Settings → Deploy keys).
 
-Requisitos: [uv](https://docs.astral.sh/uv/) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` e os bancos `chamados` e `chamados_test`.
+Requisitos: [uv](https://docs.astral.sh/uv/) e PostgreSQL 17 em `localhost:5432` com o usuário `chamados` / senha `chamados` (com `CREATEDB`: os testes em paralelo criam um banco por worker, `chamados_test_gw0`…) e os bancos `chamados` e `chamados_test`.
 
 O PostgreSQL 16 também fica instalado, na porta 5433, para a verificação completa.
 

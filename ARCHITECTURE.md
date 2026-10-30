@@ -503,7 +503,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 
 | Onde | Ferramenta | Como |
 |------|------------|------|
-| `backend/tests/` | pytest + **PostgreSQL real** (`TEST_DATABASE_URL`, banco `chamados_test`) | Uma pasta por área (abaixo). O banco de teste só desce até a base e sobe de novo quando `migrations/` muda (a marca fica no comentário da `alembic_version`); cada teste começa com as tabelas vazias (`DELETE`, na ordem das FKs dos modelos) e os status da migração. O app sobe uma vez por sessão. Auxiliares no `conftest.py` (`criar_usuario`, `entrar`, `grupo`, `criar_categoria`, `criar_cliente`, a fixture `cenario`, `outra_sessao`, `consultas`, `FakeMailer`) e no `apoio.py` (os usados por mais de uma pasta: `registrar`, `criar_token`, `rodar`…) |
+| `backend/tests/` | pytest + **PostgreSQL real** (`TEST_DATABASE_URL`, banco `chamados_test`) | Uma pasta por área (abaixo). O banco de teste só desce até a base e sobe de novo quando `migrations/` muda (a marca fica no comentário da `alembic_version`); cada teste começa com as tabelas vazias (`DELETE`, na ordem das FKs dos modelos) e os status da migração. O app sobe uma vez por sessão. Com `pytest -n` (xdist), cada worker usa o próprio banco (`chamados_test_gw0`, `_gw1`…), que o `conftest.py` cria na primeira vez (o usuário precisa de `CREATEDB`). Auxiliares no `conftest.py` (`criar_usuario`, `entrar`, `grupo`, `criar_categoria`, `criar_cliente`, a fixture `cenario`, `outra_sessao`, `consultas`, `FakeMailer`) e no `apoio.py` (os usados por mais de uma pasta: `registrar`, `criar_token`, `rodar`…) |
 | `web/static/js/` | ainda sem teste automático | O JavaScript das telas foi conferido à mão no jsdom durante a migração; a cobertura entra com os testes ponta a ponta (Playwright, F1-S5-04) |
 
 | Pasta | O que testa | Tempo |
@@ -514,14 +514,14 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 | `tests/banco/` | Migrações sobem e descem; comandos `chamados db` | ~7 s |
 | `tests/worker/` | Outbox, fila, worker e notificações por e-mail | ~10 s |
 
-Durante a tarefa, roda-se a pasta (ou o arquivo) do que mudou: `uv run pytest tests/telas`.
+Durante a tarefa, roda-se a pasta (ou o arquivo) do que mudou: `uv run pytest tests/telas`. Uma pasta grande ou a suíte inteira vão mais rápido em paralelo: `uv run pytest -n auto` (com `--cov`, a cobertura mais que dobra o tempo de cada teste).
 
 `scripts/check.sh` faz o papel do CI ([docs/12 §12.3](docs/12-processo-de-desenvolvimento.md#123-verificação-local-no-lugar-do-ci)):
 
 | Modo | Roda |
 |------|------|
 | `--rapido` (hook de pre-commit) | ruff nos arquivos do commit; procura segredos |
-| padrão | + mypy e os testes que a mudança desde o último commit afeta, no PostgreSQL 17: só `web/` (e docs) → `tests/unidade` e `tests/telas`; só testes → as pastas deles; qualquer outra coisa (ou nada mudou) → todos, com cobertura (mínimo de 80%) |
+| padrão | + mypy e os testes (em paralelo, `-n auto`) que a mudança desde o último commit afeta, no PostgreSQL 17: só `web/` (e docs) → `tests/unidade` e `tests/telas`; só testes → as pastas deles; qualquer outra coisa (ou nada mudou) → todos, com cobertura (mínimo de 80%) |
 | `--completo` | + todos os testes no PostgreSQL 17, com cobertura, e no 16; auditoria de dependências |
 
 ### 7.1 Benchmark (`backend/bench/`)

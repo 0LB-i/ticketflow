@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verificação local, no lugar do CI (docs/12 §12.3).
 #   scripts/check.sh --rapido    lint e formatação dos arquivos no stage (hook de pre-commit)
-#   scripts/check.sh             tudo do rápido + tipos e os testes que a mudança afeta (só web/:
+#   scripts/check.sh             tudo do rápido + tipos e os testes que a mudança afeta, em paralelo (só web/:
 #                                tests/unidade e tests/telas; fora de web/ e docs: todos)
 #   scripts/check.sh --completo  tudo + todos os testes no PostgreSQL 17 e 16 e auditoria de
 #                                dependências
@@ -81,11 +81,11 @@ banco_no_ar 5432
 pastas=(todas)
 [[ "$modo" == --completo ]] || mapfile -t pastas < <(pastas_afetadas)
 if [[ "${pastas[0]:-}" == todas ]]; then
-  (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q --cov)
+  (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q -n auto --cov)
 elif ((${#pastas[@]})); then
   # A cobertura mínima só vale para a suíte inteira.
   echo "Só o que a mudança afeta: ${pastas[*]} (a suíte inteira: --completo)"
-  (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q "${pastas[@]}")
+  (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q -n auto "${pastas[@]}")
 else
   echo "Nenhum teste afetado pela mudança (a suíte inteira: --completo)."
 fi
@@ -93,7 +93,7 @@ fi
 if [[ "$modo" == --completo ]]; then
   etapa "backend: testes no PostgreSQL 16"
   banco_no_ar 5433
-  (cd backend && TEST_DATABASE_URL="$PG16_URL" uv run pytest -q)
+  (cd backend && TEST_DATABASE_URL="$PG16_URL" uv run pytest -q -n auto)
 
   etapa "auditoria de dependências"
   requisitos="$(mktemp)"

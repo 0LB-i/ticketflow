@@ -76,6 +76,8 @@ BEGIN
     CREATE ROLE chamados LOGIN PASSWORD 'chamados';
   END IF;
 END $$;
+-- Os testes em paralelo (pytest -n) criam um banco por worker: chamados_test_gw0, _gw1…
+ALTER ROLE chamados CREATEDB;
 SQL
 done
 criar_banco() {

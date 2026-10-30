@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from argon2 import PasswordHasher
-from sqlalchemy import Engine, create_engine, event, select, text
+from sqlalchemy import Engine, create_engine, event, make_url, select, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.orm import Session
@@ -35,9 +35,17 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql+psycopg://chamados:chamados@localhost:5432/chamados_test"
+BASE_URL = make_url(
+    os.environ.get(
+        "TEST_DATABASE_URL", "postgresql+psycopg://chamados:chamados@localhost:5432/chamados_test"
+    )
 )
+# Com pytest -n (xdist), cada worker tem o próprio banco (chamados_test_gw0, _gw1…), criado na
+# primeira vez: os testes esvaziam as tabelas e não podem dividir um banco.
+WORKER = os.environ.get("PYTEST_XDIST_WORKER")
+TEST_DATABASE_URL = (
+    BASE_URL.set(database=f"{BASE_URL.database}_{WORKER}") if WORKER else BASE_URL
+).render_as_string(hide_password=False)
 SENHA = "uma senha longa de teste"
 MIGRACOES = Path(__file__).parents[1] / "migrations"
 # Vêm das migrações e ficam de um teste para o outro.
@@ -70,6 +78,16 @@ def _assinatura_das_migracoes() -> str:
 STATUS = "SELECT md5(string_agg(s::text, ',' ORDER BY s.id)) FROM ticket_statuses s"
 
 
+def _criar_banco_do_worker() -> None:
+    """Cria o banco deste worker, se ainda não existe (o usuário precisa de CREATEDB)."""
+    nome = make_url(TEST_DATABASE_URL).database
+    engine = create_engine(BASE_URL, isolation_level="AUTOCOMMIT")
+    with engine.connect() as conn:
+        if not conn.scalar(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": nome}):
+            conn.exec_driver_sql(f'CREATE DATABASE "{nome}"')
+    engine.dispose()
+
+
 @pytest.fixture(scope="session")
 def database_url() -> str:
     """Banco de teste migrado até a última revisão.
@@ -84,6 +102,8 @@ def database_url() -> str:
 
     from chamados.cli import alembic_config
 
+    if WORKER:
+        _criar_banco_do_worker()
     cfg = alembic_config(TEST_DATABASE_URL)
     head = ScriptDirectory.from_config(cfg).get_current_head()
     assinatura = _assinatura_das_migracoes()
