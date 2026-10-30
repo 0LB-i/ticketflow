@@ -11,7 +11,7 @@ Sistema interno de chamados para as equipes de uma empresa, em que os próprios 
 - **Relatórios** (`/relatorios`): produtividade, clientes (com as horas no plano do contrato e as excedentes), horas extras e indicadores de chamados, com filtros, comparação de períodos e PDF; a aba Clientes geral gera o relatório de cada cliente e o ZIP com todos os PDFs.
 - **Notificações por e-mail**, enviadas pelo worker no idioma de quem recebe.
 - **Administração:** usuários, grupos, papéis e permissões, clientes, categorias, status, expediente, dados da empresa, idioma, cores e logotipo, e a auditoria.
-- **Integrações:** API REST com tokens por pessoa (`/api/docs`) e servidor MCP em `/mcp`, para assistentes de IA.
+- **Integrações:** API REST com tokens por pessoa (`/api/openapi.json`) e servidor MCP em `/mcp`, para assistentes de IA.
 
 ## Documentação
 
@@ -96,7 +96,7 @@ Requisitos: [uv](https://docs.astral.sh/uv/) e PostgreSQL 17 em `localhost:5432`
 O PostgreSQL 16 também fica instalado, na porta 5433, para a verificação completa.
 
 ```bash
-# http://127.0.0.1:8000: as telas e a API (documentação em /api/docs)
+# http://127.0.0.1:8000: as telas e a API (especificação da API em /api/openapi.json)
 # entre com admin / admin: o sistema pede a troca da senha no primeiro acesso
 cd backend
 cp .env.example .env

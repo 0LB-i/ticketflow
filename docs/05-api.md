@@ -1,6 +1,6 @@
 # 5. API
 
-A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a interface web; depois, integrações e agentes de IA vão usar a mesma API. A especificação OpenAPI 3.1 é gerada pelo FastAPI e publicada em `/api/docs` e `/api/openapi.json`.
+A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a interface web; depois, integrações e agentes de IA vão usar a mesma API. A especificação OpenAPI 3.1 é gerada pelo FastAPI e publicada em `/api/openapi.json` (a documentação interativa, Swagger, fica desligada: ela carrega scripts de uma CDN na mesma origem das telas).
 
 ## Convenções
 

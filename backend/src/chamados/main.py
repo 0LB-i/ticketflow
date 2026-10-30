@@ -46,11 +46,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             yield
         await app.state.engine.dispose()
 
+    # Sem a documentação interativa (Swagger): ela carrega scripts de uma CDN na mesma origem das
+    # telas. O contrato continua em /api/openapi.json e no `chamados openapi`.
     app = FastAPI(
         title="TicketFlow",
         version=__version__,
         lifespan=lifespan,
-        docs_url="/api/docs",
+        docs_url=None,
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )

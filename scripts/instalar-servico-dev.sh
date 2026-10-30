@@ -234,9 +234,9 @@ systemctl reload nginx
 
 cat <<FIM
 
-TicketFlow em https://$IP (documentação da API em /api/docs)
+TicketFlow em https://$IP
   certificado: $TLS_DIR/ticketflow.crt (instale como confiável para o navegador não avisar)
-  e-mails:     http://$IP:8025 (Mailpit)
+  e-mails:     https://$IP:8025 (Mailpit; usuário ticketflow, senha em $MAILPIT_SENHA)
   estado:      systemctl status $SERVICO $SERVICO-worker $SERVICO-css mailpit nginx
   log:         journalctl -u $SERVICO -u $SERVICO-worker -u $SERVICO-css -f
   Mudanças no código aparecem ao recarregar a página; migrações: cd backend && .venv/bin/chamados db upgrade

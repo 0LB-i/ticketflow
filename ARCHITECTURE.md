@@ -139,7 +139,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 
 Os módulos podem importar modelos e services uns dos outros (por exemplo, `tickets` usa `catalog`, `organization` e `identity`), mas **a decisão de permissão de um chamado só acontece em `tickets`** e **o registro na auditoria só por `audit.service.record()`**.
 
-A lista completa de rotas, com os schemas, está em `/api/docs` (Swagger) e sai em JSON por `chamados openapi`. As convenções da API (paginação por cursor, `public_id`, Problem Details) estão em [docs/05](docs/05-api.md).
+A lista completa de rotas, com os schemas, está em `/api/openapi.json` e sai em arquivo por `chamados openapi`; a documentação interativa (Swagger) fica desligada, porque carrega scripts de uma CDN na mesma origem das telas. As convenções da API (paginação por cursor, `public_id`, Problem Details) estão em [docs/05](docs/05-api.md).
 
 ### 3.4 Permissões: três peças
 
@@ -481,7 +481,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 
 ## 5. Contrato da API
 
-- A API JSON (`/api/v1`) continua para integrações e agentes de IA; os assistentes que falam MCP usam `/mcp` (3.14), com o mesmo token. O contrato sai dos modelos Pydantic: `/api/docs` (Swagger) e `chamados openapi -o arquivo` (3.10).
+- A API JSON (`/api/v1`) continua para integrações e agentes de IA; os assistentes que falam MCP usam `/mcp` (3.14), com o mesmo token. O contrato sai dos modelos Pydantic: `/api/openapi.json` e `chamados openapi -o arquivo` (3.10).
 - Campos novos são aditivos. Mudança incompatível só numa nova versão da API (`/api/v2`), conforme o [docs/05](docs/05-api.md).
 - As telas chamam as funções das rotas, os services e `tickets/queries.py` direto (3.11), sem HTTP: os testes das telas (`test_web_*.py`) cobrem esse uso.
 

@@ -188,12 +188,6 @@ server {
         add_header X-Frame-Options "DENY" always;
         add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
     }
-
-    # A documentação interativa da API (Swagger) carrega scripts de uma CDN: sem a CSP restrita.
-    location = /api/docs {
-        proxy_pass http://ticketflow;
-        add_header X-Content-Type-Options "nosniff" always;
-    }
 }
 FIM
 fi
@@ -212,7 +206,7 @@ fi
 cat <<FIM
 
 TicketFlow instalado em $DESTINO, versão $(git -C "$DESTINO" describe --tags --always).
-  endereço:     https://$DOMINIO ou https://$IP (documentação da API em /api/docs)
+  endereço:     https://$DOMINIO ou https://$IP
   certificado:  $TLS_DIR/ticketflow.crt, autoassinado (o navegador avisa até ser trocado)
   configuração: $ENV_FILE (preencha o SMTP para os e-mails saírem)
   domínio:      server_name e certificado em /etc/nginx/sites-available/$SERVICO, e o

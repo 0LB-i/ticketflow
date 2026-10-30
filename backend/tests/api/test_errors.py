@@ -13,6 +13,12 @@ def test_rota_api_inexistente_da_404_em_problem_json(client: TestClient) -> None
     assert r.json() == {"type": "about:blank", "title": "Não encontrado", "status": 404}
 
 
+def test_sem_swagger_mas_com_a_especificacao(client: TestClient) -> None:
+    """O Swagger carregava scripts de uma CDN na mesma origem das telas: fica desligado."""
+    assert client.get("/api/docs").status_code == 404
+    assert client.get("/api/openapi.json").status_code == 200
+
+
 def _app_de_teste() -> FastAPI:
     app = FastAPI()
     register_error_handlers(app)
