@@ -19,6 +19,7 @@ A primeira instalação tem até 50 usuários, um único servidor Linux. O CLAUD
 - **PostgreSQL 17** do repositório oficial do PostgreSQL (`apt.postgresql.org`) no mesmo servidor (o pacote do pgvector só quando a IA entrar).
 - **Logs** em stdout, capturados pelo journald (`journalctl -u ticketflow`). Nenhum arquivo de log próprio da aplicação.
 - **Atualização** com um script de deploy no repositório (`scripts/deploy.sh`): `git pull` na `main`, `uv sync --frozen`, build do frontend (`pnpm build`) e `chamados db upgrade`. **Quem reinicia os serviços é o usuário** (regra do CLAUDE.md); o script só prepara tudo e avisa.
+  - *Atualização (2026-10-30):* o script passa a ser o `update.sh` da raiz, que busca do GitHub, gera o CSS das telas (o frontend com pnpm saiu com o [ADR 0011](0011-interface-web-no-servidor.md)) e aceita `--force`, para descartar mudanças locais e voltar à `main`.
 - **Arquivos de anexos** em diretório local (`/var/lib/ticketflow/files`).
 - **Backup:** `pg_dump` diário + cópia do diretório de anexos, com retenção e teste de restauração documentados. *Revisto em 2026-10-21: o backup saiu do programa e fica com quem administra o servidor ([18.5](../18-manual-do-servidor.md#185-backup)).*
 

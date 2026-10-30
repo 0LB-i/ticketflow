@@ -28,7 +28,7 @@ Fica como registro; nada disto existe mais.
 - **Desenvolvimento:** o nginx manda `/api/` para o uvicorn e o resto para o Vite. O Vite repassa ao uvicorn os endereços já migrados (`server.proxy` no `frontend/vite.config.ts`, a expressão regular com a lista). A SPA recarrega a página ao navegar para um deles (`ServerView.vue`, rotas com `...SERVIDOR` no `frontend/src/router/index.ts`).
 - **Produção:** o uvicorn serve as telas do servidor (registradas antes do catch-all) e, no resto, o `frontend/dist`.
 - **Idiomas:** os catálogos continuam em `frontend/src/i18n/*.json`, lidos pelo servidor (`web/i18n.py`), e as chaves novas entram nos dois idiomas.
-- **CSS:** `scripts/css.sh` gera `web/static/css/app.css`, que não vai para o git. O `deploy.sh` já o gera.
+- **CSS:** `scripts/css.sh` gera `web/static/css/app.css`, que não vai para o git. O `update.sh` já o gera.
 
 ## 19.4 Roteiro da WEB-05 (relatórios): feito
 
@@ -88,6 +88,6 @@ O roteiro, como estava. Lista do que muda:
 | Erro 4xx num trecho pedido pelo HTMX | A tela fica como estava, sem aviso. Raro: esses pedidos são só leitura |
 | JavaScript das telas sem teste automático | Desde a WEB-06 não há jsdom no projeto. Mudanças em `web/static/js/` são conferidas no navegador até os testes com Playwright (F1-S5-04) |
 | Primeiro deploy em produção | Precisa de acesso ao GitHub para baixar o binário do Tailwind (CHANGELOG, docs/18) |
-| Templates novos no deploy | Valem assim que o `deploy.sh` termina; o código Python, só depois do restart. Reiniciar logo depois do deploy |
+| Templates novos no deploy | Valem assim que o `update.sh` termina; o código Python, só depois do restart. Reiniciar logo depois da atualização |
 | Select que envia ao mudar, pelo teclado | Status, observadores e "Atribuir a" da lateral do chamado, os filtros da lista de chamados e o período, o grupo e a pessoa dos relatórios são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |
 | Validação dos formulários | O servidor confere tudo. Campo `required` escondido bloqueia o envio no navegador sem avisar (aconteceu nos clientes). Campos de um tipo que não está em uso vão num `<fieldset disabled>` |

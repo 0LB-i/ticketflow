@@ -108,6 +108,6 @@ navegador ──HTTPS──► nginx ──► uvicorn (ticketflow.service) ─�
 
 - As telas são servidas pelo próprio uvicorn, **na mesma origem** da API: sem CORS e com o cookie de sessão funcionando sem configuração extra.
 - Logs vão para o journald (`journalctl -u ticketflow`).
-- **Atualização:** `scripts/deploy.sh` (git pull, dependências, CSS das telas, migrações). Quem reinicia os serviços é o usuário.
+- **Atualização:** `update.sh` na raiz (busca a `main`, dependências, CSS das telas, migrações; `--force` descarta as mudanças locais). Quem reinicia os serviços é o usuário.
 - **Desenvolvimento:** PostgreSQL 17 e 16 nativos (numa máquina nova, `scripts/preparar-maquina-dev.sh`), `uvicorn --reload` e `scripts/css.sh --watch` (o CSS das telas); ou o serviço systemd local, instalado por `scripts/instalar-servico-dev.sh` ([README](../README.md#como-rodar-desenvolvimento)).
 - **Backup:** fora do programa; quem administra o servidor copia o banco e `/var/lib/ticketflow/files` ([18.5](18-manual-do-servidor.md#185-backup)).

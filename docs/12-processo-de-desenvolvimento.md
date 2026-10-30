@@ -4,7 +4,7 @@
 
 ## 12.1 Repositório e tarefas
 
-- **Repositório:** Git local, monorepo `backend/` (API e telas, [ADR 0011](adr/0011-interface-web-no-servidor.md)) + `docs/`. Uma cópia fica no repositório de passagem do servidor de produção ([18.3](18-manual-do-servidor.md#5-código)), que também serve de cópia de segurança do código.
+- **Repositório:** Git local, monorepo `backend/` (API e telas, [ADR 0011](adr/0011-interface-web-no-servidor.md)) + `docs/`. O remoto fica no [GitHub](https://github.com/0LB-i/ticketflow), de onde o servidor de produção busca o código ([18.3](18-manual-do-servidor.md#5-código)).
 - **Tarefas:** arquivo `TAREFAS.md` na raiz, criado na Fase 0. Uma linha por item do [roadmap](07-roadmap.md), com o código, o estado (`a fazer`, `fazendo`, `feito`) e o commit que concluiu. Bugs e pedidos do piloto entram numa seção própria, com data e quem relatou.
 - **Decisões:** continuam como ADR em `docs/adr/` e nas [questões em aberto](questoes-em-aberto.md).
 
@@ -39,7 +39,7 @@ docs/10-chamados.md#transferência
 | Quando | Comando | O que roda |
 |--------|---------|------------|
 | Antes de cada commit (hook `pre-commit`, instalado por `scripts/install-hooks.sh`) | `scripts/check.sh --rapido` | `ruff check` e `ruff format --check` nos arquivos alterados; procura segredos |
-| Antes de marcar uma tarefa como feita e antes de cada `git push producao` | `scripts/check.sh` | Tudo do rápido + `mypy` e os testes que a mudança afeta no PostgreSQL 17 (porta 5432): mudança só nas telas (`web/`) roda `tests/unidade` e `tests/telas`; fora delas, todos, com cobertura |
+| Antes de marcar uma tarefa como feita e antes de cada `git push` | `scripts/check.sh` | Tudo do rápido + `mypy` e os testes que a mudança afeta no PostgreSQL 17 (porta 5432): mudança só nas telas (`web/`) roda `tests/unidade` e `tests/telas`; fora delas, todos, com cobertura |
 | Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima com **todos** os testes, também no **PostgreSQL 16**, Playwright (quando entrar) e auditoria de dependências (`pip-audit`) |
 
 - O `check.sh` para com uma mensagem clara se o PostgreSQL não estiver respondendo.
@@ -99,6 +99,5 @@ Ao criar o remoto, o que hoje é local passa para o GitHub, sem mudar o resto do
 | `scripts/check.sh` | GitHub Actions: `backend.yml` (matriz PostgreSQL 16 e 17), `e2e.yml` (Playwright) e `codeql.yml` |
 | Rotina mensal de dependências | Dependabot (uv, Actions), secret scanning e push protection |
 | Tag + `CHANGELOG.md` | `release.yml` gerando a release a partir da tag |
-| Repositório de passagem no servidor | O servidor busca do GitHub |
 
 Os workflows chamam o mesmo `scripts/check.sh`, para que a verificação local e a do CI sejam idênticas.

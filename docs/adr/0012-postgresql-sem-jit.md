@@ -16,7 +16,7 @@ O JIT só compensa em consultas que varrem milhões de linhas por vários segund
 
 A engine do aplicativo (`db/engine.py`) abre as conexões com `options=-c jit=off`. Vale para o app, o worker e o comando `chamados`, que usam essa engine.
 
-A configuração do servidor PostgreSQL **não muda**: outros programas no mesmo banco continuam com o padrão, e quem administra o servidor não tem nada a fazer. Na produção, a mudança passa a valer com o `deploy.sh` e o restart do serviço, como qualquer mudança em Python.
+A configuração do servidor PostgreSQL **não muda**: outros programas no mesmo banco continuam com o padrão, e quem administra o servidor não tem nada a fazer. Na produção, a mudança passa a valer com o `update.sh` e o restart do serviço, como qualquer mudança em Python.
 
 ## Alternativas consideradas
 

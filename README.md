@@ -75,8 +75,10 @@ Logo depois:
 **Atualizar** para a versão mais nova da `main` (baixa o código, instala as dependências, gera o CSS e aplica as migrações; quem reinicia é o administrador):
 
 ```bash
-sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh && sudo systemctl restart ticketflow
+sudo /opt/ticketflow/update.sh && sudo systemctl restart ticketflow
 ```
+
+Se o código no servidor tiver mudanças locais ou estiver numa versão anterior (`git checkout <tag>`), o `update.sh` para e avisa. `sudo /opt/ticketflow/update.sh --force` descarta essas mudanças e deixa o código igual à `main`.
 
 Estado e log: `systemctl status ticketflow ticketflow-worker` e `journalctl -u ticketflow -u ticketflow-worker -f`. Backup, rotina e problemas comuns no [Manual do servidor](docs/18-manual-do-servidor.md).
 

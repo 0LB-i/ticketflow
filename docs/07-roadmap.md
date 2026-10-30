@@ -190,6 +190,6 @@ O desenho de banco destes itens está em [`esboco-schema-futuro.sql`](esboco-sch
 |-------|-----------|
 | Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
 | Desenvolvedor único: indisponibilidade ou conhecimento concentrado | Documentação em `docs/`, testes automatizados, `TAREFAS.md` sempre atualizado e decisões registradas em ADR |
-| Código só na máquina de desenvolvimento | `git push` frequente para o repositório de passagem do servidor ([18.3](18-manual-do-servidor.md#5-código)) |
+| Código só na máquina de desenvolvimento | `git push` frequente para o GitHub, de onde o servidor busca o código ([18.3](18-manual-do-servidor.md#5-código)) |
 | Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
 | A equipe registrar só parte do trabalho | Virada com data marcada, combinados da equipe e acompanhamento diário nas duas primeiras semanas ([16](16-implantacao.md)) |

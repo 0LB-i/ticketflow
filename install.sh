@@ -14,7 +14,7 @@
 #
 # O código vem só com o que a produção usa: o checkout esparso deixa de fora os testes, o
 # benchmark, a documentação de desenvolvimento e os scripts da máquina de desenvolvimento. O
-# /opt/ticketflow continua um repositório git, e as atualizações seguem pelo deploy.sh (§18.4),
+# /opt/ticketflow continua um repositório git, e as atualizações seguem pelo update.sh (§18.4),
 # que respeita o mesmo filtro.
 # Pode rodar de novo: o que já existe (env, banco, certificado) é mantido; os serviços que já
 # estão no ar não são reiniciados.
@@ -117,8 +117,8 @@ FIM
   echo "criado"
 fi
 
-etapa "dependências, CSS e migrações (scripts/deploy.sh)"
-como_servico "$DESTINO/scripts/deploy.sh" >/dev/null
+etapa "dependências, CSS e migrações (update.sh)"
+como_servico "$DESTINO/update.sh --force" >/dev/null
 
 etapa "serviços systemd"
 cp "$DESTINO"/deploy/ticketflow*.service /etc/systemd/system/
@@ -214,7 +214,7 @@ TicketFlow instalado em $DESTINO, versão $(git -C "$DESTINO" describe --tags --
                 sudo systemctl reload nginx && sudo systemctl restart $SERVICO
   estado:       systemctl status $SERVICO $SERVICO-worker
   log:          journalctl -u $SERVICO -u $SERVICO-worker -f
-  atualizar:    sudo -u $SERVICO $DESTINO/scripts/deploy.sh && sudo systemctl restart $SERVICO
+  atualizar:    sudo $DESTINO/update.sh && sudo systemctl restart $SERVICO
 
 LOGO EM SEGUIDA entre com admin / admin e troque a senha: até lá, qualquer pessoa que alcance o
 servidor entra como administrador (docs/18 §18.3, passo 10).

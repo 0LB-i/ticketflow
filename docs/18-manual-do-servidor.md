@@ -2,8 +2,6 @@
 
 Instalação, atualização e diagnóstico do TicketFlow em produção, seguindo o [ADR 0010](adr/0010-producao-systemd.md): serviços systemd + nginx + PostgreSQL 17 num único servidor **Ubuntu 24.04 LTS**.
 
-> Os arquivos citados em `deploy/` e `scripts/` são criados na Fase 0 (`F0-09`). Os comandos abaixo são a referência para escrevê-los e devem ser conferidos na primeira instalação real.
-
 ## 18.1 Visão geral
 
 ```
@@ -16,8 +14,7 @@ navegador ──HTTPS──► nginx :443 ──► uvicorn 127.0.0.1:8000 (tick
 
 | Item | Onde |
 |------|------|
-| Código (checkout da `main`) | `/opt/ticketflow` |
-| Repositório Git de passagem (recebe o `git push`) | `/srv/git/ticketflow.git` |
+| Código (checkout da `main`, buscado do GitHub) | `/opt/ticketflow` |
 | Configuração e segredos | `/etc/ticketflow/env` |
 | Anexos | `/var/lib/ticketflow/files` |
 | Usuário do sistema que roda os serviços | `ticketflow` |
@@ -93,22 +90,14 @@ O Python 3.12 do Ubuntu 24.04 atende ao projeto. O servidor não precisa de Node
 
 ### 5. Código
 
-O repositório de desenvolvimento é local ([12.1](12-processo-de-desenvolvimento.md#121-repositório-e-tarefas)). O servidor recebe o código por um repositório Git de passagem:
+O servidor busca o código do [GitHub](https://github.com/0LB-i/ticketflow):
 
 ```bash
-# no servidor
-sudo install -d -o $USER -g $USER /srv/git
-git init --bare -b main /srv/git/ticketflow.git
-
-# na máquina de desenvolvimento
-git remote add producao ssh://USUARIO@SERVIDOR/srv/git/ticketflow.git
-git push producao main
-
-# no servidor
-sudo -u ticketflow git clone /srv/git/ticketflow.git /opt/ticketflow
+sudo install -d -o ticketflow -g ticketflow /opt/ticketflow
+sudo -u ticketflow git clone https://github.com/0LB-i/ticketflow.git /opt/ticketflow
 ```
 
-Esse repositório de passagem também é uma **cópia do código fora da máquina de desenvolvimento**. Quando houver um remoto no GitHub, o checkout passa a buscar dele.
+O `install.sh` faz um checkout esparso, sem o que só o desenvolvimento usa (a lista está no `FORA_DA_PRODUCAO` do script); o `update.sh` respeita o mesmo filtro.
 
 ### 6. Configuração
 
@@ -132,10 +121,10 @@ Trocar o `SECRET_KEY` encerra todas as sessões e invalida os convites pendentes
 ### 7. Primeira compilação e banco
 
 ```bash
-sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh
+sudo /opt/ticketflow/update.sh
 ```
 
-O script faz `git pull`, `uv sync --frozen`, gera o CSS das telas do servidor (`scripts/css.sh`, que na primeira vez baixa o binário do Tailwind do GitHub) e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
+O script (18.4) busca a `main`, faz `uv sync --frozen`, gera o CSS das telas do servidor (`scripts/css.sh`, que na primeira vez baixa o binário do Tailwind do GitHub) e `chamados db upgrade`, e no fim lembra de reiniciar os serviços.
 
 ### 8. Serviços systemd
 
@@ -199,18 +188,28 @@ sudo -u ticketflow bash -c 'cd /opt/ticketflow/backend && set -a && . /etc/ticke
 
 ```bash
 # na máquina de desenvolvimento, com a verificação local passando (12.3)
-git push producao main
+git push origin main
 
 # no servidor
-sudo -u ticketflow /opt/ticketflow/scripts/deploy.sh
+sudo /opt/ticketflow/update.sh
 sudo systemctl restart ticketflow    # o worker reinicia junto
 curl -fsS https://ticketflow.example.com/api/health
 ```
 
+O `update.sh` da raiz do código busca a `main` do GitHub, instala as dependências (`uv sync --frozen`), gera o CSS das telas e aplica as migrações (`chamados db upgrade`). Chamado com `sudo`, ele roda como o usuário `ticketflow` (o dono do código). Não reinicia os serviços.
+
+| Situação no servidor | `update.sh` | `update.sh --force` |
+|----------------------|-------------|---------------------|
+| Código igual a uma versão anterior da `main` | Atualiza | Atualiza |
+| Arquivo do código alterado no servidor | Para e mostra os arquivos | Descarta a alteração e atualiza |
+| Commit local, ou numa versão anterior por `git checkout <tag>` | Para e avisa | Volta para a `main` e atualiza |
+
+Sem nada novo na `main`, as outras etapas rodam do mesmo jeito: rodar de novo refaz uma atualização que parou no meio (ex.: numa migração que falhou).
+
 - Reiniciar os serviços é sempre um passo manual e consciente ([ADR 0010](adr/0010-producao-systemd.md)). Avisar a equipe antes: a interrupção dura poucos segundos.
 - Cada versão traz notas de atualização ([12.5](12-processo-de-desenvolvimento.md#125-versões-e-entregas)). Ler antes de atualizar.
 
-**Voltar à versão anterior:** `git checkout <tag anterior>` no servidor, `chamados db downgrade <revisão>` se a versão nova tinha migração, `deploy.sh` e reinício. Se a migração não puder ser desfeita, restaurar um backup do banco (18.5).
+**Voltar à versão anterior:** com o código ainda na versão nova, desfazer as migrações dela (`chamados db downgrade <revisão>`, como o usuário `ticketflow` e com o `/etc/ticketflow/env`); depois, em `/opt/ticketflow`, `sudo -u ticketflow git checkout <tag anterior>`, `cd backend && sudo -u ticketflow uv sync --frozen --no-dev`, `sudo -u ticketflow scripts/css.sh` (da raiz) e o reinício. Se a migração não puder ser desfeita, restaurar um backup do banco (18.5). O `update.sh --force` volta à `main` depois.
 
 ## 18.5 Backup
 
@@ -234,6 +233,6 @@ O TicketFlow não faz backup: quem administra o servidor cuida dele, com as ferr
 | E-mails não chegam | Worker parado ou SMTP errado | `systemctl status ticketflow-worker`; `journalctl -u ticketflow-worker` mostra `tarefa_vai_tentar_de_novo` e `tarefa_falhou` com o erro do SMTP; conferir `/etc/ticketflow/env` e reiniciar o `ticketflow` (o worker vai junto) depois de mudar |
 | Upload falha com erro 413 | Limite do nginx menor que o do sistema | Ajustar `client_max_body_size` e recarregar o nginx |
 | Todos foram desconectados | `SECRET_KEY` mudou ou o banco foi restaurado | Esperado; cada um entra de novo |
-| Serviço não sobe depois de atualizar | Migração falhou ou dependência faltando | Ler o fim da saída do `deploy.sh`; voltar à versão anterior (18.4) |
+| Serviço não sobe depois de atualizar | Migração falhou ou dependência faltando | Ler o fim da saída do `update.sh`; voltar à versão anterior (18.4) |
 | Disco cheio | Anexos | Conferir `/var/lib/ticketflow/files`; aumentar o disco |
 | Navegador avisa que o site não é seguro | Certificado vencido | `sudo certbot renew` e recarregar o nginx |
