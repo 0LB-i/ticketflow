@@ -1,6 +1,6 @@
 # 1. Visão geral
 
-**TicketFlow** é o sistema de chamados interno da empresa ([identidade visual](17-identidade-visual.md)).
+**TicketFlow** é o sistema de chamados interno das equipes de uma empresa ([identidade visual](17-identidade-visual.md)).
 
 ## Problema
 
@@ -24,7 +24,7 @@ Construir uma ferramenta de trabalho para as equipes que:
 
 ## Público
 
-> Primeira instalação: **empresa**. Só os **membros das equipes** usam o sistema: eles mesmos registram os chamados, distribuem e executam. Os demais colaboradores não têm conta; quando uma tarefa é para alguém de fora da equipe, o chamado registra o cliente e o nome da pessoa atendida (decisão de 2026-10-10, [08](08-organizacao-e-permissoes.md)).
+> Primeira instalação: só os **membros das equipes** usam o sistema: eles mesmos registram os chamados, distribuem e executam. Os demais colaboradores não têm conta; quando uma tarefa é para alguém de fora da equipe, o chamado registra o cliente e o nome da pessoa atendida (decisão de 2026-10-10, [08](08-organizacao-e-permissoes.md)).
 
 | Perfil | O que faz |
 |--------|-----------|

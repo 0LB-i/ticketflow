@@ -104,8 +104,8 @@ flowchart LR
 | F1-S5-03 | Ocultar comentário ou anexo com motivo | [10.6](10-chamados.md#regras-de-edição) |
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | — |
 | F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | — |
-| F1-S5-06 | Instalação no servidor da empresa (systemd, nginx, PostgreSQL 17) | [18](18-manual-do-servidor.md) |
-| F1-S5-07 | Carga inicial da empresa: grupos, usuários, setores atendidos, categorias | [15](15-estrutura-inicial.md) |
+| F1-S5-06 | Instalação no servidor de produção (systemd, nginx, PostgreSQL 17) | [18](18-manual-do-servidor.md) |
+| F1-S5-07 | Carga inicial: grupos, usuários, setores atendidos, categorias | [15](15-estrutura-inicial.md) |
 | F1-S5-08 | Treinamento, guia rápido e virada da TI | [16](16-implantacao.md) |
 
 Com a mudança de modelo (2026-10-10), a Fase 1 perdeu o portal do solicitante, a abertura em nome de outra pessoa, a visão do gestor de setor, as respostas prontas e a importação por CSV. A duração foi mantida: a folga absorve imprevistos antes do piloto.

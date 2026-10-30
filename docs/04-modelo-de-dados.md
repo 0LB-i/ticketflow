@@ -73,7 +73,7 @@ Extensões necessárias:
 
 Quando a IA entrar: `pgvector` (≥ 0.7) para a busca semântica.
 
-## Volumes estimados (empresa, até 50 usuários)
+## Volumes estimados (primeira instalação, até 50 usuários)
 
 | Tabela | Volume em 3 anos |
 |--------|------------------|

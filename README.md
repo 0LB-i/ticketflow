@@ -1,8 +1,8 @@
 # TicketFlow
 
-Sistema interno de chamados para as equipes da empresa, em que os próprios membros registram, distribuem e executam as tarefas. Escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
+Sistema interno de chamados para as equipes de uma empresa, em que os próprios membros registram, distribuem e executam as tarefas. Escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
 
-> **Status:** Fase 1 (MVP) do [roadmap](docs/07-roadmap.md), na Sprint 5 (ciclo completo e preparação do piloto): fundação, identidade e organização, núcleo dos chamados, anexos, notificações, filas e busca prontos, e as telas já renderizadas no servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Faltam a instalação no servidor da empresa, a carga inicial e o treinamento. O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
+> **Status:** Fase 1 (MVP) do [roadmap](docs/07-roadmap.md), na Sprint 5 (ciclo completo e preparação do piloto): fundação, identidade e organização, núcleo dos chamados, anexos, notificações, filas e busca prontos, e as telas já renderizadas no servidor ([ADR 0011](docs/adr/0011-interface-web-no-servidor.md)). Faltam a instalação no servidor de produção, a carga inicial e o treinamento. O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
 
 ## O que o sistema faz
 
@@ -32,7 +32,7 @@ Sistema interno de chamados para as equipes da empresa, em que os próprios memb
 | 12 | [Processo de desenvolvimento](docs/12-processo-de-desenvolvimento.md) | Repositório local, tarefas, commits, verificação local, definição de pronto, testes |
 | 13 | [Telas e navegação](docs/13-telas-e-navegacao.md) | Mapa de telas, menus por perfil, rascunhos e padrões de interação |
 | 14 | [Relatórios e indicadores](docs/14-relatorios-e-indicadores.md) | Indicadores, painéis por perfil e exportações |
-| 15 | [Estrutura da empresa](docs/15-estrutura-inicial.md) | Modelo para a carga inicial: grupos, usuários, categorias |
+| 15 | [Estrutura inicial](docs/15-estrutura-inicial.md) | Modelo para a carga inicial: grupos, usuários, categorias |
 | 16 | [Plano de implantação](docs/16-implantacao.md) | Virada da TI, treinamento, combinados, acompanhamento e expansão |
 | 17 | [Identidade visual](docs/17-identidade-visual.md) | Nome, cores, contraste, tipografia, logotipo e e-mails |
 | 18 | [Manual do servidor](docs/18-manual-do-servidor.md) | Instalação no Ubuntu 24.04, atualização, rotina e problemas comuns |

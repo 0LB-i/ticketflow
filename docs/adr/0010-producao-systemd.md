@@ -6,7 +6,7 @@
 
 ## Contexto
 
-A primeira instalação é a da empresa: até 50 usuários, um único servidor Linux. O CLAUDE.md já trata a aplicação como um serviço systemd (`ticketflow.service`) rodando uvicorn.
+A primeira instalação tem até 50 usuários, um único servidor Linux. O CLAUDE.md já trata a aplicação como um serviço systemd (`ticketflow.service`) rodando uvicorn.
 
 ## Decisão
 

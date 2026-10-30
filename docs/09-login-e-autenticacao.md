@@ -11,7 +11,7 @@
 | LDAP / Active Directory direto | Só se a empresa não tiver OIDC | Futuro |
 | Passkeys (WebAuthn) | Alternativa a senha + TOTP | Futuro |
 
-> **empresa:** não há diretório de contas centralizado (Microsoft 365, Google Workspace ou AD). O login é **só por e-mail e senha**; as seções 9.5 e 9.6 ficam registradas para o futuro.
+> **Primeira instalação:** não há diretório de contas centralizado (Microsoft 365, Google Workspace ou AD). O login é **só por e-mail e senha**; as seções 9.5 e 9.6 ficam registradas para o futuro.
 
 Quando o SSO existir, o administrador poderá ligar **"SSO obrigatório"**: o login local passa a valer só para administradores e para usuários marcados como exceção.
 
@@ -75,7 +75,7 @@ Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como 
 
 ## 9.5 SSO via OIDC
 
-> **Futuro.** Não se aplica à empresa hoje.
+> **Futuro.** Não se aplica à primeira instalação hoje.
 
 ```mermaid
 sequenceDiagram

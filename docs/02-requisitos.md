@@ -53,7 +53,7 @@ Removido: não haverá SLA (metas de prazo, calendário de expediente, alertas).
 | ID | Requisito | Prior. |
 |----|-----------|--------|
 | RF-04.1 | Login local (e-mail + senha) | M |
-| RF-04.2 | SSO via OIDC (Microsoft Entra ID, Google Workspace, Keycloak) | W (a empresa não tem diretório de contas) |
+| RF-04.2 | SSO via OIDC (Microsoft Entra ID, Google Workspace, Keycloak) | W (a primeira instalação não tem diretório de contas) |
 | RF-04.3 | Sincronização / login via LDAP/Active Directory | W |
 | RF-04.4 | Papéis: agente, admin, auditor (RBAC) + supervisor por grupo | M |
 | RF-04.5 | Regras de visibilidade conforme [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) | M |
@@ -113,7 +113,7 @@ Detalhes em [Organização e permissões](08-organizacao-e-permissoes.md) e [Log
 | ID | Categoria | Requisito |
 |----|-----------|-----------|
 | RNF-01 | Desempenho | p95 < 300 ms nas leituras da API com 50 mil chamados |
-| RNF-02 | Escala | Até 50 usuários (membros das equipes) na empresa; deve suportar até ~500 sem mudanças de arquitetura |
+| RNF-02 | Escala | Até 50 usuários (membros das equipes) na primeira instalação; deve suportar até ~500 sem mudanças de arquitetura |
 | RNF-03 | Disponibilidade | 99,5% em horário comercial |
 | RNF-04 | Segurança | OWASP ASVS nível 2; senhas com Argon2id; TLS obrigatório |
 | RNF-05 | Auditoria | Todas as ações registradas com autor, data e origem |

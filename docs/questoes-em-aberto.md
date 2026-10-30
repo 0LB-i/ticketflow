@@ -56,5 +56,5 @@ Os itens 5 a 8, 11 e 12 já têm padrão, então **não bloqueiam** o desenvolvi
 | 2026-10-10 | **Virada com data marcada** no piloto da TI; sem importação de histórico | [16](16-implantacao.md) |
 | 2026-10-10 | **Configurações** para o admin: idioma padrão (português e inglês, e cada usuário escolhe o seu), as 3 cores com ajuste automático de contraste, e logotipo | [13](13-telas-e-navegacao.md#133-lista-de-telas), [17](17-identidade-visual.md#172-cores) |
 | 2026-10-10 | **Editor Tiptap** na descrição e nos comentários, gravando Markdown | [05](05-api.md#chamados) |
-| 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (empresa) | [01](01-visao-geral.md#público) |
+| 2026-10-09 | **Sem etapa de fornecedor/terceiro**: o atendimento é todo interno (equipes da empresa) | [01](01-visao-geral.md#público) |
 | 2026-10-23 | **Sem setores atendidos**: saem o cadastro, a tela e o campo do chamado (migração `0034`); para quem é o trabalho fica no cliente e no contato | [08](08-organizacao-e-permissoes.md), [10](10-chamados.md) |

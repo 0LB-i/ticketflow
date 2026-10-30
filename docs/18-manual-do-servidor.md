@@ -124,7 +124,7 @@ SMTP_PORT=587
 SMTP_STARTTLS=true
 SMTP_USER=
 SMTP_PASSWORD=
-SMTP_FROM="TicketFlow – empresa <ticketflow@example.com>"
+SMTP_FROM="TicketFlow – Empresa <ticketflow@example.com>"
 ```
 
 Trocar o `SECRET_KEY` encerra todas as sessões e invalida os convites pendentes.

@@ -72,8 +72,8 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S5-03 | Ocultar comentário ou anexo com motivo | a fazer | |
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | a fazer | |
 | F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | a fazer | |
-| F1-S5-06 | Instalação no servidor da empresa (systemd, nginx, PostgreSQL 17) | a fazer | |
-| F1-S5-07 | Carga inicial da empresa: grupos, usuários, setores atendidos, categorias | a fazer | |
+| F1-S5-06 | Instalação no servidor de produção (systemd, nginx, PostgreSQL 17) | a fazer | |
+| F1-S5-07 | Carga inicial: grupos, usuários, setores atendidos, categorias | a fazer | |
 | F1-S5-08 | Treinamento, guia rápido e virada da TI | a fazer | |
 
 ## Fase 2 — Operação completa (Sprints 6 a 8)

@@ -23,7 +23,7 @@ Princípios, escolhas de tecnologia e arquitetura-alvo. Para o mapa do código c
 | Busca vetorial (futuro) | `pgvector` (HNSW) | Nativo, sem serviço extra. Entra com a IA |
 | Fila de tarefas | Fila própria: tabelas `outbox` e `jobs` no PostgreSQL + `SKIP LOCKED` (a biblioteca *Procrastinate* foi avaliada e descartada: schema fora do Alembic e sem outbox) | Sem broker extra; transacional com os dados. Desde a Sprint 4 ([ARCHITECTURE 3.12](../ARCHITECTURE.md#312-worker-outbox-e-fila-de-tarefas-modulesjobs)) |
 | Cliente HTTP | httpx | Async; usado no futuro para webhooks e para a API de IA |
-| Autenticação | E-mail e senha (Argon2id) + sessão no servidor; TOTP para MFA | A empresa não tem diretório de contas; SSO fica para o futuro |
+| Autenticação | E-mail e senha (Argon2id) + sessão no servidor; TOTP para MFA | A primeira instalação não tem diretório de contas; SSO fica para o futuro |
 | Interface web | Jinja2 + HTMX + Tailwind CSS (binário standalone, sem Node), JavaScript puro sem build | Telas renderizadas pelo próprio FastAPI, uma linguagem só. Ver [ADR 0011](adr/0011-interface-web-no-servidor.md) (substitui os ADRs 0007 e 0008, da SPA em Vue) |
 | Editor de texto | Tiptap gravando Markdown; exibição com `markdown-it-py` sem HTML bruto | Formatação sem o usuário saber Markdown (questão 4, decidida em 2026-10-10) |
 | Idiomas | Catálogos JSON das telas (`web/locales/`) e catálogo de mensagens da API (`core/i18n.py`); português e inglês | Idioma padrão nas Configurações; cada pessoa escolhe o seu |
@@ -96,7 +96,7 @@ Assim nenhuma notificação é enviada para uma transação que deu rollback, e 
 
 ## Implantação
 
-Cada empresa tem a **sua própria instalação**: aplicação e banco de dados próprios (ver [ADR 0005](adr/0005-instalacao-por-empresa.md)). Na empresa, tudo roda **em um único servidor Linux** ([ADR 0010](adr/0010-producao-systemd.md)):
+Cada empresa tem a **sua própria instalação**: aplicação e banco de dados próprios (ver [ADR 0005](adr/0005-instalacao-por-empresa.md)). Na primeira instalação, tudo roda **em um único servidor Linux** ([ADR 0010](adr/0010-producao-systemd.md)):
 
 ```
 navegador ──HTTPS──► nginx ──► uvicorn (ticketflow.service) ──► PostgreSQL 17

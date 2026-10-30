@@ -5,7 +5,7 @@ Nome, cores, tipografia e logotipo do **TicketFlow**. Estas definições viram o
 ## 17.1 Nome
 
 - **TicketFlow**, em uma palavra, com T e F maiúsculos. Sem tradução.
-- Aparece na tela de login, no topo do menu lateral, no título da aba do navegador (`#1234 · Impressora do 3º andar · TicketFlow`) e no remetente dos e-mails ("TicketFlow – empresa").
+- Aparece na tela de login, no topo do menu lateral, no título da aba do navegador (`#1234 · Impressora do 3º andar · TicketFlow`) e no remetente dos e-mails ("TicketFlow – Empresa").
 - O nome fica em `settings.app_name` (padrão "TicketFlow"), para outra instalação poder trocar. Os identificadores técnicos não mudam: pacote `chamados`, serviço `ticketflow`, banco `chamados`.
 
 ## 17.2 Cores

@@ -1,7 +1,7 @@
 [project]
 name = "chamados"
 version = "0.1.0"
-description = "TicketFlow: sistema de chamados das equipes da empresa (backend)"
+description = "TicketFlow: sistema de chamados interno das equipes (backend)"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
