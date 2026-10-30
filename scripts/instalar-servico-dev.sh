@@ -9,7 +9,8 @@
 #   - ticketflow-worker.service: a unit da produção, que acompanha o ticketflow.service (sobe,
 #     para e reinicia com ele), com o watchfiles reiniciando o worker quando um .py muda;
 #   - mailpit.service: recebe os e-mails do sistema (SMTP em 127.0.0.1:1025) e os mostra em
-#     http://IP:8025; nenhum e-mail sai da máquina.
+#     https://IP:8025, com senha (usuário ticketflow; a senha fica em /etc/ticketflow/mailpit-senha);
+#     nenhum e-mail sai da máquina.
 # Instalações anteriores tinham também a interface pelo Vite (ticketflow-frontend.service),
 # que saiu com a SPA: o script a desativa e apaga.
 # Sem domínio, o certificado é autoassinado para o IP e o nome da máquina: o navegador avisa
@@ -31,6 +32,7 @@ SERVICO=ticketflow
 DROPIN_DIR="/etc/systemd/system/$SERVICO.service.d"
 MAILPIT_VERSAO=v1.31.4
 MAILPIT_SHA256=30942c4605c2ca8b9f759b1bb4e3ab6a12bdfdf66e5c94644ec2c75ac41e88e7
+MAILPIT_SENHA=/etc/ticketflow/mailpit-senha # usuário ticketflow; só o root lê
 
 etapa() { printf '\n== %s\n' "$*"; }
 # Dependências e compilação como o dono do código, para não deixar arquivos de root nele.
@@ -73,7 +75,7 @@ sed -i -e "s|^APP_BASE_URL=http://.*|APP_BASE_URL=https://$IP|" \
 # Os e-mails vão para o Mailpit, a menos que já haja outro SMTP configurado.
 if ! grep -q '^SMTP_HOST=' "$ENV_FILE"; then
   cat >>"$ENV_FILE" <<FIM
-# Mailpit (scripts/instalar-servico-dev.sh): os e-mails aparecem em http://$IP:8025.
+# Mailpit (scripts/instalar-servico-dev.sh): os e-mails aparecem em https://$IP:8025.
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_STARTTLS=false
@@ -90,6 +92,18 @@ set -a
 set +a
 (cd backend && .venv/bin/chamados db upgrade)
 
+etapa "certificado autoassinado (nginx e Mailpit)"
+apt-get install -y -q --no-upgrade openssl
+install -d -o root -g root -m 700 "$TLS_DIR"
+if [[ ! -f "$TLS_DIR/ticketflow.crt" ]]; then
+  openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=TicketFlow ($IP)" \
+    -addext "subjectAltName=IP:$IP,DNS:$(hostname),DNS:localhost" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -keyout "$TLS_DIR/ticketflow.key" -out "$TLS_DIR/ticketflow.crt" 2>/dev/null
+  chmod 600 "$TLS_DIR/ticketflow.key"
+  echo "certificado criado: $TLS_DIR/ticketflow.crt"
+fi
+
 etapa "Mailpit $MAILPIT_VERSAO (e-mails de desenvolvimento)"
 if ! /usr/local/bin/mailpit version 2>/dev/null | grep -q "$MAILPIT_VERSAO"; then
   tmp="$(mktemp -d)"
@@ -101,6 +115,12 @@ if ! /usr/local/bin/mailpit version 2>/dev/null | grep -q "$MAILPIT_VERSAO"; the
   rm -rf "$tmp"
   echo "instalado em /usr/local/bin/mailpit"
 fi
+# A tela do Mailpit fica na rede (para abrir do seu computador), mas com HTTPS e senha: os links
+# de convite e de redefinição de senha passam por ela, e quem os lê entra na conta.
+if [[ ! -f "$MAILPIT_SENHA" ]]; then
+  (umask 077 && openssl rand -base64 18 >"$MAILPIT_SENHA")
+fi
+(umask 077 && echo "ticketflow:$(openssl passwd -apr1 -stdin <"$MAILPIT_SENHA")" >/etc/ticketflow/mailpit-auth)
 cat >/etc/systemd/system/mailpit.service <<FIM
 # Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): recebe os e-mails do
 # TicketFlow e os mostra numa tela; nenhum sai da máquina.
@@ -111,15 +131,21 @@ After=network.target
 [Service]
 DynamicUser=yes
 StateDirectory=mailpit
+# Lidos pelo root e entregues ao usuário dinâmico, que não lê o $TLS_DIR.
+LoadCredential=auth:/etc/ticketflow/mailpit-auth
+LoadCredential=crt:$TLS_DIR/ticketflow.crt
+LoadCredential=key:$TLS_DIR/ticketflow.key
 ExecStart=/usr/local/bin/mailpit --smtp 127.0.0.1:1025 --listen 0.0.0.0:8025 \
-          --database /var/lib/mailpit/mailpit.db
+          --database /var/lib/mailpit/mailpit.db --ui-auth-file \${CREDENTIALS_DIRECTORY}/auth \
+          --ui-tls-cert \${CREDENTIALS_DIRECTORY}/crt --ui-tls-key \${CREDENTIALS_DIRECTORY}/key
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 FIM
 systemctl daemon-reload
-systemctl enable -q --now mailpit
+systemctl enable -q mailpit
+systemctl restart mailpit
 
 etapa "serviços systemd (modo de desenvolvimento)"
 cp deploy/ticketflow.service /etc/systemd/system/
@@ -177,17 +203,8 @@ else
   echo "Serviço iniciado."
 fi
 
-etapa "nginx nas portas 80 e 443 (certificado autoassinado)"
-apt-get install -y -q --no-upgrade nginx openssl
-install -d -o root -g root -m 700 "$TLS_DIR"
-if [[ ! -f "$TLS_DIR/ticketflow.crt" ]]; then
-  openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=TicketFlow ($IP)" \
-    -addext "subjectAltName=IP:$IP,DNS:$(hostname),DNS:localhost" \
-    -addext "basicConstraints=critical,CA:TRUE" \
-    -keyout "$TLS_DIR/ticketflow.key" -out "$TLS_DIR/ticketflow.crt" 2>/dev/null
-  chmod 600 "$TLS_DIR/ticketflow.key"
-  echo "certificado criado: $TLS_DIR/ticketflow.crt"
-fi
+etapa "nginx nas portas 80 e 443"
+apt-get install -y -q --no-upgrade nginx
 cat >/etc/nginx/sites-available/$SERVICO <<FIM
 # Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh). A produção usa o
 # deploy/nginx.conf, com o certificado do certbot.
