@@ -95,9 +95,10 @@ EMAILS: dict[str, dict[str, tuple[str, str]]] = {
         "locked": (
             "Sua conta do TicketFlow foi bloqueada por 15 minutos",
             "Olá, {nome}.\n\n"
-            "Houve 10 tentativas seguidas de entrar na sua conta com a senha errada, então ela "
-            "foi bloqueada por 15 minutos.\n\nSe não foi você, avise o administrador do "
-            "sistema e, depois do bloqueio, troque sua senha.",
+            "Houve 10 tentativas de entrar na sua conta com a senha errada, vindas do mesmo "
+            "endereço, então ela foi bloqueada por 15 minutos para esse endereço; dos outros, ela "
+            "continua funcionando.\n\nSe não foi você, avise o "
+            "administrador do sistema e troque sua senha.",
         ),
     },
     "en": {
@@ -119,9 +120,10 @@ EMAILS: dict[str, dict[str, tuple[str, str]]] = {
         "locked": (
             "Your TicketFlow account was locked for 15 minutes",
             "Hello, {nome}.\n\n"
-            "There were 10 failed sign-in attempts in a row on your account, so it was locked "
-            "for 15 minutes.\n\nIf it wasn't you, tell the system administrator and change "
-            "your password after the lock ends.",
+            "There were 10 failed sign-in attempts on your account from the same address, so it "
+            "was locked for 15 minutes for that address; from other "
+            "addresses it still works.\n\nIf it wasn't you, tell the system administrator and "
+            "change your password.",
         ),
     },
 }

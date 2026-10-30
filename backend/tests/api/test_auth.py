@@ -92,33 +92,59 @@ def test_sessao_expira_no_prazo_maximo(client: TestClient, db: Session) -> None:
     assert client.get("/api/v1/me").status_code == 401
 
 
+def _falhas(
+    db: Session, user: User, n: int, ip: str = "desconhecido", ha: timedelta = timedelta(0)
+) -> None:
+    """n falhas de senha na conta vindas do IP, há `ha`. O do TestClient ("testclient") não é um
+    endereço: o login o conta como "desconhecido"."""
+    db.add_all(LoginIpFailure(ip=ip, user_id=user.id, at=now() - ha) for _ in range(n))
+    db.commit()
+
+
+def _falhas_da_conta(db: Session, user: User) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(LoginIpFailure)
+            .where(LoginIpFailure.user_id == user.id)
+        )
+        or 0
+    )
+
+
 def test_bloqueio_apos_10_falhas_avisa_o_dono(
     client: TestClient, db: Session, mailer: FakeMailer
 ) -> None:
     user = criar_usuario(db)
-    db.execute(
-        update(User).values(failed_logins=9, last_failed_login_at=now() - timedelta(hours=1))
-    )
-    db.commit()
+    _falhas(db, user, 9, ha=timedelta(minutes=5))
     assert client.post(LOGIN, json={"login": user.email, "password": "x" * 12}).status_code == 401
-    db.refresh(user)
-    assert user.locked_until is not None
     assert "bloqueada" in mailer.sent[-1][1]
-    # Bloqueada, nem a senha certa entra
+    # Bloqueada para este IP, nem a senha certa entra
     assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 401
+    # Quando as falhas saem da janela de 15 minutos, volta a entrar
+    db.execute(update(LoginIpFailure).values(at=now() - timedelta(minutes=16)))
+    db.commit()
+    assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 204
+
+
+def test_falhas_de_outro_ip_nao_bloqueiam_o_dono(client: TestClient, db: Session) -> None:
+    """Quem ataca de outro endereço bloqueia só a si mesmo: o dono continua entrando."""
+    user = criar_usuario(db)
+    _falhas(db, user, 10, ip="203.0.113.7")
+    assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 204
+    # O login certo zera só as falhas deste IP
+    assert _falhas_da_conta(db, user) == 10
 
 
 def test_espera_progressiva_apos_5_falhas(client: TestClient, db: Session) -> None:
     user = criar_usuario(db)
-    db.execute(update(User).values(failed_logins=5, last_failed_login_at=now()))
-    db.commit()
+    _falhas(db, user, 5)
     # Dentro da espera, a tentativa é recusada sem conferir a senha
     assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 401
-    db.execute(update(User).values(last_failed_login_at=now() - timedelta(minutes=2)))
+    db.execute(update(LoginIpFailure).values(at=now() - timedelta(minutes=2)))
     db.commit()
     assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 204
-    db.refresh(user)
-    assert user.failed_logins == 0
+    assert _falhas_da_conta(db, user) == 0
 
 
 def test_limite_por_ip(client: TestClient, db: Session) -> None:
@@ -144,8 +170,7 @@ def test_falhas_em_paralelo_contam_todas_na_conta(client: TestClient, db: Sessio
     gravava +1: o bloqueio por conta nunca chegava."""
     user = criar_usuario(db)
     assert _em_paralelo(client, 4, "ana@exemplo.com") == [401] * 4
-    db.refresh(user)
-    assert user.failed_logins == 4
+    assert _falhas_da_conta(db, user) == 4
 
 
 def test_limite_por_ip_vale_para_tentativas_em_paralelo(client: TestClient, db: Session) -> None:

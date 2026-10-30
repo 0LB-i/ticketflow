@@ -55,7 +55,8 @@ INVALID = "E-mail ou senha inválidos."
 async def login(
     data: LoginIn, request: Request, response: Response, db: DB, settings: SettingsDep
 ) -> None:
-    wait, attempt = await ratelimit.ip_attempt(db, client_ip(request) or "desconhecido")
+    ip = client_ip(request) or "desconhecido"
+    wait, attempt = await ratelimit.ip_attempt(db, ip)
     if attempt is None:
         raise HTTPException(
             429, "Muitas tentativas. Tente de novo mais tarde.", {"Retry-After": str(wait)}
@@ -63,7 +64,7 @@ async def login(
 
     login_id = data.login.strip()
     # A linha fica travada até o commit: tentativas simultâneas na mesma conta esperam a anterior
-    # e leem a contagem de falhas já atualizada (senão cada uma gravaria só +1).
+    # e já contam a falha dela (senão todas passariam pela mesma contagem).
     user = await db.scalar(
         select(User)
         .where(or_(User.email == login_id, User.username == login_id))
@@ -86,21 +87,18 @@ async def login(
         exc = fail("conta inexistente ou inativa")
         await db.commit()
         raise exc
-    if (user.locked_until and user.locked_until > t) or ratelimit.account_must_wait(
-        user.failed_logins, user.last_failed_login_at, t
-    ):
+    failures, last_failed_at = await ratelimit.account_failures(db, user.id, ip)
+    if ratelimit.account_must_wait(failures, last_failed_at, t):
         exc = fail("conta em espera")
         await db.commit()
         raise exc
 
     ok, rehash = await run_in_threadpool(verify_password, user.password_hash, data.password)
     if not ok:
-        user.failed_logins += 1
-        user.last_failed_login_at = t
+        await ratelimit.account_failed(db, attempt, user.id)
         exc = fail("senha errada")
-        if user.failed_logins >= ratelimit.LOCK_AFTER:
-            user.locked_until = t + ratelimit.LOCK_FOR
-            user.failed_logins = 0
+        locked = failures + 1 == ratelimit.LOCK_AFTER
+        if locked:
             record(
                 db,
                 "auth.locked",
@@ -110,21 +108,19 @@ async def login(
                 target_id=user.public_id,
             )
         await db.commit()
-        if user.locked_until and user.locked_until > t:
+        if locked:
             # Tarefas em segundo plano são descartadas quando a rota levanta exceção.
             locale = await user_locale(db, user)
             await run_in_threadpool(send_locked_email, request.app.state.mailer, user, locale)
         raise exc
 
-    user.failed_logins = 0
-    user.last_failed_login_at = None
-    user.locked_until = None
     user.last_login_at = t
     if rehash:
         user.password_hash = await run_in_threadpool(hash_password, data.password)
     await create_session(db, user, request, response, settings)
     record(db, "auth.login", request=request, actor_user_id=user.id)
     await ratelimit.ip_succeeded(db, attempt)
+    await ratelimit.forget_account(db, user.id, ip)
     await db.commit()
 
 
@@ -182,8 +178,7 @@ async def _set_password_with_token(
         raise HTTPException(422, problem)
     user.password_hash = await run_in_threadpool(hash_password, data.password)
     user.password_changed_at = now()
-    user.failed_logins = 0
-    user.locked_until = None
+    await ratelimit.forget_account(db, user.id)
     token.used_at = now()
     await revoke_sessions(db, user.id)
     action = "auth.invite_accepted" if purpose == "invite" else "auth.password_reset"

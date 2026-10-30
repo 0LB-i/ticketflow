@@ -57,7 +57,7 @@ sequenceDiagram
 
 - **Senhas:** mínimo de **8 caracteres** (decisão de 2026-10-10), sem regras de composição obrigatórias e sem troca periódica forçada. A senha nova não pode ser igual à atual, ao e-mail nem ao nome de usuário. Senhas que estão em uma lista local de senhas vazadas ou muito comuns são recusadas.
 - **Hash:** Argon2id (`argon2-cffi`). Se os parâmetros mudarem, o hash é refeito no próximo login bem-sucedido.
-- **Força bruta:** limite por IP e por conta. A partir de 5 falhas seguidas, cada nova tentativa espera mais; com 10 falhas, a conta fica bloqueada por 15 min e o dono recebe um e-mail.
+- **Força bruta:** limite por IP (20 tentativas em 15 min) e por conta vinda do mesmo IP. A partir de 5 falhas da conta por esse IP em 15 min, cada nova tentativa dele espera mais; com 10, a conta fica bloqueada para esse IP até as falhas completarem 15 min, e o dono recebe um e-mail. Dos outros endereços a conta continua funcionando: quem ataca não consegue tirar o dono da conta. O login certo zera as falhas daquele IP; a senha nova (redefinição ou convite), as de todos.
 - **Mensagens genéricas:** a tela nunca revela se o e-mail existe.
 - **Usuário desativado** não consegue entrar, e as sessões dele são encerradas na hora.
 

@@ -88,6 +88,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Status concluído (Concluído): só o supervisor do grupo ou o admin o escolhe, em qualquer status, e não só no Entregue. O agente não o vê no registro, na edição do chamado nem no Kanban; ele marca como entregue, e o supervisor conclui. Na API, `set_status_closed` só vem para o supervisor do grupo e o admin, e registrar um chamado já concluído sem ser supervisor do grupo responde 403. Sem migração.
 - Logotipo dos relatórios (Configurações): uma imagem própria para os PDFs de relatório e a prévia do relatório para o cliente, separada do logotipo do menu e do login (`PUT`/`DELETE /admin/settings/report-logo`). O relatório para o cliente deixa de usar o logotipo do aplicativo: em instalações existentes, envie a imagem nessa seção nova.
 - Os dois logotipos (o do aplicativo e o dos relatórios) saem de Configurações e passam para a tela Empresa (`/admin/empresa`); a API não muda.
+- Força bruta no login: a espera progressiva (a partir de 5 falhas) e o bloqueio de 15 minutos (com 10) passam a valer para a conta **vinda do mesmo IP**, e não mais para a conta em todos os lugares. Antes, quem errasse a senha 10 vezes de qualquer endereço tirava o dono da conta (ex.: o `admin`) indefinidamente. O limite de 20 tentativas por IP em 15 minutos continua. Migração `0046`: `login_ip_failures.user_id`; saem `users.failed_logins`, `last_failed_login_at` e `locked_until` (bloqueios em andamento somem na atualização).
 
 ### Removido
 

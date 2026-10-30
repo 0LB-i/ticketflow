@@ -49,9 +49,6 @@ class User(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Idioma escolhido pela pessoa; nulo segue o padrão do sistema (configurações).
     locale: Mapped[str | None] = mapped_column(Text)
-    failed_logins: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
-    last_failed_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -147,13 +144,18 @@ class IdempotencyKey(Base):
 
 
 class LoginIpFailure(Base):
-    """Uma tentativa de login de um IP, que conta como falha até dar certo (`ratelimit.py`).
-    UNLOGGED: dado passageiro, mais rápido de gravar; se o PostgreSQL cair, some, como sumia da
-    memória quando a API reiniciava."""
+    """Uma tentativa de login de um IP, que conta como falha até dar certo (`ratelimit.py`); com
+    a senha errada, também da conta (`user_id`). UNLOGGED: dado passageiro, mais rápido de
+    gravar; se o PostgreSQL cair, some, como sumia da memória quando a API reiniciava."""
 
     __tablename__ = "login_ip_failures"
-    __table_args__ = (Index("login_ip_failures_ip_idx", "ip", "at"), {"prefixes": ["UNLOGGED"]})
+    __table_args__ = (
+        Index("login_ip_failures_ip_idx", "ip", "at"),
+        Index("login_ip_failures_user_id_idx", "user_id", "ip", "at"),
+        {"prefixes": ["UNLOGGED"]},
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     ip: Mapped[str] = mapped_column(Text)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

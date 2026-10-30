@@ -49,7 +49,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0045
+│   ├── migrations/        Alembic: env.py e versions/0001…0046
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   ├── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
 │   └── bench/             benchmark: tempo e precisão com 50 mil chamados (seção 7.1)
@@ -306,6 +306,7 @@ O cadastro (`identity/admin_router`) exige a empresa no papel e a apaga nos outr
 | `0043` | `work_schedules.break_start`/`break_end`: o intervalo do expediente (opcional, dentro do horário); as vigências que já existem ficam sem intervalo |
 | `0044` | Sem modelos de relatório: saem `report_models` e `report_preferences` (o downgrade as recria vazias) |
 | `0045` | Papel Cliente: o papel do sistema `client` (sem permissões) e `users.client_id` (a empresa); o downgrade passa quem tem o papel a Agente inativo |
+| `0046` | Bloqueio do login por conta e IP: `login_ip_failures.user_id`; saem `users.failed_logins`, `last_failed_login_at` e `locked_until` |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
@@ -492,7 +493,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 | Sessão | Cookie `tf_sessao` (HttpOnly, SameSite=Lax, Secure em produção); só o hash fica no banco; expira por inatividade e por prazo máximo; desativar o usuário encerra as sessões |
 | Tokens de API | `Authorization: Bearer`; só o hash no banco; escopo `read`/`write`; fora da administração; validade de 30, 90 (padrão) ou 365 dias na tela (365 no `chamados token create`); revogação pela própria pessoa (`/meus-tokens`), pela administração (`/admin/tokens`), pelo `chamados token revoke` e ao desativar ou excluir a pessoa |
 | CSRF | Token sincronizado: cookie `tf_csrf` (legível pelo JavaScript da página) conferido com o hash da sessão; nas telas, num campo escondido (`csrf_token`) ou no header `X-CSRF-Token` (HTMX e envio de anexos) |
-| Força bruta | Limite por IP na tabela `login_ip_failures` (UNLOGGED; vale para todos os workers, com uma trava por IP para as tentativas simultâneas) + espera progressiva e bloqueio da conta (`ratelimit.py`) |
+| Força bruta | Limite por IP na tabela `login_ip_failures` (UNLOGGED; vale para todos os workers, com uma trava por IP para as tentativas simultâneas) + espera progressiva e bloqueio da conta para o IP que errou, pelas tentativas marcadas com o `user_id` (`ratelimit.py`): um IP atacando não bloqueia o dono |
 | Permissões | Sempre no backend (3.4); a interface só esconde botões |
 | Conteúdo | Markdown sem HTML bruto; logotipo sem SVG e conferido pelos bytes; `X-Content-Type-Options: nosniff` |
 | Cabeçalhos | CSP, HSTS, X-Frame-Options e Referrer-Policy no nginx (`deploy/nginx.conf`) |
