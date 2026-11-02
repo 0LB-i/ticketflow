@@ -24,7 +24,7 @@
 {#- Os filtros, as abas e os links de detalhar trocam a página toda menos o menu: o cabeçalho
     (Baixar…) e o intervalo também dependem dos filtros. Enquanto carrega, o
     #relatorio ganha `htmx-request` (os blocos esmaecem) e `aria-busy`. #}
-<div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML" hx-indicator="#relatorio" class="mx-auto flex max-w-7xl flex-col gap-4">
+<div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML" hx-indicator="#relatorio" class="mx-auto flex max-w-pagina flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3">
       <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>

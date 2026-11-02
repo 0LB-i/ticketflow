@@ -14,7 +14,7 @@
 {%- set status_colors = {"ativo": "green", "convite_pendente": "teal", "inativo": "gray"} %}
 
 {% block content %}
-<div class="mx-auto flex max-w-6xl flex-col gap-4">
+<div class="mx-auto flex max-w-pagina flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-xl font-semibold">{{ t("usuarios.titulo") }}</h1>
     {{ panel_link(panel_url(novo=1), t("usuarios.novo"), button_class()) }}

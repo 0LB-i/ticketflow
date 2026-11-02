@@ -35,11 +35,12 @@
   {%- endif %}
 
   {#- Cada coluna vai, no mínimo, até o pé da tela (o que sobra depois do cabeçalho e do título):
-      dá para soltar o cartão em qualquer altura. #}
+      dá para soltar o cartão em qualquer altura. Na largura, as colunas dividem o espaço (de 18
+      a 28 rem); se não cabem, o quadro rola para o lado. #}
   <div class="flex items-start gap-4 overflow-x-auto pb-2">
     {%- for status, cards in columns %}
     <section aria-labelledby="coluna-{{ status.id }}" data-coluna="{{ status.id }}"
-      {%- if filters.mes and status.kind in ("closed", "canceled") %} data-data-de="{{ 'concluir_em' if status.kind == 'closed' else 'cancelar_em' }}"{% endif %} class="flex min-h-[calc(100dvh-13rem)] w-72 shrink-0 flex-col gap-2 rounded-lg {{ 'bg-danger/20' if status.kind == 'canceled' else 'bg-surface-raised' }} p-2 data-alvo:ring-2 data-alvo:ring-primary">
+      {%- if filters.mes and status.kind in ("closed", "canceled") %} data-data-de="{{ 'concluir_em' if status.kind == 'closed' else 'cancelar_em' }}"{% endif %} class="flex min-h-[calc(100dvh-13rem)] max-w-md min-w-72 flex-1 flex-col gap-2 rounded-lg {{ 'bg-danger/20' if status.kind == 'canceled' else 'bg-surface-raised' }} p-2 data-alvo:ring-2 data-alvo:ring-primary">
       <h2 id="coluna-{{ status.id }}" class="flex items-center justify-between px-1 font-semibold">
         {{ status.name }}
         <span class="rounded-full bg-surface px-2 text-sm font-normal tabular-nums text-muted">{{ cards | length }}</span>

@@ -8,7 +8,7 @@
 
 {% block content %}
 {#- O mesmo #relatorio da tela dos relatórios: a aba Histórico de lá troca só ele. #}
-<div id="relatorio" class="mx-auto flex max-w-7xl flex-col gap-4">
+<div id="relatorio" class="mx-auto flex max-w-pagina flex-col gap-4">
   <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
   {{ tabs_nav(tabs, "historico", boost=False) }}
   <p class="text-muted">{{ t("relatorios.historico.explicacao") }}</p>

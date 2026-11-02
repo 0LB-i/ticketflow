@@ -19,7 +19,7 @@
 {% block content %}
 {#- O mesmo #relatorio da tela dos relatórios: as abas de lá trocam só ele. Mudar o período ou o
     status mostra os campos novos e tira os relatórios; o Gerar (`gerar`) os traz. #}
-<div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML" hx-indicator="#relatorio" class="mx-auto flex max-w-7xl flex-col gap-4">
+<div id="relatorio" hx-target="#relatorio" hx-select="#relatorio" hx-swap="outerHTML" hx-indicator="#relatorio" class="mx-auto flex max-w-pagina flex-col gap-4">
   <div class="flex items-center gap-3">
     <h1 class="text-xl font-semibold">{{ t("relatorios.titulo") }}</h1>
     <span class="hidden items-center gap-2 text-sm text-muted in-[.htmx-request]:inline-flex print:hidden">{{ icon("loader-circle", "size-4 animate-spin") }} {{ t("relatorios.carregando") }}</span>

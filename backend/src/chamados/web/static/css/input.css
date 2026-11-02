@@ -119,6 +119,10 @@
 
 @theme inline {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
+  /* Largura das telas de lista, detalhe e relatório (max-w-pagina): a mesma em todas, para o
+     conteúdo não mudar de lugar entre elas, e larga o bastante para um monitor grande. Os
+     formulários continuam mais estreitos. */
+  --container-pagina: 120rem;
 
   --color-brand: var(--tf-brand);
   --color-primary: var(--tf-primary);
@@ -158,6 +162,21 @@
 @layer base {
   html {
     color-scheme: light;
+  }
+  /* Monitor 4K com a escala do sistema em 100% ou 125% (ex.: 32"): o texto de 14 px fica miúdo.
+     Como tudo é medido em rem, aumentar a fonte da raiz amplia a tela inteira por igual, como a
+     escala do sistema faria. A altura separa esses monitores dos ultrawide (3440×1440), que têm a
+     densidade de um monitor comum. Os breakpoints (sm…2xl) não mudam: na media query, o rem é
+     sempre 16 px. */
+  @media screen and (min-width: 2880px) and (min-height: 1600px) {
+    html {
+      font-size: 125%;
+    }
+  }
+  @media screen and (min-width: 3400px) and (min-height: 1900px) {
+    html {
+      font-size: 150%;
+    }
   }
   @media screen {
     html.dark {
