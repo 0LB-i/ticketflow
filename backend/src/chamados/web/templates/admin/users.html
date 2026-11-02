@@ -33,7 +33,7 @@
       <caption class="sr-only">{{ t("usuarios.titulo") }}</caption>
       <thead class="bg-surface-raised text-muted">
         <tr>
-          {%- for key in ("nomeExibicao", "nome", "email", "usuario", "papel", "grupos", "situacao", "ultimoAcesso") %}
+          {%- for key in ("nomeExibicao", "email", "usuario", "papel", "grupos", "situacao", "ultimoAcesso") %}
           <th scope="col" class="px-3 py-2 font-medium">{{ t("usuarios." ~ key) }}</th>
           {%- endfor %}
         </tr>
@@ -42,7 +42,6 @@
         {%- for u in users %}
         <tr class="border-t border-border">
           <td class="px-3 py-2">{{ panel_link(panel_url(editar=u.id), u.display_name) }}</td>
-          <td class="px-3 py-2">{{ u.full_name }}</td>
           <td class="px-3 py-2">{{ u.email or "" }}</td>
           <td class="px-3 py-2">{{ u.username or "" }}</td>
           <td class="px-3 py-2">{{ t("usuarios.papeis." ~ u.role) }}</td>
@@ -57,7 +56,7 @@
           <td class="px-3 py-2 tabular-nums">{{ last_login(u) }}</td>
         </tr>
         {%- else %}
-        <tr><td colspan="8" class="px-3 py-6 text-center text-muted">{{ t("comum.nenhumRegistro") }}</td></tr>
+        <tr><td colspan="7" class="px-3 py-6 text-center text-muted">{{ t("comum.nenhumRegistro") }}</td></tr>
         {%- endfor %}
       </tbody>
     </table>
