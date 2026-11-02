@@ -234,19 +234,25 @@ WAITING = ("waiting", "delivered")
 PT_BR: ColumnElement[Any] = literal_column("'pt_br'::regconfig")
 
 
-def view_filter(auth: Auth, view: TicketView) -> ColumnElement[bool]:
-    """As filas da lista (docs/10 §10.6). O status vem do join com ticket_statuses."""
+def view_filter(auth: Auth, view: TicketView, *, any_status: bool = False) -> ColumnElement[bool]:
+    """As filas da lista (docs/10 §10.6). O status vem do join com ticket_statuses. Com
+    `any_status`, só quem a fila mostra (os meus, os dos meus grupos, os que acompanho), sem os
+    status dela."""
     me = auth.user.id
     my_teams = Ticket.team_id.in_(auth.actor.teams)
+
+    def kinds(allowed: tuple[str, ...]) -> ColumnElement[bool]:
+        return true() if any_status else TicketStatus.kind.in_(allowed)
+
     match view:
         case "mine":
-            return and_(assigned_to(me), TicketStatus.kind.in_(ACTIVE))
+            return and_(assigned_to(me), kinds(ACTIVE))
         case "waiting":
-            return and_(my_teams, TicketStatus.kind.in_(WAITING))
+            return and_(my_teams, kinds(WAITING))
         case "watching":
             return and_(
                 exists().where(TicketWatcher.ticket_id == Ticket.id, TicketWatcher.user_id == me),
-                TicketStatus.kind.in_(ACTIVE),
+                kinds(ACTIVE),
             )
         case "all":
             return true()
@@ -303,7 +309,10 @@ async def list_tickets(
     started_from: datetime | None = None,
     started_before: datetime | None = None,
 ) -> tuple[list[tuple[Ticket, bool, int]], str | None]:
-    """Chamados visíveis de uma fila, com o aviso de novidade e o tempo gasto de cada um."""
+    """Chamados visíveis de uma fila, com o aviso de novidade e o tempo gasto de cada um. O admin,
+    escolhendo status (`kinds`), vê esses status em qualquer fila: também os concluídos e os
+    cancelados dos seus, dos seus grupos e dos que acompanha."""
+    any_status = bool(kinds) and auth.actor.role == "admin"
     stmt = _ordered(
         select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
@@ -317,7 +326,7 @@ async def list_tickets(
             defaultload(Ticket.category).raiseload(Category.default_team),
             defaultload(Ticket.assignee).raiseload(User.role),
         )
-        .where(ticket_visibility_filter(auth.actor), view_filter(auth, view))
+        .where(ticket_visibility_filter(auth.actor), view_filter(auth, view, any_status=any_status))
         .limit(limit + 1)
     )
     if q and (search := search_filter(q)) is not None:

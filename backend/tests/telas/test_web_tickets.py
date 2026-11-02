@@ -117,6 +117,41 @@ def test_filas_contadores_e_filtros(client: TestClient, cenario: dict[str, Any])
     assert _numeros(client.get("/chamados?aba=todos&grupo=invalido").text) == [meu, parado, da_bia]
 
 
+def test_admin_filtra_concluidos_e_cancelados_em_todas_as_filas(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    criar_usuario(db, "admin@x.com", "admin", nome="Admin", grupos={"TI": "member"})
+    entrar(client, "admin@x.com")
+    aberto = registrar(client, cenario)["number"]
+    concluido = registrar(client, cenario)["number"]
+    cancelado = registrar(client, cenario)["number"]
+    client.post(
+        f"{API}/{concluido}/transitions",
+        json={"action": "close", "comment": "Pronto", "resolution_code_id": 1},
+    )
+    client.post(f"{API}/{cancelado}/transitions", json={"action": "cancel", "comment": "Engano"})
+    admin = client.get("/api/v1/me").json()["id"]
+    for numero in (aberto, concluido, cancelado):
+        assert client.put(f"{API}/{numero}/watchers/{admin}").status_code == 204
+
+    for aba in ("meus", "aguardando", "acompanhando"):
+        r = client.get(f"/chamados?aba={aba}")
+        assert '<option value="closed">Encerrados</option>' in r.text
+        assert '<option value="canceled">Cancelados</option>' in r.text
+    # A fila continua a mesma (os meus, os que acompanho); o status escolhido troca o "em
+    # andamento". Sem escolha, só os em andamento, e as contagens também.
+    assert _numeros(client.get("/chamados?aba=meus").text) == [aberto]
+    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == [concluido]
+    assert _numeros(client.get("/chamados?aba=acompanhando&status=canceled").text) == [cancelado]
+    assert _numeros(client.get("/chamados?aba=aguardando&status=closed").text) == [concluido]
+
+    # Para os demais, nada muda: as filas só têm os em andamento.
+    entrar(client, "ana@x.com")
+    r = client.get("/chamados?aba=meus")
+    assert '<option value="closed">' not in r.text
+    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == []
+
+
 def test_todos_comeca_nos_em_andamento(client: TestClient, cenario: dict[str, Any]) -> None:
     aberto = registrar(client, cenario)["number"]
     encerrado = registrar(client, cenario)["number"]

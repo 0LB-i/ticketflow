@@ -133,7 +133,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 | **Todos** | Tudo o que vejo; abre só com os em andamento (sem concluídos e cancelados), e o filtro de status mostra os outros | Todos |
 | **Aprovações** | Chamados aguardando a minha aprovação | Supervisores (Fase 2) |
 
-**Filtros**, em todas as filas: grupo, status (os da fila), responsável (eu; fora de Meus), cliente (um ou mais, ou "Sem cliente") e período pela data de início.
+**Filtros**, em todas as filas: grupo, status (os da fila; o admin também tem Concluído e Cancelado em todas: a fila continua a mesma, só deixa de se limitar aos em andamento), responsável (eu; fora de Meus), cliente (um ou mais, ou "Sem cliente") e período pela data de início.
 
 **Ordenação padrão:** a data de registro (mais antigo primeiro).
 

@@ -94,8 +94,13 @@ async def tickets_page(
     tab = aba if aba in TABS else ("meus" if auth.actor.teams else "todos")
     view = TABS[tab]
     team = _uuid(grupo)
-    # Status: os da fila. Na aba Todos, sem escolha, só os em andamento; "todos" tira o filtro.
-    kind = status if status in TAB_KINDS[view] else None
+    # Status: os da fila e, para o admin, também os concluídos e os cancelados (a fila continua a
+    # dos seus chamados, service.list_tickets). Na aba Todos, sem escolha, só os em andamento;
+    # "todos" tira o filtro.
+    tab_kinds = TAB_KINDS[view]
+    if auth.actor.role == "admin":
+        tab_kinds += tuple(k for k in ("closed", "canceled") if k not in tab_kinds)
+    kind = status if status in tab_kinds else None
     if kind:
         kinds = [kind]
     elif view == "all" and status != ALL_KINDS:
@@ -155,7 +160,7 @@ async def tickets_page(
         status_choices.append((ALL_KINDS, page.t("chamados.filtros.todos")))
     else:
         status_choices = [("", page.t("chamados.filtros.todos"))]
-    status_choices += [(k, page.t(f"chamados.filtros.kinds.{k}")) for k in TAB_KINDS[view]]
+    status_choices += [(k, page.t(f"chamados.filtros.kinds.{k}")) for k in tab_kinds]
     bulk = page.can("ticket.bulk")
     teams = (await organization_api.list_teams(auth, db)).items
     statuses = await catalog_api.status_options(db) if bulk else []
