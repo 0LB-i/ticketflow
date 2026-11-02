@@ -6,7 +6,7 @@
 #
 #   curl -fsSLO https://raw.githubusercontent.com/0LB-i/ticketflow/main/scripts/preparar-maquina-dev.sh
 #   sudo bash preparar-maquina-dev.sh              # ambiente de desenvolvimento
-#   sudo bash preparar-maquina-dev.sh --servico    # e também o ticketflow.service (porta 8000)
+#   sudo bash preparar-maquina-dev.sh --servico    # e também os serviços de dev em https://IP (scripts/instalar-servico-dev.sh)
 #
 # Variáveis opcionais: GIT_NOME e GIT_EMAIL (autor dos commits neste repositório) e DESTINO
 # (padrão /opt/ticketflow; o serviço só funciona nesse caminho, que é o das units).
@@ -131,14 +131,19 @@ if [[ $SERVICO == 1 ]]; then
 fi
 
 CHAVE_PUBLICA="$(como_dev 'cat ~/.ssh/ticketflow_github.pub')"
+if [[ $SERVICO == 1 ]]; then
+  RODAR="Os serviços já estão no ar (endereços acima); entre com admin / admin."
+else
+  RODAR="Para rodar (dois terminais), conforme o README:
+  cd $DESTINO/backend && uv run uvicorn chamados.main:create_app --factory --reload
+                                            # http://localhost:8000, entre com admin / admin
+  cd $DESTINO && scripts/css.sh --watch     # o CSS das telas, a cada mudança nos templates"
+fi
 cat <<FIM
 
 Pronto. Código em $DESTINO (dono: $DEV).
 
-Para rodar (dois terminais), conforme o README:
-  cd $DESTINO/backend && uv run uvicorn chamados.main:create_app --factory --reload
-                                            # http://localhost:8000, entre com admin / admin
-  cd $DESTINO && scripts/css.sh --watch     # o CSS das telas, a cada mudança nos templates
+$RODAR
 Verificação: $DESTINO/scripts/check.sh   (ou --completo, que usa também o PostgreSQL 16)
 
 Para enviar commits ao GitHub, cadastre esta chave em
