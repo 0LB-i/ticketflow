@@ -28,9 +28,10 @@
   </nav>
 
   {#- Os filtros são aplicados ao escolher (static/js/app.js; as etiquetas, no chamado.js); as
-      datas, com o botão Aplicar ou o Enter. A aba e a busca continuam. A partir do lg, todos numa
+      datas, ao escolher no calendário, com o Enter ou ao sair do campo (data-envia-data). A aba e
+      a busca continuam. A partir do lg, todos numa
       linha: as listas dividem o espaço, o cliente um pouco mais largo, as datas com largura fixa. #}
-  {%- set one_row = "lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.25fr)_repeat(2,9rem)_auto]" if view != "mine" else "lg:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1.25fr)_repeat(2,9rem)_auto]" %}
+  {%- set one_row = "lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.25fr)_repeat(2,9rem)]" if view != "mine" else "lg:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1.25fr)_repeat(2,9rem)]" %}
   <form method="get" action="/chamados" data-envia-ao-mudar class="grid items-start gap-3 sm:grid-cols-2 {{ one_row }}">
     <input type="hidden" name="aba" value="{{ tab }}">
     {%- if filters.q %}
@@ -43,10 +44,8 @@
     {%- endif %}
     {%- set placeholder = t("chamados.filtros.adicionar") if filters.cliente else t("chamados.filtros.todosOsClientes") %}
     {{ client_chips("cliente", t("chamado.cliente"), filters.cliente, client_names, placeholder, "chamados.filtros.tirarFiltro", "/relatorios/clientes") }}
-    {{ field("de", t("chamados.filtros.inicioDe"), type="date", value=filters.de or "") }}
-    {{ field("ate", t("chamados.filtros.inicioAte"), type="date", value=filters.ate or "", error=t("chamados.filtros.periodoInvalido") if period_error else None) }}
-    {#- mt-6: a altura do rótulo, na linha dos campos. #}
-    <div><button type="submit" class="mt-6 {{ button_class('secondary') }}">{{ t("chamados.filtros.aplicar") }}</button></div>
+    {{ field("de", t("chamados.filtros.inicioDe"), type="date", value=filters.de or "", **{"data-envia-data": ""}) }}
+    {{ field("ate", t("chamados.filtros.inicioAte"), type="date", value=filters.ate or "", error=t("chamados.filtros.periodoInvalido") if period_error else None, **{"data-envia-data": ""}) }}
   </form>
 
   {%- if filters.q %}

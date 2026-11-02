@@ -123,12 +123,37 @@ addEventListener('pageshow', () => {
 })
 
 // Formulários de filtro: aplicam ao escolher uma opção. Datas não: o Chrome dispara o change a
-// cada parte digitada (vão com o botão Aplicar ou o Enter). As etiquetas aplicam no chamado.js,
-// depois de entrar no formulário.
+// cada parte digitada (vão com o botão Aplicar ou o Enter, ou pelo data-envia-data, abaixo). As
+// etiquetas aplicam no chamado.js, depois de entrar no formulário.
 document.addEventListener('change', (e) => {
   const form = e.target.form
   if (!form?.matches('[data-envia-ao-mudar]') || e.target.type === 'date') return
   if (!e.target.matches('[data-chips-adiciona]')) form.requestSubmit()
+})
+
+// Datas de filtro sem botão Aplicar (data-envia-data): enviam ao sair do campo com outro valor, com
+// o Enter (com duas datas, o navegador não envia sozinho) ou ao escolher no calendário
+// (escolherValor). Uma data incompleta não vai.
+function enviarData(campo) {
+  if (campo.value !== campo.defaultValue && campo.checkValidity()) campo.form.requestSubmit()
+}
+// Sair do campo ou do calendário dele (o Tab leva do campo ao calendário: isso não é sair). Depois
+// do evento, quando o foco já chegou ao destino.
+document.addEventListener('focusout', (e) => {
+  const janela = janelaAberta?.janela.contains(e.target) ? janelaAberta.janela : null
+  const campo = janela ? janelaAberta.campo : e.target
+  if (!campo.matches?.('[data-envia-data]')) return
+  const ninho = janela ?? (janelaAberta?.campo === campo ? janelaAberta.janela : null)
+  setTimeout(() => {
+    const ativo = document.activeElement
+    if (ativo !== campo && !ninho?.contains(ativo)) enviarData(campo)
+  })
+})
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches?.('[data-envia-data]')) {
+    e.preventDefault()
+    enviarData(e.target)
+  }
 })
 
 // Cadastro de usuário: os campos que dependem do papel (a empresa do Cliente; os grupos dos
@@ -265,6 +290,7 @@ function escolherValor(campo, valor) {
   campo.dispatchEvent(new Event('change', { bubbles: true }))
   janelaAberta?.janela.hidePopover()
   campo.focus()
+  if (campo.matches('[data-envia-data]')) enviarData(campo)
 }
 
 const seta = (d) =>

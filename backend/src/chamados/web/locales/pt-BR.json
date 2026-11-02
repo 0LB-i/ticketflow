@@ -207,7 +207,6 @@
       "tirarFiltro": "Tirar {nome}",
       "inicioDe": "Início de",
       "inicioAte": "Início até",
-      "aplicar": "Aplicar",
       "periodoInvalido": "A data final precisa ser igual ou depois da inicial.",
       "kinds": {
         "open": "Em aberto",

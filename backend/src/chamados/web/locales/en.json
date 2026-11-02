@@ -207,7 +207,6 @@
       "tirarFiltro": "Remove {nome}",
       "inicioDe": "Start from",
       "inicioAte": "Start to",
-      "aplicar": "Apply",
       "periodoInvalido": "The end date must be on or after the start date.",
       "kinds": {
         "open": "Open",
