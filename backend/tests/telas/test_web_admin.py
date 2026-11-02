@@ -75,9 +75,9 @@ def test_criar_e_editar_usuario(client: TestClient, db: Session) -> None:
     r = client.post("/admin/usuarios/novo", data=dados)
     assert r.status_code == 422
     assert "data-abre-ao-carregar" in r.text
-    assert 'value="Bruno Lima"' in r.text
+    assert 'value="Bruno"' in r.text
 
-    editar = {"full_name": "Bruno Lima", "display_name": "Bruninho", "role": "agent"}
+    editar = {"display_name": "Bruninho", "role": "agent"}
     editar |= {"email": "bruno@exemplo.com", "username": "bruno"}
     r = client.post(f"/admin/usuarios/{bruno.public_id}", data=_form(client, **editar))
     assert _aviso(r.text) == "Alterações salvas"
@@ -150,7 +150,7 @@ def test_filtros_da_lista_continuam(client: TestClient, db: Session) -> None:
     assert 'data-volta="/admin/usuarios?situacao=ativo"' in r.text
     assert 'name="volta" value="/admin/usuarios?situacao=ativo"' in r.text
     assert f'href="/admin/usuarios?situacao=ativo&amp;editar={bia.public_id}"' in r.text
-    dados = {"full_name": "Bia", "display_name": "Bia", "role": "agent"}
+    dados = {"display_name": "Bia", "role": "agent"}
     r = client.post(
         f"/admin/usuarios/{bia.public_id}",
         data=_form(client, **dados, volta="/admin/usuarios?situacao=ativo"),
@@ -179,7 +179,7 @@ def test_filtros_continuam_na_volta_com_erro_e_no_link(client: TestClient, db: S
     _admin(client, db)
     bia = criar_usuario(db, "bia@x.com", nome="Bia", senha=None)
     volta = "/admin/usuarios?situacao=convite_pendente"
-    dados = {**NOVO_USUARIO, "full_name": "x", "volta": volta}  # nome curto demais
+    dados = {**NOVO_USUARIO, "display_name": "x", "volta": volta}  # nome curto demais
     r = client.post("/admin/usuarios/novo", data=_form(client, **dados))
     assert r.status_code == 422
     assert f'name="volta" value="{volta}"' in r.text

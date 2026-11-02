@@ -101,7 +101,6 @@ def test_cadastro_de_usuario_com_o_papel_cliente(client: TestClient, db: Session
         "/admin/usuarios/novo",
         data={
             "csrf_token": client.cookies["tf_csrf"],
-            "full_name": "Carla Cliente",
             "display_name": "Carla",
             "email": "carla@x.com",
             "username": "carla",

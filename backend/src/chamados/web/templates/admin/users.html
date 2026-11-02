@@ -74,8 +74,7 @@
       {%- if error %}
       {{ alert(error) }}
       {%- endif %}
-      {{ field("full_name", t("usuarios.nome"), value=form.full_name or "", required=True, minlength="2") }}
-      {{ field("display_name", t("usuarios.nomeExibicao"), value=form.display_name or "", hint=t("usuarios.nomeExibicaoDica"), required=True, minlength="2") }}
+      {{ field("display_name", t("usuarios.nomeExibicao"), value=form.display_name or "", required=True, minlength="2") }}
       {{ field("email", t("usuarios.email"), type="email", value=form.email or "", hint=t("usuarios.semEmail") if edited and not edited.email else None, required=not edited) }}
       {{ field("username", t("usuarios.usuario"), value=form.username or "", hint=t("usuarios.usuarioDica"), required=not edited, autocomplete="off") }}
       {%- if not edited %}

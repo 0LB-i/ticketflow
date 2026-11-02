@@ -188,7 +188,6 @@ async def _users_page(
     edited = next((u for u in users if str(u.id) == editing), None)
     if edited and form is None:
         form = {
-            "full_name": edited.full_name,
             "display_name": edited.display_name,
             "email": edited.email or "",
             "username": edited.username or "",
@@ -252,7 +251,6 @@ async def create_user(
     db: DB,
     csrf_token: Field = "",
     volta: Field = "",
-    full_name: Field = "",
     display_name: Field = "",
     email: Field = "",
     username: Field = "",
@@ -264,7 +262,6 @@ async def create_user(
 ) -> Response:
     check_csrf(page, csrf_token)
     form = {
-        "full_name": full_name,
         "display_name": display_name,
         "email": email,
         "username": username,
@@ -275,7 +272,12 @@ async def create_user(
     }
     try:
         data = UserCreate.model_validate(
-            {**form, "password": password, "client_id": client_id or None}
+            {
+                **form,
+                "full_name": display_name,
+                "password": password,
+                "client_id": client_id or None,
+            }
         )
         await users_api.create_user(data, page.auth, request, db)
     except ValidationError:
@@ -305,7 +307,6 @@ async def update_user(
     db: DB,
     csrf_token: Field = "",
     volta: Field = "",
-    full_name: Field = "",
     display_name: Field = "",
     email: Field = "",
     username: Field = "",
@@ -316,7 +317,6 @@ async def update_user(
     check_csrf(page, csrf_token)
     current = await users_api.get_user(user_id, page.auth, db)
     form = {
-        "full_name": full_name,
         "display_name": display_name,
         "email": email,
         "username": username,
@@ -326,7 +326,6 @@ async def update_user(
     }
     # E-mail e usuário só vão quando mudam (e nunca vazios: a API não os apaga).
     changes: dict[str, Any] = {
-        "full_name": full_name,
         "display_name": display_name,
         "role": role,
         "client_id": client_id or None,
