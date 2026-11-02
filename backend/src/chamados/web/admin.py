@@ -270,11 +270,14 @@ async def create_user(
         "client_id": client_id,
         "cliente_nome": cliente_nome,
     }
+    # Sem nome de exibição, vale o usuário.
+    name = display_name.strip() or username.strip()
     try:
         data = UserCreate.model_validate(
             {
                 **form,
-                "full_name": display_name,
+                "display_name": name,
+                "full_name": name,
                 "password": password,
                 "client_id": client_id or None,
             }
@@ -326,7 +329,7 @@ async def update_user(
     }
     # E-mail e usuário só vão quando mudam (e nunca vazios: a API não os apaga).
     changes: dict[str, Any] = {
-        "display_name": display_name,
+        "display_name": display_name.strip() or username.strip() or current.username,
         "role": role,
         "client_id": client_id or None,
     }

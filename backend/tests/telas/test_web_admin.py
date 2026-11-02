@@ -85,6 +85,23 @@ def test_criar_e_editar_usuario(client: TestClient, db: Session) -> None:
     assert bruno.display_name == "Bruninho"
 
 
+def test_sem_nome_de_exibicao_vale_o_usuario(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    r = client.post(
+        "/admin/usuarios/novo", data=_form(client, **NOVO_USUARIO | {"display_name": ""})
+    )
+    assert _aviso(r.text) == "Usuário criado"
+    bruno = db.scalar(select(User).where(User.email == "bruno@exemplo.com"))
+    assert bruno is not None
+    assert bruno.display_name == "bruno"
+
+    editar = {"display_name": "", "role": "agent", "username": "bruno.lima"}
+    r = client.post(f"/admin/usuarios/{bruno.public_id}", data=_form(client, **editar))
+    assert _aviso(r.text) == "Alterações salvas"
+    db.refresh(bruno)
+    assert bruno.display_name == "bruno.lima"
+
+
 def test_link_de_acesso_sem_email_configurado(client: TestClient, db: Session) -> None:
     _admin(client, db)
     bia = criar_usuario(db, "bia@x.com", nome="Bia", senha=None)  # convite pendente
