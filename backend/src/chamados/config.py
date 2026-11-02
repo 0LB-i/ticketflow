@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_starttls: bool = True
     smtp_from: str = "TicketFlow <ticketflow@localhost>"
+    # Sem SMTP, o log leva só o destinatário e o assunto: o corpo traz os links de convite e de
+    # redefinição, e quem lê o log da produção entraria na conta. Só no desenvolvimento, ligado.
+    log_email_body: bool = False
 
     # Anexos (docs/11 §11.6): só o usuário do serviço acessa.
     files_dir: Path = Path("/var/lib/ticketflow/files")

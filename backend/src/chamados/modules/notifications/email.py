@@ -1,5 +1,6 @@
-"""Envio de e-mail. Sem SMTP configurado, a mensagem vai para o log (desenvolvimento e
-instalações que ainda não definiram o provedor, questão 1).
+"""Envio de e-mail. Sem SMTP configurado, o destinatário e o assunto vão para o log, e o corpo
+só com `LOG_EMAIL_BODY` (desenvolvimento e instalações que ainda não definiram o provedor,
+questão 1).
 
 `send` é o envio na hora (convite, redefinição, bloqueio): uma falha só vai para o log. `deliver`
 é o do worker: a falha sobe, e a fila tenta de novo.
@@ -55,13 +56,22 @@ class SmtpMailer:
 
 
 class LogMailer:
+    """Sem SMTP. O corpo só vai para o log com `LOG_EMAIL_BODY` (desenvolvimento): ele traz os
+    links de convite e de redefinição, que dão acesso à conta."""
+
     configured = False
 
+    def __init__(self, with_body: bool = False) -> None:
+        self.with_body = with_body
+
     def send(self, to: str, subject: str, body: str) -> None:
-        log.warning("email_sem_smtp", to=to, subject=subject, body=body)
+        if self.with_body:
+            log.warning("email_sem_smtp", to=to, subject=subject, body=body)
+        else:
+            log.warning("email_sem_smtp", to=to, subject=subject)
 
     deliver = send
 
 
 def make_mailer(settings: Settings) -> Mailer:
-    return SmtpMailer(settings) if settings.smtp_host else LogMailer()
+    return SmtpMailer(settings) if settings.smtp_host else LogMailer(settings.log_email_body)

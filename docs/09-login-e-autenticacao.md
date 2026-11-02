@@ -71,7 +71,7 @@ sequenceDiagram
 
 Os tokens de convite e redefinição ficam em `auth_tokens`, guardados só como hash SHA-256. Um link novo invalida o anterior do mesmo tipo.
 
-**Sem SMTP configurado** ([questão 1](questoes-em-aberto.md)): os e-mails vão para o log do servidor, e a tela de usuários mostra ao administrador o link de convite ou de redefinição, para ele copiar e repassar à pessoa por outro meio. Com SMTP, o link vai só por e-mail e não aparece na tela. O "esqueci a senha" pela tela de login só funciona com SMTP; sem ele, o administrador gera o link pela tela de usuários.
+**Sem SMTP configurado** ([questão 1](questoes-em-aberto.md)): os e-mails não saem (o log do servidor leva só o destinatário e o assunto, nunca o link), e a tela de usuários mostra ao administrador o link de convite ou de redefinição, para ele copiar e repassar à pessoa por outro meio. Com SMTP, o link vai só por e-mail e não aparece na tela. O "esqueci a senha" pela tela de login só funciona com SMTP; sem ele, o administrador gera o link pela tela de usuários.
 
 ## 9.5 SSO via OIDC
 

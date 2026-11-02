@@ -103,7 +103,7 @@ else
 APP_BASE_URL=https://$DOMINIO
 DATABASE_URL=postgresql+psycopg://$SERVICO@/chamados?host=/var/run/postgresql
 FILES_DIR=/var/lib/ticketflow/files
-# E-mail: sem SMTP_HOST, os e-mails vão para o log (journalctl -u $SERVICO-worker) e a tela de
+# E-mail: sem SMTP_HOST, os e-mails não saem (o log leva só o destinatário e o assunto) e a tela de
 # usuários mostra os links de convite. Depois de preencher: sudo systemctl restart $SERVICO
 SMTP_HOST=
 SMTP_PORT=587

@@ -47,6 +47,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 
 ### Mudado
 
+- Sem SMTP, o log do servidor não leva mais o corpo dos e-mails, só o destinatário e o assunto: os links de convite e de redefinição de senha davam acesso à conta a quem lesse o log. O administrador continua vendo o link na tela de usuários. No desenvolvimento, `LOG_EMAIL_BODY=true` (já no `.env.example`) traz o corpo de volta. Sem migração.
 - Novo chamado: o administrador (`ticket.view_all`) registra em **qualquer grupo ativo**, e não só nos de que é membro; o agente continua só nos próprios grupos. O responsável continua sendo membro ativo do grupo: fora dos próprios grupos, quem registra não começa como responsável e escolhe as pessoas do grupo (na API, `"assignee": "me"` dá 422). O registro também não oferece mais grupo inativo.
 - Chamado: "Atribuir a" acrescenta outra pessoa do grupo ou "Todas as pessoas do grupo" sem tirar quem já está; cada responsável vira uma etiqueta com um X para tirá-lo (sempre fica ao menos um). Nova rota `PUT /tickets/{id}/assignees`, com a lista inteira; evento `ticket.assignees_changed`. Sem migração.
 - Interface: as telas passam a ser renderizadas no servidor (Jinja2, HTMX e Tailwind; ADR 0011), com o mesmo visual: login, senha esquecida, convite, redefinição e troca obrigatória de senha, o layout (menu lateral, cabeçalho com a busca e o menu do usuário), a lista, o registro e o detalhe dos chamados, toda a administração (clientes, usuários, grupos, setores e Configurações) e os relatórios (gráficos em SVG). A SPA em Vue saiu (o diretório `frontend/`). O PDF dos relatórios sai no idioma da pessoa: `GET /reports/pdf` aceita o parâmetro opcional `locale` (sem ele, vale o `Accept-Language`). Sem migração.
@@ -104,4 +105,5 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - `DATABASE_URL`, `LOG_LEVEL`, `LOG_FORMAT` (`json` em produção).
 - `FILES_DIR`: pasta dos anexos (padrão `/var/lib/ticketflow/files`).
 - `APP_BASE_URL` (endereço usado nos links dos e-mails), `COOKIE_SECURE`, `SESSION_IDLE_HOURS`, `SESSION_MAX_DAYS`.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`. Sem `SMTP_HOST`, os e-mails vão para o log.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`. Sem `SMTP_HOST`, o destinatário e o assunto dos e-mails vão para o log.
+- `LOG_EMAIL_BODY` (padrão `false`): sem SMTP, também o corpo do e-mail vai para o log. Só no desenvolvimento: o corpo traz os links de convite e de redefinição de senha.

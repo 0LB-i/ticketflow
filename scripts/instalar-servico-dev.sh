@@ -62,7 +62,7 @@ LOG_FORMAT=console
 LOG_LEVEL=INFO
 APP_BASE_URL=https://$IP
 COOKIE_SECURE=true
-# Sem SMTP_HOST, os e-mails vão para o log: journalctl -u $SERVICO
+# Sem SMTP_HOST, os e-mails vão para o log (o corpo, com LOG_EMAIL_BODY=true): journalctl -u $SERVICO
 FIM
   chown root:"$SERVICO" "$ENV_FILE"
   chmod 640 "$ENV_FILE"

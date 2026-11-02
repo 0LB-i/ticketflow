@@ -6,6 +6,7 @@ from email.message import EmailMessage
 from typing import Any
 
 import pytest
+import structlog
 
 from chamados.config import Settings
 from chamados.modules.notifications.email import LogMailer, SmtpMailer, make_mailer
@@ -78,3 +79,20 @@ def test_deliver_lanca_a_falha_para_a_fila_tentar_de_novo(
 
 def test_sem_smtp_vai_para_o_log() -> None:
     LogMailer().send("a@b.com", "Assunto", "Corpo")
+
+
+def test_sem_smtp_o_log_nao_leva_o_corpo() -> None:
+    # O corpo traz os links de convite e de redefinição: quem lê o log entraria na conta.
+    mailer = make_mailer(Settings(smtp_host="", log_email_body=False))
+    with structlog.testing.capture_logs() as logs:
+        mailer.send("a@b.com", "Assunto", "https://x/redefinir-senha/segredo")
+        mailer.deliver("a@b.com", "Assunto", "https://x/redefinir-senha/segredo")
+    assert [(e["to"], e["subject"]) for e in logs] == [("a@b.com", "Assunto")] * 2
+    assert all("body" not in e for e in logs)
+
+
+def test_sem_smtp_o_corpo_vai_para_o_log_so_com_log_email_body() -> None:
+    mailer = make_mailer(Settings(smtp_host="", log_email_body=True))
+    with structlog.testing.capture_logs() as logs:
+        mailer.send("a@b.com", "Assunto", "Corpo")
+    assert logs[0]["body"] == "Corpo"
