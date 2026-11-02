@@ -198,8 +198,9 @@
     ::picker(select) {
       appearance: base-select;
     }
+    /* O texto escolhido não quebra em duas linhas num campo estreito (os filtros numa linha). */
     select {
-      @apply items-center;
+      @apply items-center overflow-hidden whitespace-nowrap;
     }
     ::picker(select) {
       @apply mt-1 max-h-72 rounded-lg border border-border bg-surface p-1 text-fg shadow-lg;
