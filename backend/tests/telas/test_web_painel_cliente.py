@@ -85,6 +85,9 @@ def test_cliente_so_abre_o_painel(client: TestClient, cenario: dict[str, str], d
     html = sessao.get("/painel").text
     assert 'href="/painel"' in html
     assert 'href="/chamados"' not in html and 'href="/meus-tokens"' not in html
+    # A página de erro também volta para o painel, não para a lista que ele não abre.
+    html = sessao.get("/uma/rota/qualquer").text
+    assert 'href="/painel"' in html and 'href="/chamados"' not in html
     # Quem não é Cliente não tem painel.
     assert client.get("/painel").status_code == 403
 

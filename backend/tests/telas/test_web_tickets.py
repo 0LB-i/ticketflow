@@ -97,24 +97,24 @@ def test_filas_contadores_e_filtros(client: TestClient, cenario: dict[str, Any])
     da_bia = registrar(client, cenario, title="Com a Bia", assignee=cenario["bia"])["number"]
 
     r = client.get("/chamados")  # sem aba: Meus
-    assert _numeros(r.text) == [meu, parado]
+    assert _numeros(r.text) == [parado, meu]
     assert 'aria-current="page">\n      Meus' in r.text
     assert (
         '<span class="rounded-full bg-surface-raised px-2 text-sm tabular-nums">2</span>' in r.text
     )
 
     assert _numeros(client.get("/chamados?aba=aguardando").text) == [parado]
-    assert _numeros(client.get("/chamados?aba=todos").text) == [meu, parado, da_bia]
+    assert _numeros(client.get("/chamados?aba=todos").text) == [da_bia, parado, meu]
     assert _numeros(client.get("/chamados?aba=todos&status=waiting").text) == [parado]
-    assert _numeros(client.get("/chamados?aba=todos&responsavel=eu").text) == [meu, parado]
+    assert _numeros(client.get("/chamados?aba=todos&responsavel=eu").text) == [parado, meu]
     # Status também nas outras filas, só com os status delas; responsável, fora da aba Meus.
     assert _numeros(client.get("/chamados?aba=meus&status=waiting").text) == [parado]
-    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == [meu, parado]
+    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == [parado, meu]
     assert _numeros(client.get("/chamados?aba=aguardando&responsavel=eu").text) == [parado]
     assert 'name="responsavel"' not in client.get("/chamados?aba=meus").text
     r = client.get(f"/chamados?aba=todos&grupo={cenario['infra']}")
     assert "Nenhum chamado encontrado." in r.text
-    assert _numeros(client.get("/chamados?aba=todos&grupo=invalido").text) == [meu, parado, da_bia]
+    assert _numeros(client.get("/chamados?aba=todos&grupo=invalido").text) == [da_bia, parado, meu]
 
 
 def test_admin_filtra_concluidos_e_cancelados_em_todas_as_filas(
@@ -157,8 +157,11 @@ def test_todos_comeca_nos_em_andamento(client: TestClient, cenario: dict[str, An
     encerrado = registrar(client, cenario)["number"]
     client.post(f"{API}/{encerrado}/transitions", json={"action": "cancel", "comment": "Engano"})
     assert _numeros(client.get("/chamados?aba=todos").text) == [aberto]
-    assert _numeros(client.get("/chamados?aba=todos&status=todos").text) == [aberto, encerrado]
+    assert _numeros(client.get("/chamados?aba=todos&status=todos").text) == [encerrado, aberto]
     assert _numeros(client.get("/chamados?aba=todos&status=canceled").text) == [encerrado]
+    # A contagem da aba também é a dos em andamento.
+    r = client.get("/chamados?aba=todos")
+    assert re.search(r'Todos\s*<span class="rounded-full[^"]*">1</span>', r.text)
 
 
 def test_filtro_de_cliente(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
@@ -169,7 +172,7 @@ def test_filtro_de_cliente(client: TestClient, cenario: dict[str, Any], db: Sess
     assert _numeros(r.text) == [do_outro]
     assert "Outro Cliente" in r.text  # a etiqueta do escolhido
     r = client.get(f"/chamados?aba=todos&cliente={outro}&cliente={cenario['cliente']}")
-    assert _numeros(r.text) == [do_padrao, do_outro]
+    assert _numeros(r.text) == [do_outro, do_padrao]
     assert _numeros(client.get("/chamados?aba=todos&cliente=sem-cliente").text) == []
     # Trocar de aba mantém o cliente.
     assert f"/chamados?aba=meus&amp;cliente={outro}" in r.text
@@ -181,12 +184,22 @@ def test_filtro_de_periodo(client: TestClient, cenario: dict[str, Any]) -> None:
     assert _numeros(client.get("/chamados?aba=todos&de=2026-03-11").text) == [recente]
     assert _numeros(client.get("/chamados?aba=todos&ate=2026-03-10").text) == [antigo]
     r = client.get("/chamados?aba=todos&de=2026-03-10&ate=2026-03-20")
-    assert _numeros(r.text) == [antigo, recente]
+    assert _numeros(r.text) == [recente, antigo]
     # Fim antes do início: o aviso, e o período não filtra.
     r = client.get("/chamados?aba=todos&de=2026-03-20&ate=2026-03-10")
     assert "A data final precisa ser igual ou depois da inicial." in r.text
-    assert _numeros(r.text) == [antigo, recente]
-    assert _numeros(client.get("/chamados?aba=todos&de=invalida").text) == [antigo, recente]
+    assert _numeros(r.text) == [recente, antigo]
+    assert _numeros(client.get("/chamados?aba=todos&de=invalida").text) == [recente, antigo]
+
+
+def test_limpar_os_filtros_mantem_a_aba_e_a_busca(
+    client: TestClient, cenario: dict[str, Any]
+) -> None:
+    registrar(client, cenario)
+    assert "Limpar os filtros" not in client.get("/chamados?aba=todos&q=toner").text
+    r = client.get(f"/chamados?aba=todos&grupo={cenario['ti']}&de=2026-03-01&q=toner")
+    assert 'href="/chamados?aba=todos&amp;q=toner"' in r.text
+    assert "Limpar os filtros" in r.text
 
 
 def test_quem_nao_tem_grupo_comeca_em_todos(
@@ -214,10 +227,83 @@ def test_busca(client: TestClient, cenario: dict[str, Any]) -> None:
 def test_carregar_mais(client: TestClient, cenario: dict[str, Any]) -> None:
     numeros = [registrar(client, cenario)["number"] for _ in range(51)]
     r = client.get("/chamados")
+    numeros.reverse()  # o mais novo primeiro
     assert _numeros(r.text) == numeros[:50]
     proxima = r.text.split('hx-get="/chamados?')[1].split('"')[0].replace("&amp;", "&")
     proxima = f"/chamados?{proxima}"
     assert _numeros(client.get(proxima).text) == numeros[50:]
+
+
+def test_cabecalho_ordena_pela_coluna_em_tres_cliques(
+    client: TestClient, cenario: dict[str, Any]
+) -> None:
+    banana = registrar(client, cenario, title="Banana")["number"]
+    arvore = registrar(client, cenario, title="Árvore")["number"]
+    abacaxi = registrar(client, cenario, title="abacaxi")["number"]
+
+    # Sem ordem: o mais novo primeiro, e o título leva de A a Z.
+    r = client.get("/chamados?aba=todos")
+    assert _numeros(r.text) == [abacaxi, arvore, banana]
+    assert 'href="/chamados?aba=todos&amp;ordem=titulo"' in r.text
+    assert "aria-sort" not in r.text
+    # De A a Z sem olhar maiúscula e acento; o próximo clique inverte.
+    r = client.get("/chamados?aba=todos&ordem=titulo")
+    assert _numeros(r.text) == [abacaxi, arvore, banana]
+    assert 'aria-sort="ascending"' in r.text
+    assert 'href="/chamados?aba=todos&amp;ordem=-titulo"' in r.text
+    # De Z a A; o terceiro clique volta à ordem padrão.
+    r = client.get("/chamados?aba=todos&ordem=-titulo")
+    assert _numeros(r.text) == [banana, arvore, abacaxi]
+    assert 'aria-sort="descending"' in r.text
+    assert 'href="/chamados?aba=todos"' in r.text
+    # Os filtros guardam a ordem; um valor desconhecido é a ordem padrão.
+    assert '<input type="hidden" name="ordem" value="-titulo">' in r.text
+    assert _numeros(client.get("/chamados?aba=todos&ordem=lixo").text) == [
+        abacaxi,
+        arvore,
+        banana,
+    ]
+
+
+def test_cada_coluna_ordena_nos_dois_sentidos(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    zeta = criar_cliente(db, "Zeta Ltda", "11222333000181")
+    primeiro = registrar(client, cenario, started_at="2026-03-10T09:00:00-03:00")["number"]
+    segundo = registrar(client, cenario, client_id=zeta, started_at="2026-03-20T09:00:00-03:00")[
+        "number"
+    ]
+    # A Bia comenta no primeiro: ele passa a ser o de movimentação mais recente.
+    entrar(client, "bia@x.com")
+    client.post(f"{API}/{primeiro}/comments", json={"body": "Mexido por último"})
+    entrar(client, "ana@x.com")
+    for coluna, crescente in {
+        "cliente": [primeiro, segundo],  # "Cliente Padrão" antes de "Zeta Ltda"
+        "inicio": [primeiro, segundo],
+        "movimentacao": [segundo, primeiro],
+    }.items():
+        assert _numeros(client.get(f"/chamados?aba=todos&ordem={coluna}").text) == crescente
+        r = client.get(f"/chamados?aba=todos&ordem=-{coluna}")
+        assert _numeros(r.text) == crescente[::-1], coluna
+    # Mesmo responsável e mesmo grupo: no empate, a ordem padrão (o mais novo primeiro).
+    for coluna in ("responsavel", "-responsavel", "grupo", "-grupo"):
+        r = client.get(f"/chamados?aba=todos&ordem={coluna}")
+        assert _numeros(r.text) == [segundo, primeiro], coluna
+
+
+def test_ordena_pelas_horas_e_pagina_na_ordem(client: TestClient, cenario: dict[str, Any]) -> None:
+    numeros = [registrar(client, cenario)["number"] for _ in range(51)]
+    for minutos, numero in enumerate(numeros, start=1):
+        client.post(
+            f"{API}/{numero}/comments", json={"body": "Feito", "time_spent_minutes": minutos}
+        )
+    r = client.get("/chamados?aba=todos&ordem=horas")
+    assert _numeros(r.text) == numeros[:50]  # do menor tempo ao maior
+    proxima = r.text.split('hx-get="/chamados?')[1].split('"')[0].replace("&amp;", "&")
+    assert "ordem=horas" in proxima
+    assert _numeros(client.get(f"/chamados?{proxima}").text) == numeros[50:]
+    assert _numeros(client.get("/chamados?aba=todos&ordem=-horas").text)[0] == numeros[-1]
+    assert client.get("/chamados?aba=todos&ordem=horas&cursor=lixo").status_code == 422
 
 
 def test_status_em_massa(client: TestClient, cenario: dict[str, Any]) -> None:

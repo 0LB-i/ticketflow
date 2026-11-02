@@ -1,4 +1,4 @@
-{#- Filas (docs/10 §10.6, docs/13 §13.5): uma aba por fila, o mais antigo primeiro. -#}
+{#- Filas (docs/10 §10.6, docs/13 §13.5): uma aba por fila, o mais novo primeiro. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import button_class, field, select_field, status_badge with context %}
 {% from "_fields.html" import client_chips with context %}
@@ -11,13 +11,30 @@
 <script src="{{ static('js/chamado.js') }}" defer></script>
 {% endblock %}
 
+{#- Cabeçalho que ordena a lista: um clique de A a Z (ou do menor ao maior), outro ao contrário e o
+    terceiro volta à ordem padrão (web/tickets.py, sort_url). A seta mostra a ordem em uso; nas
+    outras colunas, a seta dupla esmaecida avisa que dá para ordenar. -#}
+{% macro sortable(column, label, class="") -%}
+{%- set active = sort == column %}
+<th scope="col" class="px-3 py-2 font-medium {{ class }}"{% if active %} aria-sort="{{ 'descending' if descending else 'ascending' }}"{% endif %}>
+  <a href="{{ sort_url(column) }}" class="group inline-flex items-center gap-1 hover:text-fg {{ 'text-fg' if active }}">
+    {{- label }}
+    {%- if active %}
+    {{ icon("arrow-down" if descending else "arrow-up", "size-4 text-primary") }}
+    {%- else %}
+    {{ icon("arrow-up-down", "size-4 opacity-40 group-hover:opacity-100") }}
+    {%- endif %}
+  </a>
+</th>
+{%- endmacro %}
+
 {% block content %}
 <div class="mx-auto flex max-w-pagina flex-col gap-4" data-em-massa-espaco>
   <h1 class="text-xl font-semibold">{{ t("chamados.titulo") }}</h1>
 
   <nav aria-label="{{ t('chamados.filas') }}" class="flex flex-wrap gap-1 border-b border-border">
     {%- for slug, fila in tabs.items() %}
-    {%- set count = counts[fila] if fila != "all" else 0 %}
+    {%- set count = counts[fila] %}
     <a href="{{ tab_url(slug) }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>
       {{ t("chamados.abas." ~ fila) }}
       {%- if count %}
@@ -37,6 +54,9 @@
     {%- if filters.q %}
     <input type="hidden" name="q" value="{{ filters.q }}">
     {%- endif %}
+    {%- if filters.ordem %}
+    <input type="hidden" name="ordem" value="{{ filters.ordem }}">
+    {%- endif %}
     {{ select_field("grupo", t("chamado.grupo"), [("", t("chamados.filtros.todosOsGrupos"))] + team_options, filters.grupo or "") }}
     {{ select_field("status", t("chamados.status"), kind_options, filters.status or "") }}
     {%- if view != "mine" %}
@@ -48,10 +68,17 @@
     {{ field("ate", t("chamados.filtros.inicioAte"), type="date", value=filters.ate or "", error=t("chamados.filtros.periodoInvalido") if period_error else None, **{"data-envia-data": ""}) }}
   </form>
 
-  {%- if filters.q %}
+  {#- Limpar os filtros volta a aba ao estado inicial; a busca tem o seu próprio botão. #}
+  {%- set filtered = filters.grupo or filters.status or filters.responsavel or filters.cliente or filters.de or filters.ate %}
+  {%- if filters.q or filtered %}
   <div class="flex flex-wrap items-center gap-2">
+    {%- if filters.q %}
     <span>{{ t("chamados.resultadosPara", q=filters.q) }}</span>
     <a href="{{ url(q=None) }}" class="{{ button_class('ghost', 'sm') }}">{{ t("chamados.limparBusca") }}</a>
+    {%- endif %}
+    {%- if filtered %}
+    <a href="{{ url(grupo=None, status=None, responsavel=None, cliente=None, de=None, ate=None) }}" class="{{ button_class('ghost', 'sm') }}">{{ icon("x", "size-4") }} {{ t("chamados.limparFiltros") }}</a>
+    {%- endif %}
   </div>
   {%- endif %}
 
@@ -69,14 +96,14 @@
           </th>
           {%- endif %}
           <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.numero") }}</th>
-          <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.tituloColuna") }}</th>
-          <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("chamado.cliente") }}</th>
-          <th scope="col" class="hidden px-3 py-2 font-medium 2xl:table-cell">{{ t("chamado.inicio") }}</th>
+          {{ sortable("titulo", t("chamados.tituloColuna")) }}
+          {{ sortable("cliente", t("chamado.cliente"), "hidden md:table-cell") }}
+          {{ sortable("inicio", t("chamado.inicio"), "hidden xl:table-cell") }}
           <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.status") }}</th>
-          <th scope="col" class="hidden px-3 py-2 font-medium sm:table-cell">{{ t("chamado.responsavel") }}</th>
-          <th scope="col" class="hidden px-3 py-2 font-medium lg:table-cell">{{ t("chamado.grupo") }}</th>
-          <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("chamados.ultimaMovimentacao") }}</th>
-          <th scope="col" class="hidden px-3 py-2 text-right font-medium md:table-cell">{{ t("chamados.totalHoras") }}</th>
+          {{ sortable("responsavel", t("chamado.responsavel"), "hidden sm:table-cell") }}
+          {{ sortable("grupo", t("chamado.grupo"), "hidden lg:table-cell") }}
+          {{ sortable("movimentacao", t("chamados.ultimaMovimentacao"), "hidden md:table-cell") }}
+          {{ sortable("horas", t("chamados.totalHoras"), "hidden text-right md:table-cell") }}
           <th scope="col" class="w-px px-3 py-2 text-right font-medium"><span class="sr-only">{{ t("chamados.editarColuna") }}</span></th>
         </tr>
       </thead>
@@ -101,7 +128,7 @@
             </span>
           </td>
           <td class="hidden px-3 py-2 md:table-cell">{{ ticket.client.name if ticket.client else "—" }}</td>
-          <td class="hidden px-3 py-2 whitespace-nowrap tabular-nums 2xl:table-cell">{{ datetime(ticket.started_at) }}</td>
+          <td class="hidden px-3 py-2 whitespace-nowrap tabular-nums xl:table-cell">{{ datetime(ticket.started_at) }}</td>
           <td class="px-3 py-2">{{ status_badge(ticket.status.kind, ticket.status.name) }}</td>
           <td class="hidden px-3 py-2 sm:table-cell">{{ ticket.assignee.display_name }}</td>
           <td class="hidden px-3 py-2 lg:table-cell">{{ ticket.team.name }}</td>

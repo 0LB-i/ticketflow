@@ -33,7 +33,7 @@ O tipo vem da categoria e pode ser corrigido. Ele é usado nos relatórios. Os n
 
 ## 10.3 Prioridade (removida)
 
-Os chamados **não têm prioridade**, nem impacto e urgência (decisão de 2026-10-13). As filas seguem a ordem de registro, do mais antigo para o mais novo (10.6). A numeração das seções foi mantida.
+Os chamados **não têm prioridade**, nem impacto e urgência (decisão de 2026-10-13). As filas seguem a ordem de registro, do mais novo para o mais antigo (10.6). A numeração das seções foi mantida.
 
 ## 10.4 Registro
 
@@ -135,7 +135,9 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 **Filtros**, em todas as filas: grupo, status (os da fila; o admin também tem Concluído e Cancelado em todas: a fila continua a mesma, só deixa de se limitar aos em andamento), responsável (eu; fora de Meus), cliente (um ou mais, ou "Sem cliente") e período pela data de início.
 
-**Ordenação padrão:** a data de registro (mais antigo primeiro).
+**Ordenação padrão:** a data de registro (mais novo primeiro, decisão de 2026-11-02). No quadro também; com mais cartões que o teto, ficam os mais antigos.
+
+**Ordenar pelo cabeçalho** (2026-11-02): título, cliente, início, responsável, grupo, última movimentação e total de horas. O primeiro clique ordena de A a Z (ou do menor ao maior), o segundo ao contrário e o terceiro volta à ordem padrão. A ordem fica no endereço (`?ordem=titulo`, `?ordem=-titulo`) e continua ao filtrar e ao trocar de aba; no empate, vale a ordem padrão. Os textos seguem a ordem alfabética sem diferenciar maiúscula e acento, e os chamados sem cliente ficam no fim.
 
 **Indicadores na lista:** ícone de "novidade", responsável, há quanto tempo está parado.
 

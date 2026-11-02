@@ -109,6 +109,7 @@ class TicketCounts(BaseModel):
     mine: int
     waiting: int
     watching: int
+    all: int  # em andamento: o que a aba Todos mostra sem um status escolhido
 
 
 class BulkStatusIn(BaseModel):

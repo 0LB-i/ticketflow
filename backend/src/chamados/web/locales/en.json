@@ -221,6 +221,7 @@
     "novidade": "New task from someone else",
     "resultadosPara": "Search results for “{q}”",
     "limparBusca": "Clear search",
+    "limparFiltros": "Clear filters",
     "vazio": {
       "mine": "No tickets with you.",
       "waiting": "No tickets waiting.",
@@ -277,6 +278,7 @@
     "semAcesso": "You don't have access to this ticket",
     "naoEncontrado": "Ticket not found",
     "voltarParaLista": "Back to tickets",
+    "voltarParaPainel": "Back to dashboard",
     "dados": "Ticket details",
     "inicio": "Start",
     "grupo": "Team",

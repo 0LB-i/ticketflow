@@ -67,7 +67,7 @@ def test_cada_um_ve_os_seus_e_o_supervisor_os_do_grupo(
     # Uma coluna por status, na ordem das Configurações, e o Cancelado por último. A Ana não vê
     # o chamado só da Bia, mas vê aquele em que também é responsável.
     assert _colunas(r.text) == {
-        "Pendente": [meu, junto],
+        "Pendente": [junto, meu],
         "Aguardando cliente": [],
         "Entregue": [],
         "Concluído": [],
@@ -90,14 +90,14 @@ def test_cada_um_ve_os_seus_e_o_supervisor_os_do_grupo(
 
     entrar(client, "bia@x.com")
     r = client.get("/quadro")
-    assert _colunas(r.text)["Pendente"] == [meu, da_bia, junto]
+    assert _colunas(r.text)["Pendente"] == [junto, da_bia, meu]
     assert f'<option value="{cenario["ana"]}">Ana</option>' in r.text
     r = client.get(f"/quadro?responsavel={cenario['ana']}")
-    assert _colunas(r.text)["Pendente"] == [meu, junto]
+    assert _colunas(r.text)["Pendente"] == [junto, meu]
     assert 'name="volta" value="/quadro?responsavel=' + cenario["ana"] + '"' in r.text
     # Responsável que não está no quadro: o filtro não vale.
     r = client.get(f"/quadro?responsavel={cenario['caio']}")
-    assert _colunas(r.text)["Pendente"] == [meu, da_bia, junto]
+    assert _colunas(r.text)["Pendente"] == [junto, da_bia, meu]
 
     # Caio (Infra) não é responsável por nenhum e não supervisiona o TI.
     entrar(client, "caio@x.com")
@@ -192,7 +192,7 @@ def test_concluidos_e_cancelados_por_mes(
 
     r = client.get("/quadro")
     colunas = _colunas(r.text)
-    assert colunas["Concluído"] == [este, virada]
+    assert colunas["Concluído"] == [virada, este]
     assert colunas["Cancelado"] == [cancelado]
     assert colunas["Pendente"] == [aberto]  # o aberto fica, por mais parado que esteja
     # Um seletor só, no topo, para as duas colunas (inclusive para quem não tem o filtro).
@@ -208,7 +208,7 @@ def test_concluidos_e_cancelados_por_mes(
     assert 'name="volta" value="/quadro?mes=passado"' in r.text  # mudar o status volta aqui
 
     colunas = _colunas(client.get("/quadro?mes=lixo").text)
-    assert colunas["Concluído"] == [este, virada]  # valor desconhecido: o mês atual
+    assert colunas["Concluído"] == [virada, este]  # valor desconhecido: o mês atual
 
 
 def _inicio_do_mes_passado() -> datetime:

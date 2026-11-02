@@ -42,7 +42,7 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
 
     assert client.get(API, params={"view": "unassigned"}).status_code == 422
     assert client.get(API, params={"view": "news"}).status_code == 422
-    assert numeros(client, view="mine") == [meu, parado]
+    assert numeros(client, view="mine") == [parado, meu]
     assert numeros(client, view="waiting") == [parado]
     assert numeros(client, view="watching") == [da_infra]
     assert set(numeros(client)) == {da_bia, meu, parado, concluido, da_infra}
@@ -51,6 +51,7 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
         "mine": 2,
         "waiting": 1,
         "watching": 1,
+        "all": 4,  # os em andamento: sem o concluído
     }
 
     # Caio não vê as filas do TI

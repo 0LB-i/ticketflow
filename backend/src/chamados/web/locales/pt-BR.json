@@ -221,6 +221,7 @@
     "novidade": "Tarefa nova de outra pessoa",
     "resultadosPara": "Resultados da busca por “{q}”",
     "limparBusca": "Limpar a busca",
+    "limparFiltros": "Limpar os filtros",
     "vazio": {
       "mine": "Nenhum chamado com você.",
       "waiting": "Nenhum chamado aguardando.",
@@ -277,6 +278,7 @@
     "semAcesso": "Você não tem acesso a este chamado",
     "naoEncontrado": "Chamado não encontrado",
     "voltarParaLista": "Voltar para os chamados",
+    "voltarParaPainel": "Voltar para o painel",
     "dados": "Dados do chamado",
     "inicio": "Início",
     "grupo": "Grupo",

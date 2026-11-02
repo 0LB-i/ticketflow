@@ -14,18 +14,23 @@
     {%- endif %}
   </div>
 
-  <form method="get" action="/admin/clientes" hx-get="/admin/clientes" hx-trigger="input changed delay:300ms, change" hx-target="#lista-clientes" hx-select="#lista-clientes" hx-swap="outerHTML" hx-push-url="true" class="flex flex-wrap items-end gap-4">
+  <form method="get" action="/admin/clientes" hx-get="/admin/clientes" hx-trigger="input changed delay:300ms, change" hx-target="#lista-clientes" hx-select="#lista-clientes" hx-swap="outerHTML" hx-push-url="true" class="flex flex-wrap items-start gap-4">
+    {#- Alinhados pelo topo: a dica embaixo da busca não empurra os outros campos. #}
     <div class="flex w-full max-w-md flex-col gap-1">
       <label for="campo-q" class="font-medium">{{ t("comum.buscar") }}</label>
       <input id="campo-q" type="search" name="q" value="{{ filters.q }}" aria-describedby="campo-q-dica" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
       <p id="campo-q-dica" class="text-muted">{{ t("clientes.buscaDica") }}</p>
     </div>
-    <div class="w-48 pb-7">{{ select_field("tipo", t("clientes.tipo"), [("", t("clientes.filtros.todosOsTipos")), ("person", t("clientes.tipos.person")), ("company", t("clientes.tipos.company"))], filters.tipo) }}</div>
-    <div class="w-36 pb-7">{{ select_field("uf", t("clientes.uf"), [("", t("clientes.filtros.todasAsUfs"))] + uf_options, filters.uf) }}</div>
-    <label class="inline-flex cursor-pointer items-center gap-2 pb-9">
-      <input type="checkbox" name="inativos" value="true"{% if filters.inativos %} checked{% endif %} class="size-4 accent-(--tf-primary)">
-      {{ t("comum.mostrarInativos") }}
-    </label>
+    <div class="w-48">{{ select_field("tipo", t("clientes.tipo"), [("", t("clientes.filtros.todosOsTipos")), ("person", t("clientes.tipos.person")), ("company", t("clientes.tipos.company"))], filters.tipo) }}</div>
+    <div class="w-36">{{ select_field("uf", t("clientes.uf"), [("", t("clientes.filtros.todasAsUfs"))] + uf_options, filters.uf) }}</div>
+    {#- Sem rótulo em cima: o espaço vazio do tamanho de um rótulo põe a caixa na altura dos campos. #}
+    <div class="flex flex-col gap-1">
+      <span class="invisible font-medium" aria-hidden="true">&nbsp;</span>
+      <label class="inline-flex h-10 cursor-pointer items-center gap-2">
+        <input type="checkbox" name="inativos" value="true"{% if filters.inativos %} checked{% endif %} class="size-4 accent-(--tf-primary)">
+        {{ t("comum.mostrarInativos") }}
+      </label>
+    </div>
   </form>
 
   <div id="lista-clientes" class="flex flex-col gap-4">

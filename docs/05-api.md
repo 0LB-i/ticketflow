@@ -53,7 +53,7 @@ Authorization: Bearer tf_...
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | `GET` | `/tickets` | Listar e filtrar: fila (`view`: `mine`, `waiting`, `watching`, `all`), `team`, `assignee` (`me` ou o id), `status` e a busca textual `q` |
-| `GET` | `/tickets/counts` | Quantos chamados há em cada fila (os contadores das abas) |
+| `GET` | `/tickets/counts` | Quantos chamados há em cada fila (os contadores das abas); em `all`, os em andamento |
 | `POST` | `/tickets` | Registrar chamado: `assignee` (`"me"` ou um membro do grupo) e `client_id` são obrigatórios |
 | `GET` | `/tickets/{id}` | Detalhe |
 | `PATCH` | `/tickets/{id}` | Alterar campos (título, categoria, cliente e contato, tags) |

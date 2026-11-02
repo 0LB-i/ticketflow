@@ -93,15 +93,12 @@
     <div class="flex min-w-0 flex-col gap-4">
       {#- Linha do tempo: o registro e as tarefas, pela data em que foram feitas. #}
       <ol class="flex flex-col gap-3" aria-label="{{ t('chamado.linhaDoTempo') }}">
+        {#- Quem registrou e quando já estão no cabeçalho. #}
         <li class="rounded-lg border border-border bg-surface p-4 shadow-md">
-          <p class="text-muted">
-            <span class="font-medium text-fg">{{ ticket.created_by.display_name }}</span>
-            · {{ datetime(ticket.created_at) }}
-          </p>
           {%- if ticket.description %}
-          <div class="mt-2 texto-formatado">{{ ticket.description | markdown }}</div>
+          <div class="texto-formatado">{{ ticket.description | markdown }}</div>
           {%- else %}
-          <p class="mt-2 text-muted italic">{{ t("chamado.semDescricao") }}</p>
+          <p class="text-muted italic">{{ t("chamado.semDescricao") }}</p>
           {%- endif %}
           {%- if attachments[None] %}
           {{ attachment_list(attachments[None], "mt-3") }}

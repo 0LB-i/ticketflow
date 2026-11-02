@@ -79,8 +79,10 @@ async def list_page(
     no_client: bool = False,
     started_from: datetime | None = None,
     started_before: datetime | None = None,
+    sort: str | None = None,
+    descending: bool = False,
 ) -> TicketPage:
-    """Uma página da lista (fila e filtros como em `service.list_tickets`)."""
+    """Uma página da lista (fila, filtros e ordem como em `service.list_tickets`)."""
     rows, next_cursor = await service.list_tickets(
         db,
         auth,
@@ -95,6 +97,8 @@ async def list_page(
         no_client=no_client,
         started_from=started_from,
         started_before=started_before,
+        sort=sort,
+        descending=descending,
     )
     paths = await service.category_paths(db, [t for t, _, _ in rows])
     return TicketPage(

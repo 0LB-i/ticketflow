@@ -217,7 +217,7 @@ def build(app: FastAPI) -> MCPServer:
         limit: Annotated[int, Field(ge=1, le=100)] = 20,
         cursor: Annotated[str | None, Field(description="o next_cursor da página anterior")] = None,
     ) -> dict[str, Any]:
-        """Lista os chamados que a pessoa vê, do mais antigo para o mais novo, com filtros."""
+        """Lista os chamados que a pessoa vê, do mais novo para o mais antigo, com filtros."""
         async with call(ctx) as (db, auth, _):
             page = await queries.list_page(
                 db,

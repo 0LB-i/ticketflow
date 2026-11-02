@@ -50,6 +50,17 @@ ALL_KINDS = "todos"  # o status da aba Todos que mostra também os encerrados e 
 # "e mais N", para o cookie do aviso não passar de 4 KB.
 BULK_MAX = 200
 FAILURES_SHOWN = 10
+# Colunas que ordenam a lista (o cabeçalho): `?ordem=titulo` de A a Z, `?ordem=-titulo` de Z a A;
+# sem `ordem`, a padrão (o mais novo primeiro).
+SORTS: dict[str, str] = {
+    "titulo": "title",
+    "cliente": "client",
+    "responsavel": "assignee",
+    "grupo": "team",
+    "inicio": "started",
+    "movimentacao": "updated",
+    "horas": "time",
+}
 # Busca do cabeçalho (docs/13 §13.1): "1234" ou "#1234" abre o chamado.
 NUMBER = re.compile(r"^#?(\d+)$")
 
@@ -85,6 +96,7 @@ async def tickets_page(
     de: str | None = None,
     ate: str | None = None,
     q: str | None = None,
+    ordem: str | None = None,
     cursor: str | None = None,
 ) -> HTMLResponse:
     q = (q or "").strip()[:200] or None
@@ -111,6 +123,10 @@ async def tickets_page(
     mine = view != "mine" and responsavel == "eu"
     clients = parse_uuids(cliente)
     no_client = NO_CLIENT in (cliente or [])
+    sort = (ordem or "").removeprefix("-")
+    if sort not in SORTS:
+        sort, ordem = "", None
+    descending = bool(ordem and ordem.startswith("-"))
     start, end = _date(de), _date(ate)
     period_error = bool(start and end and start > end)
     started_from = started_before = None
@@ -133,6 +149,8 @@ async def tickets_page(
         no_client=no_client,
         started_from=started_from,
         started_before=started_before,
+        sort=SORTS[sort] if sort else None,
+        descending=descending,
     )
     client_names = {
         NO_CLIENT: page.t("relatorios.semCliente"),
@@ -148,12 +166,19 @@ async def tickets_page(
         "de": start.isoformat() if start else None,
         "ate": end.isoformat() if end else None,
         "q": q,
+        "ordem": ordem,
     }
     query = {k: v for k, v in filters.items() if v}
 
     def url(**changes: str | None) -> str:
         params = {k: v for k, v in {**query, **changes}.items() if v}
         return f"/chamados?{urlencode(params, doseq=True)}"
+
+    def sort_url(column: str) -> str:
+        """O próximo clique no cabeçalho: de A a Z, de Z a A e de volta à ordem padrão."""
+        if sort != column:
+            return url(ordem=column)
+        return url(ordem=None if descending else f"-{column}")
 
     if view == "all":
         status_choices = [("", page.t("chamados.filtros.emAndamento"))]
@@ -171,6 +196,9 @@ async def tickets_page(
         view=view,
         filters=filters,
         url=url,
+        sort_url=sort_url,
+        sort=sort,
+        descending=descending,
         # Trocar de aba mantém os outros filtros; status e responsável mudam de sentido por aba.
         tab_url=lambda slug: url(aba=slug, status=None, responsavel=None),
         current_url=url(),

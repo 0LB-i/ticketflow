@@ -289,8 +289,58 @@ def search_filter(q: str) -> ColumnElement[bool] | None:
 
 
 def _ordered(stmt: Any) -> Any:
-    """Ordenação padrão: o mais antigo primeiro (docs/10 §10.6)."""
-    return stmt.order_by(Ticket.created_at, Ticket.id)
+    """Ordenação padrão: o mais novo primeiro (docs/10 §10.6)."""
+    return stmt.order_by(Ticket.created_at.desc(), Ticket.id.desc())
+
+
+# Ordem alfabética da mesma forma em qualquer servidor (sem depender do locale do banco): o
+# ICU põe "ana" e "Álvaro" junto do "a", não depois do "Z".
+ALPHABETIC = "und-x-icu"
+
+
+def _name_of(column: Any, key: Any) -> Any:
+    return select(column).where(key).correlate(Ticket).scalar_subquery().collate(ALPHABETIC)
+
+
+# Colunas que ordenam a lista (o cabeçalho da tabela), além da ordem padrão e do "time" (o tempo
+# gasto, em `_sorted`).
+SORTS: dict[str, Any] = {
+    "title": lambda: Ticket.title.collate(ALPHABETIC),
+    "client": lambda: _name_of(Client.name, Client.id == Ticket.client_id),
+    "assignee": lambda: _name_of(User.display_name, User.id == Ticket.assignee_id),
+    "team": lambda: _name_of(Team.name, Team.id == Ticket.team_id),
+    "started": lambda: Ticket.started_at,
+    "updated": lambda: Ticket.updated_at,
+}
+
+
+def _sorted(stmt: Any, sort: str, descending: bool) -> Any:
+    """Pela coluna escolhida (os sem valor, ex. sem cliente, no fim) e, no empate, a padrão."""
+    if sort == "time":
+        # A soma de todos de uma vez: o time_spent() de cada chamado levaria segundos com 50 mil.
+        hours = (
+            select(TicketComment.ticket_id, func.sum(TicketComment.time_spent_minutes).label("m"))
+            .where(TicketComment.deleted_at.is_(None))
+            .group_by(TicketComment.ticket_id)
+            .subquery()
+        )
+        stmt = stmt.outerjoin(hours, hours.c.ticket_id == Ticket.id)
+        column = func.coalesce(hours.c.m, 0)
+    else:
+        column = SORTS[sort]()
+    key = column.desc() if descending else column.asc()
+    return stmt.order_by(key.nulls_last(), Ticket.created_at.desc(), Ticket.id.desc())
+
+
+def _decode_offset(cursor: str) -> int:
+    """O cursor da lista ordenada por uma coluna: quantos já foram mostrados."""
+    try:
+        (offset,) = json.loads(base64.urlsafe_b64decode(cursor))
+        if isinstance(offset, int) and offset > 0:
+            return offset
+    except (ValueError, TypeError):
+        pass
+    raise HTTPException(422, "Cursor inválido.")
 
 
 async def list_tickets(
@@ -308,12 +358,15 @@ async def list_tickets(
     no_client: bool = False,
     started_from: datetime | None = None,
     started_before: datetime | None = None,
+    sort: str | None = None,
+    descending: bool = False,
 ) -> tuple[list[tuple[Ticket, bool, int]], str | None]:
     """Chamados visíveis de uma fila, com o aviso de novidade e o tempo gasto de cada um. O admin,
     escolhendo status (`kinds`), vê esses status em qualquer fila: também os concluídos e os
-    cancelados dos seus, dos seus grupos e dos que acompanha."""
+    cancelados dos seus, dos seus grupos e dos que acompanha. Com `sort` (`SORTS` ou "time"), na
+    ordem dessa coluna; a página seguinte, então, vem pela posição (o valor da coluna muda)."""
     any_status = bool(kinds) and auth.actor.role == "admin"
-    stmt = _ordered(
+    stmt = (
         select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
         # A lista não mostra a descrição (até 50 mil caracteres por chamado), quem registrou nem
@@ -360,16 +413,27 @@ async def list_tickets(
         stmt = stmt.where(Ticket.started_at >= started_from)
     if started_before is not None:
         stmt = stmt.where(Ticket.started_at < started_before)
-    if cursor:
-        created_at, ticket_id = _decode_cursor(cursor)
-        stmt = stmt.where(
-            or_(
-                Ticket.created_at > created_at,
-                and_(Ticket.created_at == created_at, Ticket.id > ticket_id),
+    if sort is not None:
+        offset = _decode_offset(cursor) if cursor else 0
+        stmt = _sorted(stmt, sort, descending).offset(offset)
+    else:
+        stmt = _ordered(stmt)
+        if cursor:
+            created_at, ticket_id = _decode_cursor(cursor)
+            stmt = stmt.where(
+                or_(
+                    Ticket.created_at < created_at,
+                    and_(Ticket.created_at == created_at, Ticket.id < ticket_id),
+                )
             )
-        )
     rows = [(t, news, minutes) for t, news, minutes in (await db.execute(stmt)).all()]
-    next_cursor = _encode_cursor(rows[limit - 1][0]) if len(rows) > limit else None
+    next_cursor = None
+    if len(rows) > limit:
+        if sort is not None:
+            raw = json.dumps([offset + limit])
+            next_cursor = base64.urlsafe_b64encode(raw.encode()).decode()
+        else:
+            next_cursor = _encode_cursor(rows[limit - 1][0])
     return rows[:limit], next_cursor
 
 
@@ -392,14 +456,14 @@ async def board(
     do supervisor, também os dos grupos que supervisiona; o admin vê todos. Concluídos e
     cancelados só do mês (o início dele e o do seguinte), pela data da conclusão ou do
     cancelamento, senão essas colunas crescem sempre. O segundo valor diz se passou do teto
-    (ficam os mais antigos)."""
+    (ficam os mais antigos, para nenhum parado sumir; na tela, o mais novo primeiro)."""
     actor = auth.actor
     scope = (
         true()
         if actor.role == "admin"
         else or_(assigned_to(auth.user.id), Ticket.team_id.in_(actor.supervises))
     )
-    stmt = _ordered(
+    stmt = (
         select(Ticket, has_news(auth.user.id).label("has_news"))
         .join(Ticket.status)
         # Os observadores e os outros responsáveis entram nas ações de cada cartão.
@@ -417,18 +481,23 @@ async def board(
                 and_(TicketStatus.kind == "canceled", _in_month(Ticket.canceled_at, month)),
             ),
         )
+        .order_by(Ticket.created_at, Ticket.id)
         .limit(BOARD_LIMIT + 1)
     )
     rows = [(t, news) for t, news in (await db.execute(stmt)).all()]
-    return rows[:BOARD_LIMIT], len(rows) > BOARD_LIMIT
+    return rows[:BOARD_LIMIT][::-1], len(rows) > BOARD_LIMIT
 
 
 async def counts(db: AsyncSession, auth: Auth) -> dict[str, int]:
-    """Quantos chamados visíveis há em cada fila, numa consulta só."""
+    """Quantos chamados visíveis há em cada fila, numa consulta só. Em Todos, os em andamento
+    (o que a aba mostra sem um status escolhido)."""
     views: tuple[TicketView, ...] = ("mine", "waiting", "watching")
     row = (
         await db.execute(
-            select(*(func.count().filter(view_filter(auth, v)).label(v) for v in views))
+            select(
+                *(func.count().filter(view_filter(auth, v)).label(v) for v in views),
+                func.count().filter(TicketStatus.kind.in_(ACTIVE)).label("all"),
+            )
             .select_from(Ticket)
             .join(Ticket.status)
             .where(ticket_visibility_filter(auth.actor))

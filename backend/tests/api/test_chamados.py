@@ -861,27 +861,27 @@ def test_cancelar_pelo_registrante(client: TestClient, cenario: dict[str, Any]) 
 
 
 def test_lista_filtra_e_pagina_na_ordem_padrao(client: TestClient, cenario: dict[str, Any]) -> None:
-    # A ordem padrão é a do registro.
+    # A ordem padrão é a do registro, o mais novo primeiro.
     registrar(client, cenario, title="Primeiro", assignee=cenario["bia"])
     meu = registrar(client, cenario, title="Segundo")
     registrar(client, cenario, title="Terceiro", assignee=cenario["bia"])
     registrar(client, cenario, title="Quarto", assignee=cenario["bia"])
 
     pagina = client.get(API, params={"limit": 2}).json()
-    assert [t["title"] for t in pagina["items"]] == ["Primeiro", "Segundo"]
+    assert [t["title"] for t in pagina["items"]] == ["Quarto", "Terceiro"]
     resto = client.get(API, params={"limit": 2, "cursor": pagina["next_cursor"]}).json()
-    assert [t["title"] for t in resto["items"]] == ["Terceiro", "Quarto"]
+    assert [t["title"] for t in resto["items"]] == ["Segundo", "Primeiro"]
     assert resto["next_cursor"] is None
 
     def titulos(**params: Any) -> list[str]:
         return [t["title"] for t in client.get(API, params=params).json()["items"]]
 
     assert titulos(assignee="me") == ["Segundo"]
-    assert titulos(assignee=cenario["bia"]) == ["Primeiro", "Terceiro", "Quarto"]
+    assert titulos(assignee=cenario["bia"]) == ["Quarto", "Terceiro", "Primeiro"]
     assert titulos(team=cenario["infra"]) == []
     client.post(f"{API}/{meu['number']}/transitions", json={"action": "wait", "comment": "x"})
     assert titulos(status=["waiting"]) == ["Segundo"]
-    assert titulos(status=["open", "closed"]) == ["Primeiro", "Terceiro", "Quarto"]
+    assert titulos(status=["open", "closed"]) == ["Quarto", "Terceiro", "Primeiro"]
     assert client.get(API, params={"cursor": "lixo"}).status_code == 422
     assert client.get(API, params={"assignee": "lixo"}).status_code == 422
     assert client.get(API, params={"assignee": "none"}).status_code == 422
