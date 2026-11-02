@@ -104,6 +104,8 @@ async def download(
         headers={
             "X-Content-Type-Options": "nosniff",
             "Content-Security-Policy": "sandbox",
-            "Cache-Control": "private, max-age=86400",
+            # Sem cache no navegador: depois de Sair, quem usar o computador em seguida não abre
+            # o anexo (como as telas, web/page.py).
+            "Cache-Control": "no-store",
         },
     )

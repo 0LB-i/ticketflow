@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -11,7 +12,9 @@ from sqlalchemy.orm import Session
 from chamados.config import Settings
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.identity import ratelimit
+from chamados.modules.identity import router as identity_router
 from chamados.modules.identity.models import LoginIpFailure, User, UserSession
+from chamados.modules.identity.passwords import verify_password
 from chamados.modules.identity.sessions import now
 from tests.apoio import rodar
 from tests.conftest import SENHA, FakeMailer, criar_usuario, entrar, outra_sessao
@@ -51,6 +54,22 @@ def test_mensagem_generica_nao_revela_se_o_email_existe(client: TestClient, db: 
     assert senha_errada.status_code == sem_conta.status_code == 401
     assert senha_errada.json() == sem_conta.json()
     assert senha_errada.json()["detail"] == "E-mail ou senha inválidos."
+
+
+def test_falha_sem_conta_nao_guarda_o_texto_digitado_na_auditoria(
+    client: TestClient, db: Session
+) -> None:
+    """Quem digita a senha no campo do login por engano não a deixa em claro na auditoria."""
+    criar_usuario(db)
+    client.post(LOGIN, json={"login": "MinhaSenha#2026", "password": "x" * 12})
+    client.post(LOGIN, json={"login": "ana@exemplo.com", "password": "x" * 12})
+    falhas = db.scalars(
+        select(AuditLog).where(AuditLog.action == "auth.login_failed").order_by(AuditLog.id)
+    ).all()
+    assert [f.after for f in falhas] == [
+        {"motivo": "conta inexistente ou inativa"},
+        {"login": "ana@exemplo.com", "motivo": "senha errada"},
+    ]
 
 
 def test_usuario_inativo_ou_sem_senha_nao_entra(client: TestClient, db: Session) -> None:
@@ -136,11 +155,22 @@ def test_falhas_de_outro_ip_nao_bloqueiam_o_dono(client: TestClient, db: Session
     assert _falhas_da_conta(db, user) == 10
 
 
-def test_espera_progressiva_apos_5_falhas(client: TestClient, db: Session) -> None:
+def test_espera_progressiva_apos_5_falhas(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     user = criar_usuario(db)
     _falhas(db, user, 5)
-    # Dentro da espera, a tentativa é recusada sem conferir a senha
+    conferidas: list[str | None] = []
+
+    def verify(password_hash: str | None, password: str) -> tuple[bool, bool]:
+        conferidas.append(password_hash)
+        return verify_password(password_hash, password)
+
+    monkeypatch.setattr(identity_router, "verify_password", verify)
+    # Dentro da espera, a tentativa é recusada sem conferir a senha, mas leva o tempo de uma
+    # conferência (a do hash falso): a resposta rápida revelaria que a conta existe.
     assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 401
+    assert conferidas == [None]
     db.execute(update(LoginIpFailure).values(at=now() - timedelta(minutes=2)))
     db.commit()
     assert client.post(LOGIN, json={"login": user.email, "password": SENHA}).status_code == 204

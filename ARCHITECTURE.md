@@ -495,10 +495,10 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 | Tokens de API | `Authorization: Bearer`; só o hash no banco; escopo `read`/`write`; fora da administração; validade de 30, 90 (padrão) ou 365 dias na tela (365 no `chamados token create`); revogação pela própria pessoa (`/meus-tokens`), pela administração (`/admin/tokens`), pelo `chamados token revoke` e ao desativar ou excluir a pessoa |
 | Limite de requisições | Por token de API (o `Authorization`), no nginx (`limit_req`): 10/s com rajada de até 20, depois `429` com `Retry-After`. Vale para `/api` e `/mcp`; as telas, sem o cabeçalho, ficam de fora |
 | CSRF | Token sincronizado: cookie `tf_csrf` (legível pelo JavaScript da página) conferido com o hash da sessão; nas telas, num campo escondido (`csrf_token`) ou no header `X-CSRF-Token` (HTMX e envio de anexos) |
-| Força bruta | Limite por IP na tabela `login_ip_failures` (UNLOGGED; vale para todos os workers, com uma trava por IP para as tentativas simultâneas) + espera progressiva e bloqueio da conta para o IP que errou, pelas tentativas marcadas com o `user_id` (`ratelimit.py`): um IP atacando não bloqueia o dono |
+| Força bruta | Limite por IP na tabela `login_ip_failures` (UNLOGGED; vale para todos os workers, com uma trava por IP para as tentativas simultâneas) + espera progressiva e bloqueio da conta para o IP que errou, pelas tentativas marcadas com o `user_id` (`ratelimit.py`): um IP atacando não bloqueia o dono. A recusa da conta em espera leva o tempo de uma conferência do Argon2, como a de uma conta inexistente (o tempo não revela quais contas existem); a falha sem conta não guarda na auditoria o texto digitado (pode ser a senha) |
 | Permissões | Sempre no backend (3.4); a interface só esconde botões |
-| Conteúdo | Markdown sem HTML bruto; logotipo sem SVG e conferido pelos bytes; `X-Content-Type-Options: nosniff` |
-| Cabeçalhos | CSP, HSTS, X-Frame-Options e Referrer-Policy no nginx (`deploy/nginx.conf`) |
+| Conteúdo | Markdown sem HTML bruto; logotipo sem SVG e conferido pelos bytes; `X-Content-Type-Options: nosniff`; anexos com `Cache-Control: no-store` (como as telas com sessão) |
+| Cabeçalhos | CSP, HSTS, X-Frame-Options e Referrer-Policy no nginx (`deploy/nginx.conf`), sem a versão do nginx (`server_tokens off`) |
 | Rastro | `audit_log` e `ticket_events` (só inserção) |
 
 ## 7. Testes e verificação

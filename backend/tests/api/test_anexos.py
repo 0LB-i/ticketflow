@@ -41,6 +41,8 @@ def test_envio_e_download_antes_do_vinculo(
     assert baixado.headers["content-disposition"].startswith("inline")
     assert baixado.headers["x-content-type-options"] == "nosniff"
     assert baixado.headers["content-security-policy"] == "sandbox"
+    # Nada fica no cache do navegador: depois de Sair, quem usar o computador não o abre
+    assert baixado.headers["cache-control"] == "no-store"
 
     # Ainda não vinculado: só quem enviou baixa
     entrar(client, "bia@x.com")

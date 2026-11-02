@@ -166,12 +166,14 @@ map \$status \$ticketflow_retry_after {
 server {
     listen 80 default_server;
     server_name $DOMINIO;
+    server_tokens off;  # sem a versão do nginx nas respostas e nas páginas de erro
     return 301 https://\$host\$request_uri;
 }
 
 server {
     listen 443 ssl http2 default_server;
     server_name $DOMINIO;
+    server_tokens off;  # sem a versão do nginx nas respostas e nas páginas de erro
     ssl_certificate     $TLS_DIR/ticketflow.crt;
     ssl_certificate_key $TLS_DIR/ticketflow.key;
 

@@ -73,12 +73,14 @@ async def login(
     t = now()
 
     def fail(reason: str) -> HTTPException:
+        # Sem conta, o texto digitado não vai para a auditoria: pode ser a senha, digitada no
+        # campo do login por engano.
         record(
             db,
             "auth.login_failed",
             request=request,
             actor_user_id=user.id if user else None,
-            after={"login": login_id, "motivo": reason},
+            after={"login": login_id, "motivo": reason} if user else {"motivo": reason},
         )
         return HTTPException(401, INVALID)
 
@@ -89,6 +91,9 @@ async def login(
         raise exc
     failures, last_failed_at = await ratelimit.account_failures(db, user.id, ip)
     if ratelimit.account_must_wait(failures, last_failed_at, t):
+        # Recusa sem conferir a senha, mas no mesmo tempo: a resposta rápida revelaria que a
+        # conta existe.
+        await run_in_threadpool(verify_password, None, data.password)
         exc = fail("conta em espera")
         await db.commit()
         raise exc
