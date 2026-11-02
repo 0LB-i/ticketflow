@@ -130,8 +130,10 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 | **Meus chamados** | Chamados em que sou o responsável, ainda abertos | Todos |
 | **Aguardando** | Chamados dos meus grupos parados em `waiting` | Todos |
 | **Acompanhando** | Chamados em que sou observador | Todos |
-| **Todos** | Tudo o que vejo, com filtro por grupo, responsável e status | Todos |
+| **Todos** | Tudo o que vejo; abre só com os em andamento (sem concluídos e cancelados), e o filtro de status mostra os outros | Todos |
 | **Aprovações** | Chamados aguardando a minha aprovação | Supervisores (Fase 2) |
+
+**Filtros**, em todas as filas: grupo, status (os da fila), responsável (eu; fora de Meus), cliente (um ou mais, ou "Sem cliente") e período pela data de início.
 
 **Ordenação padrão:** a data de registro (mais antigo primeiro).
 

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from tests.apoio import API, registrar
-from tests.conftest import criar_usuario, entrar
+from tests.conftest import criar_cliente, criar_usuario, entrar
 
 
 def _numeros(html: str) -> list[int]:
@@ -107,11 +107,51 @@ def test_filas_contadores_e_filtros(client: TestClient, cenario: dict[str, Any])
     assert _numeros(client.get("/chamados?aba=todos").text) == [meu, parado, da_bia]
     assert _numeros(client.get("/chamados?aba=todos&status=waiting").text) == [parado]
     assert _numeros(client.get("/chamados?aba=todos&responsavel=eu").text) == [meu, parado]
-    # Status e responsável só valem na aba Todos.
-    assert _numeros(client.get("/chamados?aba=meus&status=waiting").text) == [meu, parado]
+    # Status também nas outras filas, só com os status delas; responsável, fora da aba Meus.
+    assert _numeros(client.get("/chamados?aba=meus&status=waiting").text) == [parado]
+    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == [meu, parado]
+    assert _numeros(client.get("/chamados?aba=aguardando&responsavel=eu").text) == [parado]
+    assert 'name="responsavel"' not in client.get("/chamados?aba=meus").text
     r = client.get(f"/chamados?aba=todos&grupo={cenario['infra']}")
     assert "Nenhum chamado encontrado." in r.text
     assert _numeros(client.get("/chamados?aba=todos&grupo=invalido").text) == [meu, parado, da_bia]
+
+
+def test_todos_comeca_nos_em_andamento(client: TestClient, cenario: dict[str, Any]) -> None:
+    aberto = registrar(client, cenario)["number"]
+    encerrado = registrar(client, cenario)["number"]
+    client.post(f"{API}/{encerrado}/transitions", json={"action": "cancel", "comment": "Engano"})
+    assert _numeros(client.get("/chamados?aba=todos").text) == [aberto]
+    assert _numeros(client.get("/chamados?aba=todos&status=todos").text) == [aberto, encerrado]
+    assert _numeros(client.get("/chamados?aba=todos&status=canceled").text) == [encerrado]
+
+
+def test_filtro_de_cliente(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
+    outro = criar_cliente(db, "Outro Cliente", "11222333000181")
+    do_padrao = registrar(client, cenario)["number"]
+    do_outro = registrar(client, cenario, client_id=outro)["number"]
+    r = client.get(f"/chamados?aba=todos&cliente={outro}")
+    assert _numeros(r.text) == [do_outro]
+    assert "Outro Cliente" in r.text  # a etiqueta do escolhido
+    r = client.get(f"/chamados?aba=todos&cliente={outro}&cliente={cenario['cliente']}")
+    assert _numeros(r.text) == [do_padrao, do_outro]
+    assert _numeros(client.get("/chamados?aba=todos&cliente=sem-cliente").text) == []
+    # Trocar de aba mantém o cliente.
+    assert f"/chamados?aba=meus&amp;cliente={outro}" in r.text
+
+
+def test_filtro_de_periodo(client: TestClient, cenario: dict[str, Any]) -> None:
+    antigo = registrar(client, cenario, started_at="2026-03-10T23:30:00-03:00")["number"]
+    recente = registrar(client, cenario, started_at="2026-03-20T09:00:00-03:00")["number"]
+    assert _numeros(client.get("/chamados?aba=todos&de=2026-03-11").text) == [recente]
+    assert _numeros(client.get("/chamados?aba=todos&ate=2026-03-10").text) == [antigo]
+    r = client.get("/chamados?aba=todos&de=2026-03-10&ate=2026-03-20")
+    assert _numeros(r.text) == [antigo, recente]
+    # Fim antes do início: o aviso, e o período não filtra.
+    r = client.get("/chamados?aba=todos&de=2026-03-20&ate=2026-03-10")
+    assert "A data final precisa ser igual ou depois da inicial." in r.text
+    assert _numeros(r.text) == [antigo, recente]
+    assert _numeros(client.get("/chamados?aba=todos&de=invalida").text) == [antigo, recente]
 
 
 def test_quem_nao_tem_grupo_comeca_em_todos(
@@ -140,7 +180,8 @@ def test_carregar_mais(client: TestClient, cenario: dict[str, Any]) -> None:
     numeros = [registrar(client, cenario)["number"] for _ in range(51)]
     r = client.get("/chamados")
     assert _numeros(r.text) == numeros[:50]
-    proxima = r.text.split('hx-get="')[1].split('"')[0].replace("&amp;", "&")
+    proxima = r.text.split('hx-get="/chamados?')[1].split('"')[0].replace("&amp;", "&")
+    proxima = f"/chamados?{proxima}"
     assert _numeros(client.get(proxima).text) == numeros[50:]
 
 

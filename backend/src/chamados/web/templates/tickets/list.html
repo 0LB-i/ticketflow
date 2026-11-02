@@ -1,9 +1,15 @@
 {#- Filas (docs/10 §10.6, docs/13 §13.5): uma aba por fila, o mais antigo primeiro. -#}
 {% extends "app.html" %}
-{% from "_ui.html" import button_class, select_field, status_badge with context %}
+{% from "_ui.html" import button_class, field, select_field, status_badge with context %}
+{% from "_fields.html" import client_chips with context %}
 {% from "_icons.html" import icon %}
 
 {% block title %}{{ t("chamados.titulo") }}{% endblock %}
+
+{% block head %}
+{#- As etiquetas do filtro de cliente estão no chamado.js; sem editor, o Tiptap não vem. #}
+<script src="{{ static('js/chamado.js') }}" defer></script>
+{% endblock %}
 
 {% block content %}
 <div class="mx-auto flex max-w-7xl flex-col gap-4" data-em-massa-espaco>
@@ -21,17 +27,24 @@
     {%- endfor %}
   </nav>
 
-  {#- Os filtros são aplicados ao escolher (static/js/app.js); a aba e a busca continuam. #}
-  <form method="get" action="/chamados" data-envia-ao-mudar class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  {#- Os filtros são aplicados ao escolher (static/js/app.js; as etiquetas, no chamado.js); as
+      datas, com o botão Aplicar ou o Enter. A aba e a busca continuam. #}
+  <form method="get" action="/chamados" data-envia-ao-mudar class="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
     <input type="hidden" name="aba" value="{{ tab }}">
     {%- if filters.q %}
     <input type="hidden" name="q" value="{{ filters.q }}">
     {%- endif %}
     {{ select_field("grupo", t("chamado.grupo"), [("", t("chamados.filtros.todosOsGrupos"))] + team_options, filters.grupo or "") }}
-    {%- if view == "all" %}
-    {{ select_field("status", t("chamados.status"), [("", t("chamados.filtros.todos"))] + kind_options, filters.status or "") }}
+    {{ select_field("status", t("chamados.status"), kind_options, filters.status or "") }}
+    {%- if view != "mine" %}
     {{ select_field("responsavel", t("chamado.responsavel"), [("", t("chamados.filtros.todos")), ("eu", t("chamados.filtros.eu"))], filters.responsavel or "") }}
     {%- endif %}
+    {%- set placeholder = t("chamados.filtros.adicionar") if filters.cliente else t("chamados.filtros.todosOsClientes") %}
+    {{ client_chips("cliente", t("chamado.cliente"), filters.cliente, client_names, placeholder, "chamados.filtros.tirarFiltro", "/relatorios/clientes") }}
+    {{ field("de", t("chamados.filtros.inicioDe"), type="date", value=filters.de or "") }}
+    {{ field("ate", t("chamados.filtros.inicioAte"), type="date", value=filters.ate or "", error=t("chamados.filtros.periodoInvalido") if period_error else None) }}
+    {#- mt-6: a altura do rótulo, na linha dos campos. #}
+    <div><button type="submit" class="mt-6 {{ button_class('secondary') }}">{{ t("chamados.filtros.aplicar") }}</button></div>
   </form>
 
   {%- if filters.q %}

@@ -298,6 +298,10 @@ async def list_tickets(
     q: str | None,
     limit: int,
     cursor: str | None,
+    clients: Sequence[uuid.UUID] = (),
+    no_client: bool = False,
+    started_from: datetime | None = None,
+    started_before: datetime | None = None,
 ) -> tuple[list[tuple[Ticket, bool, int]], str | None]:
     """Chamados visíveis de uma fila, com o aviso de novidade e o tempo gasto de cada um."""
     stmt = _ordered(
@@ -335,6 +339,18 @@ async def list_tickets(
         )
     if kinds:
         stmt = stmt.where(TicketStatus.kind.in_(kinds))
+    # Clientes: os escolhidos e, com `no_client`, também os chamados sem cliente.
+    by_client: list[ColumnElement[bool]] = (
+        [Ticket.client.has(Client.public_id.in_(clients))] if clients else []
+    )
+    if no_client:
+        by_client.append(Ticket.client_id.is_(None))
+    if by_client:
+        stmt = stmt.where(or_(*by_client))
+    if started_from is not None:
+        stmt = stmt.where(Ticket.started_at >= started_from)
+    if started_before is not None:
+        stmt = stmt.where(Ticket.started_at < started_before)
     if cursor:
         created_at, ticket_id = _decode_cursor(cursor)
         stmt = stmt.where(

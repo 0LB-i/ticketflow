@@ -6,6 +6,7 @@ funções da API (`tickets/router.py`); a permissão de cada chamado é conferid
 
 import re
 import uuid
+from datetime import date, datetime, time, timedelta
 from typing import Annotated
 from urllib.parse import urlencode
 
@@ -14,13 +15,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
 from chamados.core.i18n import translate as translate_api
+from chamados.core.timezone import LOCAL_TZ
 from chamados.db.session import DB
 from chamados.modules.catalog import router as catalog_api
 from chamados.modules.organization import router as organization_api
+from chamados.modules.reports.service import client_labels
 from chamados.modules.tickets import queries, service
 from chamados.modules.tickets import router as tickets_api
 from chamados.modules.tickets.schemas import BulkStatusIn, StatusKind, TicketView
 from chamados.web.page import HOME, FlashKind, LoggedPageDep, Redirect, check_csrf, safe_next
+from chamados.web.reports_state import NO_CLIENT, Values, parse_uuids
 
 router = APIRouter()
 
@@ -33,6 +37,15 @@ TABS: dict[str, TicketView] = {
     "todos": "all",
 }
 KINDS: tuple[StatusKind, ...] = ("open", "waiting", "delivered", "closed", "canceled")
+ACTIVE_KINDS: tuple[StatusKind, ...] = ("open", "waiting", "delivered")
+# Os status que cada fila mostra (service.view_filter): as opções do filtro de status.
+TAB_KINDS: dict[TicketView, tuple[StatusKind, ...]] = {
+    "mine": ACTIVE_KINDS,
+    "waiting": ("waiting", "delivered"),
+    "watching": ACTIVE_KINDS,
+    "all": KINDS,
+}
+ALL_KINDS = "todos"  # o status da aba Todos que mostra também os encerrados e os cancelados
 # Limite do status em massa (BulkStatusIn) e quantas falhas o aviso lista: o resto vira
 # "e mais N", para o cookie do aviso não passar de 4 KB.
 BULK_MAX = 200
@@ -44,6 +57,13 @@ NUMBER = re.compile(r"^#?(\d+)$")
 def _uuid(value: str | None) -> uuid.UUID | None:
     try:
         return uuid.UUID(value) if value else None
+    except ValueError:
+        return None
+
+
+def _date(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat(value) if value else None
     except ValueError:
         return None
 
@@ -61,6 +81,9 @@ async def tickets_page(
     grupo: str | None = None,
     status: str | None = None,
     responsavel: str | None = None,
+    cliente: Values = None,
+    de: str | None = None,
+    ate: str | None = None,
     q: str | None = None,
     cursor: str | None = None,
 ) -> HTMLResponse:
@@ -71,33 +94,68 @@ async def tickets_page(
     tab = aba if aba in TABS else ("meus" if auth.actor.teams else "todos")
     view = TABS[tab]
     team = _uuid(grupo)
-    # Status e responsável só filtram a aba Todos; as outras já os definem.
-    kind = next((k for k in KINDS if k == status), None) if view == "all" else None
-    mine = view == "all" and responsavel == "eu"
+    # Status: os da fila. Na aba Todos, sem escolha, só os em andamento; "todos" tira o filtro.
+    kind = status if status in TAB_KINDS[view] else None
+    if kind:
+        kinds = [kind]
+    elif view == "all" and status != ALL_KINDS:
+        kinds = list(ACTIVE_KINDS)
+    else:
+        kinds = []
+    # Responsável: a aba Meus já é a dos chamados da pessoa.
+    mine = view != "mine" and responsavel == "eu"
+    clients = parse_uuids(cliente)
+    no_client = NO_CLIENT in (cliente or [])
+    start, end = _date(de), _date(ate)
+    period_error = bool(start and end and start > end)
+    started_from = started_before = None
+    if not period_error:
+        if start:
+            started_from = datetime.combine(start, time(), LOCAL_TZ)
+        if end:
+            started_before = datetime.combine(end + timedelta(days=1), time(), LOCAL_TZ)
     result = await queries.list_page(
         db,
         auth,
         view=view,
         team=team,
         assignee="me" if mine else None,
-        kinds=[kind] if kind else [],
+        kinds=kinds,
         q=q,
         limit=50,
         cursor=cursor,
+        clients=clients,
+        no_client=no_client,
+        started_from=started_from,
+        started_before=started_before,
     )
-    filters = {
+    client_names = {
+        NO_CLIENT: page.t("relatorios.semCliente"),
+        **{str(c): name for c, name in (await client_labels(db, clients)).items()},
+    }
+    chosen_clients = [str(c) for c in clients] + ([NO_CLIENT] if no_client else [])
+    filters: dict[str, str | list[str] | None] = {
         "aba": tab,
         "grupo": str(team) if team else None,
-        "status": kind,
+        "status": kind or (ALL_KINDS if view == "all" and status == ALL_KINDS else None),
         "responsavel": "eu" if mine else None,
+        "cliente": chosen_clients,
+        "de": start.isoformat() if start else None,
+        "ate": end.isoformat() if end else None,
         "q": q,
     }
     query = {k: v for k, v in filters.items() if v}
 
     def url(**changes: str | None) -> str:
         params = {k: v for k, v in {**query, **changes}.items() if v}
-        return f"/chamados?{urlencode(params)}"
+        return f"/chamados?{urlencode(params, doseq=True)}"
 
+    if view == "all":
+        status_choices = [("", page.t("chamados.filtros.emAndamento"))]
+        status_choices.append((ALL_KINDS, page.t("chamados.filtros.todos")))
+    else:
+        status_choices = [("", page.t("chamados.filtros.todos"))]
+    status_choices += [(k, page.t(f"chamados.filtros.kinds.{k}")) for k in TAB_KINDS[view]]
     bulk = page.can("ticket.bulk")
     teams = (await organization_api.list_teams(auth, db)).items
     statuses = await catalog_api.status_options(db) if bulk else []
@@ -108,7 +166,7 @@ async def tickets_page(
         view=view,
         filters=filters,
         url=url,
-        # Trocar de aba mantém o grupo e a busca (status e responsável só existem em Todos).
+        # Trocar de aba mantém os outros filtros; status e responsável mudam de sentido por aba.
         tab_url=lambda slug: url(aba=slug, status=None, responsavel=None),
         current_url=url(),
         tickets=result.items,
@@ -116,7 +174,9 @@ async def tickets_page(
         paging=bool(cursor),
         counts=await tickets_api.ticket_counts(auth, db),
         team_options=[(str(t.id), t.name) for t in teams if t.is_active],
-        kind_options=[(k, page.t(f"chamados.filtros.kinds.{k}")) for k in KINDS],
+        kind_options=status_choices,
+        client_names=client_names,
+        period_error=period_error,
         bulk=bulk,
         status_options=[(s.id, s.name) for s in statuses],
     )

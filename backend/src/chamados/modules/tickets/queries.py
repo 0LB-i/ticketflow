@@ -5,6 +5,7 @@ formato. A visibilidade e as ações vêm do `service`.
 
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 
 from fastapi import Request
 from sqlalchemy import select
@@ -74,6 +75,10 @@ async def list_page(
     q: str | None,
     limit: int,
     cursor: str | None,
+    clients: Sequence[uuid.UUID] = (),
+    no_client: bool = False,
+    started_from: datetime | None = None,
+    started_before: datetime | None = None,
 ) -> TicketPage:
     """Uma página da lista (fila e filtros como em `service.list_tickets`)."""
     rows, next_cursor = await service.list_tickets(
@@ -86,6 +91,10 @@ async def list_page(
         q=q,
         limit=limit,
         cursor=cursor,
+        clients=clients,
+        no_client=no_client,
+        started_from=started_from,
+        started_before=started_before,
     )
     paths = await service.category_paths(db, [t for t, _, _ in rows])
     return TicketPage(
