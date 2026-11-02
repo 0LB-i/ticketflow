@@ -17,7 +17,7 @@ A API REST é o **contrato principal** do sistema. Na v1.0 o único cliente é a
 | Idempotência | Header `Idempotency-Key` (até 255 caracteres) em `POST` com token de API: a primeira resposta de sucesso volta igual, com `Idempotent-Replayed: true`, sem executar de novo; mesma chave com outro corpo, 422; a primeira ainda em andamento, 409. Vale por pelo menos 24 h, por token. Opcional, mas recomendado para agentes de IA, que repetem chamadas |
 | Concorrência | `ETag` / `If-Match` em `PATCH` para evitar sobrescrever alteração de outro usuário. O `GET /tickets/{id}` e o `PATCH` devolvem o header `ETag` (também no campo `etag`), que só muda quando um campo que o `PATCH` altera muda. Com `If-Match` desatualizado, **412**; sem `If-Match`, o `PATCH` grava como antes |
 | Versionamento | Mudanças incompatíveis só em uma nova versão (`/api/v2`); campos novos são aditivos |
-| Rate limit | Headers `RateLimit-*`; `429` com `Retry-After` |
+| Rate limit | Por token de API (o cabeçalho `Authorization`), na API e no MCP, pelo nginx: 10 requisições por segundo, com folga para rajadas de até 20; acima disso, `429` com `Retry-After: 1`. As telas (sem o cabeçalho) não têm limite. Os headers `RateLimit-*` ficam para depois |
 | CORS | Desnecessário: as telas são servidas na mesma origem da API |
 
 ## Autenticação

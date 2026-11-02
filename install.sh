@@ -154,6 +154,15 @@ upstream ticketflow {
     server 127.0.0.1:8000;
 }
 
+# Limite por token de API (o cabeçalho Authorization), na API e no MCP: um token vazado ou uma
+# integração com defeito não sobrecarrega o servidor (docs/05). Sem o cabeçalho (as telas), sem
+# limite. Acima dele, 429 com Retry-After.
+limit_req_zone \$http_authorization zone=ticketflow_tokens:10m rate=10r/s;
+map \$status \$ticketflow_retry_after {
+    429     1;
+    default "";
+}
+
 server {
     listen 80 default_server;
     server_name $DOMINIO;
@@ -174,6 +183,9 @@ server {
     proxy_set_header X-Forwarded-Proto \$scheme;
     proxy_read_timeout 60s;
 
+    limit_req zone=ticketflow_tokens burst=20 nodelay;
+    limit_req_status 429;
+
     # Sem isto o nginx só comprime HTML (o JavaScript da interface vai inteiro).
     gzip on;
     gzip_proxied any;
@@ -187,6 +199,7 @@ server {
         add_header Referrer-Policy "same-origin" always;
         add_header X-Frame-Options "DENY" always;
         add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Retry-After \$ticketflow_retry_after always;
     }
 }
 FIM

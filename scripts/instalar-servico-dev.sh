@@ -208,6 +208,14 @@ apt-get install -y -q --no-upgrade nginx
 cat >/etc/nginx/sites-available/$SERVICO <<FIM
 # Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh). A produção usa o
 # deploy/nginx.conf, com o certificado do certbot.
+
+# Limite por token de API (o cabeçalho Authorization), na API e no MCP: o mesmo da produção.
+limit_req_zone \$http_authorization zone=ticketflow_tokens:10m rate=10r/s;
+map \$status \$ticketflow_retry_after {
+    429     1;
+    default "";
+}
+
 server {
     listen 80 default_server;
     server_name _;
@@ -235,6 +243,10 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "same-origin" always;
     add_header X-Frame-Options "DENY" always;
+    add_header Retry-After \$ticketflow_retry_after always;
+
+    limit_req zone=ticketflow_tokens burst=20 nodelay;
+    limit_req_status 429;
 
     # A API e as telas: tudo no uvicorn (ADR 0011).
     location / {
