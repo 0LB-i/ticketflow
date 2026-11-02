@@ -220,7 +220,7 @@ fi
 
 cat <<FIM
 
-TicketFlow instalado em $DESTINO, versão $(git -C "$DESTINO" describe --tags --always).
+TicketFlow instalado em $DESTINO, versão $(como_servico "git -C '$DESTINO' describe --tags --always").
   endereço:     https://$DOMINIO ou https://$IP
   certificado:  $TLS_DIR/ticketflow.crt, autoassinado (o navegador avisa até ser trocado)
   configuração: $ENV_FILE (preencha o SMTP para os e-mails saírem)
