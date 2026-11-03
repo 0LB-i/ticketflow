@@ -119,7 +119,7 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 
 | Situação | Padrão |
 |----------|--------|
-| Listas | Paginação "Carregar mais" (cursor da API); filtros e ordenação na URL |
+| Listas | Paginação numerada (1 2 3, Anterior e Próxima); filtros, ordenação e página na URL |
 | Ações destrutivas ou com motivo (cancelar, ocultar, transferir, reprovar) | Modal de confirmação com o campo de motivo |
 | Sucesso / erro | Aviso temporário (toast) no canto da tela; erros de formulário ao lado do campo |
 | Carregando | Esqueleto (*skeleton*) do conteúdo, nunca tela em branco |
@@ -132,4 +132,4 @@ Todas seguem o mesmo padrão: lista com busca e filtro "ativos/inativos", botão
 
 Macros Jinja com Tailwind e HTML nativo (`<dialog>`, `<details>`, `<select>`), em `backend/src/chamados/web/templates/_ui.html` e `_fields.html`, com as cores e a tipografia de [Identidade visual](17-identidade-visual.md):
 
-Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status) · Avatar · Tabela · Paginação "carregar mais" · Árvore (categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto
+Botão · Campo de texto · Área de texto · Select · Combobox com busca (usuários, categorias) · Checkbox · Radio · Modal · Gaveta · Abas · Menu suspenso · Toast · Tooltip · Badge (status) · Avatar · Tabela · Paginação numerada · Árvore (categorias) · Área de upload · Editor de texto (Tiptap, a confirmar) · Linha do tempo · Estado vazio · Esqueleto

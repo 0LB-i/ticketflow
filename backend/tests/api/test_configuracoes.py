@@ -55,6 +55,7 @@ def test_so_admin_altera(client: TestClient, db: Session) -> None:
     assert client.get("/api/v1/admin/settings/company").status_code == 403
     assert client.put("/api/v1/admin/settings/company", json=EMPRESA).status_code == 403
     assert client.get("/api/v1/admin/settings/report-filters").status_code == 403
+    assert client.get("/api/v1/admin/settings/ticket-list").status_code == 403
     r = client.put("/api/v1/admin/settings/report-filters", json={"status": False})
     assert r.status_code == 403
 
@@ -183,6 +184,24 @@ def test_filtros_dos_relatorios(client: TestClient, db: Session) -> None:
         select(AuditLog).where(AuditLog.action == "settings.updated").order_by(AuditLog.id)
     ).all()
     assert [(log.after or {})["report_filters"]["status"] for log in logs] == [False, True]
+
+
+def test_chamados_por_pagina(client: TestClient, db: Session) -> None:
+    """25 por padrão; só 25, 50, 75, 100 ou nulo (todos); o padrão apaga a linha."""
+    _admin(client, db)
+    url = "/api/v1/admin/settings/ticket-list"
+    assert client.get(url).json() == {"page_size": 25}
+    assert client.put(url, json={"page_size": 30}).status_code == 422
+    assert client.put(url, json={"page_size": 100}).json() == {"page_size": 100}
+    assert client.get(url).json() == {"page_size": 100}
+    assert client.put(url, json={"page_size": None}).json() == {"page_size": None}
+    assert client.get(url).json() == {"page_size": None}
+    assert client.put(url, json={}).json() == {"page_size": 25}
+    assert db.scalar(select(SystemSetting).where(SystemSetting.key == "ticket_list")) is None
+    logs = db.scalars(
+        select(AuditLog).where(AuditLog.action == "settings.updated").order_by(AuditLog.id)
+    ).all()
+    assert [(log.after or {})["ticket_list"]["page_size"] for log in logs] == [100, None, 25]
 
 
 def test_idioma_do_usuario(client: TestClient, db: Session) -> None:

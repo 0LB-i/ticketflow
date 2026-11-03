@@ -9,6 +9,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from chamados.modules.system.models import SystemSetting
+from chamados.web.tickets import _page_numbers
 from tests.apoio import API, registrar
 from tests.conftest import criar_cliente, criar_usuario, entrar
 
@@ -30,9 +32,9 @@ def test_sessao_expirada_no_meio_do_uso(client: TestClient, db: Session) -> None
     # Num POST, a "volta" seria aberta com GET depois do login: vai para a tela inicial.
     r = client.post("/chamados/status-em-massa", data={"numeros": [1]}, follow_redirects=False)
     assert r.headers["location"] == "/login"
-    # O HTMX ("Carregar mais") troca a página inteira em vez de encaixar o login na tabela.
-    r = client.get("/chamados?cursor=x", headers={"HX-Request": "true"}, follow_redirects=False)
-    assert r.headers["hx-redirect"] == "/login?volta=%2Fchamados%3Fcursor%3Dx"
+    # Num pedido do HTMX, troca a página inteira em vez de encaixar o login num trecho.
+    r = client.get("/chamados?pagina=2", headers={"HX-Request": "true"}, follow_redirects=False)
+    assert r.headers["hx-redirect"] == "/login?volta=%2Fchamados%3Fpagina%3D2"
     # Com a página de origem (HX-Current-URL), a volta é ela, não o trecho.
     headers = {"HX-Request": "true", "HX-Current-URL": "https://x/chamados?aba=todos"}
     r = client.get("/clientes/opcoes?q=ab", headers=headers, follow_redirects=False)
@@ -42,12 +44,12 @@ def test_sessao_expirada_no_meio_do_uso(client: TestClient, db: Session) -> None
 def test_parametro_invalido_mostra_uma_pagina(client: TestClient, db: Session) -> None:
     criar_usuario(db, grupos={"TI": "member"})
     entrar(client)
-    r = client.get("/chamados?cursor=lixo")
+    r = client.get("/chamados?pagina=lixo")
     assert r.status_code == 422
     assert r.headers["content-type"].startswith("text/html")
     # No idioma da pessoa.
     client.post("/idioma", data={"csrf_token": client.cookies["tf_csrf"], "locale": "en"})
-    assert '<html lang="en">' in client.get("/chamados?cursor=lixo").text
+    assert '<html lang="en">' in client.get("/chamados?pagina=lixo").text
     assert client.get("/api/v1/tickets?cursor=lixo").headers["content-type"] == (
         "application/problem+json"
     )
@@ -224,14 +226,54 @@ def test_busca(client: TestClient, cenario: dict[str, Any]) -> None:
     assert 'href="/chamados?aba=todos"' in r.text  # limpar a busca
 
 
-def test_carregar_mais(client: TestClient, cenario: dict[str, Any]) -> None:
-    numeros = [registrar(client, cenario)["number"] for _ in range(51)]
-    r = client.get("/chamados")
+def test_paginas_numeradas(client: TestClient, cenario: dict[str, Any]) -> None:
+    """25 por página, sem nada nas Configurações."""
+    numeros = [registrar(client, cenario)["number"] for _ in range(26)]
     numeros.reverse()  # o mais novo primeiro
-    assert _numeros(r.text) == numeros[:50]
-    proxima = r.text.split('hx-get="/chamados?')[1].split('"')[0].replace("&amp;", "&")
-    proxima = f"/chamados?{proxima}"
-    assert _numeros(client.get(proxima).text) == numeros[50:]
+    r = client.get("/chamados?aba=todos")
+    assert _numeros(r.text) == numeros[:25]
+    assert "1–25 de 26" in r.text
+    assert 'href="/chamados?aba=todos" aria-current="page" aria-label="Página 1"' in r.text
+    assert 'href="/chamados?aba=todos&amp;pagina=2" aria-label="Página 2"' in r.text
+    r = client.get("/chamados?aba=todos&pagina=2")
+    assert _numeros(r.text) == numeros[25:]
+    assert "26–26 de 26" in r.text
+    # O status em massa volta para a mesma página.
+    assert 'name="volta" value="/chamados?aba=todos&amp;pagina=2"' in r.text
+    # Fora do intervalo: a mais próxima.
+    assert _numeros(client.get("/chamados?aba=todos&pagina=9").text) == numeros[25:]
+    assert _numeros(client.get("/chamados?aba=todos&pagina=0").text) == numeros[:25]
+    # Os filtros contam: com uma página só, sem a paginação.
+    r = client.get(f"/chamados?aba=todos&q={numeros[0]}0")  # nenhum
+    assert "Páginas da lista" not in r.text
+
+
+def test_numeros_das_paginas() -> None:
+    assert _page_numbers(1, 1) == [1]
+    assert _page_numbers(1, 5) == [1, 2, 3, 4, 5]
+    assert _page_numbers(1, 20) == [1, 2, 3, None, 20]
+    assert _page_numbers(10, 20) == [1, None, 8, 9, 10, 11, 12, None, 20]
+    assert _page_numbers(4, 20) == [1, 2, 3, 4, 5, 6, None, 20]
+    assert _page_numbers(5, 20) == [1, 2, 3, 4, 5, 6, 7, None, 20]  # sem "…" no lugar do 2
+    assert _page_numbers(20, 20) == [1, None, 18, 19, 20]
+
+
+def test_chamados_por_pagina_das_configuracoes(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    db.add(SystemSetting(key="ticket_list", value={"page_size": 50}))
+    db.commit()
+    numeros = [registrar(client, cenario)["number"] for _ in range(26)]
+    r = client.get("/chamados")
+    assert _numeros(r.text) == numeros[::-1]
+    assert "Páginas da lista" not in r.text  # uma página só
+    # Todos: uma página só, com o total.
+    db.query(SystemSetting).filter_by(key="ticket_list").update({"value": {"page_size": None}})
+    db.commit()
+    numeros += [registrar(client, cenario)["number"] for _ in range(25)]
+    r = client.get("/chamados?pagina=2")
+    assert _numeros(r.text) == numeros[::-1]
+    assert "Páginas da lista" not in r.text
 
 
 def test_cabecalho_ordena_pela_coluna_em_tres_cliques(
@@ -292,18 +334,16 @@ def test_cada_coluna_ordena_nos_dois_sentidos(
 
 
 def test_ordena_pelas_horas_e_pagina_na_ordem(client: TestClient, cenario: dict[str, Any]) -> None:
-    numeros = [registrar(client, cenario)["number"] for _ in range(51)]
+    numeros = [registrar(client, cenario)["number"] for _ in range(26)]
     for minutos, numero in enumerate(numeros, start=1):
         client.post(
             f"{API}/{numero}/comments", json={"body": "Feito", "time_spent_minutes": minutos}
         )
     r = client.get("/chamados?aba=todos&ordem=horas")
-    assert _numeros(r.text) == numeros[:50]  # do menor tempo ao maior
-    proxima = r.text.split('hx-get="/chamados?')[1].split('"')[0].replace("&amp;", "&")
-    assert "ordem=horas" in proxima
-    assert _numeros(client.get(f"/chamados?{proxima}").text) == numeros[50:]
+    assert _numeros(r.text) == numeros[:25]  # do menor tempo ao maior
+    assert 'href="/chamados?aba=todos&amp;ordem=horas&amp;pagina=2"' in r.text
+    assert _numeros(client.get("/chamados?aba=todos&ordem=horas&pagina=2").text) == numeros[25:]
     assert _numeros(client.get("/chamados?aba=todos&ordem=-horas").text)[0] == numeros[-1]
-    assert client.get("/chamados?aba=todos&ordem=horas&cursor=lixo").status_code == 422
 
 
 def test_status_em_massa(client: TestClient, cenario: dict[str, Any]) -> None:

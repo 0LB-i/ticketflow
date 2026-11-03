@@ -190,8 +190,6 @@ document.addEventListener('click', (e) => {
   for (const caixa of document.querySelectorAll('[data-seleciona]')) caixa.checked = false
   atualizarSelecao()
 })
-// Linhas novas do "Carregar mais" chegam sem marcar: o "selecionar todos" deixa de valer.
-document.addEventListener('htmx:afterSettle', atualizarSelecao)
 // O navegador pode restaurar as caixas marcadas ao voltar para a página.
 addEventListener('pageshow', atualizarSelecao)
 

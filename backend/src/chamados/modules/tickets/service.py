@@ -343,6 +343,90 @@ def _decode_offset(cursor: str) -> int:
     raise HTTPException(422, "Cursor inválido.")
 
 
+def _list_filters(
+    auth: Auth,
+    *,
+    view: TicketView,
+    team: uuid.UUID | None,
+    assignee: str | None,
+    kinds: Sequence[str],
+    q: str | None,
+    clients: Sequence[uuid.UUID] = (),
+    no_client: bool = False,
+    started_from: datetime | None = None,
+    started_before: datetime | None = None,
+) -> list[ColumnElement[bool]]:
+    """As condições da lista (a fila e os filtros): as mesmas para os chamados e para o total."""
+    any_status = bool(kinds) and auth.actor.role == "admin"
+    where: list[ColumnElement[bool]] = [
+        ticket_visibility_filter(auth.actor),
+        view_filter(auth, view, any_status=any_status),
+    ]
+    if q and (search := search_filter(q)) is not None:
+        where.append(search)
+    if team is not None:
+        where.append(Ticket.team.has(Team.public_id == team))
+    if assignee == "me":
+        where.append(assigned_to(auth.user.id))
+    elif assignee is not None:
+        try:
+            assignee_id = uuid.UUID(assignee)
+        except ValueError:
+            raise HTTPException(422, 'Responsável: use "me" ou o id.') from None
+        where.append(
+            or_(
+                Ticket.assignee.has(User.public_id == assignee_id),
+                Ticket.co_assignees.any(TicketCoAssignee.user.has(User.public_id == assignee_id)),
+            )
+        )
+    if kinds:
+        where.append(TicketStatus.kind.in_(kinds))
+    # Clientes: os escolhidos e, com `no_client`, também os chamados sem cliente.
+    by_client: list[ColumnElement[bool]] = (
+        [Ticket.client.has(Client.public_id.in_(clients))] if clients else []
+    )
+    if no_client:
+        by_client.append(Ticket.client_id.is_(None))
+    if by_client:
+        where.append(or_(*by_client))
+    if started_from is not None:
+        where.append(Ticket.started_at >= started_from)
+    if started_before is not None:
+        where.append(Ticket.started_at < started_before)
+    return where
+
+
+async def count_tickets(
+    db: AsyncSession,
+    auth: Auth,
+    *,
+    view: TicketView,
+    team: uuid.UUID | None,
+    assignee: str | None,
+    kinds: Sequence[str],
+    q: str | None,
+    clients: Sequence[uuid.UUID] = (),
+    no_client: bool = False,
+    started_from: datetime | None = None,
+    started_before: datetime | None = None,
+) -> int:
+    """Quantos chamados a lista tem com a fila e os filtros (as páginas da tela)."""
+    where = _list_filters(
+        auth,
+        view=view,
+        team=team,
+        assignee=assignee,
+        kinds=kinds,
+        q=q,
+        clients=clients,
+        no_client=no_client,
+        started_from=started_from,
+        started_before=started_before,
+    )
+    stmt = select(func.count()).select_from(Ticket).join(Ticket.status).where(*where)
+    return await db.scalar(stmt) or 0
+
+
 async def list_tickets(
     db: AsyncSession,
     auth: Auth,
@@ -360,12 +444,13 @@ async def list_tickets(
     started_before: datetime | None = None,
     sort: str | None = None,
     descending: bool = False,
+    offset: int = 0,
 ) -> tuple[list[tuple[Ticket, bool, int]], str | None]:
     """Chamados visíveis de uma fila, com o aviso de novidade e o tempo gasto de cada um. O admin,
     escolhendo status (`kinds`), vê esses status em qualquer fila: também os concluídos e os
     cancelados dos seus, dos seus grupos e dos que acompanha. Com `sort` (`SORTS` ou "time"), na
-    ordem dessa coluna; a página seguinte, então, vem pela posição (o valor da coluna muda)."""
-    any_status = bool(kinds) and auth.actor.role == "admin"
+    ordem dessa coluna; a página seguinte, então, vem pela posição (o valor da coluna muda).
+    Sem `cursor`, `offset` pula os primeiros (as páginas numeradas da tela)."""
     stmt = (
         select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
@@ -379,42 +464,24 @@ async def list_tickets(
             defaultload(Ticket.category).raiseload(Category.default_team),
             defaultload(Ticket.assignee).raiseload(User.role),
         )
-        .where(ticket_visibility_filter(auth.actor), view_filter(auth, view, any_status=any_status))
-        .limit(limit + 1)
-    )
-    if q and (search := search_filter(q)) is not None:
-        stmt = stmt.where(search)
-    if team is not None:
-        stmt = stmt.where(Ticket.team.has(Team.public_id == team))
-    if assignee == "me":
-        stmt = stmt.where(assigned_to(auth.user.id))
-    elif assignee is not None:
-        try:
-            assignee_id = uuid.UUID(assignee)
-        except ValueError:
-            raise HTTPException(422, 'Responsável: use "me" ou o id.') from None
-        stmt = stmt.where(
-            or_(
-                Ticket.assignee.has(User.public_id == assignee_id),
-                Ticket.co_assignees.any(TicketCoAssignee.user.has(User.public_id == assignee_id)),
+        .where(
+            *_list_filters(
+                auth,
+                view=view,
+                team=team,
+                assignee=assignee,
+                kinds=kinds,
+                q=q,
+                clients=clients,
+                no_client=no_client,
+                started_from=started_from,
+                started_before=started_before,
             )
         )
-    if kinds:
-        stmt = stmt.where(TicketStatus.kind.in_(kinds))
-    # Clientes: os escolhidos e, com `no_client`, também os chamados sem cliente.
-    by_client: list[ColumnElement[bool]] = (
-        [Ticket.client.has(Client.public_id.in_(clients))] if clients else []
+        .limit(limit + 1)
     )
-    if no_client:
-        by_client.append(Ticket.client_id.is_(None))
-    if by_client:
-        stmt = stmt.where(or_(*by_client))
-    if started_from is not None:
-        stmt = stmt.where(Ticket.started_at >= started_from)
-    if started_before is not None:
-        stmt = stmt.where(Ticket.started_at < started_before)
     if sort is not None:
-        offset = _decode_offset(cursor) if cursor else 0
+        offset = _decode_offset(cursor) if cursor else offset
         stmt = _sorted(stmt, sort, descending).offset(offset)
     else:
         stmt = _ordered(stmt)
@@ -426,6 +493,8 @@ async def list_tickets(
                     and_(Ticket.created_at == created_at, Ticket.id < ticket_id),
                 )
             )
+        elif offset:
+            stmt = stmt.offset(offset)
     rows = [(t, news, minutes) for t, news, minutes in (await db.execute(stmt)).all()]
     next_cursor = None
     if len(rows) > limit:

@@ -1,5 +1,6 @@
 """Configurações da instalação (docs/13: /admin/configuracoes): idioma, cores, status dos chamados,
-expediente e os filtros da tela de Relatórios; os logotipos ficam na tela Empresa (web/company.py).
+expediente, o tamanho da página da lista de chamados e os filtros da tela de Relatórios; os
+logotipos ficam na tela Empresa (web/company.py).
 Exige admin.settings (conferido aqui por `requires`: na API fica numa dependência que não roda na
 chamada direta).
 Cada seção grava pela rota da API dela.
@@ -20,7 +21,13 @@ from chamados.db.session import DB
 from chamados.modules.catalog import router as catalog_api
 from chamados.modules.catalog.router import StatusCreate, StatusOrder, StatusOut, StatusUpdate
 from chamados.modules.system import router as system_api
-from chamados.modules.system.router import ReportFilters, SettingsUpdate, get_report_filters
+from chamados.modules.system.router import (
+    ReportFilters,
+    SettingsUpdate,
+    TicketList,
+    get_report_filters,
+    get_ticket_list,
+)
 from chamados.modules.system.work_hours import Schedule, WorkHoursIn, get_work_hours
 from chamados.web import work_hours
 from chamados.web.page import LoggedPage, check_csrf, requires
@@ -33,6 +40,8 @@ Field = Annotated[str, Form()]
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 COLOR_FIELDS = ("brand", "neutral", "background")
 KINDS = ("open", "waiting", "delivered", "closed", "canceled")
+PAGE_SIZES = (25, 50, 75, 100)  # as opções de TicketList.page_size; "todos" é o nulo
+ALL_TICKETS = "todos"
 HOME = "/admin/configuracoes"
 # Os filtros da tela de Relatórios que se desligam (ReportFilters), com o rótulo de lá.
 REPORT_FILTERS = {
@@ -120,6 +129,9 @@ async def settings_page(
         ),
         holidays=[(h.isoformat(), format_date(page.locale, h)) for h in hours.holidays],
         report_filters=[(key, page.t(label), shown[key]) for key, label in REPORT_FILTERS.items()],
+        page_size_options=[(str(n), str(n)) for n in PAGE_SIZES]
+        + [(ALL_TICKETS, page.t("listaChamados.todos"))],
+        page_size=str((await get_ticket_list(db)).page_size or ALL_TICKETS),
     )
 
 
@@ -259,6 +271,32 @@ async def remove_status(
         f"{HOME}#status",
         lambda: catalog_api.delete_status(status_id, page.auth, request, db),
         page.t("statusConfig.removido", nome=name),
+    )
+
+
+# --- lista de chamados ----------------------------------------------------------------------
+
+
+@router.post("/admin/configuracoes/lista-chamados")
+async def save_ticket_list(
+    page: SettingsAdmin,
+    request: Request,
+    db: DB,
+    csrf_token: Field = "",
+    page_size: Field = "",
+) -> Response:
+    """Um dos números ou "todos" (nulo: uma página só)."""
+    check_csrf(page, csrf_token)
+    size: int | str | None = None if page_size == ALL_TICKETS else page_size
+    if page_size.isdigit():
+        size = int(page_size)
+    return await run(
+        page,
+        f"{HOME}#lista-chamados",
+        lambda: system_api.set_ticket_list(
+            TicketList.model_validate({"page_size": size}), page.auth, request, db
+        ),
+        page.t("comum.salvo"),
     )
 
 

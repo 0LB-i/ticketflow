@@ -44,7 +44,7 @@ class Redirect(Exception):
 
 def redirect_response(request: Request, error: Exception) -> Response:
     url = cast(Redirect, error).url
-    # Num pedido do HTMX (ex.: "Carregar mais" com a sessão expirada), o 303 seria seguido por
+    # Num pedido do HTMX (ex.: um trecho pedido com a sessão expirada), o 303 seria seguido por
     # baixo e a página de login não caberia no trecho: o HTMX troca a página inteira.
     if request.headers.get("HX-Request"):
         return Response(headers={"HX-Redirect": url})

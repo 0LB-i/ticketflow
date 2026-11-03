@@ -1,4 +1,5 @@
-"""Configurações da instalação: idioma padrão, cores e os filtros da tela de Relatórios (docs/13:
+"""Configurações da instalação: idioma padrão, cores, os filtros da tela de Relatórios e o tamanho
+da página da lista de chamados (docs/13:
 /admin/configuracoes) e, na tela
 Empresa (/admin/empresa), os dados da empresa, o logotipo e o logotipo dos relatórios.
 
@@ -10,7 +11,7 @@ import base64
 import binascii
 import hashlib
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, StringConstraints
@@ -302,6 +303,44 @@ async def set_report_filters(
             target_type="settings",
             before={"report_filters": before.model_dump()},
             after={"report_filters": data.model_dump()},
+        )
+        await db.commit()
+    return data
+
+
+class TicketList(BaseModel):
+    """A lista de chamados (/chamados): quantos cada página mostra."""
+
+    page_size: Literal[25, 50, 75, 100] | None = Field(
+        default=25, description="nulo: todos, numa página só"
+    )
+
+
+async def get_ticket_list(db: AsyncSession) -> TicketList:
+    """Sem a linha, 25 por página."""
+    return TicketList.model_validate(await get_value(db, "ticket_list") or {})
+
+
+@router.get("/admin/settings/ticket-list", response_model=TicketList)
+async def ticket_list(auth: Admin, db: DB) -> TicketList:
+    return await get_ticket_list(db)
+
+
+@router.put("/admin/settings/ticket-list", response_model=TicketList)
+async def set_ticket_list(data: TicketList, auth: Admin, request: Request, db: DB) -> TicketList:
+    """O padrão (25) apaga a linha."""
+    before = await get_ticket_list(db)
+    if data != before:
+        value = None if data == TicketList() else data.model_dump()
+        await set_value(db, "ticket_list", value, auth.user.id)
+        record(
+            db,
+            "settings.updated",
+            request=request,
+            actor_user_id=auth.user.id,
+            target_type="settings",
+            before={"ticket_list": before.model_dump()},
+            after={"ticket_list": data.model_dump()},
         )
         await db.commit()
     return data

@@ -1,5 +1,5 @@
-{#- Configurações da instalação: idioma, cores, status dos chamados, expediente e os filtros dos
-    relatórios. O
+{#- Configurações da instalação: idioma, cores, status dos chamados, expediente, o tamanho da
+    página da lista de chamados e os filtros dos relatórios. O
     comportamento (combinações prontas, seletor de cor, feriados) está no static/js/configuracoes.js. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import badge, button_class, field, logo, select_field, status_badge with context %}
@@ -198,6 +198,21 @@
     </div>
     <div class="flex justify-end border-t border-border pt-4">
       <button type="submit" class="{{ button_class() }}">{{ t("expediente.salvar") }}</button>
+    </div>
+  </form>
+
+  {#- Quantos chamados cada página da lista (/chamados) mostra. #}
+  <form id="lista-chamados" method="post" action="/admin/configuracoes/lista-chamados" aria-labelledby="lista-chamados-titulo" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div>
+      <h2 id="lista-chamados-titulo" class="font-semibold">{{ t("listaChamados.titulo") }}</h2>
+      <p class="mt-1 text-muted">{{ t("listaChamados.descricao") }}</p>
+    </div>
+    <div class="max-w-xs">
+      {{ select_field("page_size", t("listaChamados.porPagina"), page_size_options, page_size) }}
+    </div>
+    <div class="flex justify-end border-t border-border pt-4">
+      <button type="submit" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
     </div>
   </form>
 

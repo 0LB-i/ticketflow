@@ -7,7 +7,7 @@ funções da API (`tickets/router.py`); a permissão de cada chamado é conferid
 import re
 import uuid
 from datetime import date, datetime, time, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, HTTPException
@@ -20,6 +20,7 @@ from chamados.db.session import DB
 from chamados.modules.catalog import router as catalog_api
 from chamados.modules.organization import router as organization_api
 from chamados.modules.reports.service import client_labels
+from chamados.modules.system.router import get_ticket_list
 from chamados.modules.tickets import queries, service
 from chamados.modules.tickets import router as tickets_api
 from chamados.modules.tickets.schemas import BulkStatusIn, StatusKind, TicketView
@@ -63,6 +64,9 @@ SORTS: dict[str, str] = {
 }
 # Busca do cabeçalho (docs/13 §13.1): "1234" ou "#1234" abre o chamado.
 NUMBER = re.compile(r"^#?(\d+)$")
+# Páginas vizinhas da atual que a paginação mostra; as outras viram "…" (a primeira e a última
+# aparecem sempre).
+NEIGHBORS = 2
 
 
 def _uuid(value: str | None) -> uuid.UUID | None:
@@ -70,6 +74,24 @@ def _uuid(value: str | None) -> uuid.UUID | None:
         return uuid.UUID(value) if value else None
     except ValueError:
         return None
+
+
+def _page_numbers(current: int, pages: int) -> list[int | None]:
+    """Os números da paginação, com None no lugar das páginas puladas: 1 … 4 5 6 7 8 … 20. Uma
+    página só não vira "…": aparece o número dela."""
+    shown = sorted(
+        {1, pages, *range(max(1, current - NEIGHBORS), min(pages, current + NEIGHBORS) + 1)}
+    )
+    numbers: list[int | None] = []
+    previous = 0
+    for n in shown:
+        if n - previous == 2:
+            numbers.append(n - 1)
+        elif previous and n - previous > 2:
+            numbers.append(None)
+        numbers.append(n)
+        previous = n
+    return numbers
 
 
 def _date(value: str | None) -> date | None:
@@ -97,7 +119,7 @@ async def tickets_page(
     ate: str | None = None,
     q: str | None = None,
     ordem: str | None = None,
-    cursor: str | None = None,
+    pagina: int = 1,
 ) -> HTMLResponse:
     q = (q or "").strip()[:200] or None
     if q and (number := NUMBER.match(q)):
@@ -135,22 +157,32 @@ async def tickets_page(
             started_from = datetime.combine(start, time(), LOCAL_TZ)
         if end:
             started_before = datetime.combine(end + timedelta(days=1), time(), LOCAL_TZ)
-    result = await queries.list_page(
-        db,
-        auth,
+    filtering: dict[str, Any] = dict(
         view=view,
         team=team,
         assignee="me" if mine else None,
         kinds=kinds,
         q=q,
-        limit=50,
-        cursor=cursor,
         clients=clients,
         no_client=no_client,
         started_from=started_from,
         started_before=started_before,
+    )
+    # Páginas numeradas: fora do intervalo, a mais próxima. "Todos" nas Configurações (nulo): uma
+    # página com o total.
+    total = await service.count_tickets(db, auth, **filtering)
+    per_page = (await get_ticket_list(db)).page_size or max(total, 1)
+    pages = max(1, -(-total // per_page))
+    current = min(max(pagina, 1), pages)
+    result = await queries.list_page(
+        db,
+        auth,
+        **filtering,
+        limit=per_page,
+        cursor=None,
         sort=SORTS[sort] if sort else None,
         descending=descending,
+        offset=(current - 1) * per_page,
     )
     client_names = {
         NO_CLIENT: page.t("relatorios.semCliente"),
@@ -173,6 +205,9 @@ async def tickets_page(
     def url(**changes: str | None) -> str:
         params = {k: v for k, v in {**query, **changes}.items() if v}
         return f"/chamados?{urlencode(params, doseq=True)}"
+
+    def page_url(n: int) -> str:
+        return url(pagina=str(n) if n > 1 else None)
 
     def sort_url(column: str) -> str:
         """O próximo clique no cabeçalho: de A a Z, de Z a A e de volta à ordem padrão."""
@@ -201,10 +236,15 @@ async def tickets_page(
         descending=descending,
         # Trocar de aba mantém os outros filtros; status e responsável mudam de sentido por aba.
         tab_url=lambda slug: url(aba=slug, status=None, responsavel=None),
-        current_url=url(),
+        current_url=page_url(current),  # a volta do status em massa: a mesma página
         tickets=result.items,
-        next_cursor=result.next_cursor,
-        paging=bool(cursor),
+        total=total,
+        current_page=current,
+        pages=pages,
+        page_numbers=_page_numbers(current, pages),
+        page_url=page_url,
+        first_shown=(current - 1) * per_page + 1,
+        last_shown=(current - 1) * per_page + len(result.items),
         counts=await tickets_api.ticket_counts(auth, db),
         team_options=[(str(t.id), t.name) for t in teams if t.is_active],
         kind_options=status_choices,

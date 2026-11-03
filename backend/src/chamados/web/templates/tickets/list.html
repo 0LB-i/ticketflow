@@ -139,23 +139,49 @@
           </td>
         </tr>
         {%- else %}
-        {#- Numa página seguinte ("Carregar mais"), a lista vazia não ganha a linha de aviso. #}
-        {%- if not paging %}
         <tr>
           <td colspan="{{ 11 if bulk else 10 }}" class="px-3 py-6 text-center text-muted">{{ t("chamados.vazio.busca") if filters.q else t("chamados.vazio." ~ view) }}</td>
         </tr>
-        {%- endif %}
         {%- endfor %}
       </tbody>
     </table>
   </div>
 
-  {#- Próxima página: o HTMX acrescenta as linhas e troca este botão pelo da página seguinte. #}
-  <div id="carregar-mais" class="flex justify-center">
-    {%- if next_cursor %}
-    <a href="{{ url(cursor=next_cursor) }}" hx-get="{{ url(cursor=next_cursor) }}" hx-target="#linhas" hx-swap="beforeend" hx-select="#linhas > tr" hx-select-oob="#carregar-mais" class="{{ button_class('secondary') }}">{{ t("chamados.carregarMais") }}</a>
-    {%- endif %}
-  </div>
+  {#- Páginas numeradas (web/tickets.py, _page_numbers): a primeira, a última e as vizinhas da
+      atual; as puladas viram "…". Mudar filtro ou ordem volta para a primeira. O contador fica
+      à esquerda e os botões no meio (a terceira coluna, vazia, equilibra a primeira). #}
+  {%- if pages > 1 %}
+  <nav aria-label="{{ t('chamados.paginas.titulo') }}" class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+    <p class="text-muted">{{ t("chamados.paginas.mostrando", de=first_shown, ate=last_shown, total=total) }}</p>
+    <ul class="flex flex-wrap items-center justify-center gap-1">
+      <li>
+        {%- if current_page > 1 %}
+        <a href="{{ page_url(current_page - 1) }}" class="{{ button_class('secondary', 'sm') }}">{{ icon("chevron-left", "size-4") }} {{ t("chamados.paginas.anterior") }}</a>
+        {%- else %}
+        <button type="button" disabled class="{{ button_class('secondary', 'sm') }}">{{ icon("chevron-left", "size-4") }} {{ t("chamados.paginas.anterior") }}</button>
+        {%- endif %}
+      </li>
+      {%- for n in page_numbers %}
+      <li>
+        {%- if n is none %}
+        <span class="px-2 text-muted" aria-hidden="true">…</span>
+        {%- elif n == current_page %}
+        <a href="{{ page_url(n) }}" aria-current="page" aria-label="{{ t('chamados.paginas.pagina', n=n) }}" class="{{ button_class('primary', 'sm') }} min-w-9 tabular-nums">{{ n }}</a>
+        {%- else %}
+        <a href="{{ page_url(n) }}" aria-label="{{ t('chamados.paginas.pagina', n=n) }}" class="{{ button_class('ghost', 'sm') }} min-w-9 tabular-nums">{{ n }}</a>
+        {%- endif %}
+      </li>
+      {%- endfor %}
+      <li>
+        {%- if current_page < pages %}
+        <a href="{{ page_url(current_page + 1) }}" class="{{ button_class('secondary', 'sm') }}">{{ t("chamados.paginas.proxima") }} {{ icon("chevron-right", "size-4") }}</a>
+        {%- else %}
+        <button type="button" disabled class="{{ button_class('secondary', 'sm') }}">{{ t("chamados.paginas.proxima") }} {{ icon("chevron-right", "size-4") }}</button>
+        {%- endif %}
+      </li>
+    </ul>
+  </nav>
+  {%- endif %}
 
   {%- if bulk %}
   {#- Mudar o status dos selecionados (docs/10 §10.6): janela flutuante no pé da tela, que

@@ -189,7 +189,13 @@
     "numero": "Number",
     "tituloColuna": "Title",
     "status": "Status",
-    "carregarMais": "Load more",
+    "paginas": {
+      "titulo": "List pages",
+      "mostrando": "{de}–{ate} of {total}",
+      "anterior": "Previous",
+      "proxima": "Next",
+      "pagina": "Page {n}"
+    },
     "filas": "Queues",
     "abas": {
       "mine": "Mine",
@@ -724,6 +730,12 @@
     "invalida": "Enter a valid date and time.",
     "mesAnterior": "Previous month",
     "proximoMes": "Next month"
+  },
+  "listaChamados": {
+    "titulo": "Ticket list",
+    "descricao": "How many tickets each page of the Tickets screen shows, for everyone. With All, the list fits on a single page.",
+    "porPagina": "Tickets per page",
+    "todos": "All"
   },
   "filtrosRelatorios": {
     "titulo": "Report filters",

@@ -45,6 +45,8 @@ def test_so_admin(client: TestClient, db: Session) -> None:
     assert client.post(f"{URL}/status/novo", data=_form(client, name="X")).status_code == 403
     r = client.post(f"{URL}/filtros-relatorios", data=_form(client))
     assert r.status_code == 403
+    r = client.post(f"{URL}/lista-chamados", data=_form(client, page_size="50"))
+    assert r.status_code == 403
     assert _valor(db, "locale") is None
 
 
@@ -93,6 +95,24 @@ def test_filtros_dos_relatorios(client: TestClient, db: Session) -> None:
     assert 'name="ligados" value="status" class' in r.text  # desligado: sem o checked
     client.post(url, data=_form(client, ligados=[*ligados, "status", "compare"]))
     assert _valor(db, "report_filters") is None
+
+
+def test_chamados_por_pagina(client: TestClient, db: Session) -> None:
+    _admin(client, db)
+    assert '<option value="25" selected>' in client.get(URL).text
+    url = f"{URL}/lista-chamados"
+    r = client.post(url, data=_form(client, page_size="50"))
+    assert _aviso(r.text) == "Alterações salvas"
+    assert _valor(db, "ticket_list") == {"page_size": 50}
+    assert '<option value="50" selected>' in r.text
+    r = client.post(url, data=_form(client, page_size="30"))  # fora das opções
+    assert _aviso(r.text) == "Algo deu errado. Tente de novo."
+    assert _valor(db, "ticket_list") == {"page_size": 50}
+    r = client.post(url, data=_form(client, page_size="todos"))
+    assert _valor(db, "ticket_list") == {"page_size": None}
+    assert '<option value="todos" selected>Todos</option>' in r.text
+    client.post(url, data=_form(client, page_size="25"))
+    assert _valor(db, "ticket_list") is None  # o padrão
 
 
 def test_status(client: TestClient, db: Session) -> None:
@@ -188,6 +208,9 @@ def test_marca_lida_numa_consulta(client: TestClient, db: Session) -> None:
     client.post("/admin/empresa/logo", data=_form(client), files=arquivo)
     with consultas(client) as sql:
         r = client.get("/chamados")
-    assert len([q for q in sql if "FROM settings" in q]) == 1
+    settings = [q for q in sql if "FROM settings" in q]
+    # A marca numa só; a outra é a da lista de chamados (quantos por página).
+    assert len([q for q in settings if q.startswith("SELECT settings.key")]) == 1
+    assert len(settings) == 2
     assert "/api/v1/branding/logo?v=" in r.text
     assert "--tf-primary:" in r.text  # a folha das cores personalizadas

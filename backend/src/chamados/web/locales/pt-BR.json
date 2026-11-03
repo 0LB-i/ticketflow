@@ -189,7 +189,13 @@
     "numero": "Número",
     "tituloColuna": "Título",
     "status": "Status",
-    "carregarMais": "Carregar mais",
+    "paginas": {
+      "titulo": "Páginas da lista",
+      "mostrando": "{de}–{ate} de {total}",
+      "anterior": "Anterior",
+      "proxima": "Próxima",
+      "pagina": "Página {n}"
+    },
     "filas": "Filas",
     "abas": {
       "mine": "Meus",
@@ -724,6 +730,12 @@
     "invalida": "Informe uma data e hora válidas.",
     "mesAnterior": "Mês anterior",
     "proximoMes": "Próximo mês"
+  },
+  "listaChamados": {
+    "titulo": "Lista de chamados",
+    "descricao": "Quantos chamados cada página da tela de Chamados mostra, para todas as pessoas. Em Todos, a lista fica numa página só.",
+    "porPagina": "Chamados por página",
+    "todos": "Todos"
   },
   "filtrosRelatorios": {
     "titulo": "Filtros dos relatórios",
