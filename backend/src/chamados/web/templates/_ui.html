@@ -128,7 +128,7 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
     {%- endif %}
     {%- for to, label, name, _ in visible.items %}
     {%- set active = path == to or path.startswith(to ~ "/") %}
-    <a href="{{ to }}" class="flex h-10 items-center gap-3 rounded-md px-3 font-medium {{ 'bg-primary-subtle text-primary' if active else 'text-fg hover:bg-surface-raised' }}"{% if active %} aria-current="page"{% endif %}>
+    <a href="{{ to }}" class="flex h-10 items-center gap-3 rounded-md px-3 font-medium {{ 'bg-primary-subtle text-primary' if active else 'text-fg hover:bg-surface-raised' }}" data-pre-carrega{% if active %} aria-current="page"{% endif %}>
       {{ icon(name) }} {{ t(label) }}
     </a>
     {%- endfor %}

@@ -32,6 +32,7 @@ ALLOWED_BEFORE_PASSWORD_CHANGE = {"/trocar-senha", "/sair"}
 CLIENT_PANEL = "/painel"
 ALLOWED_TO_CLIENTS = {CLIENT_PANEL, "/trocar-senha", "/sair", "/idioma"}
 FLASH_COOKIE = "tf_aviso"
+PREFETCH_RULES = "/pre-carregamento.json"
 FlashKind = Literal["success", "error"]
 
 
@@ -133,6 +134,8 @@ class Page:
         # dados (clientes, chamados) a quem usar o computador em seguida.
         if self.auth is not None:
             response.headers["Cache-Control"] = "no-store"
+            # O Chrome pede a tela do menu ao passar o mouse, antes do clique (web/__init__.py).
+            response.headers["Speculation-Rules"] = f'"{PREFETCH_RULES}"'
         return response
 
 

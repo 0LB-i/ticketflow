@@ -170,3 +170,15 @@ def test_paginas_com_sessao_nao_ficam_no_navegador(client: TestClient, db: Sessi
     r = client.get("/chamados")
     assert r.headers["cache-control"] == "no-store"
     assert '"historyCacheSize": 0' in r.text  # o HTMX não guarda páginas no sessionStorage
+
+
+def test_menu_pre_carregado_ao_passar_o_mouse(client: TestClient, db: Session) -> None:
+    assert "speculation-rules" not in client.get("/login").headers
+    criar_usuario(db, grupos={"TI": "member"})
+    _entrar(client)
+    r = client.get("/chamados")
+    assert r.headers["speculation-rules"] == '"/pre-carregamento.json"'
+    assert 'text-fg hover:bg-surface-raised" data-pre-carrega>' in r.text
+    regras = client.get("/pre-carregamento.json")
+    assert regras.headers["content-type"] == "application/speculationrules+json"
+    assert regras.json()["prefetch"][0]["eagerness"] == "eager"
