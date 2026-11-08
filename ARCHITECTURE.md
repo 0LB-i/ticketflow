@@ -49,7 +49,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0046
+│   ├── migrations/        Alembic: env.py e versions/0001…0047
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   ├── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
 │   └── bench/             benchmark: tempo e precisão com 50 mil chamados (seção 7.1)
@@ -309,6 +309,7 @@ O cadastro (`identity/admin_router`) exige a empresa no papel e a apaga nos outr
 | `0044` | Sem modelos de relatório: saem `report_models` e `report_preferences` (o downgrade as recria vazias) |
 | `0045` | Papel Cliente: o papel do sistema `client` (sem permissões) e `users.client_id` (a empresa); o downgrade passa quem tem o papel a Agente inativo |
 | `0046` | Bloqueio do login por conta e IP: `login_ip_failures.user_id`; saem `users.failed_logins`, `last_failed_login_at` e `locked_until` |
+| `0047` | Índice `tickets_client_idx` (`client_id`): o painel do papel Cliente, o filtro por cliente dos relatórios e o plano do cliente |
 
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).

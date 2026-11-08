@@ -54,6 +54,8 @@ class Ticket(Base):
         # A ordem da lista (e do cursor): o mais antigo primeiro.
         Index("tickets_created_idx", "created_at", "id"),
         Index("tickets_search_idx", "search_vector", postgresql_using="gin"),
+        # Os chamados de um cliente: o painel do papel Cliente e o filtro dos relatórios.
+        Index("tickets_client_idx", "client_id"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
