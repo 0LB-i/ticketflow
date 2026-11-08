@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 MAX_BYTES = 25 * 1024 * 1024  # por arquivo (docs/11 §11.3)
 MAX_PER_TICKET = 200 * 1024 * 1024
+MAX_PENDING_PER_USER = 2 * 1024 * 1024 * 1024  # enviados e ainda não vinculados, por pessoa
 HEAD_BYTES = 8192  # o que se lê do começo do arquivo para conferir o conteúdo
 
 OOXML = "application/vnd.openxmlformats-officedocument."

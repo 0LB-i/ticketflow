@@ -188,6 +188,33 @@ def test_limite_por_chamado(
     assert r.json()["detail"] == "Os anexos deste chamado passariam do limite de 200 MB."
 
 
+def test_limite_dos_envios_nao_salvos_por_pessoa(
+    client: TestClient,
+    cenario: dict[str, Any],
+    settings: Settings,
+    db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(attachments_router, "MAX_PENDING_PER_USER", len(PNG) * 2)
+    ids = [anexo(client), anexo(client)]  # chega ao limite, sem passar
+
+    r = enviar(client, "mais.png", PNG)
+    assert r.status_code == 413
+    assert r.json()["detail"] == attachments_router.PENDING_LIMIT
+    # Nada gravado: nem o arquivo, nem a linha
+    assert len([f for f in (settings.files_dir / "attachments").rglob("*") if f.is_file()]) == 2
+    assert db.scalar(text("SELECT count(*) FROM attachments")) == 2
+
+    # O limite é por pessoa: os envios da Ana não contam para a Bia
+    entrar(client, "bia@x.com")
+    anexo(client)
+
+    # Vinculados a um chamado, deixam de contar: a Ana volta a enviar
+    entrar(client, "ana@x.com")
+    registrar(client, cenario, attachment_ids=ids)
+    anexo(client)
+
+
 def test_limpeza_dos_envios_esquecidos(
     client: TestClient,
     cenario: dict[str, Any],

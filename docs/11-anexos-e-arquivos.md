@@ -41,6 +41,7 @@ O administrador ajusta a lista de permitidos, mas não pode liberar os itens mar
 | Tamanho por arquivo | 25 MB |
 | Arquivos por envio | 10 |
 | Total por chamado | 200 MB |
+| Enviados e ainda não salvos, por pessoa | 2 GB |
 | Imagem colada no editor | 10 MB |
 | Avatar | 2 MB, redimensionado para 256×256 |
 

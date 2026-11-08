@@ -4,13 +4,19 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from starlette.concurrency import run_in_threadpool
 
 from chamados.core.permissions import P, can
 from chamados.db.session import DB
 from chamados.modules.attachments import service, storage
-from chamados.modules.attachments.files import HEAD_BYTES, MAX_BYTES, clean_filename, file_type
+from chamados.modules.attachments.files import (
+    HEAD_BYTES,
+    MAX_BYTES,
+    MAX_PENDING_PER_USER,
+    clean_filename,
+    file_type,
+)
 from chamados.modules.attachments.models import Attachment
 from chamados.modules.audit.service import record
 from chamados.modules.identity.deps import CurrentAuth
@@ -20,6 +26,10 @@ from chamados.modules.tickets.schemas import AttachmentOut
 
 router = APIRouter(tags=["anexos"])
 NOT_FOUND = "Anexo não encontrado."
+PENDING_LIMIT = (
+    "Você tem anexos enviados e não salvos demais (limite de 2 GB). Salve ou descarte os"
+    " pendentes e tente de novo."
+)
 
 
 @router.post("/uploads", response_model=AttachmentOut, status_code=201)
@@ -39,6 +49,15 @@ async def upload(file: UploadFile, auth: CurrentAuth, request: Request, db: DB) 
     await file.seek(0)
     if not ftype.matches(head):
         raise HTTPException(422, "O conteúdo do arquivo não corresponde à extensão.")
+    # Os não vinculados só somem com a limpeza de 24 h: sem limite, encheriam o disco antes.
+    # Dois envios ao mesmo tempo podem passar um pouco do limite, sem problema.
+    pending = await db.scalar(
+        select(func.sum(Attachment.size_bytes)).where(
+            Attachment.uploaded_by == auth.user.id, Attachment.linked_at.is_(None)
+        )
+    )
+    if (pending or 0) + file.size > MAX_PENDING_PER_USER:
+        raise HTTPException(413, PENDING_LIMIT)
 
     root = request.app.state.settings.files_dir
     key = storage.new_key()

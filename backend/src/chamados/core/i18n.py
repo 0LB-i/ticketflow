@@ -135,6 +135,11 @@ EN: dict[str, str] = {
     "Tipo de arquivo não permitido.": "File type not allowed.",
     "O arquivo está vazio.": "The file is empty.",
     "O arquivo passa do limite de 25 MB.": "The file exceeds the 25 MB limit.",
+    "Você tem anexos enviados e não salvos demais (limite de 2 GB). Salve ou descarte os"
+    " pendentes e tente de novo.": (
+        "You have too many uploaded attachments that were not saved (2 GB limit). Save or"
+        " discard the pending ones and try again."
+    ),
     "O conteúdo do arquivo não corresponde à extensão.": (
         "The file content does not match its extension."
     ),
