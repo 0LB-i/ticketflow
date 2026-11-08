@@ -1,3 +1,5 @@
+import gc
+
 from fastapi.testclient import TestClient
 
 from chamados.config import Settings
@@ -21,3 +23,8 @@ def test_health_sem_banco(settings: Settings) -> None:
     assert r.status_code == 503
     assert r.headers["content-type"] == "application/problem+json"
     assert r.json()["detail"] == "Banco de dados indisponível"
+
+
+def test_subida_congela_os_objetos(client: TestClient) -> None:
+    # O lifespan tira os objetos da subida da varredura do coletor (main.py, DES-06).
+    assert gc.get_freeze_count() > 0

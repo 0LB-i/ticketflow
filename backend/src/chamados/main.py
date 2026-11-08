@@ -1,6 +1,7 @@
 """Cria a aplicação FastAPI: a API em /api e as telas do servidor (ADR 0011), na mesma origem
 (ADR 0010)."""
 
+import gc
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -44,6 +45,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.engine = create_engine(settings.database_url)
         app.state.sessionmaker = make_sessionmaker(app.state.engine)
         async with mcp_server.running(app):
+            # Tira da varredura do coletor os ~400 mil objetos da subida, que vivem até o fim
+            # (SQLAlchemy, Pydantic, Jinja, catálogos): cada coleta completa levava ~60 ms e caía
+            # numa requisição qualquer. p95 do Quadro 397 → 260 ms, Chamados com Comparar
+            # 490 → 360 ms, relatório do mês 280 → 164 ms; p50 e memória iguais (DES-06).
+            # O collect antes não deixa congelar o lixo da subida.
+            gc.collect()
+            gc.freeze()
             yield
         await app.state.engine.dispose()
 
