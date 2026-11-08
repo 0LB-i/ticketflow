@@ -13,6 +13,7 @@ from chamados.config import Settings, get_settings
 from chamados.core import health
 from chamados.core.errors import register_error_handlers
 from chamados.core.logging import configure_logging
+from chamados.core.security_headers import SecurityHeadersMiddleware
 from chamados.db.engine import create_engine
 from chamados.db.session import make_sessionmaker
 from chamados.modules.attachments.router import router as attachments_router
@@ -58,6 +59,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     register_error_handlers(app)
     app.add_middleware(IdempotencyMiddleware)
+    # Por fora do IdempotencyMiddleware: a resposta repetida também leva os cabeçalhos.
+    app.add_middleware(SecurityHeadersMiddleware)
     app.state.settings = settings
     app.state.mailer = make_mailer(settings)
 

@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 from chamados.modules.identity.models import User
 from chamados.modules.organization.models import Team, TeamMember
 from tests.apoio import NOVO_USUARIO
-from tests.conftest import criar_usuario, entrar, grupo
+from tests.conftest import criar_usuario, entrar, grupo, token_csrf
 
 
 def _form(client: TestClient, **dados: Any) -> dict[str, Any]:
-    return {"csrf_token": client.cookies["tf_csrf"], **dados}
+    return {"csrf_token": token_csrf(client), **dados}
 
 
 def _aviso(html: str) -> str:

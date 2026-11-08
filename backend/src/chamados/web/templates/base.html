@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {#- O fuso da máquina, para os campos de data e hora (static/js/chamado.js). #}
   <meta name="fuso" content="{{ timezone }}">
+  {%- if page.auth %}
+  {#- O token CSRF para o envio de anexos (static/js/chamado.js): o cookie é HttpOnly. #}
+  <meta name="csrf" content="{{ csrf_token }}">
+  {%- endif %}
   {#- O HTMX não guarda páginas no sessionStorage (teriam dados pessoais); o Voltar pede de novo. #}
   <meta name="htmx-config" content='{"historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
   {#- Título da aba: "<página> · TicketFlow" (docs/17 §17.1). #}

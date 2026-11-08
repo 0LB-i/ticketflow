@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from tests.apoio import API, eventos, registrar
-from tests.conftest import criar_usuario, entrar
+from tests.conftest import criar_usuario, entrar, token_csrf
 
 
 def _responsaveis(client: TestClient, numero: int) -> tuple[str, list[str]]:
@@ -67,7 +67,7 @@ def test_tirar_do_grupo_sem_supervisor_avisa_na_tela(
     criar_usuario(db, "adm@x.com", "admin", nome="Adm")
     entrar(client, "adm@x.com")
     url = f"/admin/grupos/{cenario['infra']}/membros/{cenario['caio']}/remover"
-    r = client.post(url, data={"csrf_token": client.cookies["tf_csrf"]}, follow_redirects=False)
+    r = client.post(url, data={"csrf_token": token_csrf(client)}, follow_redirects=False)
     assert r.status_code == 303
     # A Infra não tem supervisor: o chamado continua com o Caio, e a tela diz qual
     assert _responsaveis(client, infra) == ("Caio", [])

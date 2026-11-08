@@ -29,6 +29,7 @@ from chamados.modules.clients.models import Client
 from chamados.modules.identity import passwords
 from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import hash_password
+from chamados.modules.identity.sessions import CookieNames, cookie_names
 from chamados.modules.organization.models import Role, Team, TeamMember
 
 if TYPE_CHECKING:
@@ -322,7 +323,17 @@ def entrar(client: "TestClient", email: str = "ana@exemplo.com", senha: str = SE
     """Faz login e prepara o header CSRF para as próximas requisições."""
     r = client.post("/api/v1/auth/login", json={"login": email, "password": senha})
     assert r.status_code == 204, r.text
-    client.headers["X-CSRF-Token"] = client.cookies["tf_csrf"]
+    client.headers["X-CSRF-Token"] = token_csrf(client)
+
+
+def nomes_dos_cookies(client: "TestClient") -> CookieNames:
+    """Os nomes dos cookies de sessão e de CSRF: com `__Host-` se o cookie_secure estiver ligado."""
+    return cookie_names(client.app.state.settings)  # type: ignore[attr-defined]
+
+
+def token_csrf(client: "TestClient") -> str:
+    """O token CSRF da sessão, que as páginas levam nos formulários."""
+    return client.cookies[nomes_dos_cookies(client).csrf]
 
 
 def grupo(db: Session, nome: str) -> Team:

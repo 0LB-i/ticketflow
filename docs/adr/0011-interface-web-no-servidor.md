@@ -17,7 +17,7 @@ O NetKeep, outro sistema da mesma equipe, usa Jinja2 + HTMX + Tailwind sobre Fas
 - **Tailwind CSS 4** pelo binário standalone (`pytailwindcss`, `scripts/css.sh`), sem Node. O `app.css` não vai para o git: o deploy o gera, e na máquina de desenvolvimento um serviço o gera de novo a cada mudança nos templates. Os tokens de cor e o modo escuro são os mesmos da SPA.
 - **As telas não têm regra de negócio.** Uma rota de tela chama a mesma função da rota da API, ou o mesmo service, e só monta o HTML. As permissões continuam no backend (`allowed_actions`, `can`, filtro de visibilidade).
 - **A API JSON (`/api/v1`) continua**, para integrações e agentes de IA.
-- **Mesma sessão e mesmo CSRF:** o cookie `tf_sessao`. Os formulários que alteram dados mandam o token CSRF num campo escondido (`csrf_token`), e o HTMX o manda no header.
+- **Mesma sessão e mesmo CSRF:** o cookie de sessão (`__Host-tf_sessao`; `tf_sessao` sem HTTPS). Os formulários que alteram dados mandam o token CSRF num campo escondido (`csrf_token`), e o HTMX o manda no header.
 - **Editor:** o Tiptap continua, num arquivo único já empacotado em `web/static/js/vendor/`. O Node volta a ser necessário só para atualizar esse arquivo.
 - **Idiomas:** os mesmos catálogos JSON da SPA, com `t()` nos templates; na troca final, eles passaram para `web/locales/`.
 - **Migração tela a tela.** Enquanto a SPA existir, o Vite repassa ao uvicorn os endereços das telas já migradas, e a SPA recarrega a página quando navega para uma delas (`ServerView.vue`). Na troca final saem o `frontend/`, o Node do deploy e o serviço do Vite, e o nginx de desenvolvimento passa a mandar tudo para o uvicorn.

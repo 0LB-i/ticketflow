@@ -10,7 +10,7 @@ from chamados.config import Settings
 from chamados.core.permissions import CLIENT_MANAGERS_TEAM, CLIENT_ROLE, Actor, P, can
 from chamados.db.session import DB
 from chamados.modules.identity.models import ApiToken, User, UserSession
-from chamados.modules.identity.sessions import CSRF_HEADER, SESSION_COOKIE, csrf_ok, load_session
+from chamados.modules.identity.sessions import CSRF_HEADER, cookie_names, csrf_ok, load_session
 from chamados.modules.identity.tokens import load_api_token
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
@@ -47,7 +47,7 @@ class Auth:
 async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
     if (authorization := request.headers.get("authorization")) is not None:
         return await _token_auth(request, db, authorization)
-    token = request.cookies.get(SESSION_COOKIE)
+    token = request.cookies.get(cookie_names(settings).session)
     session = await load_session(db, token, settings) if token else None
     if session is None:
         raise HTTPException(401, "Sessão expirada ou inexistente. Entre novamente.")

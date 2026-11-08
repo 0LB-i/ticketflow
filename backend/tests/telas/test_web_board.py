@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from chamados.core.timezone import LOCAL_TZ
 from chamados.modules.tickets.models import Ticket
 from tests.apoio import API, registrar
-from tests.conftest import entrar
+from tests.conftest import entrar, token_csrf
 
 
 def _colunas(html: str) -> dict[str, list[int]]:
@@ -43,7 +43,7 @@ def _destinos(html: str, numero: int) -> dict[str, str]:
 
 
 def _form(client: TestClient, **dados: Any) -> dict[str, Any]:
-    return {"csrf_token": client.cookies["tf_csrf"], **dados}
+    return {"csrf_token": token_csrf(client), **dados}
 
 
 def test_sem_login_vai_para_o_login(client: TestClient, db: Session) -> None:

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.identity.models import ApiToken, User
 from tests.apoio import com_token, criar_token
-from tests.conftest import criar_usuario, entrar, outra_sessao
+from tests.conftest import criar_usuario, entrar, outra_sessao, token_csrf
 
 
 def _token_de(db: Session, email: str) -> ApiToken:
@@ -53,7 +53,7 @@ def test_admin_revoga_o_token_de_outra_pessoa(client: TestClient, db: Session) -
     volta = f"/admin/tokens?pessoa={token.user.public_id}"
     r = client.post(
         f"/admin/tokens/{token.public_id}/revogar",
-        data={"csrf_token": client.cookies["tf_csrf"], "volta": volta},
+        data={"csrf_token": token_csrf(client), "volta": volta},
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -79,7 +79,7 @@ def test_so_quem_administra_os_usuarios(client: TestClient, db: Session) -> None
     assert client.get("/api/v1/admin/api-tokens").status_code == 403
     r = client.post(
         f"/admin/tokens/{token.public_id}/revogar",
-        data={"csrf_token": client.cookies["tf_csrf"]},
+        data={"csrf_token": token_csrf(client)},
         follow_redirects=False,
     )
     assert r.status_code == 403

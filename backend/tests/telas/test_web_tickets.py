@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from chamados.modules.system.models import SystemSetting
 from chamados.web.tickets import _page_numbers
 from tests.apoio import API, registrar
-from tests.conftest import criar_cliente, criar_usuario, entrar
+from tests.conftest import criar_cliente, criar_usuario, entrar, token_csrf
 
 
 def _numeros(html: str) -> list[int]:
@@ -48,7 +48,7 @@ def test_parametro_invalido_mostra_uma_pagina(client: TestClient, db: Session) -
     assert r.status_code == 422
     assert r.headers["content-type"].startswith("text/html")
     # No idioma da pessoa.
-    client.post("/idioma", data={"csrf_token": client.cookies["tf_csrf"], "locale": "en"})
+    client.post("/idioma", data={"csrf_token": token_csrf(client), "locale": "en"})
     assert '<html lang="en">' in client.get("/chamados?pagina=lixo").text
     assert client.get("/api/v1/tickets?cursor=lixo").headers["content-type"] == (
         "application/problem+json"
@@ -358,7 +358,7 @@ def test_status_em_massa(client: TestClient, cenario: dict[str, Any]) -> None:
     dados = {
         "numeros": [a, b, 9999],
         "status_id": status["Concluído"],
-        "csrf_token": client.cookies["tf_csrf"],
+        "csrf_token": token_csrf(client),
         "volta": "/chamados?aba=todos",
     }
     assert (
@@ -388,7 +388,7 @@ def test_status_em_massa(client: TestClient, cenario: dict[str, Any]) -> None:
 def test_idioma_da_pessoa(client: TestClient, db: Session) -> None:
     user = criar_usuario(db, grupos={"TI": "member"})
     entrar(client)
-    csrf = client.cookies["tf_csrf"]
+    csrf = token_csrf(client)
     dados = {"csrf_token": csrf, "locale": "en", "volta": "/chamados?aba=todos"}
     r = client.post("/idioma", data=dados, follow_redirects=False)
     assert r.headers["location"] == "/chamados?aba=todos"

@@ -28,8 +28,10 @@ def test_login_cria_sessao_e_me_traz_papel_grupos_e_permissoes(
     criar_usuario(db, grupos={"TI – Suporte": "supervisor"})
     r = client.post(LOGIN, json={"login": "ANA@exemplo.com", "password": SENHA})
     assert r.status_code == 204
-    cookie_sessao = next(c for c in r.headers.get_list("set-cookie") if c.startswith("tf_sessao="))
-    assert "HttpOnly" in cookie_sessao and "SameSite=lax" in cookie_sessao
+    # Sem HTTPS (cookie_secure desligado, como nos testes), os nomes ficam sem o __Host-.
+    cookies = {c.split("=")[0]: c for c in r.headers.get_list("set-cookie")}
+    assert set(cookies) == {"tf_sessao", "tf_csrf"}
+    assert all("HttpOnly" in c and "SameSite=lax" in c for c in cookies.values())
 
     me = client.get("/api/v1/me").json()
     assert me["email"] == "ana@exemplo.com"
@@ -40,11 +42,40 @@ def test_login_cria_sessao_e_me_traz_papel_grupos_e_permissoes(
     assert db.scalar(select(AuditLog.action).where(AuditLog.action == "auth.login"))
 
 
-def test_cookie_secure_em_producao(client: TestClient, db: Session) -> None:
+def test_cookies_com_prefixo_host_em_producao(client: TestClient, db: Session) -> None:
+    """Com HTTPS, `__Host-`: outro sistema em *.empresa.com.br não grava o cookie."""
     client.app.state.settings.cookie_secure = True  # type: ignore[attr-defined]
+    client.base_url = "https://testserver"  # o navegador só manda cookie Secure por HTTPS
     criar_usuario(db)
     r = client.post(LOGIN, json={"login": "ana@exemplo.com", "password": SENHA})
-    assert all("Secure" in c for c in r.headers.get_list("set-cookie"))
+    assert r.status_code == 204
+    cookies = {c.split("=")[0]: c.split("; ")[1:] for c in r.headers.get_list("set-cookie")}
+    assert set(cookies) == {"__Host-tf_sessao", "__Host-tf_csrf"}
+    for atributos in cookies.values():
+        assert {"HttpOnly", "Secure", "Path=/"} <= set(atributos)
+        assert not any(a.lower().startswith("domain") for a in atributos)
+
+    # A sessão vale na API e nas telas.
+    client.headers["X-CSRF-Token"] = client.cookies["__Host-tf_csrf"]
+    assert client.get("/api/v1/me").status_code == 200
+    assert client.patch("/api/v1/me", json={"locale": "en"}).status_code == 200
+    assert client.get("/chamados", follow_redirects=False).status_code == 200
+
+
+def test_cookie_sem_prefixo_nao_vale_em_producao(client: TestClient, db: Session) -> None:
+    """O cookie antigo `tf_sessao` (de antes do __Host-) não autentica mais."""
+    client.app.state.settings.cookie_secure = True  # type: ignore[attr-defined]
+    client.base_url = "https://testserver"
+    criar_usuario(db)
+    client.post(LOGIN, json={"login": "ana@exemplo.com", "password": SENHA})
+    token = client.cookies["__Host-tf_sessao"]
+
+    antigo = outra_sessao(client)
+    antigo.base_url = "https://testserver"
+    antigo.cookies.set("tf_sessao", token)
+    assert antigo.get("/api/v1/me").status_code == 401
+    r = antigo.get("/chamados", follow_redirects=False)
+    assert r.headers["location"] == "/login"
 
 
 def test_mensagem_generica_nao_revela_se_o_email_existe(client: TestClient, db: Session) -> None:

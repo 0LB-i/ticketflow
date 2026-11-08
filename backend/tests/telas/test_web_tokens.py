@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.identity.models import ApiToken
 from tests.apoio import com_token, criar_token
-from tests.conftest import criar_usuario, entrar, outra_sessao
+from tests.conftest import criar_usuario, entrar, outra_sessao, token_csrf
 
 TOKEN = re.compile(r'id="token-valor"[^>]*value="(tf_[^"]+)"')
 
@@ -17,7 +17,7 @@ TOKEN = re.compile(r'id="token-valor"[^>]*value="(tf_[^"]+)"')
 def _criar(client: TestClient, **dados: str) -> tuple[int, str]:
     r = client.post(
         "/meus-tokens",
-        data={"csrf_token": client.cookies["tf_csrf"], "escopo": "read", "dias": "90", **dados},
+        data={"csrf_token": token_csrf(client), "escopo": "read", "dias": "90", **dados},
     )
     return r.status_code, r.text
 
@@ -69,7 +69,7 @@ def test_revogar(client: TestClient, db: Session) -> None:
     entrar(client, "ana@x.com")
     r = client.post(
         f"/meus-tokens/{token.public_id}/revogar",
-        data={"csrf_token": client.cookies["tf_csrf"]},
+        data={"csrf_token": token_csrf(client)},
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -89,7 +89,7 @@ def test_so_os_proprios_tokens(client: TestClient, db: Session) -> None:
     assert client.delete(f"/api/v1/me/tokens/{da_bia.public_id}").status_code == 404
     r = client.post(
         f"/meus-tokens/{da_bia.public_id}/revogar",
-        data={"csrf_token": client.cookies["tf_csrf"]},
+        data={"csrf_token": token_csrf(client)},
         follow_redirects=False,
     )
     assert r.status_code == 303

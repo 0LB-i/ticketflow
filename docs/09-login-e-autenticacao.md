@@ -120,8 +120,8 @@ O administrador associa grupos do Entra ID / Google / Keycloak a elementos do si
 
 - **Sessão no servidor** (tabela `user_sessions`). O cookie só contém um identificador aleatório de 256 bits, e no banco fica o hash dele.
 - **Expiração:** após 8 h sem uso ou 7 dias no máximo (ambos configuráveis).
-- **Cookie:** `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`.
-- **CSRF:** um segundo cookie, legível pelo JavaScript, carrega o token CSRF. As telas o enviam num campo escondido (`csrf_token`) dos formulários, ou no header `X-CSRF-Token` (HTMX e envio de anexos), em todo `POST`, `PUT`, `PATCH` e `DELETE`, e o servidor compara com o hash da sessão.
+- **Cookie:** `__Host-tf_sessao`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, sem `Domain`: o prefixo `__Host-` impede que outro sistema no mesmo domínio grave o cookie. Sem HTTPS (`COOKIE_SECURE=false`), o navegador recusaria o prefixo, e o nome fica `tf_sessao`.
+- **CSRF:** um segundo cookie (`__Host-tf_csrf`, ou `tf_csrf` sem HTTPS), também `HttpOnly`, carrega o token CSRF. A página o traz num campo escondido (`csrf_token`) dos formulários e numa `<meta name="csrf">`, de onde o envio de anexos o manda no header `X-CSRF-Token`, em todo `POST`, `PUT`, `PATCH` e `DELETE`, e o servidor compara com o hash da sessão.
 - **Permissões avaliadas a cada requisição:** se o papel ou os grupos de alguém mudam, o efeito é imediato, sem precisar sair e entrar de novo.
 - **Gerenciamento:** o usuário vê as próprias sessões ativas (dispositivo, IP, último acesso) e pode encerrá-las. O admin pode encerrar todas as sessões de um usuário.
 

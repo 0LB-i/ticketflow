@@ -1,6 +1,7 @@
 """Sessões no servidor com CSRF por token sincronizado (docs/09 §9.7)."""
 
 from datetime import UTC, datetime, timedelta
+from typing import NamedTuple
 
 from fastapi import Request, Response
 from sqlalchemy import select, update
@@ -13,10 +14,22 @@ from chamados.modules.identity.models import User, UserSession
 from chamados.modules.identity.tokens import new_secret, sha256
 from chamados.modules.organization.models import TeamMember
 
-SESSION_COOKIE = "tf_sessao"
-CSRF_COOKIE = "tf_csrf"
 CSRF_HEADER = "X-CSRF-Token"
 _TOUCH_EVERY = timedelta(minutes=1)
+
+
+class CookieNames(NamedTuple):
+    session: str
+    csrf: str
+
+
+def cookie_names(settings: Settings) -> CookieNames:
+    """Com HTTPS, o prefixo `__Host-`: o navegador só aceita o cookie gravado pelo próprio
+    endereço (Secure, Path=/, sem Domain), e outro sistema em *.empresa.com.br não consegue
+    gravá-lo para o domínio inteiro. Sem HTTPS (COOKIE_SECURE=false), o navegador o recusaria:
+    os nomes ficam sem o prefixo."""
+    prefix = "__Host-" if settings.cookie_secure else ""
+    return CookieNames(f"{prefix}tf_sessao", f"{prefix}tf_csrf")
 
 
 def now() -> datetime:
@@ -39,13 +52,15 @@ async def create_session(
     db.add(session)
     max_age = settings.session_max_days * 86400
     common = {"max_age": max_age, "secure": settings.cookie_secure, "samesite": "lax", "path": "/"}
-    response.set_cookie(SESSION_COOKIE, token, httponly=True, **common)  # type: ignore[arg-type]
-    response.set_cookie(CSRF_COOKIE, csrf, httponly=False, **common)  # type: ignore[arg-type]
+    names = cookie_names(settings)
+    response.set_cookie(names.session, token, httponly=True, **common)  # type: ignore[arg-type]
+    # O JavaScript não lê o CSRF do cookie: a página o traz (<meta name="csrf"> e os formulários).
+    response.set_cookie(names.csrf, csrf, httponly=True, **common)  # type: ignore[arg-type]
     return session
 
 
 def clear_cookies(response: Response, settings: Settings) -> None:
-    for name in (SESSION_COOKIE, CSRF_COOKIE):
+    for name in cookie_names(settings):
         response.delete_cookie(name, path="/", secure=settings.cookie_secure, samesite="lax")
 
 

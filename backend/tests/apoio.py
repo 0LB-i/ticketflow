@@ -20,6 +20,7 @@ from chamados.db.session import make_sessionmaker
 from chamados.modules.identity.models import User
 from chamados.modules.identity.tokens import new_api_token
 from chamados.modules.reports.service import TZ
+from tests.conftest import token_csrf
 
 API = "/api/v1/tickets"
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
@@ -165,7 +166,7 @@ EMPRESA = {
 
 def formulario(client: TestClient, **dados: Any) -> dict[str, Any]:
     """Os campos de um formulário das telas, com o token CSRF."""
-    return {"csrf_token": client.cookies["tf_csrf"], **dados}
+    return {"csrf_token": token_csrf(client), **dados}
 
 
 def aviso(client: TestClient, numero: int, html: str | None = None) -> str:

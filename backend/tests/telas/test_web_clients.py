@@ -8,13 +8,13 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.clients.models import Client
 from tests.apoio import EMPRESA, ENDERECO, PESSOA
-from tests.conftest import criar_usuario, entrar
+from tests.conftest import criar_usuario, entrar, token_csrf
 
 API = "/api/v1/clients"
 
 
 def _form(client: TestClient, dados: dict[str, Any]) -> dict[str, Any]:
-    return {"csrf_token": client.cookies["tf_csrf"], **dados}
+    return {"csrf_token": token_csrf(client), **dados}
 
 
 def _admin_de_clientes(client: TestClient, db: Session) -> None:

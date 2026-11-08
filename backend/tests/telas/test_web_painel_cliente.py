@@ -14,7 +14,7 @@ from chamados.modules.reports.service import TZ
 from chamados.modules.tickets.models import Ticket
 from tests.api.test_papel_cliente import usuario_cliente
 from tests.apoio import registrar, tarefa
-from tests.conftest import criar_cliente, criar_usuario, entrar, outra_sessao
+from tests.conftest import criar_cliente, criar_usuario, entrar, outra_sessao, token_csrf
 
 
 def _contrato(db: Session, cliente: str, tipo: str, horas: int | None) -> None:
@@ -103,7 +103,7 @@ def test_cadastro_de_usuario_com_o_papel_cliente(client: TestClient, db: Session
     r = client.post(
         "/admin/usuarios/novo",
         data={
-            "csrf_token": client.cookies["tf_csrf"],
+            "csrf_token": token_csrf(client),
             "display_name": "Carla",
             "email": "carla@x.com",
             "username": "carla",

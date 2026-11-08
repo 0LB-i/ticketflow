@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.system.models import SystemSetting
 from chamados.web.templating import static
-from tests.conftest import SENHA, FakeMailer, criar_usuario
+from tests.conftest import SENHA, FakeMailer, criar_usuario, nomes_dos_cookies, token_csrf
 
 
 def _entrar(client: TestClient, volta: str = "/chamados", senha: str = SENHA) -> str:
@@ -51,7 +51,7 @@ def test_login_recusa_envio_de_outro_site(client: TestClient, db: Session) -> No
     r = client.post("/login", data=dados, headers={"Sec-Fetch-Site": "cross-site"})
     assert r.status_code == 403
     assert r.headers["content-type"].startswith("text/html")
-    assert "tf_sessao" not in client.cookies
+    assert nomes_dos_cookies(client).session not in client.cookies
 
 
 def test_login_com_senha_errada_mostra_o_erro(client: TestClient, db: Session) -> None:
@@ -60,7 +60,7 @@ def test_login_com_senha_errada_mostra_o_erro(client: TestClient, db: Session) -
     assert r.status_code == 401
     assert "E-mail ou senha inválidos." in r.text
     assert 'value="ana@exemplo.com"' in r.text  # o login digitado continua no campo
-    assert "tf_sessao" not in client.cookies
+    assert nomes_dos_cookies(client).session not in client.cookies
 
 
 def test_tela_no_idioma_padrao_do_sistema(client: TestClient, db: Session) -> None:
@@ -87,7 +87,7 @@ def test_sair_exige_o_token_csrf(client: TestClient, db: Session) -> None:
     # Uma página, não o JSON da API (ex.: o token de uma aba antiga).
     assert r.headers["content-type"].startswith("text/html")
     assert "<title>Acesso negado · TicketFlow</title>" in r.text
-    r = client.post("/sair", data={"csrf_token": client.cookies["tf_csrf"]}, follow_redirects=False)
+    r = client.post("/sair", data={"csrf_token": token_csrf(client)}, follow_redirects=False)
     assert r.headers["location"] == "/login"
     assert client.get("/api/v1/me").status_code == 401
 
@@ -138,7 +138,7 @@ def test_troca_obrigatoria_da_senha_provisoria(client: TestClient, db: Session) 
 
     _entrar(client)
     assert client.get("/trocar-senha").status_code == 200
-    csrf = client.cookies["tf_csrf"]
+    csrf = token_csrf(client)
     nova = {"senha": "nova senha bem longa", "confirmar": "nova senha bem longa"}
     assert client.post("/trocar-senha", data={**nova, "csrf_token": "x"}).status_code == 403
     r = client.post("/trocar-senha", data={**nova, "confirmar": "outra", "csrf_token": csrf})
@@ -182,3 +182,11 @@ def test_menu_pre_carregado_ao_passar_o_mouse(client: TestClient, db: Session) -
     regras = client.get("/pre-carregamento.json")
     assert regras.headers["content-type"] == "application/speculationrules+json"
     assert regras.json()["prefetch"][0]["eagerness"] == "eager"
+
+
+def test_token_csrf_na_pagina_so_com_sessao(client: TestClient, db: Session) -> None:
+    """O cookie de CSRF é HttpOnly: o envio de anexos (chamado.js) lê o token da página."""
+    assert 'name="csrf"' not in client.get("/login").text
+    criar_usuario(db)
+    _entrar(client)
+    assert f'<meta name="csrf" content="{token_csrf(client)}">' in client.get("/chamados").text

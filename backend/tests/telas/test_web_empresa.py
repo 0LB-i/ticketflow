@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from chamados.modules.system.models import SystemSetting
-from tests.conftest import criar_usuario, entrar
+from tests.conftest import criar_usuario, entrar, token_csrf
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
 URL = "/admin/empresa"
@@ -23,7 +23,7 @@ DADOS = {
 
 
 def _form(client: TestClient, **dados: Any) -> dict[str, Any]:
-    return {"csrf_token": client.cookies["tf_csrf"], **dados}
+    return {"csrf_token": token_csrf(client), **dados}
 
 
 def _aviso(html: str) -> str:

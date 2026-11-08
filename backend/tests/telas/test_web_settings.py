@@ -11,14 +11,14 @@ from sqlalchemy.orm import Session
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.system.models import SystemSetting, WorkSchedule
 from chamados.modules.system.work_hours import TZ
-from tests.conftest import consultas, criar_usuario, entrar
+from tests.conftest import consultas, criar_usuario, entrar, token_csrf
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
 URL = "/admin/configuracoes"
 
 
 def _form(client: TestClient, **dados: Any) -> dict[str, Any]:
-    return {"csrf_token": client.cookies["tf_csrf"], **dados}
+    return {"csrf_token": token_csrf(client), **dados}
 
 
 def _aviso(html: str) -> str:

@@ -18,7 +18,7 @@ from chamados.core.permissions import CLIENT_ROLE, P, can, effective_permissions
 from chamados.core.timezone import LOCAL_TZ
 from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, SettingsDep, session_auth
-from chamados.modules.identity.sessions import CSRF_COOKIE, SESSION_COOKIE, csrf_ok, load_session
+from chamados.modules.identity.sessions import cookie_names, csrf_ok, load_session
 from chamados.modules.system.router import Branding, load_branding
 from chamados.web.formatting import format_ago, format_datetime, format_duration, format_size
 from chamados.web.i18n import translate
@@ -118,7 +118,9 @@ class Page:
                 "timezone": LOCAL_TZ.key,
                 "branding": self.branding,
                 "colors_css": stylesheet(colors.model_dump() if colors else None),
-                "csrf_token": self.request.cookies.get(CSRF_COOKIE, ""),
+                "csrf_token": self.request.cookies.get(
+                    cookie_names(self.request.app.state.settings).csrf, ""
+                ),
                 "flashes": flashes,
                 "datetime": partial(format_datetime, self.locale),
                 "ago": partial(format_ago, self.locale, now=datetime.now(UTC)),
@@ -140,7 +142,7 @@ class Page:
 
 
 async def get_page(request: Request, db: DB, settings: SettingsDep) -> Page:
-    token = request.cookies.get(SESSION_COOKIE)
+    token = request.cookies.get(cookie_names(settings).session)
     session = await load_session(db, token, settings) if token else None
     auth = session_auth(session) if session else None
     branding = await load_branding(db)

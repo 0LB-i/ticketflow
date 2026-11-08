@@ -5,11 +5,6 @@
 const FUSO = document.querySelector('meta[name=fuso]')?.content || 'UTC'
 const idioma = () => document.documentElement.lang || 'pt-BR'
 
-function lerCookie(nome) {
-  const achado = document.cookie.match(new RegExp(`(?:^|; )${nome}=([^;]*)`))
-  return achado ? decodeURIComponent(achado[1]) : ''
-}
-
 /** 1ª etapa do envio de um anexo (docs/11 §11.4): o arquivo vai antes do formulário. */
 async function enviarArquivo(arquivo) {
   const dados = new FormData()
@@ -17,7 +12,7 @@ async function enviarArquivo(arquivo) {
   const resposta = await fetch('/api/v1/uploads', {
     method: 'POST',
     body: dados,
-    headers: { 'X-CSRF-Token': lerCookie('tf_csrf'), 'Accept-Language': idioma() },
+    headers: { 'X-CSRF-Token': document.querySelector('meta[name=csrf]')?.content || '', 'Accept-Language': idioma() },
   })
   const corpo = await resposta.json().catch(() => ({}))
   if (!resposta.ok) throw new Error(corpo.detail || corpo.title || resposta.statusText)
