@@ -17,6 +17,7 @@ from httpx2 import Client, Response
 from sqlalchemy import Engine, text
 
 from chamados.core.timezone import LOCAL_TZ
+from chamados.modules.system.router import TicketList
 
 API = "/api/v1"
 # RNF-01 (docs/02): p95 < 300 ms nas leituras da API com 50 mil chamados. As escritas e as telas
@@ -26,6 +27,7 @@ ESCRITA = 300
 EXPORTACAO = 2000
 
 ATIVOS = "('open', 'waiting', 'delivered')"
+POR_PAGINA = TicketList().page_size  # da tela de chamados, sem configuração
 # Regras 1 a 5 da visibilidade (docs/08 §8.4) para quem tem o papel agent. O admin vê tudo.
 VISIVEL = """(
     t.assignee_id = :u
@@ -388,6 +390,7 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
                     "watching": len(
                         ctx.chamados("agente", f"{OBSERVA} AND s.kind IN {ATIVOS}", None)
                     ),
+                    "all": len(ctx.chamados("agente", f"s.kind IN {ATIVOS}", None)),
                 },
                 "contadores",
             ),
@@ -504,14 +507,14 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             lambda c: c.get(f"{API}/reports", params=mes),
             _relatorio(ctx, ctx.mes, "agente"),
         ),
-        # --- telas ---
+        # --- telas: 25 por página (o padrão); na aba Todos, só os em andamento ---
         Cenario(
             "tela · Chamados, aba padrão (agente)",
             "agente",
             lambda c: c.get("/chamados"),
             lambda r: igual(
                 numeros_na_tela(r),
-                ctx.chamados("agente", f"{RESPONSAVEL} AND s.kind IN {ATIVOS}"),
+                ctx.chamados("agente", f"{RESPONSAVEL} AND s.kind IN {ATIVOS}", POR_PAGINA),
                 "chamados na tela",
             ),
         ),
@@ -519,14 +522,20 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             "tela · Chamados, aba Todos (admin)",
             "admin",
             lambda c: c.get("/chamados", params={"aba": "todos"}),
-            lambda r: igual(numeros_na_tela(r), ctx.chamados("admin"), "chamados na tela"),
+            lambda r: igual(
+                numeros_na_tela(r),
+                ctx.chamados("admin", f"s.kind IN {ATIVOS}", POR_PAGINA),
+                "chamados na tela",
+            ),
         ),
         Cenario(
             "tela · Chamados, busca: impressora (agente)",
             "agente",
             lambda c: c.get("/chamados", params={"aba": "todos", "q": "impressora"}),
             lambda r: igual(
-                numeros_na_tela(r), ctx.chamados("agente", impressora), "chamados na tela"
+                numeros_na_tela(r),
+                ctx.chamados("agente", f"{impressora} AND s.kind IN {ATIVOS}", POR_PAGINA),
+                "chamados na tela",
             ),
         ),
         Cenario(
