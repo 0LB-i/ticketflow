@@ -135,15 +135,18 @@ class Contexto:
         onde: str = "TRUE",
         limite: int | None = 50,
         inicio: int = 0,
+        antigos_primeiro: bool = False,
         **params: Any,
     ) -> list[int]:
-        """Os números que a pessoa deve ver com o filtro `onde`, na ordem da lista."""
+        """Os números que a pessoa deve ver com o filtro `onde`, na ordem da lista (o mais novo
+        primeiro); `antigos_primeiro` é a do teto do quadro."""
         visivel = "TRUE" if persona == "admin" else VISIVEL
+        ordem = "t.created_at, t.id" if antigos_primeiro else "t.created_at DESC, t.id DESC"
         return [
             n
             for (n,) in self.linhas(
                 "SELECT t.number FROM tickets t JOIN ticket_statuses s ON s.id = t.status_id "
-                f"WHERE {visivel} AND {onde} ORDER BY t.created_at, t.id "
+                f"WHERE {visivel} AND {onde} ORDER BY {ordem} "
                 "LIMIT :limite OFFSET :inicio",
                 u=self.id[persona],
                 limite=limite,
@@ -287,6 +290,7 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             "OR (s.kind = 'closed' AND t.closed_at >= :de AND t.closed_at < :ate) "
             "OR (s.kind = 'canceled' AND t.canceled_at >= :de AND t.canceled_at < :ate))",
             limite=500,
+            antigos_primeiro=True,
             de=de,
             ate=ate,
         )
