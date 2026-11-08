@@ -189,6 +189,9 @@ EN: dict[str, str] = {
     "Não foi possível gerar o PDF com estes filtros.": (
         "The PDF could not be generated with these filters."
     ),
+    "Não foi possível gerar os PDFs com estes filtros.": (
+        "The PDFs could not be generated with these filters."
+    ),
     "Não foi possível gerar o CSV com estes filtros.": (
         "The CSV could not be generated with these filters."
     ),
