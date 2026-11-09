@@ -11,13 +11,14 @@ from chamados.modules.audit.models import AuditLog
 from chamados.modules.clients.documents import valid_cnpj, valid_cpf
 from chamados.modules.organization.models import Team
 from tests.apoio import EMPRESA, PESSOA
-from tests.conftest import criar_usuario, entrar
+from tests.conftest import criar_usuario, entrar, grupo
 
 API = "/api/v1/clients"
 
 
 @pytest.fixture
 def agente(client: TestClient, db: Session) -> None:
+    grupo(db, "Administradores", manages_clients=True)
     criar_usuario(db, "ana@x.com", grupos={"Administradores": "member"})
     entrar(client, "ana@x.com")
 
@@ -191,6 +192,7 @@ def test_busca_e_inativos(client: TestClient, agente: None) -> None:
 
 
 def test_fora_do_grupo_so_escolhe_pelo_nome(client: TestClient, db: Session) -> None:
+    grupo(db, "Administradores", manages_clients=True)
     criar_usuario(db, "adm@x.com", grupos={"Administradores": "member"})
     entrar(client, "adm@x.com")
     pessoa = client.post(API, json=PESSOA).json()
@@ -215,13 +217,14 @@ def test_fora_do_grupo_so_escolhe_pelo_nome(client: TestClient, db: Session) -> 
     [
         ("agent", {"SUPORTE": "supervisor"}, False),
         ("admin", {}, False),  # o papel Administrador sozinho não basta
-        ("agent", {"administradores": "member"}, True),
+        ("agent", {"Administradores": "member"}, True),
         ("auditor", {"Administradores": "member"}, True),
     ],
 )
-def test_so_o_grupo_administradores_gerencia(
+def test_so_o_grupo_marcado_gerencia(
     client: TestClient, db: Session, papel: str, grupos: dict[str, str], pode: bool
 ) -> None:
+    grupo(db, "Administradores", manages_clients=True)
     criar_usuario(db, "bia@x.com", papel, grupos=grupos)
     entrar(client, "bia@x.com")
     assert (client.get(API).status_code == 200) is pode
@@ -230,9 +233,32 @@ def test_so_o_grupo_administradores_gerencia(
     assert (client.post(API, json=PESSOA).status_code == 201) is pode
 
 
-def test_grupo_administradores_inativo_nao_vale(client: TestClient, db: Session) -> None:
+def test_grupo_marcado_inativo_nao_vale(client: TestClient, db: Session) -> None:
+    grupo(db, "Administradores", manages_clients=True)
     criar_usuario(db, "bia@x.com", grupos={"Administradores": "member"})
     db.execute(update(Team).values(is_active=False))
     db.commit()
     entrar(client, "bia@x.com")
     assert client.post(API, json=PESSOA).status_code == 403
+
+
+def test_renomear_o_grupo_marcado_mantem_o_acesso(client: TestClient, db: Session) -> None:
+    marcado = grupo(db, "Administradores", manages_clients=True)
+    criar_usuario(db, "bia@x.com", grupos={"Administradores": "member"})
+    criar_usuario(db, "chefe@x.com", "admin")
+    entrar(client, "chefe@x.com")
+    r = client.patch(f"/api/v1/teams/{marcado.public_id}", json={"name": "Diretoria"})
+    assert r.status_code == 200, r.text
+    entrar(client, "bia@x.com")
+    assert client.get(API).status_code == 200
+    assert client.post(API, json=PESSOA).status_code == 201
+
+
+def test_grupo_chamado_administradores_sem_a_marca_nao_vale(
+    client: TestClient, db: Session
+) -> None:
+    grupo(db, "Administradores")
+    criar_usuario(db, "bia@x.com", grupos={"Administradores": "member"})
+    entrar(client, "bia@x.com")
+    assert client.get(API).status_code == 403
+    assert "client.view" not in client.get("/api/v1/me").json()["permissions"]

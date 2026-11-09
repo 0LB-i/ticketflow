@@ -89,7 +89,7 @@ def test_layout_menu_conforme_permissao(client: TestClient, db: Session) -> None
     r = client.get("/chamados")
     assert "/admin/usuarios" in r.text
     assert "/admin/configuracoes" in r.text
-    assert "/admin/clientes" not in r.text  # só o grupo Administradores
+    assert "/admin/clientes" not in r.text  # só o grupo marcado (manages_clients)
 
 
 def test_filas_contadores_e_filtros(client: TestClient, cenario: dict[str, Any]) -> None:

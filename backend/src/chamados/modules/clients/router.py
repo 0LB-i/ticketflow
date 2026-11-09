@@ -1,8 +1,9 @@
 """Cadastro de clientes, pessoa física e jurídica (/clientes).
 
 Ver exige client.view; cadastrar e alterar, client.manage (as duas só para membros do grupo
-Administradores, ver core/permissions.py). Para escolher o cliente de um chamado, qualquer
-pessoa logada usa GET /clients/options, que devolve só o id e o nome. Só o CEP, a cidade e a UF são
+marcado, `teams.manages_clients`, o Administradores da instalação; ver core/permissions.py).
+Para escolher o cliente de um chamado, qualquer pessoa logada usa GET /clients/options, que
+devolve só o id e o nome. Só o CEP, a cidade e a UF são
 obrigatórios; telefones e e-mails são listas. O contrato (mensal, anual ou avulso) é opcional; as
 horas contratadas valem só no mensal (por mês) e no anual (por ano), e nesses são obrigatórias.
 Não há exclusão: cliente que não é mais atendido fica inativo. A auditoria guarda só quais

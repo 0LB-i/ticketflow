@@ -1,8 +1,9 @@
 """Cadastro de clientes, pessoa física e jurídica (Administração › Clientes).
 
-Ver exige client.view; cadastrar e alterar, client.manage (só membros do grupo Administradores,
-core/permissions.py). As regras e a gravação são as da API (`clients/router.py`); a tela confere
-antes os mesmos campos que a SPA conferia, para mostrar todos os erros de uma vez.
+Ver exige client.view; cadastrar e alterar, client.manage (só membros do grupo marcado,
+`teams.manages_clients`, o Administradores da instalação; core/permissions.py). As regras e a
+gravação são as da API (`clients/router.py`); a tela confere antes os mesmos campos que a SPA
+conferia, para mostrar todos os erros de uma vez.
 """
 
 import re

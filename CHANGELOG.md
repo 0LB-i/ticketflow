@@ -103,6 +103,7 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Desempenho do painel do papel Cliente e do filtro por cliente dos relatórios: a migração `0047` cria um índice pelo cliente do chamado (`tickets_client_idx`), aplicada pelo `update.sh`. Sem mudança visível.
 - Migrações: as 47 migrações (`0001` a `0047`) viram uma migração base, com o mesmo id `0047`, o mesmo schema e os mesmos dados iniciais; uma instalação nova roda só ela. Sem mudança visível.
   - **Servidor:** uma instalação que já está na `0047` não precisa fazer nada. Uma instalação numa versão anterior precisa primeiro atualizar até a `0047` com uma versão do código anterior a esta (o commit `4ee5ada`) e só depois seguir.
+- Clientes: renomear o grupo Administradores não tira mais o acesso aos clientes. O acesso vem de uma marca no grupo (`teams.manages_clients`), que a migração `0048` põe no grupo Administradores, aplicada pelo `update.sh`.
 
 ### Removido
 

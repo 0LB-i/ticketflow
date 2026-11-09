@@ -63,6 +63,7 @@ def test_migracao_cria_o_admin_padrao(db: Session, database_url: str) -> None:
     assert admin.must_change_password
     assert verify_password(admin.password_hash, "admin")[0]
     assert [(m.team.name, m.role) for m in admin.memberships] == [("Administradores", "member")]
+    assert admin.memberships[0].team.manages_clients  # a 0048 marca o grupo da carga inicial
     # Rodar de novo não duplica nem recria quem já existe. Encerra a transação antes:
     # ela segura um lock em users e a migração ficaria esperando para sempre.
     db.rollback()
@@ -70,3 +71,19 @@ def test_migracao_cria_o_admin_padrao(db: Session, database_url: str) -> None:
     command.upgrade(cfg, "head")
     assert len(db.scalars(select(User).where(User.username == "admin")).all()) == 1
     assert len(db.scalars(select(Team).where(Team.name == "Administradores")).all()) == 1
+
+
+@pytest.mark.usefixtures("migracoes")
+def test_0048_marca_o_grupo_administradores(db: Session, database_url: str) -> None:
+    """O acesso aos clientes passa do nome do grupo para teams.manages_clients."""
+    cfg = alembic_config(database_url)
+    db.rollback()
+    command.downgrade(cfg, "0047")
+    # Na 0047 a coluna não existe: os grupos entram por SQL, não pelo modelo.
+    db.execute(text("INSERT INTO teams (name) VALUES (' ADMINISTRADORES '), ('Suporte')"))
+    db.commit()
+    command.upgrade(cfg, "head")
+    marcas: dict[str, bool] = dict(
+        db.execute(text("SELECT name, manages_clients FROM teams")).all()
+    )
+    assert marcas == {" ADMINISTRADORES ": True, "Suporte": False}

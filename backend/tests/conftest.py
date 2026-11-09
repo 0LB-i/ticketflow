@@ -336,11 +336,12 @@ def token_csrf(client: "TestClient") -> str:
     return client.cookies[nomes_dos_cookies(client).csrf]
 
 
-def grupo(db: Session, nome: str) -> Team:
-    """Grupo pelo nome, criado se ainda não existir."""
+def grupo(db: Session, nome: str, *, manages_clients: bool = False) -> Team:
+    """Grupo pelo nome, criado se ainda não existir (com `manages_clients`, o grupo que dá o acesso
+    aos clientes)."""
     team = db.scalar(select(Team).where(Team.name == nome))
     if team is None:
-        team = Team(name=nome)
+        team = Team(name=nome, manages_clients=manages_clients)
         db.add(team)
         db.commit()
     return team

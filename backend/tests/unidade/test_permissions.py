@@ -50,7 +50,7 @@ MATRIZ = {
     P.ADMIN_CATALOG: (N, N, S, N),
     P.ADMIN_SETTINGS: (N, N, S, N),
     P.AUDIT_VIEW: (N, N, S, S),
-    P.CLIENT_VIEW: (N, N, N, N),  # só pelo grupo Administradores
+    P.CLIENT_VIEW: (N, N, N, N),  # só pelo grupo marcado (teams.manages_clients)
     P.CLIENT_MANAGE: (N, N, N, N),
 }
 
@@ -88,7 +88,7 @@ def _base() -> Any:
     return modulo
 
 
-def test_clientes_so_pelo_grupo_administradores() -> None:
+def test_clientes_so_pelo_grupo_marcado() -> None:
     for permissao in ("client.view", "client.manage"):
         assert permissao in effective_permissions(admin_do_grupo)
         assert permissao not in effective_permissions(admin)

@@ -9,9 +9,9 @@ clientes, `users.client_id`) e só vê o painel dela (web/client_panel.py), com 
 empresa (a visibilidade em modules/tickets/visibility.py). As telas e a API recusam o resto.
 
 A exceção são os clientes (client.view e client.manage): nenhum papel os tem; valem só para
-quem é membro do grupo Administradores (pedido do usuário), mesmo que o papel seja
-Administrador. Para escolher o cliente de um chamado, todos usam GET /clients/options, que
-devolve só o nome.
+os membros do grupo marcado (`teams.manages_clients`, o Administradores da instalação; pedido do
+usuário), mesmo que o papel seja Administrador. Para escolher o cliente de um chamado, todos
+usam GET /clients/options, que devolve só o nome.
 
 O filtro de visibilidade de chamados (`ticket_visibility_filter`) fica em
 modules/tickets/visibility.py, e as ações em um chamado, em modules/tickets/rules.py.
@@ -96,9 +96,8 @@ ROLES: dict[str, frozenset[P]] = {
     "client": frozenset(),
 }
 
-# Quem é membro deste grupo (ativo) vê, cadastra, altera e inativa clientes. O nome é comparado sem
-# maiúsculas: renomear o grupo tira a permissão de todos.
-CLIENT_MANAGERS_TEAM = "administradores"
+# Quem é membro do grupo marcado (ativo, `teams.manages_clients`) vê, cadastra, altera e inativa
+# clientes (`Actor.manages_clients`).
 CLIENTS = frozenset({P.CLIENT_VIEW, P.CLIENT_MANAGE})
 
 ROLE_NAMES = {

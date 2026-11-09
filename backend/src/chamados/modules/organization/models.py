@@ -52,6 +52,9 @@ class Team(Base):
     notify_on_new: Mapped[str] = mapped_column(Text, server_default=text("'queue_only'"))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Os membros (com o grupo ativo) veem e cadastram clientes: client.view e client.manage. Só a
+    # migração 0048 marca (o grupo Administradores); não há tela nem campo na API.
+    manages_clients: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
 
     members: Mapped[list["TeamMember"]] = relationship(
         back_populates="team", cascade="all, delete-orphan"

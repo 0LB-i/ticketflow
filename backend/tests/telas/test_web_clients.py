@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.clients.models import Client
 from tests.apoio import EMPRESA, ENDERECO, PESSOA
-from tests.conftest import criar_usuario, entrar, token_csrf
+from tests.conftest import criar_usuario, entrar, grupo, token_csrf
 
 API = "/api/v1/clients"
 
@@ -18,11 +18,12 @@ def _form(client: TestClient, dados: dict[str, Any]) -> dict[str, Any]:
 
 
 def _admin_de_clientes(client: TestClient, db: Session) -> None:
+    grupo(db, "Administradores", manages_clients=True)
     criar_usuario(db, "ana@x.com", grupos={"Administradores": "member"})
     entrar(client, "ana@x.com")
 
 
-def test_so_o_grupo_administradores(client: TestClient, db: Session) -> None:
+def test_so_o_grupo_marcado(client: TestClient, db: Session) -> None:
     criar_usuario(db, "bia@x.com", "admin", grupos={"TI": "member"})
     entrar(client, "bia@x.com")
     for url in ("/admin/clientes", "/admin/clientes/novo"):

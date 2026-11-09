@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, Request
 
 from chamados.config import Settings
-from chamados.core.permissions import CLIENT_MANAGERS_TEAM, CLIENT_ROLE, Actor, P, can
+from chamados.core.permissions import CLIENT_ROLE, Actor, P, can
 from chamados.db.session import DB
 from chamados.modules.identity.models import ApiToken, User, UserSession
 from chamados.modules.identity.sessions import CSRF_HEADER, cookie_names, csrf_ok, load_session
@@ -94,10 +94,7 @@ def actor_of(user: User) -> Actor:
         role=user.role.code,
         teams=frozenset(m.team_id for m in user.memberships),
         supervises=frozenset(m.team_id for m in user.memberships if m.role == "supervisor"),
-        manages_clients=any(
-            m.team.is_active and m.team.name.strip().casefold() == CLIENT_MANAGERS_TEAM
-            for m in user.memberships
-        ),
+        manages_clients=any(m.team.is_active and m.team.manages_clients for m in user.memberships),
         client_id=user.client_id,
     )
 
