@@ -34,7 +34,7 @@ from chamados.modules.clients.models import Client
 from chamados.modules.identity.models import User
 from chamados.modules.organization.models import Team
 
-# Busca textual em português, sem acentos (configuração pt_br da migração 0001).
+# Busca textual em português, sem acentos (configuração pt_br da migração base).
 TICKET_SEARCH = (
     "setweight(to_tsvector('pt_br'::regconfig, title), 'A') || "
     "setweight(to_tsvector('pt_br'::regconfig, description), 'B')"
@@ -218,7 +218,7 @@ class TicketPresence(Base):
 
 
 class TicketEvent(Base):
-    """Histórico do chamado. Só aceita inserção (trigger na migração 0004)."""
+    """Histórico do chamado. Só aceita inserção (trigger na migração base)."""
 
     __tablename__ = "ticket_events"
     __table_args__ = (Index("ticket_events_ticket_idx", "ticket_id", "created_at"),)

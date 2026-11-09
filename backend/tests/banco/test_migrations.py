@@ -1,8 +1,6 @@
 """Migrações sobem e descem (docs/12 §12.4), os comandos `chamados db` e a busca em português
 ignora acentos."""
 
-import json
-
 import pytest
 from alembic import command
 from sqlalchemy import Engine, create_engine, select, text
@@ -57,7 +55,7 @@ def test_db_upgrade_downgrade_current(sync_engine: Engine, db: Session) -> None:
 def test_migracao_cria_o_admin_padrao(db: Session, database_url: str) -> None:
     """Administrador padrão admin/admin com troca obrigatória de senha (docs/09 §9.2)."""
     cfg = alembic_config(database_url)
-    command.downgrade(cfg, "0002")
+    command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
     admin = db.scalar(select(User).where(User.username == "admin"))
     assert admin is not None
@@ -68,42 +66,7 @@ def test_migracao_cria_o_admin_padrao(db: Session, database_url: str) -> None:
     # Rodar de novo não duplica nem recria quem já existe. Encerra a transação antes:
     # ela segura um lock em users e a migração ficaria esperando para sempre.
     db.rollback()
-    command.downgrade(cfg, "0002")
+    command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
     assert len(db.scalars(select(User).where(User.username == "admin")).all()) == 1
     assert len(db.scalars(select(Team).where(Team.name == "Administradores")).all()) == 1
-
-
-@pytest.mark.usefixtures("migracoes")
-def test_migracao_das_vigencias_do_expediente(database_url: str, db: Session) -> None:
-    """A 0040 leva o expediente da chave `work_hours` para a vigência da instalação desde
-    sempre (os feriados ficam na chave); o downgrade o devolve à chave."""
-    cfg = alembic_config(database_url)
-    command.downgrade(cfg, "0039")
-    antes = {"weekdays": [0, 1, 2, 3, 5], "start": "07:30:00", "end": "16:00:00"}
-    feriados = {"holidays": ["2026-12-25"]}
-    db.execute(
-        # O downgrade já deixa a chave (com o padrão): sobrescreve.
-        text(
-            "INSERT INTO settings (key, value) VALUES ('work_hours', CAST(:v AS jsonb)) "
-            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
-        ),
-        {"v": json.dumps({**antes, **feriados})},
-    )
-    db.commit()
-    command.upgrade(cfg, "head")
-    linhas = db.execute(
-        text(
-            'SELECT user_id, team_id, valid_from, weekdays, start::text, "end"::text '
-            "FROM work_schedules"
-        )
-    ).all()
-    assert [tuple(r) for r in linhas] == [
-        (None, None, None, [0, 1, 2, 3, 5], "07:30:00", "16:00:00")
-    ]
-    valor = text("SELECT value FROM settings WHERE key = 'work_hours'")
-    assert db.scalar(valor) == feriados
-    db.commit()  # solta a leitura da tabela, que o downgrade apaga
-    command.downgrade(cfg, "0039")
-    assert db.scalar(valor) == {**antes, **feriados}
-    command.upgrade(cfg, "head")

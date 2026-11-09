@@ -269,7 +269,7 @@ def test_status_escolhido_no_formulario(
     assert [(s["name"], s["kind"], s["is_default"]) for s in lista] == [
         ("Pendente", "open", True),
         ("Aguardando cliente", "waiting", True),
-        ("Entregue", "delivered", True),  # a revisão do supervisor, comportamento próprio (0021)
+        ("Entregue", "delivered", True),  # a revisão do supervisor, comportamento próprio
         ("Concluído", "closed", True),
         ("Cancelado", "canceled", True),
     ]

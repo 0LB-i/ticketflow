@@ -49,7 +49,7 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── docs/                  requisitos, regras de negócio, telas, manual do servidor, ADRs
 ├── backend/               API (Python 3.12, FastAPI, SQLAlchemy 2, Alembic)
 │   ├── pyproject.toml     dependências (uv) e configuração de ruff, mypy, pytest, coverage
-│   ├── migrations/        Alembic: env.py e versions/0001…0047
+│   ├── migrations/        Alembic: env.py e versions/ (a base 0047 e as que vierem depois)
 │   ├── src/chamados/      código (seção 3); as telas do servidor ficam em web/ (3.11)
 │   ├── tests/             pytest por área: unidade, api, telas, banco, worker (seção 7)
 │   └── bench/             benchmark: tempo e precisão com 50 mil chamados (seção 7.1)
@@ -158,7 +158,7 @@ As regras do [docs/08](docs/08-organizacao-e-permissoes.md) estão em três luga
 - `rules.py` é **puro** (sem banco), por isso os testes são tabelados: perfil × situação → ações esperadas.
 - O detalhe responde **403** quando o chamado existe mas não é visível e **404** quando não existe. O acesso de admin ou auditor a um chamado confidencial, fora das regras 1, 3 e 4, vai para a auditoria.
 - A interface **nunca decide**: ela só mostra ou esconde botões conforme `allowed_actions` e `me.permissions`.
-- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração 0002, mais as permissões acrescentadas depois em `NEW_PERMISSIONS` das migrações, como a 0010 e a 0015, menos as retiradas em `REMOVED_PERMISSIONS`, como a 0016; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
+- **As permissões em vigor vêm do código** (`ROLES` em `core/permissions.py`, pelo código do papel do usuário). A tabela `roles` também guarda a lista de cada papel (cópia gravada pela migração base, em `SYSTEM_ROLES`; um teste confere), mas ainda não é lida: ela prepara os papéis personalizados de depois da v1.0.
 
 ### 3.4.1 Papel Cliente
 
@@ -175,14 +175,14 @@ O cadastro (`identity/admin_router`) exige a empresa no papel e a apaga nos outr
 - **Identificação:** `id` interno (bigint), `public_id` (UUID, exposto) e `number` (sequência `ticket_number_seq`, começa em 1000). As rotas aceitam o número ou o UUID (`/tickets/1234`).
 - **Status:** a tabela `ticket_statuses` tem um `kind` fixo (`open`, `waiting`, `delivered`, `closed`, `canceled`, `approval`); `delivered` é o Entregue, a revisão do supervisor. As regras usam só o `kind`, e cada mudança vai para o status padrão do `kind` de destino.
 - **Transições:** `rules.TRANSITIONS` define, para cada ação (`wait`, `resume`, `close`, `reopen`, `cancel`), de quais `kind` se sai, para qual se vai, quem pode e se exige comentário ou código de resolução. O comentário da transição é gravado como comentário do chamado; o de conclusão leva `is_solution`.
-- **Sem prioridade:** chamados não têm prioridade, impacto nem urgência (removidos na migração 0016). Eventos antigos com essas mudanças continuam no histórico.
+- **Sem prioridade:** chamados não têm prioridade, impacto nem urgência (removidos antes da migração base). Eventos antigos com essas mudanças continuam no histórico.
 - **Status personalizados:** o admin cria (nome + `kind`: open, waiting, delivered, closed, canceled), renomeia, ordena (`PUT /statuses/order`) e remove em Configurações (`admin.settings`). O `kind` não muda depois de criado. Cada `kind` precisa de ao menos um status; ao remover, os chamados vão para o padrão do mesmo `kind`, e se o removido era o padrão o próximo da lista assume. O primeiro status criado de um `kind` vira o padrão. Ações em `audit_log` (`ticket_status.*`).
 - **Status no formulário:** além das transições do fluxo, a ação `set_status` (quem tem `ticket.transition` no grupo) escolhe qualquer status no registro (`status_id`, padrão Pendente) e na edição, sem comentário nem código de resolução. `_apply_status` acerta `closed_at` e `canceled_at` e conta a reabertura ao sair de um `closed`. Com `finished_at` (só junto de um `status_id` concluído ou cancelado, diferente do atual; nem no futuro nem antes do `started_at`), essa é a data gravada, e ela vai no evento; o quadro a usa no mês passado. O evento é `ticket.status_changed` sem `action`. Para um status `closed`, a ação também exige `set_status_closed`, que só o supervisor do grupo e o admin têm (o agente entrega, e o supervisor conclui); no registro, um `status_id` `closed` também exige ser supervisor do grupo ou admin.
 - **Categoria:** opcional e fora dos formulários do chamado (continua na API e no cadastro). Sem categoria, o grupo é obrigatório e o tipo é `incident`; `category_id: null` no PATCH tira a categoria.
 - **Início:** `started_at` é quando o trabalho começou. Sem valor no registro, vale a hora do registro; a pessoa pode informar outra (nunca no futuro, com 5 minutos de folga para o relógio) e alterar depois, com evento no histórico. Na interface, o campo de data e hora acompanha a hora atual até ser mudado.
 - **Cliente e contato:** para quem é o trabalho. `client_id` é **obrigatório** no registro e só aceita cliente ativo (um cliente inativado depois continua nos chamados antigos); no PATCH troca, mas `null` é recusado (422). A obrigação fica só na API: o banco aceita chamados antigos sem cliente (os relatórios os agrupam como "sem cliente"). O **contato** (quem pediu) é texto livre e fica em `beneficiary_name`, a antiga "pessoa atendida". Na interface, o campo de cliente (`client_picker` em `web/templates/_fields.html`) busca em `/clientes/opcoes`, que chama `GET /clients/options` (qualquer pessoa logada; só clientes ativos, só o id e o nome, busca pelo nome ou nome fantasia). Os setores atendidos (`departments`, `tickets.department_id`) saíram do sistema na migração `0034`.
 - **Histórico:** fica só no banco e em `GET /tickets/{id}/events`; a linha do tempo da tela mostra só o registro e os comentários (decisão do usuário, 2026-10-13). Cada mudança chama `service.add_event()`, que grava em `ticket_events` com `payload` (antes/depois, com id **e nome** das referências na data do evento) e, na mesma transação, no `outbox` (3.12). Feita fora da interface, a mudança leva `via` no payload (`"api"`, por um token de API; `Auth.via`); pela interface, não há `via`. A tabela **só aceita inserção**: uma trigger da migração 0004 recusa `UPDATE` e `DELETE`. O comentário novo não vai para o histórico, mas vai para o outbox (`comment.created`, gravado por `_comment()`).
-- **Responsável obrigatório:** todo chamado tem responsável (`tickets.assignee_id` NOT NULL desde a migração 0028); não há fila de não atribuídos nem "devolver à fila". O registro exige `assignee` (`"me"` ou um membro ativo do grupo); é nos próprios grupos, e quem tem `ticket.view_all` (admin) registra em qualquer grupo ativo, mas só fica como responsável se for membro dele; `POST /assign` só troca de responsável, e a transferência exige `assignee_id`, um membro ativo do grupo de destino.
+- **Responsável obrigatório:** todo chamado tem responsável (`tickets.assignee_id` NOT NULL); não há fila de não atribuídos nem "devolver à fila". O registro exige `assignee` (`"me"` ou um membro ativo do grupo); é nos próprios grupos, e quem tem `ticket.view_all` (admin) registra em qualquer grupo ativo, mas só fica como responsável se for membro dele; `POST /assign` só troca de responsável, e a transferência exige `assignee_id`, um membro ativo do grupo de destino.
 - **Quem sai não leva chamados abertos:** excluir ou desativar um usuário (todos os grupos) e tirá-lo de um grupo (só os chamados daquele grupo) chamam `service.release()` na mesma transação: nos chamados abertos (`open`/`waiting`/`delivered`), quem era um dos responsáveis sai da lista; no lugar do principal fica o próximo da lista ou, sem ninguém, um supervisor ativo do grupo (o primeiro em ordem alfabética), que recebe o e-mail de atribuição. O evento é `ticket.assignees_changed`, com quem fez a ação de administração. Sem supervisor, o chamado continua com a pessoa, e a tela de administração mostra os números (`service.still_assigned`).
 - **Mais de um responsável:** `tickets.assignee_id` é o responsável principal e `ticket_co_assignees` guarda os demais (no registro, `co_assignee_ids`; depois, `PUT /assignees` com a lista inteira, por quem tem `assign_others`; quem entra é sempre membro ativo do grupo). No `PUT`, quem já era responsável e saiu do grupo pode ficar ou sair, o principal continua se estiver na lista, senão o primeiro assume; o evento é `ticket.assignees_changed` (`added`, `removed` e, se o principal mudou, `assignee`). Para regras, visibilidade (regra 3), fila Meus, aviso de novidade e o filtro por responsável, todos contam igual (`visibility.assigned_to`). Transferir tira os demais; trocar o principal os mantém. A interface envia quem registra como principal, se estiver na lista, senão a primeira pessoa; na lateral do chamado, "Atribuir a" acrescenta uma pessoa ou o grupo todo, e cada responsável tem um botão para sair (menos o último).
 - **Grupos que atuaram:** `ticket_teams` recebe o grupo na criação e a cada transferência; alimenta a regra 2 da visibilidade.
@@ -263,54 +263,9 @@ O cadastro (`identity/admin_router`) exige a empresa no papel e a apaga nos outr
 
 | Migração | Conteúdo |
 |----------|----------|
-| `0001` | Extensões `citext`, `unaccent`, `pg_trgm` e a configuração de busca `pt_br` |
-| `0002` | Papéis (com os 3 do sistema), usuários, sessões, tokens de acesso, grupos e membros, setores, auditoria |
-| `0003` | Login por nome de usuário, troca obrigatória de senha e administrador padrão `admin`/`admin` |
-| `0004` | Categorias, status (os 4 padrão), códigos de resolução, chamados, grupos que atuaram, observadores, comentários, histórico (trigger *append-only*) |
-| `0005` | `settings` e `users.locale` |
-| `0006` | `tickets.category_id` opcional |
-| `0007` | `tickets.started_at` (início do trabalho) |
-| `0008` | Status "Entregue" (`closed`, não é o padrão do kind) |
-| `0009` | "Aguardando" passa a "Aguardando cliente" |
-| `0010` | `clients` e as permissões `client.view`/`client.manage` nos papéis |
-| `0011` | `tickets.client_id` (cliente do chamado, opcional) |
-| `0012` | `ticket_reads` (última visita, para as novidades) e `search_vector` em `tickets` e `ticket_comments` |
-| `0013` | `attachments` |
-| `0014` | Grupo padrão "Administradores", com o `admin` como membro |
-| `0015` | `ticket_co_assignees` (outros responsáveis) e `ticket.assign_others` para o agente |
-| `0016` | Sem prioridade: saem `priority`, `priority_overridden`, `impact`, `urgency` e `ticket.set_priority` |
-| `0017` | `ticket_comments.time_spent_minutes` (tempo gasto em cada andamento) |
-| `0018` | `ticket_comments.done_at` (quando a tarefa foi feita) e `deleted_at` (tarefa removida) |
-| `0019` | `ticket_statuses.is_review` e o status "Em espera de revisão" (`waiting`) |
-| `0020` | "Entregue" passa a ser a revisão: sai o "Entregue" de conclusão (chamados vão para "Concluído") e o de revisão é renomeado |
-| `0021` | Comportamento `delivered` (Entregue), com o status de revisão como padrão dele; sai `is_review` |
-| `0022` | `users.deleted_at` (exclusão de usuário: a linha fica para o histórico, sem e-mail nem login) |
-| `0023` | Clientes: telefones e e-mails viram listas (`phones`, `emails`); nome, CPF/CNPJ e endereço (menos CEP, cidade e UF) passam a opcionais no banco |
-| `0024` | `users.display_name`: o nome que aparece no sistema (o completo fica no cadastro) |
-| `0025` | Sai a restrição única de `clients.document`: o mesmo CPF/CNPJ pode estar em mais de um cadastro |
-| `0026` | Volta a restrição única de `clients.document` (desfaz a `0025`) |
-| `0027` | `client.manage` sai dos papéis (passa a vir do grupo Administradores) |
-| `0028` | `tickets.assignee_id` NOT NULL: todo chamado tem responsável |
-| `0029` | `client.view` também sai dos papéis: o cadastro de clientes é só do grupo Administradores |
-| `0030` | `outbox` (eventos de domínio) e `jobs` (fila de tarefas), consumidos pelo worker |
-| `0031` | Índice `ticket_comments_done_idx` (`done_at` das tarefas não removidas), para o período dos relatórios |
-| `0032` | `api_tokens` (tokens de API, em nome de um usuário) |
-| `0033` | `idempotency_keys` (respostas guardadas da `Idempotency-Key`) |
-| `0034` | Sem setores atendidos: saem `departments` e `tickets.department_id` |
-| `0035` | `tickets.canceled_at` (data do cancelamento; os já cancelados ficam com o `updated_at`) |
-| `0036` | `report_models` (modelos de relatório pessoais: a configuração em JSONB, nome único por pessoa sem diferenciar maiúsculas, no máximo um inicial) |
-| `0037` | Índice `tickets_created_idx` (`created_at`, `id`): a ordem da lista de chamados e do cursor |
-| `0038` | `ticket_presence` e `login_ip_failures` (UNLOGGED): a presença no chamado e o limite de login por IP saem da memória, para valerem com vários workers |
-| `0039` | `report_preferences` (a ordem e as abas escondidas de Relatórios, uma linha por pessoa, em JSONB) |
-| `0040` | `work_schedules` (vigências do expediente da instalação, de um grupo ou de uma pessoa; única por dono e data, com `NULLS NOT DISTINCT`); o expediente da chave `work_hours` vira a vigência da instalação desde sempre, e a chave fica com os feriados (o downgrade devolve o da instalação de hoje à chave) |
-| `0041` | Contrato do cliente: `clients.contract_type` (mensal, anual ou avulso) e `clients.contract_hours` (por mês ou por ano, só no mensal e no anual) |
-| `0042` | `report_exports`: os PDFs da aba Clientes baixados com um cliente só (o Histórico e a cascata de Relatórios) |
-| `0043` | `work_schedules.break_start`/`break_end`: o intervalo do expediente (opcional, dentro do horário); as vigências que já existem ficam sem intervalo |
-| `0044` | Sem modelos de relatório: saem `report_models` e `report_preferences` (o downgrade as recria vazias) |
-| `0045` | Papel Cliente: o papel do sistema `client` (sem permissões) e `users.client_id` (a empresa); o downgrade passa quem tem o papel a Agente inativo |
-| `0046` | Bloqueio do login por conta e IP: `login_ip_failures.user_id`; saem `users.failed_logins`, `last_failed_login_at` e `locked_until` |
-| `0047` | Índice `tickets_client_idx` (`client_id`): o painel do papel Cliente, o filtro por cliente dos relatórios e o plano do cliente |
+| `0047` (base) | O schema inteiro em 2026-11-09, no estado final das 47 migrações anteriores (0001 a 0047): as extensões `citext`, `unaccent` e `pg_trgm` e a configuração de busca `pt_br`; todas as tabelas dos modelos, com as tabelas UNLOGGED `ticket_presence` e `login_ip_failures`, a sequence `ticket_number_seq` (número do chamado, a partir de 1000) e a trigger que deixa `ticket_events` só com inserção; os dados iniciais: os 4 papéis do sistema (`SYSTEM_ROLES`), os 5 status padrão, os 4 códigos de resolução, o administrador `admin`/`admin` com troca obrigatória da senha, no grupo Administradores, e o expediente da instalação (seg–sex, 08:00–18:00). O downgrade apaga tudo. As migrações anteriores estão no git até o commit `4ee5ada` (`git show 4ee5ada:backend/migrations/versions/`) |
 
+- **Depois da base:** as próximas migrações se encadeiam a partir dela (a próxima é a `0048`, com `down_revision = "0047"`) e entram nesta tabela. Um banco que já estava na 0047 da cadeia antiga continua em dia (o id é o mesmo); um banco numa revisão anterior precisa primeiro chegar à 0047 com uma versão do código anterior à base.
 - **Convenções:** `bigint GENERATED ALWAYS AS IDENTITY` + `public_id uuid` nas entidades expostas; `timestamptz` sempre; nomes de constraint previsíveis (`db/base.py`); nada é apagado nos cadastros (só desativado: `is_active`).
 - **Compatibilidade:** só recursos do PostgreSQL **16 e 17** (`check.sh --completo` testa nos dois).
 - **Sem JIT:** a engine do app (`db/engine.py`) conecta com `jit=off`. O filtro de visibilidade (vários `OR EXISTS`) infla o custo estimado, e o JIT levava ~0,7 s para compilar consultas que rodam em ~30 ms (medido pelo benchmark, 7.1). A configuração do servidor não muda; o motivo e as alternativas estão no [ADR 0012](docs/adr/0012-postgresql-sem-jit.md).
@@ -628,5 +583,5 @@ Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o C
 
 **Nova permissão**
 1. Código em `P` (`core/permissions.py`) e nos papéis (`ROLES`); se depende de supervisão, em `SUPERVISOR`.
-2. Migração que atualiza `roles.permissions` dos papéis do sistema, e o teste `test_papeis_da_migracao_batem_com_o_catalogo` passa a comparar com essa migração.
+2. Migração que atualiza `roles.permissions` dos papéis do sistema; o teste `test_papeis_da_migracao_batem_com_o_catalogo` compara `ROLES` com o `SYSTEM_ROLES` da base e passa a levar em conta essa migração.
 3. Linha nova na matriz de `test_permissions.py` e no [docs/08](docs/08-organizacao-e-permissoes.md#83-catálogo-de-permissões).

@@ -213,7 +213,7 @@ def _schedule(row: Any) -> Schedule | None:
 
 
 async def get_holidays(db: AsyncSession) -> list[date]:
-    """Os feriados continuam na chave `work_hours` (a migração 0040 tirou dela o horário)."""
+    """Os feriados continuam na chave `work_hours` (o horário saiu dela para as vigências)."""
     value = await get_value(db, "work_hours")
     return [date.fromisoformat(d) for d in (value or {}).get("holidays", [])]
 

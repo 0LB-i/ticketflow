@@ -79,9 +79,9 @@ def test_permissoes_efetivas_incluem_as_de_supervisor() -> None:
     assert "ticket.approve" in effective_permissions(supervisor)
 
 
-def _migracao(numero: str) -> Any:
-    caminho = next(Path(__file__).parents[2].glob(f"migrations/versions/{numero}_*.py"))
-    spec = importlib.util.spec_from_file_location(f"migracao_{numero}", caminho)
+def _base() -> Any:
+    caminho = Path(__file__).parents[2] / "migrations/versions/0047_base.py"
+    spec = importlib.util.spec_from_file_location("migracao_base", caminho)
     assert spec and spec.loader
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
@@ -95,17 +95,11 @@ def test_clientes_so_pelo_grupo_administradores() -> None:
 
 
 def test_papeis_da_migracao_batem_com_o_catalogo() -> None:
-    # Papéis criados na 0002; permissões acrescentadas depois (0010: clientes; 0015: atribuir
-    # a outro membro) e retiradas (0016: prioridade; 0027 e 0029: clientes, que passaram ao
-    # grupo Administradores).
-    novas = [_migracao(n).NEW_PERMISSIONS for n in ("0010", "0015")]
-    retiradas = [_migracao(n).REMOVED_PERMISSIONS for n in ("0016", "0027", "0029")]
-    papeis = _migracao("0002").SYSTEM_ROLES + _migracao("0045").SYSTEM_ROLES  # 0045: Cliente
+    # Os papéis do sistema e as permissões que a migração base grava em roles.permissions.
+    papeis = _base().SYSTEM_ROLES
     assert {codigo for codigo, _, _ in papeis} == set(ROLES)
     for codigo, _, permissoes in papeis:
-        esperado = set(permissoes).union(*(n.get(codigo, []) for n in novas))
-        esperado -= set().union(*(r.get(codigo, []) for r in retiradas))
-        assert esperado == {str(p) for p in ROLES[codigo]}, codigo
+        assert set(permissoes) == {str(p) for p in ROLES[codigo]}, codigo
 
 
 def test_papel_cliente_nao_tem_nenhuma_permissao() -> None:

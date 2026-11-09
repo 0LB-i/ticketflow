@@ -1,6 +1,6 @@
 # 4. Modelo de dados
 
-Esboço completo e comentado: [`esboco-schema.sql`](esboco-schema.sql). **A partir da Sprint 2, a fonte da verdade são as migrações** em `backend/migrations/versions/`: cada tabela nasce lá, com só as colunas que a sprint usa (por exemplo, `users` ainda não tem as colunas de SSO e de preferências). O esboço continua valendo como desenho das tabelas que ainda não existem. A lista das migrações e o que cada uma cria está no [ARCHITECTURE.md](../ARCHITECTURE.md#39-banco-e-migrações). Até a `0005` já existem: papéis, usuários, sessões, tokens, grupos, setores, auditoria, categorias, status, códigos de resolução, chamados (com grupos que atuaram, observadores, comentários e histórico) e configurações (`settings`).
+Esboço completo e comentado: [`esboco-schema.sql`](esboco-schema.sql). **A partir da Sprint 2, a fonte da verdade são as migrações** em `backend/migrations/versions/`: cada tabela nasce lá, com só as colunas que a sprint usa (por exemplo, `users` ainda não tem as colunas de SSO e de preferências). O esboço continua valendo como desenho das tabelas que ainda não existem. A lista das migrações e o que cada uma cria está no [ARCHITECTURE.md](../ARCHITECTURE.md#39-banco-e-migrações).
 
 As tabelas dos itens que ficaram para depois da v1.0 (tokens de API, webhooks, visões salvas, campos extras, antivírus, IA e mapeamento de grupos do SSO) estão em [`esboco-schema-futuro.sql`](esboco-schema-futuro.sql).
 
@@ -48,7 +48,7 @@ erDiagram
 | Chave primária | `bigint GENERATED ALWAYS AS IDENTITY` internamente + `public_id uuid` exposto na API | Joins e índices compactos; não expõe IDs sequenciais adivinháveis. `gen_random_uuid()` é nativo desde o PG 13 (o `uuidv7()` nativo só existe a partir do PG 18) |
 | Número do chamado | Coluna `number` alimentada pela sequence `ticket_number_seq`, exibida como `#000123` | Legível para humanos |
 | Status | Tabela `ticket_statuses` com um `kind` fixo (`approval`, `open`, `waiting`, `closed`, `canceled`); status novos criados pelo admin escolhem um `kind` | Nomes de status configuráveis, enquanto as regras dependem do `kind` |
-| Para quem é o chamado | `tickets.client_id` (cliente) e `tickets.beneficiary_name` (contato, texto livre). Os setores atendidos (`departments`) saíram na migração `0034` | Os atendidos não têm conta ([08](08-organizacao-e-permissoes.md)); os campos servem aos relatórios |
+| Para quem é o chamado | `tickets.client_id` (cliente) e `tickets.beneficiary_name` (contato, texto livre). Os setores atendidos (`departments`) saíram antes da migração base | Os atendidos não têm conta ([08](08-organizacao-e-permissoes.md)); os campos servem aos relatórios |
 | Visibilidade | `ticket_teams` (grupos que já atuaram) e `ticket_watchers` (inclui mencionados) alimentam o filtro de visibilidade | Regras 2 e 4 de [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) sem varrer o histórico |
 | Papéis | Tabela `roles` com `permissions text[]`; papéis do sistema vindos de *seed*. Hoje as permissões em vigor vêm do código (`core/permissions.py`); a coluna prepara os papéis personalizados | Papéis personalizados (futuro) sem mudar o schema |
 | Auditoria | `ticket_events` (o que acontece no chamado) separado de `audit_log` (login, administração, permissões) | Consultas e retenção diferentes |

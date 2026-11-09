@@ -21,7 +21,7 @@ Período (padrão: últimos 30 dias) · Grupo · Responsável · Categoria · Ti
 | **Cancelados** | Chamados que chegaram a um status `canceled` no período | `ticket_events` |
 | **Em aberto (backlog)** | Chamados não finais no fim do período, por status | `ticket_statuses.kind` |
 | **Idade do backlog** | Chamados em aberto por faixa: até 1 dia, 1 a 3 dias, 3 a 7 dias, mais de 7 dias | `created_at` |
-| **Tempo na fila** | Do registro até alguém assumir (só os que nasceram sem responsável). Fora dos relatórios desde 2026-10-24: todo chamado nasce com responsável (migração 0028), e a medida seria sempre zero | `first_assigned_at − created_at` |
+| **Tempo na fila** | Do registro até alguém assumir (só os que nasceram sem responsável). Fora dos relatórios desde 2026-10-24: todo chamado nasce com responsável, e a medida seria sempre zero | `first_assigned_at − created_at` |
 | **Tempo até a conclusão** | Do registro até o status `closed`. Mostrado **bruto** e **líquido** (descontando o tempo em "Aguardando") | `closed_at`, `ticket_events` |
 | **Taxa de reabertura** | % dos concluídos com pelo menos uma reabertura | `reopened_count` |
 | **Transferências por chamado** | Média de mudanças de grupo | `ticket_events` (`ticket.transferred`) |

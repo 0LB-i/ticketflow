@@ -101,6 +101,8 @@ Notas de cada versão para quem administra uma instalação: migrações, novas 
 - Cookies e cabeçalhos mais seguros. Com HTTPS (`COOKIE_SECURE=true`, o padrão), os cookies de sessão e de CSRF passam a se chamar `__Host-tf_sessao` e `__Host-tf_csrf`: o navegador só os aceita gravados pelo próprio endereço do TicketFlow, e outro sistema invadido no mesmo domínio (ex.: `*.empresa.com.br`) não consegue mais deixar alguém logado na conta do atacante nem fazer as ações de quem está logado falharem. Sem HTTPS (`COOKIE_SECURE=false`), os nomes continuam os de antes. O cookie de CSRF passa a ser HttpOnly (o JavaScript da página não o lê mais). Todas as respostas levam `Permissions-Policy` (câmera, microfone, localização, pagamento e USB desligados) e `Cross-Origin-Opener-Policy: same-origin`, enviados pelo app; o nginx não muda. Sem migração.
   - **Servidor:** depois de atualizar e reiniciar o `ticketflow`, **todos são deslogados uma vez** (o cookie antigo deixa de ser lido) e precisam entrar de novo.
 - Desempenho do painel do papel Cliente e do filtro por cliente dos relatórios: a migração `0047` cria um índice pelo cliente do chamado (`tickets_client_idx`), aplicada pelo `update.sh`. Sem mudança visível.
+- Migrações: as 47 migrações (`0001` a `0047`) viram uma migração base, com o mesmo id `0047`, o mesmo schema e os mesmos dados iniciais; uma instalação nova roda só ela. Sem mudança visível.
+  - **Servidor:** uma instalação que já está na `0047` não precisa fazer nada. Uma instalação numa versão anterior precisa primeiro atualizar até a `0047` com uma versão do código anterior a esta (o commit `4ee5ada`) e só depois seguir.
 
 ### Removido
 

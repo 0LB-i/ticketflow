@@ -73,6 +73,7 @@ Ao concluir um item, marque `feito` e anote o commit.
 | F1-S5-04 | Testes ponta a ponta (Playwright) dos fluxos principais | a fazer | |
 | F1-S5-05 | Revisão de segurança (OWASP ASVS nível 2, itens aplicáveis) e de acessibilidade | a fazer | |
 | F1-S5-06 | Instalação no servidor de produção (systemd, nginx, PostgreSQL 17) | a fazer | |
+| F1-S5-06a | Migração base (2026-11-09): as 47 migrações (0001 a 0047) viram uma só, `0047_base.py`, com o mesmo schema e os mesmos dados iniciais; as antigas ficam no git até o commit 4ee5ada | feito | |
 | F1-S5-07 | Carga inicial: grupos, usuários, setores atendidos, categorias | a fazer | |
 | F1-S5-08 | Treinamento, guia rápido e virada da TI | a fazer | |
 

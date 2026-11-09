@@ -124,8 +124,8 @@ def database_url() -> str:
             and marca[1] == f"{assinatura} {conn.scalar(text(STATUS))}"
         )
         if not em_dia:
-            # O que o último teste deixou (ex.: chamado sem categoria) pode impedir o downgrade:
-            # a migração 0006 volta a exigir a categoria. Só as tabelas que existem: num banco
+            # O que o último teste deixou (ex.: chamado sem categoria) pode impedir o downgrade
+            # de uma migração que volta a exigir uma coluna. Só as tabelas que existem: num banco
             # novo ou numa revisão anterior, algumas ainda não foram criadas.
             existentes = [t for t in _tabelas() if conn.scalar(text(f"SELECT to_regclass('{t}')"))]
             if existentes:

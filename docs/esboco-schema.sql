@@ -397,7 +397,7 @@ CREATE INDEX attachments_orphans_idx  ON attachments (created_at) WHERE linked_a
 -- Integração: outbox e fila de tarefas
 -- -----------------------------------------------------------------------------
 
--- Implementadas na migração 0030 (F1-S4-03), como abaixo (ARCHITECTURE.md 3.12).
+-- Implementadas em F1-S4-03 (hoje na migração base), como abaixo (ARCHITECTURE.md 3.12).
 
 -- Transactional outbox: gravado na mesma transação da mudança de domínio
 CREATE TABLE outbox (
