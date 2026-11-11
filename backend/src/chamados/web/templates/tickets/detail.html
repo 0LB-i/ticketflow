@@ -122,16 +122,18 @@
             </div>
           </form>
           {%- else %}
-          {%- if "edit" in actions %}
-          <div class="mb-2 flex justify-end">
-            <a href="{{ base }}?descricao=editar" hx-get="{{ base }}?descricao=editar" hx-select="#descricao" hx-target="#descricao" hx-swap="outerHTML" class="{{ button_class('ghost', 'sm') }}">{{ t("chamado.editarComentario") }}</a>
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1">
+              {%- if ticket.description %}
+              <div class="texto-formatado">{{ ticket.description | markdown }}</div>
+              {%- else %}
+              <p class="text-muted italic">{{ t("chamado.semDescricao") }}</p>
+              {%- endif %}
+            </div>
+            {%- if "edit" in actions %}
+            <a href="{{ base }}?descricao=editar" hx-get="{{ base }}?descricao=editar" hx-select="#descricao" hx-target="#descricao" hx-swap="outerHTML" class="-mt-1 shrink-0 {{ button_class('ghost', 'sm') }}">{{ t("chamado.editarComentario") }}</a>
+            {%- endif %}
           </div>
-          {%- endif %}
-          {%- if ticket.description %}
-          <div class="texto-formatado">{{ ticket.description | markdown }}</div>
-          {%- else %}
-          <p class="text-muted italic">{{ t("chamado.semDescricao") }}</p>
-          {%- endif %}
           {%- if attachments[None] %}
           {{ attachment_list(attachments[None], "mt-3") }}
           {%- endif %}
