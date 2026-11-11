@@ -79,12 +79,27 @@
 {% block content %}
 <div class="mx-auto flex max-w-pagina flex-col gap-4">
   <header class="flex flex-col gap-2">
-    <div class="flex flex-wrap items-center gap-2">
+    {#- Editar troca só este trecho pelo campo do título (HTMX sobre a página com ?titulo=editar). #}
+    <div id="titulo" class="flex flex-wrap items-center gap-2">
+      {%- if editing_title %}
+      <form method="post" action="{{ base }}/titulo" class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="versao" value="{{ ticket.etag }}">
+        <span class="text-xl font-semibold text-muted tabular-nums">#{{ ticket.number }}</span>
+        <input name="titulo" value="{{ ticket.title }}" required minlength="3" maxlength="300" autofocus aria-label="{{ t('novoChamado.tituloCampo') }}" class="h-10 min-w-0 flex-1 rounded-md border border-border-input bg-surface px-3 text-fg">
+        <a href="{{ base }}" hx-get="{{ base }}" hx-select="#titulo" hx-target="#titulo" hx-swap="outerHTML" class="{{ button_class('secondary', 'sm') }}">{{ t("comum.cancelar") }}</a>
+        <button type="submit" class="{{ button_class('primary', 'sm') }}">{{ t("comum.salvar") }}</button>
+      </form>
+      {%- else %}
       <h1 class="min-w-0 text-xl font-semibold break-words">
         <span class="text-muted tabular-nums">#{{ ticket.number }}</span>
         {{ ticket.title }}
       </h1>
       {{ status_badge(ticket.status.kind, ticket.status.name) }}
+      {%- if "edit" in actions %}
+      <a href="{{ base }}?titulo=editar" hx-get="{{ base }}?titulo=editar" hx-select="#titulo" hx-target="#titulo" hx-swap="outerHTML" class="{{ button_class('ghost', 'sm') }}">{{ t("chamado.editarComentario") }}</a>
+      {%- endif %}
+      {%- endif %}
     </div>
     <p class="text-muted">{{ t("chamado.registradoPor", quando=datetime(ticket.created_at), quem=ticket.created_by.display_name) }}{% include "tickets/_presence.html" %}</p>
   </header>

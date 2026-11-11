@@ -351,7 +351,8 @@
       "acompanhando": "You are watching the ticket",
       "deixouDeAcompanhar": "You stopped watching the ticket",
       "status": "Status changed",
-      "dataConclusao": "Date changed"
+      "dataConclusao": "Date changed",
+      "titulo": "Title changed"
     },
     "cliente": "Client",
     "contato": "Contact",

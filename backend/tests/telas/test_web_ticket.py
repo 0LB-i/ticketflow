@@ -367,6 +367,32 @@ def test_data_de_conclusao_abaixo_do_status(client: TestClient, cenario: dict[st
     assert f'action="{lateral}/conclusao"' not in client.get(lateral).text
 
 
+def test_editar_titulo(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Editar, ao lado do título, troca o título por um campo (?titulo=editar)."""
+    numero = registrar(client, cenario)["number"]
+    lateral = f"/chamados/{numero}"
+    assert f'href="{lateral}?titulo=editar"' in client.get(lateral).text
+    html = client.get(f"{lateral}?titulo=editar").text
+    assert 'name="titulo" value="Impressora não imprime"' in html
+    versao = re.search(r'action="[^"]*/titulo".*?name="versao" value="([^"]*)"', html, re.S)
+    assert versao
+
+    dados = formulario(client, titulo="  Impressora do 3º andar ", versao=unescape(versao.group(1)))
+    r = client.post(f"{lateral}/titulo", data=dados)
+    assert aviso(client, numero, r.text) == "Título alterado"
+    assert client.get(f"{API}/{numero}").json()["title"] == "Impressora do 3º andar"
+    # Com a versão de antes (outra pessoa mudou), não sobrescreve.
+    r = client.post(f"{lateral}/titulo", data={**dados, "titulo": "Outro"})
+    assert aviso(client, numero, r.text).startswith("O chamado mudou desde que você o abriu")
+    assert client.get(f"{API}/{numero}").json()["title"] == "Impressora do 3º andar"
+
+    # Quem não edita não vê o botão nem o campo.
+    entrar(client, "auditor@x.com")
+    html = client.get(lateral).text
+    assert "Impressora do 3º andar" in html and "?titulo=editar" not in html
+    assert 'name="titulo"' not in client.get(f"{lateral}?titulo=editar").text
+
+
 def _forms_de_responsaveis(html: str, url: str) -> list[tuple[list[str], str]]:
     """Os formulários da lateral que mandam a lista de responsáveis: (o que enviam, o rótulo do
     botão X, ou "" no "Atribuir a")."""

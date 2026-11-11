@@ -351,7 +351,8 @@
       "acompanhando": "Você está acompanhando o chamado",
       "deixouDeAcompanhar": "Você deixou de acompanhar o chamado",
       "status": "Status alterado",
-      "dataConclusao": "Data alterada"
+      "dataConclusao": "Data alterada",
+      "titulo": "Título alterado"
     },
     "cliente": "Cliente",
     "contato": "Contato",

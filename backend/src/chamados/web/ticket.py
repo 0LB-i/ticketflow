@@ -357,6 +357,7 @@ async def _ticket_page(
     *,
     comment: CommentForm | None = None,
     editing: str | None = None,
+    editing_title: bool = False,
     removing: str | None = None,
     destination: str = "",
     status_code: int = 200,
@@ -455,6 +456,7 @@ async def _ticket_page(
         new_pending=await _pending_attachments(page, db, new_comment.attachments),
         edit_form=edit_form,
         removing=removing,
+        editing_title=editing_title and "edit" in actions,
         suggested_times=SUGGESTED_TIMES,
         visto_ate=seen_until,
         viewers=await ticket_presence.touch(db, ticket.id, page.auth.user.id),
@@ -520,12 +522,20 @@ async def ticket_page(
     editar: str | None = None,
     remover: str | None = None,
     team_id: str = "",
+    titulo: str | None = None,
 ) -> HTMLResponse:
-    # editar/remover/team_id: o HTMX pede a página com a tarefa em edição, a confirmação da
-    # remoção ou os membros do grupo de destino da transferência e troca só esse trecho
-    # (hx-select).
+    # editar/remover/team_id/titulo: o HTMX pede a página com a tarefa em edição, a confirmação
+    # da remoção, os membros do grupo de destino da transferência ou o título em edição e troca
+    # só esse trecho (hx-select).
     return await _ticket_page(
-        page, db, request, number, editing=editar, removing=remover, destination=team_id
+        page,
+        db,
+        request,
+        number,
+        editing=editar,
+        removing=remover,
+        destination=team_id,
+        editing_title=titulo == "editar",
     )
 
 
@@ -664,6 +674,24 @@ async def deliver(
         await _update(page, db, number, TicketUpdate(status_id=delivered.id), versao)
 
     return await _act(page, number, csrf_token, action, "chamado.entregue.feito")
+
+
+@router.post("/chamados/{number:int}/titulo")
+async def change_title(
+    number: int,
+    page: LoggedPageDep,
+    db: DB,
+    csrf_token: Field = "",
+    titulo: Field = "",
+    versao: Field = "",
+) -> Response:
+    return await _act(
+        page,
+        number,
+        csrf_token,
+        lambda: _update(page, db, number, TicketUpdate.model_validate({"title": titulo}), versao),
+        "chamado.feito.titulo",
+    )
 
 
 @router.post("/chamados/{number:int}/cliente")
