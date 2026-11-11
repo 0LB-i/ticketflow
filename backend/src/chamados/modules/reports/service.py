@@ -1083,9 +1083,13 @@ async def facts(
                 r,
                 r.closed_at,
                 finished_at=r.closed_at,
-                lead=round((r.closed_at - r.created_at).total_seconds() / 60),
+                # Registro na conclusão ou depois (a data puxada para ela, ou um registro de
+                # trabalho já feito): não é tempo de atendimento, e fica fora das medianas.
+                lead=round((r.closed_at - r.created_at).total_seconds() / 60)
+                if r.closed_at > r.created_at
+                else None,
                 net_lead=net_minutes(r.created_at, r.closed_at, changes[r.id], kinds)
-                if net
+                if net and r.closed_at > r.created_at
                 else None,
                 reopened=r.reopened_count > 0,
             )

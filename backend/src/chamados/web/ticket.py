@@ -611,9 +611,11 @@ async def change_status(
     conclusao_data: Field = "",
     conclusao_hora: Field = "",
 ) -> Response:
-    """Também do quadro: no mês passado, com a data da conclusão (ou do cancelamento)."""
+    """Também do quadro: no mês passado, com o dia da conclusão (ou do cancelamento), na hora em
+    que o cartão foi solto."""
     data: dict[str, Any] = {"status_id": status_id}
     if conclusao_data:
+        conclusao_hora = conclusao_hora or local_parts(datetime.now(UTC))[1]
         # Inválida, fica o texto: o TicketUpdate recusa, com o aviso de erro comum.
         data["finished_at"] = parse_local(conclusao_data, conclusao_hora) or conclusao_data
     return await _act(

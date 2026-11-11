@@ -343,6 +343,9 @@ def test_data_de_conclusao_e_de_cancelamento(client: TestClient, cenario: dict[s
     def patch(**dados: Any) -> Any:
         return client.patch(url, json=dados)
 
+    def ultimo(tipo: str) -> dict[str, Any]:
+        return [e for e in eventos(client, t["number"]) if e["type"] == tipo][-1]
+
     # Só num status concluído ou cancelado, e nunca no futuro.
     r = patch(finished_at=quando)
     assert r.status_code == 422
@@ -356,15 +359,13 @@ def test_data_de_conclusao_e_de_cancelamento(client: TestClient, cenario: dict[s
     r = patch(status_id=status["Concluído"], finished_at=quando).json()
     assert datetime.fromisoformat(r["closed_at"]) == datetime.fromisoformat(quando)
     assert r["canceled_at"] is None
-    assert eventos(client, t["number"])[-1]["payload"]["finished_at"] == "2026-09-28T20:40:00+00:00"
+    assert ultimo("ticket.status_changed")["payload"]["finished_at"] == "2026-09-28T20:40:00+00:00"
 
     # Já concluído: a data é corrigida, mesmo antes do início, com o evento de antes e depois.
     antes = "2026-08-31T12:00:00+00:00"
     r = patch(finished_at=antes).json()
     assert datetime.fromisoformat(r["closed_at"]) == datetime.fromisoformat(antes)
-    ultimo = eventos(client, t["number"])[-1]
-    assert ultimo["type"] == "ticket.updated"
-    assert ultimo["payload"]["changes"] == {
+    assert ultimo("ticket.updated")["payload"]["changes"] == {
         "closed_at": {"from": "2026-09-28T20:40:00+00:00", "to": antes}
     }
     # Com o mesmo status, também; no futuro, não.
@@ -391,6 +392,53 @@ def test_data_de_conclusao_e_de_cancelamento(client: TestClient, cenario: dict[s
     outro = registrar(client, cenario)["number"]
     client.post(f"{API}/{outro}/transitions", json={"action": "cancel"})
     assert client.get(f"{API}/{outro}").json()["canceled_at"] is not None
+
+
+def test_conclusao_antes_puxa_registro_inicio_e_tarefas(
+    client: TestClient, cenario: dict[str, Any]
+) -> None:
+    """O trabalho do mês passado registrado depois: concluído com a data de lá, o registro, o
+    início e as tarefas que ficaram depois dela vão para ela (os relatórios contam no mês)."""
+    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
+    t = registrar(client, cenario)
+    url = f"{API}/{t['number']}"
+    tarefas = f"{url}/comments"
+    feita = client.post(tarefas, json={"body": "Feito", "time_spent_minutes": 90}).json()
+    cedo = "2026-02-20T09:00:00+00:00"  # antes da conclusão: fica
+    antiga = client.post(tarefas, json={"body": "Antes", "done_at": cedo}).json()
+
+    entrar(client, "bia@x.com")
+    quando = "2026-02-27T17:00:00+00:00"
+    r = client.patch(url, json={"status_id": status["Concluído"], "finished_at": quando}).json()
+    for campo in ("created_at", "started_at", "closed_at"):
+        assert datetime.fromisoformat(r[campo]) == datetime.fromisoformat(quando), campo
+    datas = {c["body"]: c["done_at"] for c in client.get(tarefas).json()["items"]}
+    assert datetime.fromisoformat(datas["Feito"]) == datetime.fromisoformat(quando)
+    assert datetime.fromisoformat(datas["Antes"]) == datetime.fromisoformat(cedo)
+    ajuste = eventos(client, t["number"])[-1]
+    assert ajuste["type"] == "ticket.dates_pulled_back"
+    assert ajuste["payload"]["to"] == quando
+    antes = ajuste["payload"]["before"]
+    assert set(antes) == {"created_at", "started_at", "comments"}
+    assert datetime.fromisoformat(antes["created_at"]) == datetime.fromisoformat(t["created_at"])
+    assert list(antes["comments"]) == [feita["id"]]
+
+    # Tarefa lançada (ou mudada) depois, no chamado concluído: também vai para a conclusão.
+    entrar(client, "ana@x.com")
+    nova = client.post(tarefas, json={"body": "Esquecida", "time_spent_minutes": 30}).json()
+    assert datetime.fromisoformat(nova["done_at"]) == datetime.fromisoformat(quando)
+    agora = datetime.now(UTC).isoformat()
+    r = client.patch(f"{tarefas}/{antiga['id']}", json={"body": "Antes", "done_at": agora})
+    assert datetime.fromisoformat(r.json()["done_at"]) == datetime.fromisoformat(quando)
+
+    # Corrigida para depois: nada a puxar, e o que já foi puxado fica.
+    entrar(client, "bia@x.com")
+    total = len(eventos(client, t["number"]))
+    client.patch(url, json={"finished_at": "2026-03-02T12:00:00+00:00"})
+    tipos = [e["type"] for e in eventos(client, t["number"])[total:]]
+    assert tipos == ["ticket.updated"]
+    r = client.get(url).json()
+    assert datetime.fromisoformat(r["created_at"]) == datetime.fromisoformat(quando)
 
 
 # --- edição ------------------------------------------------------------------------------------

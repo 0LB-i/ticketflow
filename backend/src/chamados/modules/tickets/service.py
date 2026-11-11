@@ -915,6 +915,41 @@ def _finished_at(status: TicketStatus, value: datetime) -> datetime:
     return _not_future(value, "A data de conclusão não pode ficar no futuro.")
 
 
+async def _pull_back(db: AsyncSession, auth: Auth, ticket: Ticket, at: datetime) -> None:
+    """Data informada da conclusão (ou do cancelamento) antes do registro, do início ou de
+    tarefas: tudo isso vai para ela, e os relatórios contam no mesmo mês (ex.: o trabalho do mês
+    passado registrado depois). O evento guarda as datas de antes."""
+    before: dict[str, Any] = {}
+    for field in ("created_at", "started_at"):
+        old = getattr(ticket, field)
+        if old > at:
+            before[field] = old.astimezone(UTC).isoformat()
+            setattr(ticket, field, at)
+    later = await db.scalars(
+        select(TicketComment).where(
+            TicketComment.ticket_id == ticket.id,
+            TicketComment.deleted_at.is_(None),
+            TicketComment.done_at > at,
+        )
+    )
+    for comment in later:
+        before.setdefault("comments", {})[str(comment.public_id)] = comment.done_at.astimezone(
+            UTC
+        ).isoformat()
+        comment.done_at = at
+    if before:
+        add_event(db, ticket, "ticket.dates_pulled_back", auth, to=at.isoformat(), before=before)
+
+
+def _not_after_finish(ticket: Ticket, done_at: datetime | None) -> datetime | None:
+    """Tarefa de chamado concluído ou cancelado não fica depois da conclusão (ou do
+    cancelamento): sem data (agora) ou depois dela, vai para ela."""
+    finished = {"closed": ticket.closed_at, "canceled": ticket.canceled_at}.get(ticket.status.kind)
+    if finished is None or (done_at is not None and done_at <= finished):
+        return done_at
+    return finished
+
+
 async def bulk_status(
     db: AsyncSession, auth: Auth, numbers: list[int], status_id: int
 ) -> tuple[list[int], list[tuple[int, str]]]:
@@ -963,6 +998,7 @@ async def update(
         status = await _status(db, changes["status_id"])
     if finished_at is not None:
         finished_at = _finished_at(status, finished_at)
+    pull_back_to = finished_at
     if status.id != ticket.status_id:
         _change_status(db, auth, ticket, status, finished_at)
         finished_at = None  # gravada com a mudança
@@ -1009,6 +1045,8 @@ async def update(
 
     if diff:
         add_event(db, ticket, "ticket.updated", auth, changes=diff)
+    if pull_back_to is not None:
+        await _pull_back(db, auth, ticket, pull_back_to)
     await db.commit()
 
 
@@ -1024,7 +1062,7 @@ async def add_comment(
         data.mention_ids,
         data.attachment_ids,
         time_spent_minutes=data.time_spent_minutes,
-        done_at=data.done_at,
+        done_at=_not_after_finish(ticket, data.done_at),
     )
     # O comentário não vai para o histórico (é o próprio registro), mas as notificações precisam.
     # O de uma ação (transição, transferência) vai no evento dela, pelo comment_id.
@@ -1065,6 +1103,7 @@ async def edit_comment(
     body = required_text(data.body, "Escreva o comentário.")
     minutes = data.time_spent_minutes
     done_at = _done_at(data.done_at) if data.done_at is not None else comment.done_at
+    done_at = _not_after_finish(ticket, done_at) or done_at
     changed_time = minutes != comment.time_spent_minutes
     changed_date = done_at != comment.done_at
     if body != comment.body or changed_time or changed_date:

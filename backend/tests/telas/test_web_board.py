@@ -244,7 +244,7 @@ def test_no_mes_passado_as_datas_do_topo(
         ), campo
     assert 'data-data-de="concluir_em"' in html and 'data-data-de="cancelar_em"' in html
     assert html.count("data-data-de") == 2  # só as duas colunas finais
-    assert '<input type="hidden" name="conclusao_hora" value="23:59">' in _cartao(html, concluir)
+    assert '<input type="hidden" name="conclusao_data">' in _cartao(html, concluir)
 
     # A escolha vem pelo endereço; fora do mês (ou inválida), volta o último dia.
     dia_10 = inicio + timedelta(days=9)
@@ -255,7 +255,7 @@ def test_no_mes_passado_as_datas_do_topo(
     html = client.get(f"/quadro?mes=passado&concluir_em={hoje:%Y-%m-%d}").text
     assert f'name="concluir_em" type="date" value="{ultimo_dia:%Y-%m-%d}"' in html
 
-    # O que o cartão envia ao soltar: o dia do topo, às 23:59.
+    # O que o cartão envia ao soltar: o dia do topo; a hora é a do momento.
     def soltar(numero: int, coluna: str, dia: datetime) -> str:
         versao = re.search(r'name="versao" value="([^"]*)"', _cartao(html, numero))
         assert versao
@@ -265,18 +265,22 @@ def test_no_mes_passado_as_datas_do_topo(
             status_id=_destinos(html, numero)[coluna],
             volta="/quadro?mes=passado",
             conclusao_data=f"{dia:%Y-%m-%d}",
-            conclusao_hora="23:59",
         )
         return client.post(f"/chamados/{numero}/status", data=dados).text
 
+    def no_dia(valor: str, dia: datetime) -> None:
+        """O dia escolhido, na hora (local) em que o cartão foi solto."""
+        momento = datetime.fromisoformat(valor).astimezone(LOCAL_TZ)
+        assert momento.date() == dia.date()
+        hora = datetime.now(LOCAL_TZ).replace(year=dia.year, month=dia.month, day=dia.day)
+        assert abs(momento - hora) < timedelta(minutes=2)
+
     r = soltar(concluir, "Concluído", dia_10)
     assert "Status alterado" in r and _colunas(r)["Concluído"] == [concluir]
-    closed_at = client.get(f"{API}/{concluir}").json()["closed_at"]
-    assert datetime.fromisoformat(closed_at) == dia_10.replace(hour=23, minute=59)
+    no_dia(client.get(f"{API}/{concluir}").json()["closed_at"], dia_10)
     r = soltar(cancelar, "Cancelado", ultimo_dia)
     assert _colunas(r)["Cancelado"] == [cancelar]
-    canceled_at = client.get(f"{API}/{cancelar}").json()["canceled_at"]
-    assert datetime.fromisoformat(canceled_at) == ultimo_dia.replace(hour=23, minute=59)
+    no_dia(client.get(f"{API}/{cancelar}").json()["canceled_at"], ultimo_dia)
 
 
 def test_empresa_aparece_pelo_nome_fantasia(

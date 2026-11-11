@@ -567,3 +567,26 @@ def test_expediente_vigencias(client: TestClient, db: Session) -> None:
     assert vigencias() == [(hoje, "07:00")]
     # Os feriados continuam na chave de sempre.
     assert client.get("/api/v1/work-hours").json()["holidays"] == ["2026-12-25"]
+
+
+def test_conclusao_puxada_fica_fora_da_mediana(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    """Concluído com a data antes do registro: o registro vai para a conclusão e o chamado
+    conta no dia dela, mas sem tempo até a conclusão (não é tempo de atendimento)."""
+    status = {s["name"]: s["id"] for s in client.get("/api/v1/statuses").json()["items"]}
+    dia = dia_util_passado()
+    normal = registrar(client, cenario, title="Normal")["number"]
+    puxado = registrar(client, cenario, title="Puxado")["number"]
+    db.execute(update(Ticket).where(Ticket.number == normal).values(created_at=em(dia, 9)))
+    db.commit()
+    entrar(client, "bia@x.com")
+    for numero in (normal, puxado):
+        dados = {"status_id": status["Concluído"], "finished_at": em(dia, 11).isoformat()}
+        assert client.patch(f"{API}/{numero}", json=dados).status_code == 200
+
+    filtro = {"periodo": "personalizado", "de": dia.isoformat(), "ate": dia.isoformat()}
+    r = client.get("/relatorios/chamados", params={**filtro, "medida": "closed", "formato": "csv"})
+    linhas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
+    tempos = {linha[1]: linha[8:12] for linha in linhas[1:]}
+    assert tempos == {"Normal": ["2,00", "120", "2,00", "120"], "Puxado": ["", "", "", ""]}

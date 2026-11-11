@@ -69,9 +69,8 @@
             <input type="hidden" name="volta" value="{{ current_url }}">
             <input type="hidden" name="status_id">
             {%- if filters.mes %}
-            {#- O dia vem do topo ao soltar; a hora é o fim dele (não fica antes do início). #}
+            {#- O dia vem do topo ao soltar; a hora é a do momento (a rota de status a põe). #}
             <input type="hidden" name="conclusao_data">
-            <input type="hidden" name="conclusao_hora" value="23:59">
             {%- endif %}
           </form>
           {%- endif %}
