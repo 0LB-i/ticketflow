@@ -97,7 +97,7 @@
       </h1>
       {{ status_badge(ticket.status.kind, ticket.status.name) }}
       {%- if "edit" in actions %}
-      <a href="{{ base }}?titulo=editar" hx-get="{{ base }}?titulo=editar" hx-select="#titulo" hx-target="#titulo" hx-swap="outerHTML" class="{{ button_class('ghost', 'sm') }}">{{ t("chamado.editarComentario") }}</a>
+      <a href="{{ base }}?titulo=editar" hx-get="{{ base }}?titulo=editar" hx-select="#titulo" hx-target="#titulo" hx-swap="outerHTML" class="{{ button_class('secondary', 'sm') }}">{{ icon("pencil", "size-4") }}{{ t("chamado.editarTitulo") }}</a>
       {%- endif %}
       {%- endif %}
     </div>
