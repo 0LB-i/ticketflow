@@ -358,6 +358,7 @@ async def _ticket_page(
     comment: CommentForm | None = None,
     editing: str | None = None,
     editing_title: bool = False,
+    editing_description: bool = False,
     removing: str | None = None,
     destination: str = "",
     status_code: int = 200,
@@ -457,6 +458,7 @@ async def _ticket_page(
         edit_form=edit_form,
         removing=removing,
         editing_title=editing_title and "edit" in actions,
+        editing_description=editing_description and "edit" in actions,
         suggested_times=SUGGESTED_TIMES,
         visto_ate=seen_until,
         viewers=await ticket_presence.touch(db, ticket.id, page.auth.user.id),
@@ -523,10 +525,11 @@ async def ticket_page(
     remover: str | None = None,
     team_id: str = "",
     titulo: str | None = None,
+    descricao: str | None = None,
 ) -> HTMLResponse:
-    # editar/remover/team_id/titulo: o HTMX pede a página com a tarefa em edição, a confirmação
-    # da remoção, os membros do grupo de destino da transferência ou o título em edição e troca
-    # só esse trecho (hx-select).
+    # editar/remover/team_id/titulo/descricao: o HTMX pede a página com a tarefa em edição, a
+    # confirmação da remoção, os membros do grupo de destino da transferência ou o título ou a
+    # descrição em edição e troca só esse trecho (hx-select).
     return await _ticket_page(
         page,
         db,
@@ -536,6 +539,7 @@ async def ticket_page(
         removing=remover,
         destination=team_id,
         editing_title=titulo == "editar",
+        editing_description=descricao == "editar",
     )
 
 
@@ -692,6 +696,25 @@ async def change_title(
         lambda: _update(page, db, number, TicketUpdate.model_validate({"title": titulo}), versao),
         "chamado.feito.titulo",
     )
+
+
+@router.post("/chamados/{number:int}/descricao")
+async def change_description(
+    number: int,
+    page: LoggedPageDep,
+    db: DB,
+    csrf_token: Field = "",
+    descricao: Field = "",
+    versao: Field = "",
+) -> Response:
+    """A descrição, com as imagens coladas nela."""
+
+    async def action() -> None:
+        uploads = await _uploads_in_text(page, db, descricao)
+        data = TicketUpdate.model_validate({"description": descricao, "attachment_ids": uploads})
+        await _update(page, db, number, data, versao)
+
+    return await _act(page, number, csrf_token, action, "chamado.feito.descricao")
 
 
 @router.post("/chamados/{number:int}/cliente")

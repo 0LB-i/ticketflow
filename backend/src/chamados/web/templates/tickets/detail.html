@@ -108,8 +108,25 @@
     <div class="flex min-w-0 flex-col gap-4">
       {#- Linha do tempo: o registro e as tarefas, pela data em que foram feitas. #}
       <ol class="flex flex-col gap-3" aria-label="{{ t('chamado.linhaDoTempo') }}">
-        {#- Quem registrou e quando já estão no cabeçalho. #}
-        <li class="rounded-lg border border-border bg-surface p-4 shadow-md">
+        {#- Quem registrou e quando já estão no cabeçalho. Editar troca só este trecho pelo editor
+            (HTMX sobre a página com ?descricao=editar). #}
+        <li id="descricao" class="rounded-lg border border-border bg-surface p-4 shadow-md">
+          {%- if editing_description %}
+          <form method="post" action="{{ base }}/descricao" class="flex flex-col gap-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="versao" value="{{ ticket.etag }}">
+            {{ editor("descricao", "descricao-editar", t("novoChamado.descricao"), value=ticket.description, attach=True, tall=True) }}
+            <div class="flex justify-end gap-2">
+              <a href="{{ base }}" hx-get="{{ base }}" hx-select="#descricao" hx-target="#descricao" hx-swap="outerHTML" class="{{ button_class('secondary', 'sm') }}">{{ t("comum.cancelar") }}</a>
+              <button type="submit" class="{{ button_class('primary', 'sm') }}">{{ t("comum.salvar") }}</button>
+            </div>
+          </form>
+          {%- else %}
+          {%- if "edit" in actions %}
+          <div class="mb-2 flex justify-end">
+            <a href="{{ base }}?descricao=editar" hx-get="{{ base }}?descricao=editar" hx-select="#descricao" hx-target="#descricao" hx-swap="outerHTML" class="{{ button_class('secondary', 'sm') }}">{{ icon("pencil", "size-4") }}{{ t("chamado.editarDescricao") }}</a>
+          </div>
+          {%- endif %}
           {%- if ticket.description %}
           <div class="texto-formatado">{{ ticket.description | markdown }}</div>
           {%- else %}
@@ -117,6 +134,7 @@
           {%- endif %}
           {%- if attachments[None] %}
           {{ attachment_list(attachments[None], "mt-3") }}
+          {%- endif %}
           {%- endif %}
         </li>
         {%- for c in comments %}

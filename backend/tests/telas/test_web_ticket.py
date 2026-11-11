@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from chamados.core.timezone import LOCAL_TZ
-from tests.apoio import API, anexo, aviso, formulario, registrar, status_id
+from tests.apoio import API, anexo, aviso, eventos, formulario, registrar, status_id
 from tests.conftest import consultas, criar_cliente, criar_usuario, entrar, grupo
 
 
@@ -391,6 +391,37 @@ def test_editar_titulo(client: TestClient, cenario: dict[str, Any]) -> None:
     html = client.get(lateral).text
     assert "Impressora do 3º andar" in html and "?titulo=editar" not in html
     assert 'name="titulo"' not in client.get(f"{lateral}?titulo=editar").text
+
+
+def test_editar_descricao(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Editar descrição troca o texto do registro pelo editor (?descricao=editar), com imagem."""
+    numero = registrar(client, cenario, description="Texto antigo")["number"]
+    lateral = f"/chamados/{numero}"
+    assert f'href="{lateral}?descricao=editar"' in client.get(lateral).text
+    html = client.get(f"{lateral}?descricao=editar").text
+    assert ">Texto antigo</textarea>" in html
+    versao = re.search(r'action="[^"]*/descricao".*?name="versao" value="([^"]*)"', html, re.S)
+    assert versao
+
+    imagem = anexo(client)
+    texto = f"Texto novo\n\n![print](/api/v1/attachments/{imagem})"
+    dados = formulario(client, descricao=texto, versao=unescape(versao.group(1)))
+    r = client.post(f"{lateral}/descricao", data=dados)
+    assert aviso(client, numero, r.text) == "Descrição alterada"
+    chamado = client.get(f"{API}/{numero}").json()
+    assert chamado["description"] == texto
+    assert [a["id"] for a in chamado["attachments"]] == [imagem]
+    assert eventos(client, numero)[-1]["payload"]["changes"]["description"] == {
+        "from": "Texto antigo",
+        "to": texto,
+    }
+
+    # Quem não edita não vê o botão nem o editor.
+    entrar(client, "auditor@x.com")
+    html = client.get(lateral).text
+    assert "Texto novo" in html and "?descricao=editar" not in html
+    html = client.get(f"{lateral}?descricao=editar").text
+    assert f'action="{lateral}/descricao"' not in html
 
 
 def _forms_de_responsaveis(html: str, url: str) -> list[tuple[list[str], str]]:

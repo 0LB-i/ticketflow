@@ -316,6 +316,7 @@
     "solucao": "Solution",
     "editarComentario": "Edit",
     "editarTitulo": "Edit title",
+    "editarDescricao": "Edit description",
     "removerTarefa": "Remove",
     "removerTarefaPergunta": "Remove this task?",
     "feitaEm": "Task date and time",
@@ -353,7 +354,8 @@
       "deixouDeAcompanhar": "You stopped watching the ticket",
       "status": "Status changed",
       "dataConclusao": "Date changed",
-      "titulo": "Title changed"
+      "titulo": "Title changed",
+      "descricao": "Description changed"
     },
     "cliente": "Client",
     "contato": "Contact",

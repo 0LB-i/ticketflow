@@ -316,6 +316,7 @@
     "solucao": "Solução",
     "editarComentario": "Editar",
     "editarTitulo": "Editar título",
+    "editarDescricao": "Editar descrição",
     "removerTarefa": "Remover",
     "removerTarefaPergunta": "Remover esta tarefa?",
     "feitaEm": "Data e hora da tarefa",
@@ -353,7 +354,8 @@
       "deixouDeAcompanhar": "Você deixou de acompanhar o chamado",
       "status": "Status alterado",
       "dataConclusao": "Data alterada",
-      "titulo": "Título alterado"
+      "titulo": "Título alterado",
+      "descricao": "Descrição alterada"
     },
     "cliente": "Cliente",
     "contato": "Contato",
