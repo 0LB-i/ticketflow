@@ -124,7 +124,7 @@
           {%- else %}
           {%- if "edit" in actions %}
           <div class="mb-2 flex justify-end">
-            <a href="{{ base }}?descricao=editar" hx-get="{{ base }}?descricao=editar" hx-select="#descricao" hx-target="#descricao" hx-swap="outerHTML" class="{{ button_class('secondary', 'sm') }}">{{ icon("pencil", "size-4") }}{{ t("chamado.editarDescricao") }}</a>
+            <a href="{{ base }}?descricao=editar" hx-get="{{ base }}?descricao=editar" hx-select="#descricao" hx-target="#descricao" hx-swap="outerHTML" class="{{ button_class('ghost', 'sm') }}">{{ t("chamado.editarComentario") }}</a>
           </div>
           {%- endif %}
           {%- if ticket.description %}
