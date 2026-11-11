@@ -177,6 +177,22 @@
         {{ select_field("status_id", t("chamados.status"), status_options, ticket.status.id | string) }}
       </form>
       {%- endif %}
+      {%- if finished %}
+      {#- Concluído ou cancelado: fica a data da mudança, que pode ser corrigida (ex.: concluído
+          no mês passado, para os relatórios contarem no mês certo). #}
+      <form method="post" action="{{ base }}/conclusao">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="versao" value="{{ ticket.etag }}">
+        <fieldset class="flex flex-col gap-1">
+          <legend class="mb-1 font-medium">{{ t("chamado.concluidoEm" if ticket.status.kind == "closed" else "chamado.canceladoEm") }}</legend>
+          <div class="flex flex-wrap items-center gap-2">
+            <input type="date" name="conclusao_data" value="{{ finished.date }}" required aria-label="{{ t('dataHora.data') }}" class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg tabular-nums">
+            <input type="time" name="conclusao_hora" value="{{ finished.time }}" required aria-label="{{ t('dataHora.hora') }}" class="h-10 w-28 rounded-md border border-border-input bg-surface px-3 text-fg tabular-nums">
+            <button type="submit" class="{{ button_class('secondary', 'sm') }}">{{ t("comum.salvar") }}</button>
+          </div>
+        </fieldset>
+      </form>
+      {%- endif %}
 
       <div class="flex flex-wrap gap-2">
         {%- if "assign_self" in actions %}

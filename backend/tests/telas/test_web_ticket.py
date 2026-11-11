@@ -5,11 +5,13 @@ Cenário (a fixture `cenario`): Ana e Bia (supervisora) no TI, Caio na Infra.
 
 import re
 from datetime import UTC, datetime
+from html import unescape
 from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from chamados.core.timezone import LOCAL_TZ
 from tests.apoio import API, anexo, aviso, formulario, registrar, status_id
 from tests.conftest import consultas, criar_cliente, criar_usuario, entrar, grupo
 
@@ -324,6 +326,45 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     r = client.post(f"{lateral}/cancelar", data=formulario(client))
     assert aviso(client, numero, r.text) == "Chamado cancelado"
     assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "canceled"
+
+
+def test_data_de_conclusao_abaixo_do_status(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Concluído ou cancelado: abaixo do status, a data da mudança, que pode ser corrigida."""
+    numero = registrar(client, cenario)["number"]
+    lateral = f"/chamados/{numero}"
+    assert f'action="{lateral}/conclusao"' not in client.get(lateral).text  # em aberto, não
+
+    mudar = formulario(client, status_id=status_id(client, "Cancelado"))
+    client.post(f"{lateral}/status", data=mudar)
+    html = client.get(lateral).text
+    assert "Cancelado em</legend>" in html
+    agora = datetime.now(LOCAL_TZ)
+    assert f'name="conclusao_data" value="{agora:%Y-%m-%d}"' in html  # a da mudança
+
+    def corrigir(dia: str, hora: str) -> str:
+        versao = re.search(r'name="versao" value="([^"]*)"', html)
+        assert versao
+        dados = formulario(
+            client, versao=unescape(versao.group(1)), conclusao_data=dia, conclusao_hora=hora
+        )
+        return aviso(client, numero, client.post(f"{lateral}/conclusao", data=dados).text)
+
+    assert corrigir("2026-10-15", "10:30") == "Data alterada"
+    cancelado = client.get(f"{API}/{numero}").json()["canceled_at"]
+    assert datetime.fromisoformat(cancelado) == datetime(2026, 10, 15, 10, 30, tzinfo=LOCAL_TZ)
+    html = client.get(lateral).text
+    assert 'name="conclusao_data" value="2026-10-15"' in html
+    assert 'name="conclusao_hora" value="10:30"' in html
+    amanha = f"{agora.year + 1}-01-01"
+    assert corrigir(amanha, "10:00") == "A data de conclusão não pode ficar no futuro."
+
+    # O do concluído, só quem conclui (Ana, agente, não vê o campo).
+    entrar(client, "bia@x.com")
+    mudar = formulario(client, status_id=status_id(client, "Concluído"))
+    client.post(f"{lateral}/status", data=mudar)
+    assert "Concluído em</legend>" in client.get(lateral).text
+    entrar(client, "ana@x.com")
+    assert f'action="{lateral}/conclusao"' not in client.get(lateral).text
 
 
 def _forms_de_responsaveis(html: str, url: str) -> list[tuple[list[str], str]]:

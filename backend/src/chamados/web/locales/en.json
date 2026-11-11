@@ -287,6 +287,8 @@
     "voltarParaPainel": "Back to dashboard",
     "dados": "Ticket details",
     "inicio": "Start",
+    "concluidoEm": "Closed on",
+    "canceladoEm": "Canceled on",
     "grupo": "Team",
     "responsavel": "Assignee",
     "tipo": "Type",
@@ -348,7 +350,8 @@
       "observadorRemovido": "Watcher removed",
       "acompanhando": "You are watching the ticket",
       "deixouDeAcompanhar": "You stopped watching the ticket",
-      "status": "Status changed"
+      "status": "Status changed",
+      "dataConclusao": "Date changed"
     },
     "cliente": "Client",
     "contato": "Contact",

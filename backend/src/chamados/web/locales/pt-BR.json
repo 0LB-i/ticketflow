@@ -287,6 +287,8 @@
     "voltarParaPainel": "Voltar para o painel",
     "dados": "Dados do chamado",
     "inicio": "Início",
+    "concluidoEm": "Concluído em",
+    "canceladoEm": "Cancelado em",
     "grupo": "Grupo",
     "responsavel": "Responsável",
     "tipo": "Tipo",
@@ -348,7 +350,8 @@
       "observadorRemovido": "Observador removido",
       "acompanhando": "Você está acompanhando o chamado",
       "deixouDeAcompanhar": "Você deixou de acompanhar o chamado",
-      "status": "Status alterado"
+      "status": "Status alterado",
+      "dataConclusao": "Data alterada"
     },
     "cliente": "Cliente",
     "contato": "Contato",

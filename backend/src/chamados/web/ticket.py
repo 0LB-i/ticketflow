@@ -412,6 +412,9 @@ async def _ticket_page(
         new_comment, edit_form = comment, None
     else:
         new_comment, edit_form = CommentForm(), comment
+    finished_at = {"closed": ticket.closed_at, "canceled": ticket.canceled_at}.get(
+        ticket.status.kind
+    )
     return page.render(
         "tickets/detail.html",
         status_code=status_code,
@@ -441,6 +444,12 @@ async def _ticket_page(
         # Marcar como entregue: já entregue, concluído ou cancelado não tem o botão.
         delivered=delivered
         if "set_status" in actions and ticket.status.kind not in ("delivered", "closed", "canceled")
+        else None,
+        # Concluído ou cancelado: a data gravada (a da mudança), para corrigir abaixo do status.
+        finished=DateTimeInput.at(finished_at)
+        if finished_at
+        and "set_status" in actions
+        and (ticket.status.kind != "closed" or "set_status_closed" in actions)
         else None,
         new_comment=new_comment,
         new_pending=await _pending_attachments(page, db, new_comment.attachments),
@@ -614,6 +623,28 @@ async def change_status(
         lambda: _update(page, db, number, TicketUpdate.model_validate(data), versao),
         "chamado.feito.status",
         volta,
+    )
+
+
+@router.post("/chamados/{number:int}/conclusao")
+async def change_finished_at(
+    number: int,
+    page: LoggedPageDep,
+    db: DB,
+    csrf_token: Field = "",
+    versao: Field = "",
+    conclusao_data: Field = "",
+    conclusao_hora: Field = "",
+) -> Response:
+    """Corrige a data da conclusão (ou do cancelamento) do chamado já concluído ou cancelado."""
+    # Inválida, fica o texto: o TicketUpdate recusa, com o aviso de erro comum.
+    data = {"finished_at": parse_local(conclusao_data, conclusao_hora) or conclusao_data}
+    return await _act(
+        page,
+        number,
+        csrf_token,
+        lambda: _update(page, db, number, TicketUpdate.model_validate(data), versao),
+        "chamado.feito.dataConclusao",
     )
 
 

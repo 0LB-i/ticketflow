@@ -175,8 +175,9 @@ class TicketUpdate(BaseModel):
     )
     finished_at: AwareDatetime | None = Field(
         default=None,
-        description="com status_id de um status concluído ou cancelado: quando foi concluído ou "
-        "cancelado (sem valor, agora); nem no futuro nem antes do início",
+        description="quando foi concluído ou cancelado: junto de um status_id concluído ou "
+        "cancelado (sem valor, agora) ou, sem mudar o status, corrige a data do chamado já "
+        "concluído ou cancelado; nunca no futuro",
     )
     attachment_ids: list[uuid.UUID] | None = Field(
         default=None, max_length=10, description="imagens coladas na descrição (POST /uploads)"

@@ -868,7 +868,7 @@ EDIT_FIELDS = {
 
 
 CHANGED_BY_OTHER = "O chamado foi alterado por outra pessoa. Recarregue e tente de novo."
-FINISHED_ONLY_FINAL = "A data de conclusão só vale ao mudar para um status concluído ou cancelado."
+FINISHED_ONLY_FINAL = "A data de conclusão só vale num status concluído ou cancelado."
 
 
 def etag(ticket: Ticket) -> str:
@@ -906,17 +906,13 @@ def _change_status(
         _apply_status(ticket, before, status, finished_at)
 
 
-def _finished_at(
-    ticket: Ticket, status: TicketStatus, value: datetime, started_at: datetime | None
-) -> datetime:
-    """Data informada da conclusão ou do cancelamento (ex.: o quadro no mês passado): só ao
-    mudar para um desses status, nem no futuro nem antes do início."""
-    if status.kind not in rules.FINAL_KINDS or status.id == ticket.status_id:
+def _finished_at(status: TicketStatus, value: datetime) -> datetime:
+    """Data informada da conclusão ou do cancelamento: ao mudar para um desses status (ex.: o
+    quadro no mês passado) ou corrigida depois, com o chamado nele. Qualquer data, menos no
+    futuro."""
+    if status.kind not in rules.FINAL_KINDS:
         raise HTTPException(422, FINISHED_ONLY_FINAL)
-    value = _not_future(value, "A data de conclusão não pode ficar no futuro.")
-    if value < (started_at or ticket.started_at):
-        raise HTTPException(422, "A data de conclusão não pode ser antes do início.")
-    return value
+    return _not_future(value, "A data de conclusão não pode ficar no futuro.")
 
 
 async def bulk_status(
@@ -962,13 +958,16 @@ async def update(
         await _check_if_match(db, ticket, if_match)
     # Imagens coladas ao editar a descrição.
     await attachments.link(db, auth, ticket, attachment_ids)
+    status = ticket.status
     if changes.get("status_id") is not None:
         status = await _status(db, changes["status_id"])
-        if finished_at is not None:
-            finished_at = _finished_at(ticket, status, finished_at, changes.get("started_at"))
+    if finished_at is not None:
+        finished_at = _finished_at(status, finished_at)
+    if status.id != ticket.status_id:
         _change_status(db, auth, ticket, status, finished_at)
-    elif finished_at is not None:
-        raise HTTPException(422, FINISHED_ONLY_FINAL)
+        finished_at = None  # gravada com a mudança
+    elif changes.get("status_id") is not None or finished_at is not None:
+        _change_status(db, auth, ticket, status)  # o mesmo status: só confere a permissão
     diff: dict[str, dict[str, Any]] = {}
 
     def put(field: str, new: Any, before: Any = None, after: Any = None) -> None:
@@ -1001,6 +1000,12 @@ async def update(
     if changes.get("started_at") is not None:
         new = _started_at(changes["started_at"])
         put("started_at", new, ticket.started_at.isoformat(), new.isoformat())
+    if finished_at is not None:
+        # Correção da data de um chamado já concluído ou cancelado.
+        field = "closed_at" if status.kind == "closed" else "canceled_at"
+        old = getattr(ticket, field)
+        before = old.astimezone(UTC).isoformat() if old else None
+        put(field, finished_at, before, finished_at.isoformat())
 
     if diff:
         add_event(db, ticket, "ticket.updated", auth, changes=diff)
