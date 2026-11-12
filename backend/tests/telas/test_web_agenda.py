@@ -85,8 +85,11 @@ def test_criar_e_ver_no_mes_na_semana_e_no_dia(client: TestClient, cenario: dict
     # Domingo a sábado, e o compromisso na altura das 14h (a grade padrão vai das 7h às 19h).
     assert "08/11 – 14/11/2026" in semana
     assert "14:00 – 15:00" in semana
-    # Sozinho, usa 85% da largura: o resto fica livre para criar outro no mesmo horário.
-    assert "top: 58.333%; height: 8.333%; left: 0.000%; width: calc(85.000% - 2px)" in semana
+    # Sozinho, usa 85% da largura (no máximo 16rem): o resto fica livre para criar outro.
+    assert (
+        "top: 58.333%; height: 8.333%; left: calc(min(85.000%, 16rem) * 0);"
+        " width: calc(min(85.000%, 16rem) - 2px)"
+    ) in semana
     assert "novembro de 2026" in client.get(f"/agenda?visao=mes&data={DIA.isoformat()}").text
 
 
@@ -95,9 +98,10 @@ def test_os_que_se_sobrepoem_dividem_a_largura(client: TestClient, cenario: dict
     _novo(client, titulo="Segundo", inicio_hora="14:30", fim_hora="15:30")
     _novo(client, titulo="Depois", inicio_hora="16:00", fim_hora="17:00")
     html = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
-    assert "left: 0.000%; width: calc(42.500% - 2px)" in html
-    assert "left: 42.500%; width: calc(42.500% - 2px)" in html
-    assert "left: 0.000%; width: calc(85.000% - 2px)" in html  # o das 16h, sozinho
+    assert "left: calc(min(42.500%, 16rem) * 0); width: calc(min(42.500%, 16rem) - 2px)" in html
+    assert "left: calc(min(42.500%, 16rem) * 1); width: calc(min(42.500%, 16rem) - 2px)" in html
+    # O das 16h, sozinho.
+    assert "left: calc(min(85.000%, 16rem) * 0); width: calc(min(85.000%, 16rem) - 2px)" in html
 
 
 def test_dia_inteiro_vai_ate_a_meia_noite_do_ultimo_dia(

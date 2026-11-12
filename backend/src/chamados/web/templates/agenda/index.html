@@ -141,14 +141,15 @@
         {%- set at = d.day.isoformat() ~ "T" ~ "%02d:00" | format(h) %}
         {% call open_panel(url(view, day, novo="1", inicio=at), "block h-12 border-border hover:bg-surface-raised" ~ (" border-t" if not loop.first else ""), t("agenda.novoAs", hora="%02d:00" | format(h))) %}{% endcall %}
         {%- endfor %}
-        {#- Os compromissos usam 85% da largura: o resto fica livre para clicar e criar outro no
-            mesmo horário. Os que se sobrepõem dividem esses 85%. #}
+        {#- Os compromissos usam 85% da largura, cada um com no máximo 16rem (no dia, a coluna é
+            larga): o resto fica livre para clicar e criar outro no mesmo horário. Os que se
+            sobrepõem dividem esses 85%, lado a lado. #}
         {%- for item in d.timed %}
         {%- set a = item.appointment %}
         {#- No dia, quem criou arrasta a borda de cima (início) ou a de baixo (fim): agenda.js. #}
         {%- set adjustable = view == "dia" and item.whole and a.owner_id == me_id %}
         {%- set attrs = {"data-compromisso": a.public_id, "data-inicio": item.minutes[0], "data-fim": item.minutes[1], "draggable": "false"} if adjustable else {} %}
-        {% call open_panel(url(view, day, editar=a.public_id | string), "absolute overflow-hidden rounded-md border-l-4 border-primary bg-primary-subtle px-1.5 py-0.5 text-xs text-fg shadow-md hover:z-10", style="top: %.3f%%; height: %.3f%%; left: %.3f%%; width: calc(%.3f%% - 2px)" | format(item.top, item.height, item.lane / item.lanes * 85, 85 / item.lanes), attrs=attrs) %}
+        {% call open_panel(url(view, day, editar=a.public_id | string), "absolute overflow-hidden rounded-md border-l-4 border-primary bg-primary-subtle px-1.5 py-0.5 text-xs text-fg shadow-md hover:z-10", style="top: %.3f%%; height: %.3f%%; left: calc(min(%.3f%%, 16rem) * %d); width: calc(min(%.3f%%, 16rem) - 2px)" | format(item.top, item.height, 85 / item.lanes, item.lane, 85 / item.lanes), attrs=attrs) %}
           {%- if adjustable %}
           <span data-alca="inicio" aria-hidden="true" class="absolute inset-x-0 top-0 h-1.5 cursor-ns-resize"></span>
           {%- endif %}
