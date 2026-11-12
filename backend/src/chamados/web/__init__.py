@@ -5,6 +5,7 @@ from fastapi import APIRouter, Response
 from chamados.web import (
     admin,
     admin_tokens,
+    agenda,
     auth,
     board,
     client_panel,
@@ -47,6 +48,7 @@ router.include_router(tickets.router)
 # Depois da lista: /chamados/novo antes do /chamados/{número}.
 router.include_router(ticket.router)
 router.include_router(board.router)
+router.include_router(agenda.router)
 router.include_router(clients.router)
 router.include_router(admin.router)
 router.include_router(admin_tokens.router)

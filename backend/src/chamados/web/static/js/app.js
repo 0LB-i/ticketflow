@@ -499,3 +499,12 @@ if (usaJanelas) {
   addEventListener('resize', posicionarJanela)
   addEventListener('scroll', posicionarJanela, true)
 }
+
+// Aviso da agenda (o trecho #aviso-agenda do menu, perguntado a cada minuto): o número também
+// vai para o começo do título da aba, "(1) Chamados · TicketFlow", como nos aplicativos de mensagem.
+document.addEventListener('htmx:load', (e) => {
+  const aviso = e.detail.elt
+  if (aviso.id !== 'aviso-agenda' || !('avisos' in aviso.dataset)) return
+  const n = Number(aviso.dataset.avisos)
+  document.title = (n ? `(${n}) ` : '') + document.title.replace(/^\(\d+\) /, '')
+})

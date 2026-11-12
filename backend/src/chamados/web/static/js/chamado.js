@@ -551,14 +551,14 @@ document.addEventListener('htmx:beforeRequest', (e) => {
   if (document.hidden && e.detail.elt.id === 'presenca') e.preventDefault()
 })
 
-// --- cliente --------------------------------------------------------------------------------
+// --- cliente (e o chamado da agenda, pelos mesmos data-*) ---------------------------------
 
 function fecharOpcoes(caixa, restaurar = true) {
   const lista = caixa.querySelector('[data-opcoes]')
   lista.hidden = true
   caixa.querySelector('[role=combobox]').setAttribute('aria-expanded', 'false')
   // Texto digitado sem escolher: volta ao cliente escolhido (nas etiquetas, a busca fica vazia).
-  const nome = caixa.querySelector('[name=cliente_nome]')
+  const nome = caixa.querySelector('[data-escolhido-nome]')
   if (restaurar) caixa.querySelector('[role=combobox]').value = nome ? nome.value : ''
 }
 
@@ -571,8 +571,8 @@ function escolherCliente(caixa, opcao) {
     aplicarFiltro(etiquetas)
     return
   }
-  caixa.querySelector('[name=client_id]').value = opcao.dataset.id
-  caixa.querySelector('[name=cliente_nome]').value = opcao.dataset.nome
+  caixa.querySelector('[data-escolhido]').value = opcao.dataset.id
+  caixa.querySelector('[data-escolhido-nome]').value = opcao.dataset.nome
   caixa.querySelector('[role=combobox]').value = opcao.dataset.nome
   fecharOpcoes(caixa, false)
   if ('enviaAoEscolher' in caixa.dataset) caixa.closest('form').requestSubmit()

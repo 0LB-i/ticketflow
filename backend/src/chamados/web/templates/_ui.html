@@ -99,13 +99,14 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
 {%- endmacro %}
 
 {#- Menu lateral: os itens aparecem conforme a permissão (só esconde; a rota é que decide). O papel
-    Cliente só tem o painel da empresa. -#}
-{% macro side_nav() -%}
+    Cliente só tem o painel da empresa. `alerts`: o aviso da agenda (só no menu fixo, não na gaveta). -#}
+{% macro side_nav(alerts=False) -%}
 {%- set path = page.request.url.path -%}
 {%- set sections = [(None, [("/painel", "menu.painel", "chart-column", None)])] if page.is_client else [
   (None, [
     ("/chamados", "menu.chamados", "ticket", None),
     ("/quadro", "menu.quadro", "square-kanban", None),
+    ("/agenda", "menu.agenda", "calendar", None),
     ("/relatorios", "menu.relatorios", "chart-column", None),
   ]),
   ("menu.administracao", [
@@ -128,8 +129,12 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
     {%- endif %}
     {%- for to, label, name, _ in visible.items %}
     {%- set active = path == to or path.startswith(to ~ "/") %}
-    <a href="{{ to }}" class="flex h-10 items-center gap-3 rounded-md px-3 font-medium {{ 'bg-primary-subtle text-primary' if active else 'text-fg hover:bg-surface-raised' }}" data-pre-carrega{% if active %} aria-current="page"{% endif %}>
+    {#- A agenda não é pré-carregada: abri-la apaga o aviso. #}
+    <a href="{{ to }}" class="flex h-10 items-center gap-3 rounded-md px-3 font-medium {{ 'bg-primary-subtle text-primary' if active else 'text-fg hover:bg-surface-raised' }}"{% if to != "/agenda" %} data-pre-carrega{% endif %}{% if active %} aria-current="page"{% endif %}>
       {{ icon(name) }} {{ t(label) }}
+      {%- if to == "/agenda" and alerts %}
+      <span id="aviso-agenda" hx-get="/agenda/aviso" hx-trigger="load, every 60s" hx-swap="outerHTML" class="ml-auto"></span>
+      {%- endif %}
     </a>
     {%- endfor %}
   </div>

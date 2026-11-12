@@ -234,4 +234,12 @@ EN: dict[str, str] = {
     ),
     "O logotipo pode ter no máximo 256 KB.": "The logo can be at most 256 KB.",
     "Nenhum logotipo cadastrado.": "No logo uploaded.",
+    # Agenda
+    "Compromisso não encontrado.": "Event not found.",
+    "Participante inválido.": "Invalid guest.",
+    "Informe o título do compromisso.": "Enter the event title.",
+    "O título pode ter até 200 caracteres.": "The title can have up to 200 characters.",
+    "O fim do compromisso precisa ser depois do início.": "The event must end after it starts.",
+    "Só quem criou o compromisso pode alterá-lo.": "Only the creator can change this event.",
+    "Só quem criou o compromisso pode removê-lo.": "Only the creator can delete this event.",
 }

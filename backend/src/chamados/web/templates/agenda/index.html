@@ -1,0 +1,213 @@
+{#- Agenda: mês, semana ou dia; novo e editar no painel lateral (web/agenda.py). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class, checkbox, field, side_panel with context %}
+{% from "_fields.html" import chips with context %}
+{% from "_icons.html" import icon %}
+
+{% block title %}{{ t("agenda.titulo") }}{% endblock %}
+
+{% block head %}
+{#- O campo de chamado e as etiquetas dos participantes. #}
+<script src="{{ static('js/chamado.js') }}" defer></script>
+{% endblock %}
+
+{#- Abre o painel (novo ou editar) trocando só o #painel, com o endereço na barra. -#}
+{% macro open_panel(href, class, label=None, style=None) -%}
+<a href="{{ href }}" hx-get="{{ href }}" hx-select="#painel" hx-target="#painel" hx-swap="outerHTML" hx-push-url="true" class="{{ class }}"{% if label %} aria-label="{{ label }}"{% endif %}{% if style %} style="{{ style }}"{% endif %}>{{ caller() }}</a>
+{%- endmacro %}
+
+{% macro ticket_text(ticket) -%}
+#{{ ticket.number }}{% if ticket.title %} · {{ ticket.title }}{% endif %}
+{%- endmacro %}
+
+{% block content %}
+<div class="mx-auto flex max-w-pagina flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="{{ url(view, today) }}" class="{{ button_class('secondary', 'sm') }}">{{ t("agenda.hoje") }}</a>
+      <a href="{{ url(view, prev_day) }}" class="{{ button_class('ghost', 'sm') }}" aria-label="{{ t('agenda.anterior') }}">{{ icon("chevron-left", "size-4") }}</a>
+      <a href="{{ url(view, next_day) }}" class="{{ button_class('ghost', 'sm') }}" aria-label="{{ t('agenda.proximo') }}">{{ icon("chevron-right", "size-4") }}</a>
+      <h1 class="text-xl font-semibold first-letter:uppercase">{{ title }}</h1>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <nav aria-label="{{ t('agenda.visao') }}" class="inline-flex rounded-md border border-border-input bg-surface p-0.5">
+        {%- for value in ("mes", "semana", "dia") %}
+        <a href="{{ url(value, day) }}" class="rounded px-3 py-1 text-sm font-medium {{ 'bg-primary-subtle text-primary' if value == view else 'text-fg hover:bg-surface-raised' }}"{% if value == view %} aria-current="page"{% endif %}>{{ t("agenda.visoes." ~ value) }}</a>
+        {%- endfor %}
+      </nav>
+      {% call open_panel(url(view, day, novo="1"), button_class("primary", "sm")) %}{{ icon("plus", "size-4") }} {{ t("agenda.novo") }}{% endcall %}
+    </div>
+  </div>
+
+  {#- Os compromissos que acenderam o aviso do menu (apagado ao abrir a agenda). #}
+  {%- if alerts %}
+  <div class="rounded-lg border border-danger bg-surface p-3 shadow-md" role="status">
+    <p class="font-semibold">{{ t("agenda.emBreve") }}</p>
+    <ul class="mt-1 flex flex-col gap-1">
+      {%- for a, ticket in alerts %}
+      <li>
+        <span class="tabular-nums text-muted">{{ local(a.starts_at).strftime("%H:%M") }}</span>
+        {% call open_panel(url(view, day, editar=a.public_id | string), "font-medium text-primary underline") %}{{ a.title }}{% endcall %}
+        {%- if ticket %} · <a href="/chamados/{{ ticket.number }}" class="text-primary underline">{{ ticket_text(ticket) }}</a>{% endif %}
+      </li>
+      {%- endfor %}
+    </ul>
+  </div>
+  {%- endif %}
+
+  {%- if view == "mes" %}
+  <div class="overflow-hidden rounded-lg border border-border bg-surface shadow-md">
+    <div class="grid grid-cols-7 bg-surface-raised text-sm text-muted">
+      {%- for name in weekdays %}
+      <div class="px-2 py-1.5 font-medium">{{ name }}</div>
+      {%- endfor %}
+    </div>
+    {%- for week in weeks %}
+    <div class="grid grid-cols-7 border-t border-border">
+      {%- for d in week %}
+      <div class="group flex min-h-28 min-w-0 flex-col gap-0.5 border-border p-1 not-first:border-l {{ 'bg-surface-raised/50 text-muted' if not d.in_month }}">
+        <div class="flex items-center justify-between">
+          <a href="{{ url('dia', d.day) }}" class="inline-flex size-7 items-center justify-center rounded-full text-sm tabular-nums {{ 'bg-primary font-semibold text-on-primary' if d.today else 'hover:bg-surface-raised' }}">{{ d.day.day }}</a>
+          {% call open_panel(url(view, day, novo="1", inicio=d.day.isoformat() ~ "T09:00"), "rounded p-0.5 text-muted opacity-0 group-hover:opacity-100 hover:bg-surface-raised focus:opacity-100", t("agenda.novo")) %}{{ icon("plus", "size-4") }}{% endcall %}
+        </div>
+        {%- for item in d.items[:month_items] %}
+        {%- set a = item.appointment %}
+        {% call open_panel(url(view, day, editar=a.public_id | string), "block truncate rounded px-1.5 py-0.5 text-xs " ~ ("bg-primary-subtle font-medium text-fg" if a.all_day else "text-fg hover:bg-surface-raised")) %}
+          {%- if not a.all_day %}<span class="tabular-nums text-muted">{{ item.start.strftime("%H:%M") }}</span> {% endif %}{{ a.title }}
+        {%- endcall %}
+        {%- endfor %}
+        {%- if d.items | length > month_items %}
+        <a href="{{ url('dia', d.day) }}" class="px-1.5 text-xs font-medium text-primary hover:underline">{{ t("agenda.mais", n=d.items | length - month_items) }}</a>
+        {%- endif %}
+      </div>
+      {%- endfor %}
+    </div>
+    {%- endfor %}
+  </div>
+
+  {%- else %}
+  {#- Semana ou dia: os do dia inteiro numa faixa no topo e os outros na grade de horas, cada
+      um na altura do horário; os que se sobrepõem dividem a largura. #}
+  {%- set cols = "grid-cols-[4rem_repeat(7,minmax(0,1fr))]" if view == "semana" else "grid-cols-[4rem_minmax(0,1fr)]" %}
+  <div class="overflow-hidden rounded-lg border border-border bg-surface shadow-md">
+    <div class="grid {{ cols }} bg-surface-raised text-sm">
+      <div></div>
+      {%- for d in days %}
+      <a href="{{ url('dia', d.day) }}" class="flex items-center gap-2 border-l border-border px-2 py-1.5 hover:underline">
+        <span class="text-muted">{{ weekdays[(d.day.weekday() + 1) % 7] }}</span>
+        <span class="inline-flex size-7 items-center justify-center rounded-full tabular-nums {{ 'bg-primary font-semibold text-on-primary' if d.today else 'font-medium' }}">{{ d.day.day }}</span>
+      </a>
+      {%- endfor %}
+    </div>
+    <div class="grid {{ cols }} border-t border-border">
+      <div class="px-2 py-1 text-right text-xs text-muted">{{ t("agenda.diaInteiro") }}</div>
+      {%- for d in days %}
+      <div class="flex min-h-8 min-w-0 flex-col gap-0.5 border-l border-border p-0.5">
+        {%- for item in d.all_day %}
+        {%- set a = item.appointment %}
+        {% call open_panel(url(view, day, editar=a.public_id | string), "block truncate rounded bg-primary-subtle px-1.5 py-0.5 text-xs font-medium text-fg") %}{{ a.title }}{% endcall %}
+        {%- endfor %}
+      </div>
+      {%- endfor %}
+    </div>
+    <div class="grid {{ cols }} border-t border-border">
+      <div>
+        {%- for h in hours %}
+        <div class="h-12 pr-2 text-right text-xs text-muted tabular-nums">{{ "%02d:00" | format(h) }}</div>
+        {%- endfor %}
+      </div>
+      {%- for d in days %}
+      <div class="relative min-w-0 border-l border-border">
+        {%- for h in hours %}
+        {%- set at = d.day.isoformat() ~ "T" ~ "%02d:00" | format(h) %}
+        {% call open_panel(url(view, day, novo="1", inicio=at), "block h-12 border-border hover:bg-surface-raised" ~ (" border-t" if not loop.first else ""), t("agenda.novoAs", hora="%02d:00" | format(h))) %}{% endcall %}
+        {%- endfor %}
+        {%- for item in d.timed %}
+        {%- set a = item.appointment %}
+        {% call open_panel(url(view, day, editar=a.public_id | string), "absolute overflow-hidden rounded-md border-l-4 border-primary bg-primary-subtle px-1.5 py-0.5 text-xs text-fg shadow-md hover:z-10", style="top: %.3f%%; height: %.3f%%; left: %.3f%%; width: calc(%.3f%% - 2px)" | format(item.top, item.height, item.lane / item.lanes * 100, 100 / item.lanes)) %}
+          <span class="block truncate font-medium">{{ a.title }}</span>
+          <span class="block truncate text-muted tabular-nums">{{ local(a.starts_at).strftime("%H:%M") }} – {{ local(a.ends_at).strftime("%H:%M") }}</span>
+          {%- if item.ticket %}<span class="block truncate text-muted">{{ ticket_text(item.ticket) }}</span>{% endif %}
+        {%- endcall %}
+        {%- endfor %}
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+  {%- endif %}
+</div>
+
+<div id="painel">
+  {%- if edited or creating %}
+  {% call side_panel(t("agenda.editar") if edited and own else (edited.title if edited else t("agenda.novo")), back) %}
+  <div class="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+    <form id="form-compromisso" method="post" action="/agenda/{{ edited.public_id if edited else 'novo' }}" class="group flex flex-col gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="visao" value="{{ view }}"><input type="hidden" name="data" value="{{ day.isoformat() }}">
+      {%- if error %}
+      {{ alert(error) }}
+      {%- endif %}
+      {%- if not own %}
+      <p class="text-muted">{{ t("agenda.criadoPor", nome=edited.owner.display_name) }}</p>
+      {%- endif %}
+      {#- Quem não criou só vê. #}
+      <fieldset class="flex flex-col gap-4"{% if not own %} disabled{% endif %}>
+        {{ field("titulo", t("agenda.campoTitulo"), value=form.titulo, required=True, maxlength="200") }}
+        {{ checkbox("dia_inteiro", t("agenda.diaInteiro"), form.dia_inteiro, id="campo-dia-inteiro") }}
+        {#- No dia inteiro, as horas somem (e são ignoradas). #}
+        <div class="grid grid-cols-[1fr_auto] gap-x-2 gap-y-4 group-has-[#campo-dia-inteiro:checked]:grid-cols-1">
+          {{ field("inicio_data", t("agenda.inicio"), "date", form.inicio_data, required=True) }}
+          <div class="flex flex-col justify-end group-has-[#campo-dia-inteiro:checked]:hidden">
+            <input type="time" name="inicio_hora" value="{{ form.inicio_hora }}" aria-label="{{ t('agenda.horaInicio') }}" class="h-10 w-28 rounded-md border border-border-input bg-surface px-3 text-fg tabular-nums">
+          </div>
+          {{ field("fim_data", t("agenda.fim"), "date", form.fim_data, required=True) }}
+          <div class="flex flex-col justify-end group-has-[#campo-dia-inteiro:checked]:hidden">
+            <input type="time" name="fim_hora" value="{{ form.fim_hora }}" aria-label="{{ t('agenda.horaFim') }}" class="h-10 w-28 rounded-md border border-border-input bg-surface px-3 text-fg tabular-nums">
+          </div>
+        </div>
+
+        {#- Chamado: a mesma busca do campo de cliente (chamado.js), com os chamados que a pessoa vê. #}
+        <div data-cliente class="relative flex flex-col gap-1">
+          <label for="campo-chamado" class="font-medium">{{ t("agenda.chamado") }}</label>
+          <input type="hidden" name="chamado" value="{{ form.chamado }}" data-escolhido>
+          <input type="hidden" name="chamado_nome" value="{{ form.chamado_nome }}" data-escolhido-nome>
+          <div class="inline-flex h-10 items-center gap-1 rounded-md border border-border-input bg-surface pr-2 pl-3">
+            <input id="campo-chamado" type="text" name="q" form="sem-formulario" value="{{ form.chamado_nome }}" role="combobox" aria-expanded="false" aria-controls="chamados-opcoes" aria-autocomplete="list" autocomplete="off" placeholder="{{ t('agenda.buscarChamado') }}" hx-get="/agenda/chamados" hx-trigger="input changed delay:300ms" hx-target="#chamados-opcoes" hx-sync="this:replace" class="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted">
+            {{ icon("chevron-down", "size-4 shrink-0 text-muted") }}
+          </div>
+          <ul id="chamados-opcoes" role="listbox" data-opcoes hidden class="absolute inset-x-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 text-fg shadow-lg"></ul>
+        </div>
+
+        {{ chips("participantes", t("agenda.participantes"), people, form.participantes, names, t("agenda.adicionarParticipante"), "agenda.removerParticipante") }}
+
+        <div class="flex flex-col gap-1">
+          <label for="campo-descricao" class="font-medium">{{ t("agenda.descricao") }}</label>
+          <textarea id="campo-descricao" name="descricao" rows="4" class="rounded-md border border-border-input bg-surface px-3 py-2 text-fg">{{ form.descricao }}</textarea>
+        </div>
+      </fieldset>
+    </form>
+    {%- if form.chamado %}
+    <a href="/chamados/{{ form.chamado }}" class="inline-flex items-center gap-2 font-medium text-primary underline">{{ icon("ticket", "size-4") }} {{ t("agenda.abrirChamado", numero=form.chamado) }}</a>
+    {%- endif %}
+  </div>
+  <div class="flex items-center justify-end gap-2 border-t border-border p-4">
+    {%- if edited and own %}
+    {#- Remover pede a confirmação num segundo clique. #}
+    <details class="mr-auto">
+      <summary class="{{ button_class('ghost') }} cursor-pointer list-none text-danger [&::-webkit-details-marker]:hidden">{{ icon("trash", "size-4") }} {{ t("comum.remover") }}</summary>
+      <form method="post" action="/agenda/{{ edited.public_id }}/remover" class="mt-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="visao" value="{{ view }}"><input type="hidden" name="data" value="{{ day.isoformat() }}">
+        <button type="submit" class="{{ button_class('danger', 'sm') }}">{{ t("agenda.confirmarRemocao") }}</button>
+      </form>
+    </details>
+    {%- endif %}
+    <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.fechar") }}</button>
+    {%- if own %}
+    <button type="submit" form="form-compromisso" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
+    {%- endif %}
+  </div>
+  {% endcall %}
+  {%- endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+{#- Opções do campo de chamado da agenda, pedidas pelo HTMX: a primeira tira o chamado. -#}
+<li role="option" id="chamado-nenhum" data-id="" data-nome="" aria-selected="false" class="flex cursor-default rounded px-2 py-1.5 text-muted select-none hover:bg-surface-raised aria-selected:bg-surface-raised">{{ t("agenda.semChamado") }}</li>
+{%- for ticket in tickets %}
+<li role="option" id="chamado-{{ ticket.number }}" data-id="{{ ticket.number }}" data-nome="#{{ ticket.number }} · {{ ticket.title }}" aria-selected="false" class="flex cursor-default gap-2 rounded px-2 py-1.5 select-none hover:bg-surface-raised aria-selected:bg-surface-raised"><span class="text-muted tabular-nums">#{{ ticket.number }}</span> <span class="truncate">{{ ticket.title }}</span></li>
+{%- else %}
+<li class="px-2 py-1.5 text-muted">{{ t("agenda.nenhumChamado") }}</li>
+{%- endfor %}

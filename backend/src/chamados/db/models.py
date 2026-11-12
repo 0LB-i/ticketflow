@@ -1,5 +1,6 @@
 """Importa todos os modelos, para o Alembic e para os relacionamentos por nome."""
 
+from chamados.modules.appointments.models import Appointment, AppointmentAttendee
 from chamados.modules.attachments.models import Attachment
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.catalog.models import Category, ResolutionCode, TicketStatus
@@ -18,6 +19,8 @@ from chamados.modules.tickets.models import (
 )
 
 __all__ = [
+    "Appointment",
+    "AppointmentAttendee",
     "Attachment",
     "AuditLog",
     "AuthToken",
