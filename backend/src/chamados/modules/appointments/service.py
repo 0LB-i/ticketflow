@@ -152,11 +152,8 @@ async def save(
     if appointment is None:
         appointment = Appointment(owner_id=auth.user.id)
         db.add(appointment)
-    moved = (appointment.starts_at, appointment.ends_at) != (data.starts_at, data.ends_at)
     appointment.title = title
     appointment.description = (data.description or "").strip() or None
-    appointment.starts_at = data.starts_at
-    appointment.ends_at = data.ends_at
     appointment.all_day = data.all_day
     appointment.ticket_id = ticket_id
     # O dono sempre participa; quem já estava fica com o aviso, a não ser que o horário mude.
@@ -165,11 +162,30 @@ async def save(
     appointment.attendees = [
         current.get(user_id) or AppointmentAttendee(user_id=user_id) for user_id in wanted
     ]
-    if moved:
-        for attendee in appointment.attendees:
-            attendee.alert_seen_at = None
+    _set_period(appointment, data.starts_at, data.ends_at)
     await db.commit()
     return appointment
+
+
+def _set_period(appointment: Appointment, starts_at: datetime, ends_at: datetime) -> None:
+    """Novo horário: o aviso acende de novo para todos."""
+    if (appointment.starts_at, appointment.ends_at) != (starts_at, ends_at):
+        appointment.starts_at = starts_at
+        appointment.ends_at = ends_at
+        for attendee in appointment.attendees:
+            attendee.alert_seen_at = None
+
+
+async def reschedule(
+    db: AsyncSession, auth: Auth, appointment: Appointment, starts_at: datetime, ends_at: datetime
+) -> None:
+    """Só o horário (arrastar as bordas na agenda). Só o dono altera."""
+    if appointment.owner_id != auth.user.id:
+        raise HTTPException(403, "Só quem criou o compromisso pode alterá-lo.")
+    if ends_at <= starts_at:
+        raise HTTPException(422, "O fim do compromisso precisa ser depois do início.")
+    _set_period(appointment, starts_at, ends_at)
+    await db.commit()
 
 
 async def remove(db: AsyncSession, auth: Auth, appointment: Appointment) -> None:

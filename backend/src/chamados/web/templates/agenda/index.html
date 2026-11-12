@@ -9,11 +9,14 @@
 {% block head %}
 {#- O campo de chamado e as etiquetas dos participantes. #}
 <script src="{{ static('js/chamado.js') }}" defer></script>
+{#- Arrastar as bordas no dia e a grade rolada até a primeira hora. #}
+<script src="{{ static('js/agenda.js') }}" defer></script>
 {% endblock %}
 
 {#- Abre o painel (novo ou editar) trocando só o #painel, com o endereço na barra. -#}
-{% macro open_panel(href, class, label=None, style=None) -%}
-<a href="{{ href }}" hx-get="{{ href }}" hx-select="#painel" hx-target="#painel" hx-swap="outerHTML" hx-push-url="true" class="{{ class }}"{% if label %} aria-label="{{ label }}"{% endif %}{% if style %} style="{{ style }}"{% endif %}>{{ caller() }}</a>
+{% macro open_panel(href, class, label=None, style=None, attrs={}) -%}
+<a href="{{ href }}" hx-get="{{ href }}" hx-select="#painel" hx-target="#painel" hx-swap="outerHTML" hx-push-url="true" class="{{ class }}"{% if label %} aria-label="{{ label }}"{% endif %}{% if style %} style="{{ style }}"{% endif %}
+  {%- for name, value in attrs.items() %} {{ name }}="{{ value }}"{% endfor %}>{{ caller() }}</a>
 {%- endmacro %}
 
 {#- Janela do compromisso no meio da tela, como nas agendas dos serviços de e-mail. Abre pelo
@@ -104,7 +107,7 @@
       um na altura do horário; os que se sobrepõem dividem a largura. #}
   {%- set cols = "grid-cols-[4rem_repeat(7,minmax(0,1fr))]" if view == "semana" else "grid-cols-[4rem_minmax(0,1fr)]" %}
   <div class="overflow-hidden rounded-lg border border-border bg-surface shadow-md">
-    <div class="grid {{ cols }} bg-surface-raised text-sm">
+    <div class="grid {{ cols }} overflow-y-hidden bg-surface-raised text-sm [scrollbar-gutter:stable]">
       <div></div>
       {%- for d in days %}
       <a href="{{ url('dia', d.day) }}" class="flex items-center gap-2 border-l border-border px-2 py-1.5 hover:underline">
@@ -113,7 +116,7 @@
       </a>
       {%- endfor %}
     </div>
-    <div class="grid {{ cols }} border-t border-border">
+    <div class="grid {{ cols }} overflow-y-hidden border-t border-border [scrollbar-gutter:stable]">
       <div class="px-2 py-1 text-right text-xs text-muted">{{ t("agenda.diaInteiro") }}</div>
       {%- for d in days %}
       <div class="flex min-h-8 min-w-0 flex-col gap-0.5 border-l border-border p-0.5">
@@ -124,30 +127,53 @@
       </div>
       {%- endfor %}
     </div>
-    <div class="grid {{ cols }} border-t border-border">
+    {#- A grade rola por dentro (o dia tem as 24 horas) e abre na `scroll_hour` (agenda.js). #}
+    <div data-grade class="relative max-h-[calc(100dvh-16rem)] overflow-y-auto border-t border-border [scrollbar-gutter:stable]">
+    <div class="grid {{ cols }}">
       <div>
         {%- for h in hours %}
-        <div class="h-12 pr-2 text-right text-xs text-muted tabular-nums">{{ "%02d:00" | format(h) }}</div>
+        <div class="h-12 pr-2 text-right text-xs text-muted tabular-nums"{% if h == scroll_hour %} data-rolar-ate{% endif %}>{{ "%02d:00" | format(h) }}</div>
         {%- endfor %}
       </div>
       {%- for d in days %}
-      <div class="relative min-w-0 border-l border-border">
+      <div class="relative min-w-0 border-l border-border" data-dia="{{ d.day.isoformat() }}" data-de="{{ hours.start }}" data-ate="{{ hours.stop }}">
         {%- for h in hours %}
         {%- set at = d.day.isoformat() ~ "T" ~ "%02d:00" | format(h) %}
         {% call open_panel(url(view, day, novo="1", inicio=at), "block h-12 border-border hover:bg-surface-raised" ~ (" border-t" if not loop.first else ""), t("agenda.novoAs", hora="%02d:00" | format(h))) %}{% endcall %}
         {%- endfor %}
+        {#- Os compromissos usam 85% da largura: o resto fica livre para clicar e criar outro no
+            mesmo horário. Os que se sobrepõem dividem esses 85%. #}
         {%- for item in d.timed %}
         {%- set a = item.appointment %}
-        {% call open_panel(url(view, day, editar=a.public_id | string), "absolute overflow-hidden rounded-md border-l-4 border-primary bg-primary-subtle px-1.5 py-0.5 text-xs text-fg shadow-md hover:z-10", style="top: %.3f%%; height: %.3f%%; left: %.3f%%; width: calc(%.3f%% - 2px)" | format(item.top, item.height, item.lane / item.lanes * 100, 100 / item.lanes)) %}
+        {#- No dia, quem criou arrasta a borda de cima (início) ou a de baixo (fim): agenda.js. #}
+        {%- set adjustable = view == "dia" and item.whole and a.owner_id == me_id %}
+        {%- set attrs = {"data-compromisso": a.public_id, "data-inicio": item.minutes[0], "data-fim": item.minutes[1], "draggable": "false"} if adjustable else {} %}
+        {% call open_panel(url(view, day, editar=a.public_id | string), "absolute overflow-hidden rounded-md border-l-4 border-primary bg-primary-subtle px-1.5 py-0.5 text-xs text-fg shadow-md hover:z-10", style="top: %.3f%%; height: %.3f%%; left: %.3f%%; width: calc(%.3f%% - 2px)" | format(item.top, item.height, item.lane / item.lanes * 85, 85 / item.lanes), attrs=attrs) %}
+          {%- if adjustable %}
+          <span data-alca="inicio" aria-hidden="true" class="absolute inset-x-0 top-0 h-1.5 cursor-ns-resize"></span>
+          {%- endif %}
           <span class="block truncate font-medium">{{ a.title }}</span>
-          <span class="block truncate text-muted tabular-nums">{{ local(a.starts_at).strftime("%H:%M") }} – {{ local(a.ends_at).strftime("%H:%M") }}</span>
+          <span data-horario class="block truncate text-muted tabular-nums">{{ local(a.starts_at).strftime("%H:%M") }} – {{ local(a.ends_at).strftime("%H:%M") }}</span>
           {%- if item.ticket %}<span class="block truncate text-muted">{{ ticket_text(item.ticket) }}</span>{% endif %}
+          {%- if adjustable %}
+          <span data-alca="fim" aria-hidden="true" class="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"></span>
+          {%- endif %}
         {%- endcall %}
         {%- endfor %}
       </div>
       {%- endfor %}
     </div>
+    </div>
   </div>
+  {%- if view == "dia" %}
+  {#- Enviado pelo agenda.js ao soltar uma borda, com o compromisso no endereço. #}
+  <form id="form-horario" method="post" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="visao" value="{{ view }}"><input type="hidden" name="data" value="{{ day.isoformat() }}">
+    <input type="hidden" name="dia" value="{{ day.isoformat() }}">
+    <input type="hidden" name="inicio"><input type="hidden" name="fim">
+  </form>
+  {%- endif %}
   {%- endif %}
 </div>
 

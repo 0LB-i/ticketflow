@@ -58,6 +58,15 @@ class Item:
     height: float = 0.0
     lane: int = 0
     lanes: int = 1
+    # O compromisso inteiro cabe no dia (não é o pedaço de um que atravessa a meia-noite): só
+    # esse tem as bordas de arrastar.
+    whole: bool = False
+
+    @property
+    def minutes(self) -> tuple[int, int]:
+        """Início e fim em minutos desde a meia-noite do dia (o fim pode ser 1440)."""
+        end = 1440 if self.end.date() > self.start.date() else self.end.hour * 60 + self.end.minute
+        return self.start.hour * 60 + self.start.minute, end
 
 
 @dataclass
@@ -213,6 +222,7 @@ def _days(
                     tickets.get(a.ticket_id) if a.ticket_id else None,
                     max(a.starts_at, start).astimezone(TIMEZONE),
                     min(a.ends_at, end).astimezone(TIMEZONE),
+                    whole=a.starts_at >= start and a.ends_at <= end,
                 )
                 (d.all_day if a.all_day else d.timed).append(item)
         days.append(d)
@@ -220,8 +230,11 @@ def _days(
     return days
 
 
-def _hours(days: list[Day]) -> tuple[int, int]:
-    """O trecho da grade: o padrão, esticado até o compromisso mais cedo e o mais tarde."""
+def _hours(days: list[Day], view: str) -> tuple[int, int]:
+    """O trecho da grade: no dia, as 24 horas; na semana, o padrão, esticado até o compromisso
+    mais cedo e o mais tarde."""
+    if view == "dia":
+        return 0, 24
     timed = [i for d in days for i in d.timed]
     first = min([FIRST_HOUR, *(i.start.hour for i in timed)])
     last = max(
@@ -278,7 +291,7 @@ async def _agenda_page(
         db, auth, [*appointments, *alerts, *filter(None, [edited])]
     )
     days = _days(appointments, tickets, first, last, day.month if view == "mes" else None)
-    hours = _hours(days)
+    hours = _hours(days, view)
     for d in days:
         _place(d.timed, *hours)
 
@@ -308,6 +321,9 @@ async def _agenda_page(
         days=days,
         weeks=[days[i : i + 7] for i in range(0, len(days), 7)],
         hours=range(*hours),
+        # A grade do dia abre rolada até as 7h, ou até o primeiro compromisso, se for antes.
+        scroll_hour=min([FIRST_HOUR, *(i.start.hour for d in days for i in d.timed)]),
+        me_id=auth.user.id,
         month_items=MONTH_ITEMS,
         alerts=[(a, tickets.get(a.ticket_id) if a.ticket_id else None) for a in alerts],
         back=_url(view, day),
@@ -474,6 +490,42 @@ async def edit_appointment(
 ) -> Response:
     check_csrf(page, csrf_token)
     return await _save(page, db, form, _view(visao), _parse_day(data), appointment_id)
+
+
+@router.post(URL + "/{appointment_id}/horario")
+async def move_appointment(
+    appointment_id: str,
+    page: LoggedPageDep,
+    db: DB,
+    csrf_token: FormField = "",
+    visao: FormField = "dia",
+    data: FormField = "",
+    dia: FormField = "",
+    inicio: FormField = "",
+    fim: FormField = "",
+) -> Response:
+    """O novo horário de quem arrastou uma borda do compromisso (agenda.js): o dia e o início e o
+    fim em minutos desde a meia-noite (o fim pode ser 1440, a meia-noite seguinte)."""
+    check_csrf(page, csrf_token)
+    appointment = await service.get(db, page.auth, appointment_id)
+    response = RedirectResponse(_url(_view(visao), _parse_day(data)), status_code=303)
+    try:
+        midnight = _midnight(date.fromisoformat(dia))
+        start, end = int(inicio), int(fim)
+        if not 0 <= start <= 1440 or not 0 <= end <= 1440:
+            raise ValueError
+        await service.reschedule(
+            db,
+            page.auth,
+            appointment,
+            midnight + timedelta(minutes=start),
+            midnight + timedelta(minutes=end),
+        )
+    except ValueError:
+        page.flash(response, ("error", page.t("dataHora.invalida")))
+    except HTTPException as exc:
+        page.flash(response, ("error", page.api_message(exc)))
+    return response
 
 
 @router.post(URL + "/{appointment_id}/remover")

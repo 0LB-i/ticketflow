@@ -85,7 +85,8 @@ def test_criar_e_ver_no_mes_na_semana_e_no_dia(client: TestClient, cenario: dict
     # Domingo a sábado, e o compromisso na altura das 14h (a grade padrão vai das 7h às 19h).
     assert "08/11 – 14/11/2026" in semana
     assert "14:00 – 15:00" in semana
-    assert "top: 58.333%; height: 8.333%; left: 0.000%; width: calc(100.000% - 2px)" in semana
+    # Sozinho, usa 85% da largura: o resto fica livre para criar outro no mesmo horário.
+    assert "top: 58.333%; height: 8.333%; left: 0.000%; width: calc(85.000% - 2px)" in semana
     assert "novembro de 2026" in client.get(f"/agenda?visao=mes&data={DIA.isoformat()}").text
 
 
@@ -94,9 +95,9 @@ def test_os_que_se_sobrepoem_dividem_a_largura(client: TestClient, cenario: dict
     _novo(client, titulo="Segundo", inicio_hora="14:30", fim_hora="15:30")
     _novo(client, titulo="Depois", inicio_hora="16:00", fim_hora="17:00")
     html = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
-    assert "left: 0.000%; width: calc(50.000% - 2px)" in html
-    assert "left: 50.000%; width: calc(50.000% - 2px)" in html
-    assert "left: 0.000%; width: calc(100.000% - 2px)" in html  # o das 16h, sozinho
+    assert "left: 0.000%; width: calc(42.500% - 2px)" in html
+    assert "left: 42.500%; width: calc(42.500% - 2px)" in html
+    assert "left: 0.000%; width: calc(85.000% - 2px)" in html  # o das 16h, sozinho
 
 
 def test_dia_inteiro_vai_ate_a_meia_noite_do_ultimo_dia(
@@ -285,3 +286,87 @@ def test_aviso_15_minutos_antes_e_apaga_ao_abrir_a_agenda(
     )
     assert r.status_code == 303
     assert _aviso(client) == 1
+
+
+def test_o_dia_tem_as_24_horas_e_abre_nas_7(client: TestClient, cenario: dict[str, Any]) -> None:
+    html = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
+    horas = re.findall(r"tabular-nums\"(?: data-rolar-ate)?>(\d\d:00)</div>", html)
+    assert horas == [f"{h:02d}:00" for h in range(24)]
+    assert "data-rolar-ate>07:00" in html
+    # Um compromisso às 14h (das 0h às 24h) e, antes das 7h, a grade abre nele.
+    _novo(client, inicio_hora="05:00", fim_hora="06:00")
+    html = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
+    assert "top: 20.833%; height: 4.167%" in html
+    assert "data-rolar-ate>05:00" in html
+    # A semana continua das 7h às 19h, esticada até o compromisso.
+    semana = client.get(f"/agenda?visao=semana&data={DIA.isoformat()}").text
+    assert re.findall(r"(\d\d):00</div>", semana)[0] == "05"
+
+
+def _arrastar(client: TestClient, id_: str, inicio: int, fim: int, dia: date = DIA) -> Any:
+    return client.post(
+        f"/agenda/{id_}/horario",
+        data={
+            "csrf_token": token_csrf(client),
+            "visao": "dia",
+            "data": DIA.isoformat(),
+            "dia": dia.isoformat(),
+            "inicio": str(inicio),
+            "fim": str(fim),
+        },
+        follow_redirects=False,
+    )
+
+
+def test_arrastar_as_bordas_no_dia(
+    client: TestClient, cenario: dict[str, Any], db: Session
+) -> None:
+    _novo(client, participantes=[cenario["bia"]])
+    id_ = _id(db)
+    dia = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
+    # Só no dia, e com as duas bordas.
+    assert f'data-compromisso="{id_}" data-inicio="840" data-fim="900"' in dia
+    assert dia.count("data-alca=") == 2
+    assert 'id="form-horario"' in dia
+    semana = client.get(f"/agenda?visao=semana&data={DIA.isoformat()}").text
+    assert "data-alca=" not in semana
+
+    # Das 13:30 às 16:15; a página volta ao dia.
+    r = _arrastar(client, id_, 13 * 60 + 30, 16 * 60 + 15)
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/agenda?visao=dia&data={DIA.isoformat()}"
+    db.expire_all()
+    a = db.scalar(select(Appointment).where(Appointment.public_id == id_))
+    assert a is not None
+    assert a.starts_at == datetime(2026, 11, 12, 13, 30, tzinfo=LOCAL_TZ)
+    assert a.ends_at == datetime(2026, 11, 12, 16, 15, tzinfo=LOCAL_TZ)
+    # Até a meia-noite: o fim é 1440.
+    assert _arrastar(client, id_, 23 * 60, 1440).status_code == 303
+    db.expire_all()
+    a = db.scalar(select(Appointment).where(Appointment.public_id == id_))
+    assert a is not None and a.ends_at == datetime(2026, 11, 13, tzinfo=LOCAL_TZ)
+
+    # O fim antes do início e valores fora do dia voltam com o erro, sem mudar nada.
+    r = _arrastar(client, id_, 600, 600)
+    assert (
+        "O fim do compromisso precisa ser depois do início."
+        in client.get(r.headers["location"]).text
+    )
+    r = _arrastar(client, id_, 600, 1500)
+    assert "Informe uma data e hora válidas." in client.get(r.headers["location"]).text
+
+    # Quem participa não tem as bordas nem consegue mudar.
+    _sair_e_entrar(client, "bia@x.com")
+    dia = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
+    assert "data-alca=" not in dia
+    r = _arrastar(client, id_, 600, 660)
+    assert "Só quem criou o compromisso pode alterá-lo." in client.get(r.headers["location"]).text
+
+
+def test_o_que_atravessa_a_meia_noite_nao_tem_bordas(
+    client: TestClient, cenario: dict[str, Any]
+) -> None:
+    _novo(client, inicio_hora="22:00", fim_data="2026-11-13", fim_hora="02:00")
+    html = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
+    assert "22:00 – 02:00" in html
+    assert "data-alca=" not in html
