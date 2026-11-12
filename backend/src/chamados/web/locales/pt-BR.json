@@ -211,8 +211,13 @@
       "todosOsClientes": "Todos os clientes",
       "adicionar": "Adicionar…",
       "tirarFiltro": "Tirar {nome}",
-      "inicioDe": "Início de",
-      "inicioAte": "Início até",
+      "data": "Data",
+      "qualquerData": "Qualquer data",
+      "periodo": "{de} – {ate}",
+      "aPartirDe": "A partir de {data}",
+      "ateData": "Até {data}",
+      "limparPeriodo": "Limpar",
+      "hoje": "Hoje",
       "periodoInvalido": "A data final precisa ser igual ou depois da inicial.",
       "kinds": {
         "open": "Em aberto",
@@ -222,7 +227,7 @@
         "canceled": "Cancelados"
       }
     },
-    "ultimaMovimentacao": "Última movimentação",
+    "ultimaAlteracao": "Última alteração",
     "totalHoras": "Total de horas",
     "novidade": "Tarefa nova de outra pessoa",
     "resultadosPara": "Resultados da busca por “{q}”",

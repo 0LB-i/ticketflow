@@ -137,7 +137,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 **Ordenação padrão:** a data de registro (mais novo primeiro, decisão de 2026-11-02). No quadro também; com mais cartões que o teto, ficam os mais antigos.
 
-**Ordenar pelo cabeçalho** (2026-11-02): título, cliente, início, responsável, grupo, última movimentação e total de horas. O primeiro clique ordena de A a Z (ou do menor ao maior), o segundo ao contrário e o terceiro volta à ordem padrão. A ordem fica no endereço (`?ordem=titulo`, `?ordem=-titulo`) e continua ao filtrar e ao trocar de aba; no empate, vale a ordem padrão. Os textos seguem a ordem alfabética sem diferenciar maiúscula e acento, e os chamados sem cliente ficam no fim.
+**Ordenar pelo cabeçalho** (2026-11-02): título, cliente, início, responsável, última alteração e total de horas. O primeiro clique ordena de A a Z (ou do menor ao maior), o segundo ao contrário e o terceiro volta à ordem padrão. A ordem fica no endereço (`?ordem=titulo`, `?ordem=-titulo`) e continua ao filtrar e ao trocar de aba; no empate, vale a ordem padrão. Os textos seguem a ordem alfabética sem diferenciar maiúscula e acento, e os chamados sem cliente ficam no fim.
 
 **Indicadores na lista:** ícone de "novidade", responsável, há quanto tempo está parado.
 
@@ -197,7 +197,7 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 
 ### Ações em massa (supervisor ou permissão `ticket.bulk`)
 
-**Feito:** na lista de chamados, o supervisor (nos chamados dos grupos que supervisiona) e o admin marcam vários chamados (ou todos da página) e escolhem o **novo status** numa janela flutuante no pé da tela, que aparece enquanto há chamados marcados. Cada chamado passa pelas próprias regras (a da revisão inclusive); os que não podem mudar ficam selecionados e o motivo aparece num aviso. Cada linha da lista também mostra o **total de horas** das tarefas (ao lado da última movimentação) e, no fim, um botão com um lápis que abre o chamado.
+**Feito:** na lista de chamados, o supervisor (nos chamados dos grupos que supervisiona) e o admin marcam vários chamados (ou todos da página) e escolhem o **novo status** numa janela flutuante no pé da tela, que aparece enquanto há chamados marcados. Cada chamado passa pelas próprias regras (a da revisão inclusive); os que não podem mudar ficam selecionados e o motivo aparece num aviso. Cada linha da lista também mostra o **total de horas** das tarefas (ao lado da última alteração) e, no fim, um botão com um lápis que abre o chamado.
 
 Planejado: atribuir, transferir, adicionar tag, concluir com o mesmo texto (ex.: incidente geral resolvido) e adicionar comentário.
 

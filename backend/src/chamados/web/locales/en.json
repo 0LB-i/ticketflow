@@ -211,8 +211,13 @@
       "todosOsClientes": "All clients",
       "adicionar": "Add…",
       "tirarFiltro": "Remove {nome}",
-      "inicioDe": "Start from",
-      "inicioAte": "Start to",
+      "data": "Date",
+      "qualquerData": "Any date",
+      "periodo": "{de} – {ate}",
+      "aPartirDe": "From {data}",
+      "ateData": "Until {data}",
+      "limparPeriodo": "Clear",
+      "hoje": "Today",
       "periodoInvalido": "The end date must be on or after the start date.",
       "kinds": {
         "open": "Open",
@@ -222,7 +227,7 @@
         "canceled": "Canceled"
       }
     },
-    "ultimaMovimentacao": "Last activity",
+    "ultimaAlteracao": "Last change",
     "totalHoras": "Total hours",
     "novidade": "New task from someone else",
     "resultadosPara": "Search results for “{q}”",

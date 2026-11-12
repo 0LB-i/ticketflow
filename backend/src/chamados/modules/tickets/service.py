@@ -308,7 +308,6 @@ SORTS: dict[str, Any] = {
     "title": lambda: Ticket.title.collate(ALPHABETIC),
     "client": lambda: _name_of(Client.name, Client.id == Ticket.client_id),
     "assignee": lambda: _name_of(User.display_name, User.id == Ticket.assignee_id),
-    "team": lambda: _name_of(Team.name, Team.id == Ticket.team_id),
     "started": lambda: Ticket.started_at,
     "updated": lambda: Ticket.updated_at,
 }

@@ -44,11 +44,12 @@
     {%- endfor %}
   </nav>
 
-  {#- Os filtros são aplicados ao escolher (static/js/app.js; as etiquetas, no chamado.js); as
-      datas, ao escolher no calendário, com o Enter ou ao sair do campo (data-envia-data). A aba e
+  {#- Os filtros são aplicados ao escolher (static/js/app.js; as etiquetas, no chamado.js); o
+      período do início, ao escolher a segunda data no calendário (data-periodo). A aba e
       a busca continuam. A partir do lg, todos numa
-      linha: as listas dividem o espaço, o cliente um pouco mais largo, as datas com largura fixa. #}
-  {%- set one_row = "lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.25fr)_repeat(2,9rem)]" if view != "mine" else "lg:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1.25fr)_repeat(2,9rem)]" %}
+      linha, na ordem status, cliente, grupo, responsável e data: as listas dividem o espaço, o status
+      com 2/3 delas, o cliente um pouco mais largo e a data com no mínimo 16rem (as duas inteiras). #}
+  {%- set one_row = "lg:grid-cols-[minmax(0,0.67fr)_minmax(0,1.25fr)_repeat(2,minmax(0,1fr))_minmax(16rem,1fr)]" if view != "mine" else "lg:grid-cols-[minmax(0,0.67fr)_minmax(0,1.25fr)_minmax(0,1fr)_minmax(16rem,1fr)]" %}
   <form method="get" action="/chamados" data-envia-ao-mudar class="grid items-start gap-3 sm:grid-cols-2 {{ one_row }}">
     <input type="hidden" name="aba" value="{{ tab }}">
     {%- if filters.q %}
@@ -57,15 +58,28 @@
     {%- if filters.ordem %}
     <input type="hidden" name="ordem" value="{{ filters.ordem }}">
     {%- endif %}
-    {{ select_field("grupo", t("chamado.grupo"), [("", t("chamados.filtros.todosOsGrupos"))] + team_options, filters.grupo or "") }}
     {{ select_field("status", t("chamados.status"), kind_options, filters.status or "") }}
+    {%- set placeholder = t("chamados.filtros.adicionar") if filters.cliente else t("chamados.filtros.todosOsClientes") %}
+    {{ client_chips("cliente", t("chamado.cliente"), filters.cliente, client_names, placeholder, "chamados.filtros.tirarFiltro", "/relatorios/clientes") }}
+    {{ select_field("grupo", t("chamado.grupo"), [("", t("chamados.filtros.todosOsGrupos"))] + team_options, filters.grupo or "") }}
     {%- if view != "mine" %}
     {{ select_field("responsavel", t("chamado.responsavel"), [("", t("chamados.filtros.todos")), ("eu", t("chamados.filtros.eu"))], filters.responsavel or "") }}
     {%- endif %}
-    {%- set placeholder = t("chamados.filtros.adicionar") if filters.cliente else t("chamados.filtros.todosOsClientes") %}
-    {{ client_chips("cliente", t("chamado.cliente"), filters.cliente, client_names, placeholder, "chamados.filtros.tirarFiltro", "/relatorios/clientes") }}
-    {{ field("de", t("chamados.filtros.inicioDe"), type="date", value=filters.de or "", **{"data-envia-data": ""}) }}
-    {{ field("ate", t("chamados.filtros.inicioAte"), type="date", value=filters.ate or "", error=t("chamados.filtros.periodoInvalido") if period_error else None, **{"data-envia-data": ""}) }}
+    {#- Um calendário só: o primeiro clique é o começo, o segundo o fim; no rodapé, Limpar e Hoje (app.js). #}
+    <div class="flex flex-col gap-1">
+      <label for="campo-periodo" class="font-medium">{{ t("chamados.filtros.data") }}</label>
+      <button type="button" id="campo-periodo" data-periodo="de ate" data-limpar="{{ t('chamados.filtros.limparPeriodo') }}" data-hoje="{{ t('chamados.filtros.hoje') }}"
+        {%- if period_error %} aria-invalid="true" aria-describedby="campo-periodo-erro"{% endif %}
+        class="flex h-10 items-center justify-between gap-2 rounded-md border bg-surface px-3 text-left text-fg {{ 'border-danger' if period_error else 'border-border-input' }}">
+        <span class="truncate tabular-nums {{ '' if filters.de or filters.ate else 'text-muted' }}">{{ period_text }}</span>
+        {{- icon("chevron-down", "size-4 shrink-0 text-muted") }}
+      </button>
+      <input type="hidden" name="de" value="{{ filters.de or '' }}">
+      <input type="hidden" name="ate" value="{{ filters.ate or '' }}">
+      {%- if period_error %}
+      <p id="campo-periodo-erro" class="text-danger">{{ t("chamados.filtros.periodoInvalido") }}</p>
+      {%- endif %}
+    </div>
   </form>
 
   {#- Limpar os filtros volta a aba ao estado inicial; a busca tem o seu próprio botão. #}
@@ -96,13 +110,12 @@
           </th>
           {%- endif %}
           <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.numero") }}</th>
-          {{ sortable("titulo", t("chamados.tituloColuna")) }}
-          {{ sortable("cliente", t("chamado.cliente"), "hidden md:table-cell") }}
+          {{ sortable("titulo", t("chamados.tituloColuna"), "min-w-64") }}
+          {{ sortable("cliente", t("chamado.cliente"), "hidden min-w-48 md:table-cell") }}
           {{ sortable("inicio", t("chamado.inicio"), "hidden xl:table-cell") }}
           <th scope="col" class="px-3 py-2 font-medium">{{ t("chamados.status") }}</th>
           {{ sortable("responsavel", t("chamado.responsavel"), "hidden sm:table-cell") }}
-          {{ sortable("grupo", t("chamado.grupo"), "hidden lg:table-cell") }}
-          {{ sortable("movimentacao", t("chamados.ultimaMovimentacao"), "hidden md:table-cell") }}
+          {{ sortable("movimentacao", t("chamados.ultimaAlteracao"), "hidden md:table-cell") }}
           {{ sortable("horas", t("chamados.totalHoras"), "hidden text-right md:table-cell") }}
           <th scope="col" class="w-px px-3 py-2 text-right font-medium"><span class="sr-only">{{ t("chamados.editarColuna") }}</span></th>
         </tr>
@@ -131,7 +144,6 @@
           <td class="hidden px-3 py-2 whitespace-nowrap tabular-nums xl:table-cell">{{ datetime(ticket.started_at) }}</td>
           <td class="px-3 py-2">{{ status_badge(ticket.status.kind, ticket.status.name) }}</td>
           <td class="hidden px-3 py-2 sm:table-cell">{{ ticket.assignee.display_name }}</td>
-          <td class="hidden px-3 py-2 lg:table-cell">{{ ticket.team.name }}</td>
           <td class="hidden px-3 py-2 whitespace-nowrap md:table-cell"><span title="{{ datetime(ticket.updated_at) }}">{{ ago(ticket.updated_at) }}</span></td>
           <td class="hidden px-3 py-2 text-right whitespace-nowrap tabular-nums md:table-cell">{{ duration(ticket.time_spent_minutes) if ticket.time_spent_minutes else "—" }}</td>
           <td class="w-px px-3 py-2 text-right">
@@ -140,7 +152,7 @@
         </tr>
         {%- else %}
         <tr>
-          <td colspan="{{ 11 if bulk else 10 }}" class="px-3 py-6 text-center text-muted">{{ t("chamados.vazio.busca") if filters.q else t("chamados.vazio." ~ view) }}</td>
+          <td colspan="{{ 10 if bulk else 9 }}" class="px-3 py-6 text-center text-muted">{{ t("chamados.vazio.busca") if filters.q else t("chamados.vazio." ~ view) }}</td>
         </tr>
         {%- endfor %}
       </tbody>

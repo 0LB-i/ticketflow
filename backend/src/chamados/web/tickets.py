@@ -24,7 +24,16 @@ from chamados.modules.system.router import get_ticket_list
 from chamados.modules.tickets import queries, service
 from chamados.modules.tickets import router as tickets_api
 from chamados.modules.tickets.schemas import BulkStatusIn, StatusKind, TicketView
-from chamados.web.page import HOME, FlashKind, LoggedPageDep, Redirect, check_csrf, safe_next
+from chamados.web.formatting import format_date
+from chamados.web.page import (
+    HOME,
+    FlashKind,
+    LoggedPage,
+    LoggedPageDep,
+    Redirect,
+    check_csrf,
+    safe_next,
+)
 from chamados.web.reports_state import NO_CLIENT, Values, parse_uuids
 
 router = APIRouter()
@@ -57,7 +66,6 @@ SORTS: dict[str, str] = {
     "titulo": "title",
     "cliente": "client",
     "responsavel": "assignee",
-    "grupo": "team",
     "inicio": "started",
     "movimentacao": "updated",
     "horas": "time",
@@ -250,9 +258,22 @@ async def tickets_page(
         kind_options=status_choices,
         client_names=client_names,
         period_error=period_error,
+        period_text=_period_text(page, start, end),
         bulk=bulk,
         status_options=[(s.id, s.name) for s in statuses],
     )
+
+
+def _period_text(page: LoggedPage, start: date | None, end: date | None) -> str:
+    """O texto do campo Início da lista: as duas datas, uma só ou nenhuma."""
+    if start and end:
+        de, ate = format_date(page.locale, start), format_date(page.locale, end)
+        return page.t("chamados.filtros.periodo", de=de, ate=ate)
+    if start:
+        return page.t("chamados.filtros.aPartirDe", data=format_date(page.locale, start))
+    if end:
+        return page.t("chamados.filtros.ateData", data=format_date(page.locale, end))
+    return page.t("chamados.filtros.qualquerData")
 
 
 @router.post("/chamados/status-em-massa")

@@ -187,6 +187,11 @@ def test_filtro_de_periodo(client: TestClient, cenario: dict[str, Any]) -> None:
     assert _numeros(client.get("/chamados?aba=todos&ate=2026-03-10").text) == [antigo]
     r = client.get("/chamados?aba=todos&de=2026-03-10&ate=2026-03-20")
     assert _numeros(r.text) == [recente, antigo]
+    # Um campo só, com as duas datas, que abre um calendário (app.js).
+    assert 'data-periodo="de ate" data-limpar="Limpar" data-hoje="Hoje"' in r.text
+    assert "10/03/2026 – 20/03/2026" in r.text
+    assert 'name="de" value="2026-03-10"' in r.text and 'name="ate" value="2026-03-20"' in r.text
+    assert "Qualquer data" in client.get("/chamados?aba=todos").text
     # Fim antes do início: o aviso, e o período não filtra.
     r = client.get("/chamados?aba=todos&de=2026-03-20&ate=2026-03-10")
     assert "A data final precisa ser igual ou depois da inicial." in r.text
@@ -327,8 +332,8 @@ def test_cada_coluna_ordena_nos_dois_sentidos(
         assert _numeros(client.get(f"/chamados?aba=todos&ordem={coluna}").text) == crescente
         r = client.get(f"/chamados?aba=todos&ordem=-{coluna}")
         assert _numeros(r.text) == crescente[::-1], coluna
-    # Mesmo responsável e mesmo grupo: no empate, a ordem padrão (o mais novo primeiro).
-    for coluna in ("responsavel", "-responsavel", "grupo", "-grupo"):
+    # Mesmo responsável: no empate, a ordem padrão (o mais novo primeiro).
+    for coluna in ("responsavel", "-responsavel"):
         r = client.get(f"/chamados?aba=todos&ordem={coluna}")
         assert _numeros(r.text) == [segundo, primeiro], coluna
 

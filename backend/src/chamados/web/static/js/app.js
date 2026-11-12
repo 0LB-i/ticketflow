@@ -123,37 +123,12 @@ addEventListener('pageshow', () => {
 })
 
 // Formulários de filtro: aplicam ao escolher uma opção. Datas não: o Chrome dispara o change a
-// cada parte digitada (vão com o botão Aplicar ou o Enter, ou pelo data-envia-data, abaixo). As
-// etiquetas aplicam no chamado.js, depois de entrar no formulário.
+// cada parte digitada (vão com o botão Aplicar ou o Enter). As etiquetas aplicam no chamado.js,
+// depois de entrar no formulário.
 document.addEventListener('change', (e) => {
   const form = e.target.form
   if (!form?.matches('[data-envia-ao-mudar]') || e.target.type === 'date') return
   if (!e.target.matches('[data-chips-adiciona]')) form.requestSubmit()
-})
-
-// Datas de filtro sem botão Aplicar (data-envia-data): enviam ao sair do campo com outro valor, com
-// o Enter (com duas datas, o navegador não envia sozinho) ou ao escolher no calendário
-// (escolherValor). Uma data incompleta não vai.
-function enviarData(campo) {
-  if (campo.value !== campo.defaultValue && campo.checkValidity()) campo.form.requestSubmit()
-}
-// Sair do campo ou do calendário dele (o Tab leva do campo ao calendário: isso não é sair). Depois
-// do evento, quando o foco já chegou ao destino.
-document.addEventListener('focusout', (e) => {
-  const janela = janelaAberta?.janela.contains(e.target) ? janelaAberta.janela : null
-  const campo = janela ? janelaAberta.campo : e.target
-  if (!campo.matches?.('[data-envia-data]')) return
-  const ninho = janela ?? (janelaAberta?.campo === campo ? janelaAberta.janela : null)
-  setTimeout(() => {
-    const ativo = document.activeElement
-    if (ativo !== campo && !ninho?.contains(ativo)) enviarData(campo)
-  })
-})
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.matches?.('[data-envia-data]')) {
-    e.preventDefault()
-    enviarData(e.target)
-  }
 })
 
 // Cadastro de usuário: os campos que dependem do papel (a empresa do Cliente; os grupos dos
@@ -230,8 +205,9 @@ document.addEventListener('click', async (e) => {
 // CSS. Abre com o clique, Alt+↓ ou F4; o tempo gasto (data-sugestoes, os horários sugeridos)
 // também com ↓. A janela é um popover (camada de cima, também sobre os <dialog>), centralizada
 // sob o campo; Esc e o clique fora fecham. Na tela de toque fica a janela do sistema.
+// O período (data-periodo, nos filtros da lista de chamados) é um botão com o calendário só nosso.
 const usaJanelas = 'showPopover' in HTMLElement.prototype && matchMedia('(pointer: fine)').matches
-const CAMPO_COM_JANELA = 'input[type=date], input[type=time], input[data-sugestoes]'
+const CAMPO_COM_JANELA = 'input[type=date], input[type=time], input[data-sugestoes], button[data-periodo]'
 const HORARIOS = Array.from({ length: 48 }, (_, i) => `${String(i >> 1).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 let janelaAberta = null // { campo, janela }
 let cliqueFecha = false
@@ -288,14 +264,22 @@ function escolherValor(campo, valor) {
   campo.dispatchEvent(new Event('change', { bubbles: true }))
   janelaAberta?.janela.hidePopover()
   campo.focus()
-  if (campo.matches('[data-envia-data]')) enviarData(campo)
 }
 
 const seta = (d) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true"><path d="${d}"/></svg>`
 
+// Os dois campos escondidos do período: o começo e o fim.
+const camposDoPeriodo = (botao) => botao.dataset.periodo.split(' ').map((nome) => botao.form.elements[nome])
+
 /** Mostra o mês de `dia` e, com `focar`, põe o foco nesse dia. */
 function desenharCalendario(janela, campo, dia, focar = false) {
+  // No período, as duas pontas (ou só o começo, já clicado) e os dias entre elas.
+  let [de, ate] = [campo.value, campo.value]
+  if ('periodo' in campo.dataset) {
+    const inicio = janela.dataset.inicio
+    ;[de, ate] = inicio ? [inicio, inicio] : camposDoPeriodo(campo).map((c) => c.value)
+  }
   const mes = new Date(dia.getFullYear(), dia.getMonth(), 1)
   const inicio = new Date(mes.getFullYear(), mes.getMonth(), 1 - mes.getDay())
   const diasNoMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate()
@@ -309,11 +293,13 @@ function desenharCalendario(janela, campo, dia, focar = false) {
     for (let i = 0; i < 7; i++) {
       const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + semana * 7 + i)
       const iso = isoDoDia(d)
-      const escolhido = iso === campo.value
+      const escolhido = iso === de || iso === ate
       const fora = (campo.min && iso < campo.min) || (campo.max && iso > campo.max)
       const cor = escolhido
         ? 'bg-primary font-medium text-on-primary hover:bg-primary-hover'
-        : iso === hoje
+        : de && ate && iso > de && iso < ate
+          ? 'bg-primary-subtle hover:bg-surface-raised'
+          : iso === hoje
           ? 'font-semibold text-primary hover:bg-surface-raised'
           : d.getMonth() !== mes.getMonth()
             ? 'text-muted hover:bg-surface-raised'
@@ -343,15 +329,35 @@ function abrirCalendario(campo, focar) {
   const [anterior, proximo] = janela.querySelectorAll('[data-muda-mes]')
   anterior.setAttribute('aria-label', document.body.dataset.mesAnterior)
   proximo.setAttribute('aria-label', document.body.dataset.proximoMes)
+  // Período: o rodapé com Limpar (sem filtro) e Hoje (só o dia de hoje); os textos vêm do botão.
+  if ('periodo' in campo.dataset) {
+    const rodape = document.createElement('div')
+    rodape.className = 'flex justify-between gap-2 border-t border-border pt-2'
+    for (const [acao, texto] of [['limpar', campo.dataset.limpar], ['hoje', campo.dataset.hoje]]) {
+      const botao = document.createElement('button')
+      botao.type = 'button'
+      botao.dataset.periodoAcao = acao
+      botao.textContent = texto
+      // O Limpar em destaque; o Hoje em cinza.
+      const cor = acao === 'limpar' ? 'text-primary' : 'text-muted hover:text-fg'
+      botao.className = `rounded-md px-2 py-1 text-sm hover:bg-surface-raised ${cor}`
+      rodape.append(botao)
+    }
+    janela.append(rodape)
+  }
 
   janela.addEventListener('click', (e) => {
+    const acao = e.target.closest('[data-periodo-acao]')?.dataset.periodoAcao
+    if (acao === 'limpar') aplicarPeriodo(campo, janela, '', '')
+    if (acao === 'hoje') aplicarPeriodo(campo, janela, hojeNoFuso(), hojeNoFuso())
     const muda = e.target.closest('[data-muda-mes]')
     if (muda) {
       const mes = diaDoIso(janela.dataset.mes)
       desenharCalendario(janela, campo, new Date(mes.getFullYear(), mes.getMonth() + Number(muda.dataset.mudaMes), 1))
     }
     const dia = e.target.closest('[data-dia]')
-    if (dia) escolherValor(campo, dia.dataset.dia)
+    if (dia && 'periodo' in campo.dataset) escolherPeriodo(campo, janela, dia.dataset.dia)
+    else if (dia) escolherValor(campo, dia.dataset.dia)
   })
   // Setas: dia a dia e semana a semana; Page Up/Down: mês a mês.
   janela.addEventListener('keydown', (e) => {
@@ -372,8 +378,30 @@ function abrirCalendario(campo, focar) {
   })
 
   abrirJanela(campo, janela)
-  desenharCalendario(janela, campo, campo.value ? diaDoIso(campo.value) : diaDoIso(hojeNoFuso()), focar)
+  const valor = 'periodo' in campo.dataset ? camposDoPeriodo(campo).find((c) => c.value)?.value : campo.value
+  desenharCalendario(janela, campo, diaDoIso(valor || hojeNoFuso()), focar)
   posicionarJanela()
+}
+
+// Período: o primeiro clique marca o começo; o segundo, o fim (antes do começo, os dois trocam), e
+// o filtro aplica. Fechar o calendário no meio deixa o período como estava.
+function escolherPeriodo(botao, janela, iso) {
+  const inicio = janela.dataset.inicio
+  if (!inicio) {
+    janela.dataset.inicio = iso
+    desenharCalendario(janela, botao, diaDoIso(iso), true)
+    return
+  }
+  if (iso < inicio) aplicarPeriodo(botao, janela, iso, inicio)
+  else aplicarPeriodo(botao, janela, inicio, iso)
+}
+
+function aplicarPeriodo(botao, janela, inicio, fim) {
+  const [de, ate] = camposDoPeriodo(botao)
+  de.value = inicio
+  ate.value = fim
+  janela.hidePopover()
+  botao.form.requestSubmit()
 }
 
 function abrirLista(campo, valores, focar) {
@@ -424,7 +452,7 @@ function abrirLista(campo, valores, focar) {
 }
 
 function abrirJanelaDoCampo(campo, focar) {
-  if (campo.type === 'date') abrirCalendario(campo, focar)
+  if (campo.type === 'date' || 'periodo' in campo.dataset) abrirCalendario(campo, focar)
   else if (campo.type === 'time') abrirLista(campo, HORARIOS, focar)
   else abrirLista(campo, [...document.getElementById(campo.dataset.sugestoes).options].map((o) => o.value), focar)
 }
