@@ -112,9 +112,6 @@ async def settings_page(
         color_fields=COLOR_FIELDS,
         presets=PRESETS,
         preview={mode: _variables(tokens) for mode, tokens in preview.items()},
-        adjusted=preview["light"]["primary"]
-        if preview["light"]["primary"].upper() != colors["brand"]
-        else None,
         statuses=statuses,
         same_kind={s.id: sum(o.kind == s.kind for o in statuses) > 1 for s in statuses},
         counts={s.id: _count(page, s.ticket_count) for s in statuses},

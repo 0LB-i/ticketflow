@@ -636,10 +636,8 @@
     "horarioInvalido": "O fim precisa ser depois do início.",
     "intervaloInicio": "Início do intervalo",
     "intervaloFim": "Fim do intervalo",
-    "intervaloDica": "Fora do expediente. Deixe os dois vazios para não ter intervalo.",
     "intervaloInvalido": "O intervalo precisa de início e fim, dentro do horário, com o fim depois do início.",
     "feriados": "Feriados e folgas",
-    "feriadosDica": "Nesses dias todo o tempo de tarefa conta como hora extra.",
     "novoFeriado": "Data",
     "removerFeriado": "Remover {data}",
     "salvar": "Salvar expediente",
@@ -678,9 +676,6 @@
   "configuracoes": {
     "titulo": "Configurações",
     "idiomaPadrao": "Idioma padrão",
-    "idiomaDica": "Cada pessoa pode escolher outro idioma no menu do usuário.",
-    "cores": "Cores",
-    "coresDescricao": "Escolha as três cores da empresa. O sistema ajusta os tons onde for preciso para que botões, links e textos continuem fáceis de ler, nos modos claro e escuro.",
     "corMarca": "Cor da marca",
     "corMarcaDica": "Botões, links e destaques.",
     "corNeutra": "Cor neutra",
@@ -688,7 +683,6 @@
     "corFundo": "Cor de fundo",
     "corFundoDica": "Fundo das telas no modo claro.",
     "hexInvalido": "Use o formato #RRGGBB.",
-    "ajustada": "Tom ajustado para leitura: {cor}",
     "previa": "Prévia",
     "previaClaro": "Modo claro",
     "previaEscuro": "Modo escuro",
@@ -712,7 +706,6 @@
     "logotipoRelatoriosDescricao": "Aparece no cabeçalho dos PDFs de relatório, separado do logotipo do menu. PNG, JPEG ou WebP, até 256 KB.",
     "semLogotipoRelatorios": "Sem logotipo: os PDFs saem só com o título.",
     "predefinidas": "Combinações prontas",
-    "predefinidasDica": "Escolha uma para preencher as três cores; confira na prévia e salve.",
     "predefinida": {
       "padrao": "Padrão TicketFlow (laranja)",
       "azul": "Azul",
@@ -725,7 +718,6 @@
   },
   "empresa": {
     "titulo": "Empresa",
-    "descricao": "Os dados da empresa que usa o TicketFlow. A razão social, o CNPJ, o endereço e o contato aparecem no cabeçalho dos PDFs de relatório.",
     "site": "Site"
   },
   "dataHora": {
@@ -739,13 +731,11 @@
   },
   "listaChamados": {
     "titulo": "Lista de chamados",
-    "descricao": "Quantos chamados cada página da tela de Chamados mostra, para todas as pessoas. Em Todos, a lista fica numa página só.",
     "porPagina": "Chamados por página",
     "todos": "Todos"
   },
   "filtrosRelatorios": {
     "titulo": "Filtros dos relatórios",
-    "descricao": "Os filtros que aparecem na tela de Relatórios, para todas as pessoas. Desligado, o campo some e o relatório usa o valor padrão da aba.",
     "salvar": "Salvar filtros"
   },
   "statusConfig": {
@@ -760,13 +750,6 @@
       "delivered": "Entregue",
       "closed": "Encerrado",
       "canceled": "Cancelado"
-    },
-    "explicacoes": {
-      "open": "Em aberto: o chamado está na fila do grupo e o trabalho está por fazer ou em andamento.",
-      "waiting": "Em espera: o trabalho está parado esperando alguém, como o cliente ou um fornecedor.",
-      "delivered": "Entregue: o trabalho foi entregue e espera a revisão do supervisor. Só o supervisor do grupo ou o admin leva o chamado a um status encerrado.",
-      "closed": "Encerrado: o trabalho terminou. Registra a data de conclusão e o chamado pode ser reaberto.",
-      "canceled": "Cancelado: o chamado saiu das filas sem que o trabalho fosse feito."
     },
     "padrao": "padrão",
     "subir": "Subir {nome}",

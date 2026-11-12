@@ -1,5 +1,5 @@
-// Configurações (templates/admin/settings.html): combinações prontas e seletor de cor, a
-// explicação do comportamento de status e a lista de feriados. JavaScript puro (ADR 0011).
+// Configurações (templates/admin/settings.html): combinações prontas, seletor de cor e a
+// lista de feriados. JavaScript puro (ADR 0011).
 
 const CAMPOS_DE_COR = ['brand', 'neutral', 'background']
 
@@ -37,12 +37,6 @@ document.addEventListener('input', (e) => {
     if (outro && /^#[0-9a-f]{6}$/i.test(e.target.value)) outro.value = e.target.value.toLowerCase()
     marcarPredefinida()
   }
-})
-
-// A explicação do comportamento escolhido para o status novo.
-document.addEventListener('change', (e) => {
-  if (e.target.name !== 'kind') return
-  for (const p of document.querySelectorAll('[data-explica]')) p.hidden = p.dataset.explica !== e.target.value
 })
 
 // Feriados: acrescentar (em ordem, sem repetir) e tirar. Só vão para o servidor ao salvar.

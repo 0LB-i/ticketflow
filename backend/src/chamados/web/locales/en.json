@@ -636,10 +636,8 @@
     "horarioInvalido": "The end must be after the start.",
     "intervaloInicio": "Break start",
     "intervaloFim": "Break end",
-    "intervaloDica": "Outside working hours. Leave both empty for no break.",
     "intervaloInvalido": "The break needs a start and an end, within the working hours, with the end after the start.",
     "feriados": "Holidays and days off",
-    "feriadosDica": "On these days all task time counts as overtime.",
     "novoFeriado": "Date",
     "removerFeriado": "Remove {data}",
     "salvar": "Save working hours",
@@ -678,9 +676,6 @@
   "configuracoes": {
     "titulo": "Settings",
     "idiomaPadrao": "Default language",
-    "idiomaDica": "Each person can choose another language in the user menu.",
-    "cores": "Colors",
-    "coresDescricao": "Choose the company's three colors. The system adjusts shades where needed so buttons, links and text stay easy to read, in light and dark modes.",
     "corMarca": "Brand color",
     "corMarcaDica": "Buttons, links and highlights.",
     "corNeutra": "Neutral color",
@@ -688,7 +683,6 @@
     "corFundo": "Background color",
     "corFundoDica": "Screen background in light mode.",
     "hexInvalido": "Use the #RRGGBB format.",
-    "ajustada": "Shade adjusted for readability: {cor}",
     "previa": "Preview",
     "previaClaro": "Light mode",
     "previaEscuro": "Dark mode",
@@ -712,7 +706,6 @@
     "logotipoRelatoriosDescricao": "Shown in the header of report PDFs, separate from the menu logo. PNG, JPEG or WebP, up to 256 KB.",
     "semLogotipoRelatorios": "No logo: PDFs show only the title.",
     "predefinidas": "Ready-made combinations",
-    "predefinidasDica": "Pick one to fill in the three colors; check the preview and save.",
     "predefinida": {
       "padrao": "TicketFlow default (orange)",
       "azul": "Blue",
@@ -725,7 +718,6 @@
   },
   "empresa": {
     "titulo": "Company",
-    "descricao": "Details of the company that uses TicketFlow. The legal name, CNPJ, address and contact appear in the header of the report PDFs.",
     "site": "Website"
   },
   "dataHora": {
@@ -739,13 +731,11 @@
   },
   "listaChamados": {
     "titulo": "Ticket list",
-    "descricao": "How many tickets each page of the Tickets screen shows, for everyone. With All, the list fits on a single page.",
     "porPagina": "Tickets per page",
     "todos": "All"
   },
   "filtrosRelatorios": {
     "titulo": "Report filters",
-    "descricao": "The filters shown on the Reports screen, for everyone. When off, the field is hidden and the report uses the tab's default value.",
     "salvar": "Save filters"
   },
   "statusConfig": {
@@ -760,13 +750,6 @@
       "delivered": "Delivered",
       "closed": "Closed",
       "canceled": "Canceled"
-    },
-    "explicacoes": {
-      "open": "Open: the ticket is in the team queue and the work is to do or in progress.",
-      "waiting": "On hold: the work is paused waiting for someone, such as the customer or a supplier.",
-      "delivered": "Delivered: the work was delivered and awaits the supervisor review. Only the team supervisor or an admin can move the ticket to a closed status.",
-      "closed": "Closed: the work is finished. Records the completion date and the ticket can be reopened.",
-      "canceled": "Canceled: the ticket left the queues without the work being done."
     },
     "padrao": "default",
     "subir": "Move {nome} up",

@@ -60,7 +60,6 @@ def test_previa_das_cores(client: TestClient, db: Session) -> None:
     # A prévia segue as cores digitadas (o HTMX pede a página e troca só #previa).
     r = client.get(URL, params={"brand": "#FDE047", "neutral": "#A3A3A3", "background": "#FFFFFF"})
     assert "--tf-brand:#FDE047" in r.text
-    assert "Tom ajustado para leitura:" in r.text  # o amarelo claro não dá para ler
     # Cor incompleta: a prévia fica com as cores gravadas.
     assert "--tf-brand:#F97316" in client.get(URL, params={"brand": "#FDE0"}).text
 

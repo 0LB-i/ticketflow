@@ -24,17 +24,11 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="flex max-w-sm flex-col gap-1">
       {{ select_field("default_locale", t("configuracoes.idiomaPadrao"), locale_options, default_locale) }}
-      <p class="text-muted">{{ t("configuracoes.idiomaDica") }}</p>
     </div>
 
-    <section class="flex flex-col gap-4" aria-labelledby="cores-titulo">
-      <div>
-        <h2 id="cores-titulo" class="font-semibold">{{ t("configuracoes.cores") }}</h2>
-        <p class="mt-1 text-muted">{{ t("configuracoes.coresDescricao") }}</p>
-      </div>
+    <section class="flex flex-col gap-4">
       <div class="flex flex-col gap-2" role="group" aria-labelledby="predefinidas-titulo">
         <p id="predefinidas-titulo" class="font-medium">{{ t("configuracoes.predefinidas") }}</p>
-        <p class="text-muted">{{ t("configuracoes.predefinidasDica") }}</p>
         <div class="flex flex-wrap gap-2">
           {%- for id, preset in presets.items() %}
           <button type="button" data-predefinida="{{ preset | tojson | forceescape }}" aria-pressed="{{ 'true' if preset == colors else 'false' }}" class="inline-flex items-center gap-2 rounded-md border border-border-input bg-surface px-3 py-2 text-fg hover:bg-surface-raised aria-pressed:border-primary aria-pressed:bg-primary-subtle aria-pressed:font-semibold">
@@ -62,9 +56,6 @@
       </div>
 
       <div id="previa" class="flex flex-col gap-4">
-        {%- if adjusted %}
-        <p class="text-muted">{{ t("configuracoes.ajustada", cor=adjusted) }}</p>
-        {%- endif %}
         <div class="grid gap-4 md:grid-cols-2" role="group" aria-label="{{ t('configuracoes.previa') }}">
           {%- for mode, label in [("light", "configuracoes.previaClaro"), ("dark", "configuracoes.previaEscuro")] %}
           <div class="rounded-lg border border-border bg-bg p-4 text-fg{% if mode == 'dark' %} dark{% endif %}" style="{{ preview[mode] }}">
@@ -141,10 +132,6 @@
       <div class="w-64">{{ select_field("kind", t("statusConfig.comportamento"), kind_options, "open") }}</div>
       <button type="submit" class="{{ button_class() }}">{{ t("comum.adicionar") }}</button>
     </form>
-    {#- A explicação acompanha o comportamento escolhido (configuracoes.js). #}
-    {%- for value, _ in kind_options %}
-    <p data-explica="{{ value }}" class="text-muted"{% if value != "open" %} hidden{% endif %}>{{ t("statusConfig.explicacoes." ~ value) }}</p>
-    {%- endfor %}
 
     {%- for s in statuses if same_kind[s.id] %}
     {% call dialog("remover-status-" ~ s.id, t("statusConfig.removerTitulo", nome=s.name), removal[s.id]) %}
@@ -171,7 +158,6 @@
     {{ schedule_fields(hours_form, "expediente") }}
     <div data-feriados data-remover="{{ t('expediente.removerFeriado', data='{data}') }}" class="flex flex-col gap-2">
       <p class="font-medium">{{ t("expediente.feriados") }}</p>
-      <p class="text-muted">{{ t("expediente.feriadosDica") }}</p>
       <ul data-lista class="flex flex-wrap gap-2">
         {%- for iso, text in holidays %}
         <li data-data="{{ iso }}" class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-1 pr-1 pl-3">
@@ -206,7 +192,6 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div>
       <h2 id="lista-chamados-titulo" class="font-semibold">{{ t("listaChamados.titulo") }}</h2>
-      <p class="mt-1 text-muted">{{ t("listaChamados.descricao") }}</p>
     </div>
     <div class="max-w-xs">
       {{ select_field("page_size", t("listaChamados.porPagina"), page_size_options, page_size) }}
@@ -222,7 +207,6 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div>
       <h2 id="filtros-relatorios-titulo" class="font-semibold">{{ t("filtrosRelatorios.titulo") }}</h2>
-      <p class="mt-1 text-muted">{{ t("filtrosRelatorios.descricao") }}</p>
     </div>
     <ul class="flex flex-col divide-y divide-border rounded-md border border-border">
       {%- for key, label, on in report_filters %}
