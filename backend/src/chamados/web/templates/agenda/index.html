@@ -156,6 +156,11 @@
           <span class="block truncate font-medium">{{ a.title }}</span>
           <span data-horario class="block truncate text-muted tabular-nums">{{ local(a.starts_at).strftime("%H:%M") }} – {{ local(a.ends_at).strftime("%H:%M") }}</span>
           {%- if item.ticket %}<span class="block truncate text-muted">{{ ticket_text(item.ticket) }}</span>{% endif %}
+          {#- No dia, quem participa: quem criou primeiro, depois os outros em ordem alfabética. #}
+          {%- if view == "dia" and a.attendees | length > 1 %}
+          {%- set guests = a.attendees | rejectattr("user_id", "equalto", a.owner_id) | map(attribute="user.display_name") | sort %}
+          <span class="flex items-center gap-1 text-muted">{{ icon("users", "size-3.5 shrink-0") }}<span class="truncate">{{ ([a.owner.display_name] + guests | list) | join(", ") }}</span></span>
+          {%- endif %}
           {%- if adjustable %}
           <span data-alca="fim" aria-hidden="true" class="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"></span>
           {%- endif %}

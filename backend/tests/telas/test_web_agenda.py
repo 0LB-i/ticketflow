@@ -332,8 +332,11 @@ def test_arrastar_as_bordas_no_dia(
     assert f'data-compromisso="{id_}" data-inicio="840" data-fim="900"' in dia
     assert dia.count("data-alca=") == 2
     assert 'id="form-horario"' in dia
+    # Quem participa aparece no cartão do dia (quem criou primeiro), mas não no da semana.
+    assert '<span class="truncate">Ana, Bia</span>' in dia
     semana = client.get(f"/agenda?visao=semana&data={DIA.isoformat()}").text
     assert "data-alca=" not in semana
+    assert "Ana, Bia" not in semana
 
     # Das 13:30 às 16:15; a página volta ao dia.
     r = _arrastar(client, id_, 13 * 60 + 30, 16 * 60 + 15)
@@ -373,4 +376,5 @@ def test_o_que_atravessa_a_meia_noite_nao_tem_bordas(
     _novo(client, inicio_hora="22:00", fim_data="2026-11-13", fim_hora="02:00")
     html = client.get(f"/agenda?visao=dia&data={DIA.isoformat()}").text
     assert "22:00 – 02:00" in html
+    assert 'class="truncate">Ana' not in html  # sozinha, sem a lista de participantes
     assert "data-alca=" not in html
