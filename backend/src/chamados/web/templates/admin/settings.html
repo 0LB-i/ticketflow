@@ -167,12 +167,13 @@
         </li>
         {%- endfor %}
       </ul>
-      <div class="flex max-w-md items-end gap-2">
+      <div class="flex items-end gap-2">
         <div class="flex flex-col gap-1">
           <label for="novo-feriado" class="font-medium">{{ t("expediente.novoFeriado") }}</label>
           <input id="novo-feriado" type="date" data-novo-feriado class="h-10 rounded-md border border-border-input bg-surface px-3 text-fg">
         </div>
         <button type="button" data-adiciona-feriado class="{{ button_class('secondary') }}">{{ t("comum.adicionar") }}</button>
+        <button type="submit" class="ml-auto {{ button_class() }}">{{ t("expediente.salvar") }}</button>
       </div>
       <template>
         <li data-data="" class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-1 pr-1 pl-3">
@@ -182,9 +183,6 @@
         </li>
       </template>
     </div>
-    <div class="flex justify-end border-t border-border pt-4">
-      <button type="submit" class="{{ button_class() }}">{{ t("expediente.salvar") }}</button>
-    </div>
   </form>
 
   {#- Quantos chamados cada página da lista (/chamados) mostra. #}
@@ -193,10 +191,10 @@
     <div>
       <h2 id="lista-chamados-titulo" class="font-semibold">{{ t("listaChamados.titulo") }}</h2>
     </div>
-    <div class="max-w-xs">
-      {{ select_field("page_size", t("listaChamados.porPagina"), page_size_options, page_size) }}
-    </div>
-    <div class="flex justify-end border-t border-border pt-4">
+    <div class="flex items-end justify-between gap-2">
+      <div class="w-full max-w-xs">
+        {{ select_field("page_size", t("listaChamados.porPagina"), page_size_options, page_size) }}
+      </div>
       <button type="submit" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
     </div>
   </form>
