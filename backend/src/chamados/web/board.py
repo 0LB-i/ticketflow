@@ -29,6 +29,7 @@ router = APIRouter()
 class Card(NamedTuple):
     ticket: Ticket
     has_news: bool
+    minutes: int
     etag: str
     client: str
     # Status para onde a pessoa pode mover o chamado (vazio: o cartão não se move).
@@ -81,13 +82,13 @@ async def board_page(
 
     # Filtro por responsável (principal ou um dos outros), entre os que estão no quadro.
     people: dict[str, str] = {}
-    for t, _ in rows:
+    for t, _, _ in rows:
         for user in (t.assignee, *(c.user for c in t.co_assignees)):
             people[str(user.public_id)] = user.display_name
     if responsavel in people:
         rows = [
-            (t, news)
-            for t, news in rows
+            (t, news, minutes)
+            for t, news, minutes in rows
             if responsavel
             in {str(t.assignee.public_id), *(str(c.user.public_id) for c in t.co_assignees)}
         ]
@@ -95,7 +96,7 @@ async def board_page(
         responsavel = None
 
     columns: dict[int, list[Card]] = {s.id: [] for s in statuses}
-    for t, news in rows:
+    for t, news, minutes in rows:
         actions = service.actions(auth, t)
         # Como no detalhe: qualquer status, e os concluídos só com set_status_closed.
         targets = [
@@ -105,7 +106,9 @@ async def board_page(
             and s.id != t.status_id
             and (s.kind != "closed" or "set_status_closed" in actions)
         ]
-        columns[t.status_id].append(Card(t, news, service.etag(t), _client_name(t.client), targets))
+        columns[t.status_id].append(
+            Card(t, news, minutes, service.etag(t), _client_name(t.client), targets)
+        )
 
     supervisor = auth.actor.role == "admin" or bool(auth.actor.supervises)
     # No mês passado: os dias dele e as datas de conclusão e de cancelamento (o último, de início).

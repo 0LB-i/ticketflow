@@ -51,7 +51,7 @@
         <li data-cartao draggable="{{ 'true' if card.targets else 'false' }}" class="rounded-md border border-border bg-surface p-3 shadow-md {{ 'cursor-grab' if card.targets }}">
           <div class="flex items-start justify-between gap-2">
             <a href="/chamados/{{ ticket.number }}" class="font-medium hover:underline">
-              <span class="text-primary tabular-nums">#{{ ticket.number }}</span> {{ ticket.title }}
+              {{ ticket.title }}
             </a>
             {%- if card.has_news %}
             <span role="img" aria-label="{{ t('chamados.novidade') }}" title="{{ t('chamados.novidade') }}">{{ icon("message-circle", "size-4 shrink-0 text-primary") }}</span>
@@ -60,7 +60,7 @@
           {#- O principal e "+N" para os outros responsáveis; todos os nomes ao passar o mouse. #}
           {%- set others = ticket.co_assignees | map(attribute="user.display_name") | list %}
           <p class="mt-1 text-sm text-muted">{{ card.client }} · <span class="text-blue-fg"{% if others %} title="{{ ([ticket.assignee.display_name] + others) | join(', ') }}"{% endif %}>{{ ticket.assignee.display_name }}{% if others %} +{{ others | length }}{% endif %}</span></p>
-          <p class="mt-1 text-xs text-muted">{{ t("quadro.alterado", data=datetime(ticket.updated_at)) }}</p>
+          <p class="mt-1 flex justify-between gap-2 text-xs text-muted">{{ t("quadro.alterado", data=datetime(ticket.updated_at)) }} <span class="text-primary tabular-nums">{{ duration(card.minutes) }}</span></p>
           {%- if card.targets %}
           {#- Soltar o cartão numa coluna de `data-destinos` envia o status dela (quadro.js). #}
           <form method="post" action="/chamados/{{ ticket.number }}/status" data-destinos="{{ card.targets | map(attribute='id') | join(' ') }}" hidden>

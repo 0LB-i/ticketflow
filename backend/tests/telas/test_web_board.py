@@ -24,7 +24,9 @@ def _colunas(html: str) -> dict[str, list[int]]:
     for parte in html.split('data-coluna="')[1:]:
         nome = re.search(r'<h2 id="coluna-\d+"[^>]*>\s*(.*?)\s*<span', parte, re.S)
         assert nome
-        colunas[nome.group(1)] = [int(n) for n in re.findall(r'tabular-nums">#(\d+)</span>', parte)]
+        colunas[nome.group(1)] = [
+            int(n) for n in re.findall(r'<a href="/chamados/(\d+)" class="font-medium', parte)
+        ]
     return colunas
 
 
@@ -302,3 +304,11 @@ def test_empresa_aparece_pelo_nome_fantasia(
     db.execute(text("UPDATE clients SET kind = 'person', name = 'João da Silva'"))
     db.commit()
     assert 'João da Silva · <span class="text-blue-fg">Ana</span>' in client.get("/quadro").text
+
+
+def test_o_cartao_mostra_o_tempo_gasto(client: TestClient, cenario: dict[str, Any]) -> None:
+    numero = registrar(client, cenario)["number"]
+    client.post(f"{API}/{numero}/comments", json={"body": "Feito", "time_spent_minutes": 90})
+    cartao = re.search(rf'href="/chamados/{numero}".*?</li>', client.get("/quadro").text, re.S)
+    assert cartao
+    assert 'tabular-nums">1h30</span>' in cartao.group(0)

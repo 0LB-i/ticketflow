@@ -519,12 +519,13 @@ async def board(
     auth: Auth,
     *,
     month: tuple[datetime, datetime],
-) -> tuple[list[tuple[Ticket, bool]], bool]:
-    """Chamados do quadro (kanban), com o aviso de novidade: os de que a pessoa é responsável e,
-    do supervisor, também os dos grupos que supervisiona; o admin vê todos. Concluídos e
-    cancelados só do mês (o início dele e o do seguinte), pela data da conclusão ou do
-    cancelamento, senão essas colunas crescem sempre. O segundo valor diz se passou do teto
-    (ficam os mais antigos, para nenhum parado sumir; na tela, o mais novo primeiro)."""
+) -> tuple[list[tuple[Ticket, bool, int]], bool]:
+    """Chamados do quadro (kanban), com o aviso de novidade e o tempo gasto (minutos): os de que
+    a pessoa é responsável e, do supervisor, também os dos grupos que supervisiona; o admin vê
+    todos. Concluídos e cancelados só do mês (o início dele e o do seguinte), pela data da
+    conclusão ou do cancelamento, senão essas colunas crescem sempre. O segundo valor diz se
+    passou do teto (ficam os mais antigos, para nenhum parado sumir; na tela, o mais novo
+    primeiro)."""
     actor = auth.actor
     scope = (
         true()
@@ -532,7 +533,7 @@ async def board(
         else or_(assigned_to(auth.user.id), Ticket.team_id.in_(actor.supervises))
     )
     stmt = (
-        select(Ticket, has_news(auth.user.id).label("has_news"))
+        select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
         # Os observadores e os outros responsáveis entram nas ações de cada cartão.
         .options(
@@ -552,7 +553,7 @@ async def board(
         .order_by(Ticket.created_at, Ticket.id)
         .limit(BOARD_LIMIT + 1)
     )
-    rows = [(t, news) for t, news in (await db.execute(stmt)).all()]
+    rows = [(t, news, minutes) for t, news, minutes in (await db.execute(stmt)).all()]
     return rows[:BOARD_LIMIT][::-1], len(rows) > BOARD_LIMIT
 
 
