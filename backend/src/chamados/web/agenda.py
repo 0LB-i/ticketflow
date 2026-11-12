@@ -1,7 +1,7 @@
 """Agenda (/agenda): os compromissos da pessoa por mês, semana ou dia, como nos serviços de e-mail.
 
-Novo e editar abrem no painel lateral (`?novo=1`, `?editar=<id>`); só o dono altera, os demais
-participantes veem o compromisso só para leitura. O chamado é escolhido pela busca
+Novo e editar abrem numa janela no meio da tela (`?novo=1`, `?editar=<id>`); só o dono
+altera, os demais participantes veem o compromisso só para leitura. O chamado é escolhido pela busca
 (`/agenda/chamados`, só os que a pessoa vê). O aviso do menu (`/agenda/aviso`) conta os
 compromissos que começam em até 15 minutos; abrir a agenda o apaga (`take_alerts`).
 """
@@ -431,7 +431,7 @@ PostedForm = Annotated[AppointmentForm, Depends(_posted_form)]
 async def _save(
     page: LoggedPage, db: DB, form: AppointmentForm, view: str, day: date, editar: str | None
 ) -> Response:
-    """Grava e volta para a agenda; erro devolve a página com o painel aberto e o que foi
+    """Grava e volta para a agenda; erro devolve a página com a janela aberta e o que foi
     digitado. O service confere tudo antes de mudar o compromisso: nada a desfazer."""
     appointment = await service.get(db, page.auth, editar) if editar else None
     try:
