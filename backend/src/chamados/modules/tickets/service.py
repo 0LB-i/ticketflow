@@ -559,17 +559,18 @@ async def board(
 
 async def counts(db: AsyncSession, auth: Auth) -> dict[str, int]:
     """Quantos chamados visíveis há em cada fila, numa consulta só. Em Todos, os em andamento
-    (o que a aba mostra sem um status escolhido)."""
+    (o que a aba mostra sem um status escolhido). Todas as filas contam só os em andamento: o
+    filtro vem antes, para não passar pelos concluídos (a maioria)."""
     views: tuple[TicketView, ...] = ("mine", "waiting", "watching")
     row = (
         await db.execute(
             select(
                 *(func.count().filter(view_filter(auth, v)).label(v) for v in views),
-                func.count().filter(TicketStatus.kind.in_(ACTIVE)).label("all"),
+                func.count().label("all"),
             )
             .select_from(Ticket)
             .join(Ticket.status)
-            .where(ticket_visibility_filter(auth.actor))
+            .where(TicketStatus.kind.in_(ACTIVE), ticket_visibility_filter(auth.actor))
         )
     ).one()
     return dict(row._mapping)
