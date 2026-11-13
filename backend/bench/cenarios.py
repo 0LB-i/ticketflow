@@ -6,7 +6,9 @@ em SQL escrito à parte (o "oráculo"), inclusive as regras de visibilidade do d
 regra mudar no código, o oráculo daqui muda junto.
 """
 
+import io
 import re
+import zipfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -25,6 +27,8 @@ API = "/api/v1"
 LEITURA = 300
 ESCRITA = 300
 EXPORTACAO = 2000
+# O ZIP da aba Clientes geral: um PDF por cliente com horas no período (aqui, um dia só).
+ZIP_CLIENTES = 30_000
 
 ATIVOS = "('open', 'waiting', 'delivered')"
 POR_PAGINA = TicketList().page_size  # da tela de chamados, sem configuração
@@ -222,6 +226,26 @@ def _relatorio(ctx: Contexto, inicio: date, persona: str | None = None) -> Calla
     return conferir
 
 
+def _compromissos(ctx: Contexto, persona: str, inicio: date, fim: date) -> set[str]:
+    """Os compromissos de que a pessoa participa que tocam os dias de `inicio` a `fim`."""
+    de, ate = ctx.periodo(inicio, fim)
+    return {
+        str(i)
+        for (i,) in ctx.linhas(
+            "SELECT a.public_id FROM appointments a JOIN appointment_attendees x "
+            "ON x.appointment_id = a.id WHERE x.user_id = :u AND a.starts_at < :ate "
+            "AND a.ends_at > :de",
+            u=ctx.id[persona],
+            de=de,
+            ate=ate,
+        )
+    }
+
+
+def compromissos_na_tela(r: Response) -> set[str]:
+    return set(re.findall(r"editar=([0-9a-f-]{36})", r.text))
+
+
 def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
     mes = {"start": ctx.mes.isoformat(), "end": ctx.hoje.isoformat()}
     ano = {"start": (ctx.hoje - timedelta(days=365)).isoformat(), "end": ctx.hoje.isoformat()}
@@ -308,6 +332,109 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             )
         ]
         igual([i["label"] for i in r.json()["items"]], esperado, "clientes")
+
+    domingo = ctx.hoje - timedelta(days=(ctx.hoje.weekday() + 1) % 7)
+
+    def conferir_semana(r: Response) -> None:
+        igual(
+            compromissos_na_tela(r),
+            _compromissos(ctx, "agente", domingo, domingo + timedelta(days=6)),
+            "compromissos",
+        )
+
+    def conferir_mes(r: Response) -> None:
+        # No mês, até 3 por dia (o resto fica no "+N"): os da tela são do agente e do mês.
+        primeiro = ctx.mes - timedelta(days=35)
+        ultimo = ctx.mes + timedelta(days=42)
+        na_tela = compromissos_na_tela(r)
+        igual(bool(na_tela), True, "há compromissos na tela")
+        igual(na_tela - _compromissos(ctx, "agente", primeiro, ultimo), set(), "de outra pessoa")
+
+    def conferir_aviso(r: Response) -> None:
+        acesos = ctx.valor(
+            "SELECT count(*) FROM appointment_attendees x JOIN appointments a "
+            "ON a.id = x.appointment_id WHERE x.user_id = :u AND x.alert_seen_at IS NULL "
+            "AND NOT a.all_day AND a.starts_at <= now() + interval '15 minutes' "
+            "AND a.ends_at > now()",
+            u=ctx.id["agente"],
+        )
+        achado = re.search(r'data-avisos="(\d+)"', r.text)
+        igual(int(achado[1]) if achado else None, acesos, "avisos")
+
+    # A presença pergunta pelas tarefas de outras pessoas desde o registro do chamado.
+    desde = ctx.valor("SELECT created_at FROM tickets WHERE number = :n", n=ctx.grande)
+
+    def conferir_presenca(r: Response) -> None:
+        novas = ctx.valor(
+            "SELECT count(*) FROM ticket_comments c JOIN tickets t ON t.id = c.ticket_id "
+            "WHERE t.number = :n AND c.created_at > :desde AND c.author_id <> :u "
+            "AND c.deleted_at IS NULL",
+            n=ctx.grande,
+            desde=desde,
+            u=ctx.id["agente"],
+        )
+        achado = re.search(r"(\d+) tarefas? novas?", r.text)
+        igual(int(achado[1]) if achado else 0, novas, "tarefas novas")
+
+    def conferir_admin_clientes(r: Response) -> None:
+        ativos = ctx.valor("SELECT count(*) FROM clients WHERE is_active")
+        na_tela = set(re.findall(r'href="/admin/clientes/([0-9a-f-]{36})"', r.text))
+        igual(len(na_tela), min(200, ativos), "clientes na tela")
+
+    def conferir_detalhar(r: Response) -> None:
+        de, ate = ctx.periodo(ctx.mes, ctx.hoje)
+        esperado = ctx.chamados(
+            "admin", "t.created_at >= :de AND t.created_at < :ate", limite=None, de=de, ate=ate
+        )
+        # A tela lista até 200 (os mais recentes) e diz quantos são.
+        achado = re.search(r"Chamados encontrados: ([\d.]+)\.", r.text)
+        igual(int(achado[1].replace(".", "")) if achado else None, len(esperado), "quantos")
+        na_tela = set(numeros_na_tela(r))
+        igual(len(na_tela), min(200, len(esperado)), "chamados na tela")
+        igual(na_tela - set(esperado), set(), "registrados fora do mês")
+
+    ontem = ctx.hoje - timedelta(days=1)
+
+    def conferir_zip(r: Response) -> None:
+        # Os clientes com horas em tarefas de ontem; com o período na URL, de todos os status.
+        de, ate = ctx.periodo(ontem, ontem)
+        com_horas = ctx.valor(
+            "SELECT count(*) FROM (SELECT t.client_id FROM ticket_comments c "
+            "JOIN tickets t ON t.id = c.ticket_id "
+            "WHERE c.deleted_at IS NULL AND t.client_id IS NOT NULL "
+            "AND c.done_at >= :de AND c.done_at < :ate "
+            "GROUP BY t.client_id HAVING sum(c.time_spent_minutes) > 0) x",
+            de=de,
+            ate=ate,
+        )
+        with zipfile.ZipFile(io.BytesIO(r.content)) as arquivo:
+            nomes = arquivo.namelist()
+            pdfs = sum(arquivo.read(n)[:5] == b"%PDF-" for n in nomes)
+        igual(len(nomes), com_horas, "PDFs no ZIP (um por cliente com horas)")
+        igual(pdfs, len(nomes), "arquivos que são PDF")
+
+    def registrar_compromisso(c: TestClient) -> Response:
+        return c.post(
+            "/agenda/novo",
+            data={
+                "csrf_token": c.cookies["tf_csrf"],
+                "titulo": "Compromisso do benchmark",
+                "inicio_data": ctx.hoje.isoformat(),
+                "inicio_hora": "09:00",
+                "fim_data": ctx.hoje.isoformat(),
+                "fim_hora": "10:00",
+                "chamado": str(ctx.escrita),
+                "visao": "semana",
+                "data": ctx.hoje.isoformat(),
+            },
+        )
+
+    def conferir_compromisso(r: Response) -> None:
+        igual(
+            compromissos_na_tela(r),
+            _compromissos(ctx, "escrita", domingo, domingo + timedelta(days=6)),
+            "a semana depois de gravar",
+        )
 
     return [
         # --- listas (API) ---
@@ -576,6 +703,57 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             lambda c: c.get("/clientes/opcoes", params={"q": "padaria"}),
             lambda r: igual("Padaria" in r.text, True, "clientes na página"),
         ),
+        Cenario(
+            "tela · Relatórios, detalhar os registrados no mês (admin)",
+            "admin",
+            lambda c: c.get("/relatorios/chamados", params={"aba": "chamados", "medida": "opened"}),
+            conferir_detalhar,
+        ),
+        Cenario(
+            # Só quem é de um grupo que cuida dos clientes: o Escritas, na massa.
+            "tela · Clientes, a lista (agente)",
+            "escrita",
+            lambda c: c.get("/admin/clientes"),
+            conferir_admin_clientes,
+        ),
+        # --- agenda ---
+        Cenario(
+            "tela · Agenda, mês (agente)",
+            "agente",
+            lambda c: c.get("/agenda"),
+            conferir_mes,
+        ),
+        Cenario(
+            "tela · Agenda, semana (agente)",
+            "agente",
+            lambda c: c.get("/agenda", params={"visao": "semana", "data": ctx.hoje.isoformat()}),
+            conferir_semana,
+        ),
+        Cenario(
+            "tela · Agenda, chamados para escolher: impressora (agente)",
+            "agente",
+            lambda c: c.get("/agenda/chamados", params={"q": "impressora"}),
+            lambda r: igual(
+                [int(n) for n in re.findall(r'data-id="(\d+)"', r.text)],
+                ctx.chamados("agente", impressora, 20),
+                "chamados",
+            ),
+        ),
+        # --- o que cada aba aberta pergunta sozinha: somam com o número de pessoas e de abas ---
+        Cenario(
+            "tela · aviso da agenda, a cada 60 s (agente)",
+            "agente",
+            lambda c: c.get("/agenda/aviso"),
+            conferir_aviso,
+        ),
+        Cenario(
+            "tela · presença no chamado com 150 tarefas, a cada 20 s (agente)",
+            "agente",
+            lambda c: c.get(
+                f"/chamados/{ctx.grande}/presenca", params={"desde": desde.isoformat()}
+            ),
+            conferir_presenca,
+        ),
         # --- escritas ---
         # As escritas são da pessoa do grupo Escritas: não mudam as filas dos cenários acima.
         Cenario(
@@ -610,6 +788,13 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             conferir_status,
             ESCRITA,
         ),
+        Cenario(
+            "tela · registrar compromisso e voltar à semana (agente)",
+            "escrita",
+            registrar_compromisso,
+            conferir_compromisso,
+            ESCRITA,
+        ),
         # --- exportações ---
         Cenario(
             "api · relatório do mês em PDF (admin)",
@@ -624,5 +809,19 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             lambda c: c.get(f"{API}/reports/csv", params={**mes, "table": "tasks"}),
             conferir_csv,
             EXPORTACAO,
+        ),
+        Cenario(
+            "tela · Clientes geral, ZIP de ontem (admin)",
+            "admin",
+            lambda c: c.get(
+                "/relatorios/clientes-geral/zip",
+                params={
+                    "periodo": "personalizado",
+                    "de": ontem.isoformat(),
+                    "ate": ontem.isoformat(),
+                },
+            ),
+            conferir_zip,
+            ZIP_CLIENTES,
         ),
     ]

@@ -132,14 +132,18 @@ def massa(engine: Engine) -> str:
             text(
                 "SELECT (SELECT count(*) FROM tickets), (SELECT count(*) FROM ticket_comments), "
                 "(SELECT count(*) FROM ticket_events), (SELECT count(*) FROM users), "
-                "(SELECT count(*) FROM clients), current_setting('server_version')"
+                "(SELECT count(*) FROM clients), (SELECT count(*) FROM appointments), "
+                "current_setting('server_version')"
             )
         ).one()
     *numeros, versao = contagens
-    chamados, tarefas, eventos, pessoas, clientes = (f"{n:,}".replace(",", ".") for n in numeros)
+    chamados, tarefas, eventos, pessoas, clientes, compromissos = (
+        f"{n:,}".replace(",", ".") for n in numeros
+    )
     return (
         f"{chamados} chamados, {tarefas} tarefas, {eventos} eventos, {pessoas} pessoas, "
-        f"{clientes} clientes · PostgreSQL {versao.split()[0]} · {os.cpu_count()} CPUs"
+        f"{clientes} clientes, {compromissos} compromissos · "
+        f"PostgreSQL {versao.split()[0]} · {os.cpu_count()} CPUs"
     )
 
 

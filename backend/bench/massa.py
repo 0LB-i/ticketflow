@@ -8,6 +8,9 @@ As escritas do benchmark ficam com a pessoa e o grupo "Escritas", fora dos cená
 
 O que é plantado de propósito (para conferir a busca): "xilofone" no título de 3 chamados e numa
 tarefa de outros 2, "Açaizeiro" na descrição de 2 e o cliente "Zebulom" em 4.
+
+A agenda tem compromissos de 3 anos atrás a 3 meses à frente da geração: a semana do agente fica
+cheia enquanto a massa tiver menos de 3 meses.
 """
 
 import hashlib
@@ -17,10 +20,11 @@ from alembic import command
 from sqlalchemy import Engine, text
 
 from chamados.cli import alembic_config
+from chamados.core.timezone import LOCAL_TZ
 from chamados.modules.identity.passwords import hash_password
 
 # Mude ao alterar a massa: o próximo benchmark a refaz.
-VERSAO = "2"
+VERSAO = "3"
 MIGRACOES = Path(__file__).parents[1] / "migrations"
 SENHA = "uma senha longa de benchmark"
 PERSONAS = {
@@ -48,6 +52,10 @@ FRASES = (
     "Aguardando a peça do fornecedor.|Reconfigurei o perfil de rede.|"
     "Restaurei o arquivo do backup da noite.|Criei o acesso e mandei a senha provisória.|"
     "Fiz a visita técnica e deixei funcionando.|Abri chamado no fabricante."
+)
+COMPROMISSOS = (
+    "Visita técnica|Reunião com o cliente|Treinamento|Instalação|Retorno ao cliente|"
+    "Reunião do grupo|Manutenção preventiva|Inventário"
 )
 
 # Cada passo numa transação só; :n é o número de chamados e as listas de palavras vão como
@@ -102,6 +110,8 @@ PASSOS = [
     SELECT (SELECT id FROM teams WHERE name = 'Escritas'), id, 'member'
     FROM users WHERE email = 'escrita@bench.local'
     """,
+    # O Escritas cuida dos clientes (a lista de clientes da tela é só de quem é de um grupo assim).
+    "UPDATE teams SET manages_clients = true WHERE name = 'Escritas'",
     """
     CREATE TEMP TABLE eq ON COMMIT DROP AS
     SELECT t.id, t.k,
@@ -359,6 +369,51 @@ PASSOS = [
     UPDATE tickets SET client_id = (SELECT id FROM clients WHERE trade_name = 'Zebulom')
     WHERE id IN (SELECT id FROM alvo WHERE k IN (400, 401) ORDER BY id LIMIT 4)
     """,
+    # --- agenda: 40 mil compromissos de 3 anos atrás a 3 meses à frente, das 8 às 18h, de 30 min
+    # a 2 h; 1 em 10 de dia inteiro (de 1 a 3 dias) e 3 em 10 ligados a um chamado. O agente
+    # tem mais 4 por dia útil: a semana dele fica cheia. Cada um com o dono e, em média, 1 ou 2
+    # colegas do grupo dele; os que já começaram estão com o aviso apagado ---
+    """
+    CREATE TEMP TABLE compromisso ON COMMIT DROP AS
+    SELECT row_number() OVER () AS id, c.* FROM (
+        SELECT e.membros[1 + floor(random() * array_length(e.membros, 1))::int] AS dono,
+               e.id AS grupo,
+               date_trunc('day', now() - interval '3 years' + random() * interval '1185 days',
+                          :fuso) AS dia,
+               (8 + floor(random() * 10)) * 60 + floor(random() * 2) * 30 AS minuto,
+               (1 + floor(random() * 4)) * 30 AS duracao,
+               random() < 0.1 AS dia_inteiro
+        FROM generate_series(1, 40000) g(k) JOIN eq e ON e.k = g.k % 8
+        UNION ALL
+        SELECT (SELECT id FROM users WHERE email = 'agente@bench.local'),
+               (SELECT id FROM teams WHERE name = 'Suporte'), d, h * 60, 60, false
+        FROM generate_series(date_trunc('day', now() - interval '3 years', :fuso),
+                             now() + interval '90 days', interval '1 day') d
+        CROSS JOIN unnest(ARRAY[9, 11, 14, 16]) h
+        WHERE extract(isodow FROM d AT TIME ZONE :fuso) < 6
+    ) c
+    """,
+    """
+    INSERT INTO appointments (id, title, starts_at, ends_at, all_day, ticket_id, owner_id)
+    OVERRIDING SYSTEM VALUE
+    SELECT c.id, (string_to_array(:compromissos, '|'))[1 + floor(random() * 8)::int],
+           CASE WHEN c.dia_inteiro THEN c.dia ELSE c.dia + c.minuto * interval '1 minute' END,
+           CASE WHEN c.dia_inteiro THEN c.dia + (1 + floor(random() * 3)) * interval '1 day'
+                ELSE c.dia + (c.minuto + c.duracao) * interval '1 minute' END,
+           c.dia_inteiro,
+           CASE WHEN random() < 0.3
+                THEN (SELECT min(id) FROM tickets) + floor(random() * :n)::bigint END,
+           c.dono
+    FROM compromisso c ORDER BY c.id
+    """,
+    "SELECT setval(pg_get_serial_sequence('appointments', 'id'), max(id)) FROM appointments",
+    """
+    INSERT INTO appointment_attendees (appointment_id, user_id, alert_seen_at)
+    SELECT a.id, m.user_id, CASE WHEN a.starts_at < now() THEN a.starts_at END
+    FROM compromisso c JOIN appointments a ON a.id = c.id
+    JOIN team_members m ON m.team_id = c.grupo
+    WHERE m.user_id = c.dono OR random() < 0.15
+    """,
 ]
 
 
@@ -389,6 +444,8 @@ def preparar(engine: Engine, chamados: int, refazer: bool) -> bool:
         "problemas": PROBLEMAS,
         "lugares": LUGARES,
         "frases": FRASES,
+        "compromissos": COMPROMISSOS,
+        "fuso": str(LOCAL_TZ),
     }
     with engine.begin() as conn:
         for passo in PASSOS:
