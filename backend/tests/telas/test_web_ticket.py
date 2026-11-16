@@ -160,14 +160,17 @@ def test_detalhe(client: TestClient, cenario: dict[str, Any]) -> None:
     assert "Troquei o toner" in r.text
     assert '<span class="tabular-nums">1h30</span>' in r.text
     assert f'action="/chamados/{numero}/tarefas"' in r.text  # comenta
-    assert "Marcar como entregue" in r.text
+    assert f'action="/chamados/{numero}/status"' in r.text
+    # Entregar e cancelar: só pela troca de status, sem botão próprio.
+    assert f'action="/chamados/{numero}/entregar"' not in r.text
+    assert 'data-abre-dialogo="cancelar"' not in r.text
 
     # O auditor vê, mas não altera.
     entrar(client, "auditor@x.com")
     r = client.get(f"/chamados/{numero}")
     assert r.status_code == 200
     assert f'action="/chamados/{numero}/tarefas"' not in r.text
-    assert "Marcar como entregue" not in r.text
+    assert f'action="/chamados/{numero}/status"' not in r.text
 
     entrar(client, "caio@x.com")
     r = client.get(f"/chamados/{numero}")
@@ -302,7 +305,8 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     assert aviso(client, numero, r.text) == "Algo deu errado. Tente de novo."
     assert client.get(f"{API}/{numero}").json()["watchers"] == []
 
-    client.post(f"{lateral}/entregar", data=formulario(client))
+    entregue = formulario(client, status_id=status_id(client, "Entregue"))
+    client.post(f"{lateral}/status", data=entregue)
     assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "delivered"
     r = client.post(
         f"{lateral}/status", data=formulario(client, status_id=status_id(client, "Pendente"))
@@ -323,8 +327,9 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     assert client.get(f"{API}/{numero}").json()["team"]["name"] == "Infra"
 
     entrar(client, "caio@x.com")
-    r = client.post(f"{lateral}/cancelar", data=formulario(client))
-    assert aviso(client, numero, r.text) == "Chamado cancelado"
+    cancelado = formulario(client, status_id=status_id(client, "Cancelado"))
+    r = client.post(f"{lateral}/status", data=cancelado)
+    assert aviso(client, numero, r.text) == "Status alterado"
     assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "canceled"
 
 
@@ -491,23 +496,6 @@ def test_casos_de_borda_das_acoes(client: TestClient, cenario: dict[str, Any], d
         f"{chamado}/transferir", data=formulario(client, team_id=cenario["infra"], motivo="  ")
     )
     assert aviso(client, numero, r.text) == "Informe o motivo da transferência."
-
-    # Status "Entregue" padrão removido com a página aberta: aviso, não erro 500.
-    db.execute(
-        text("UPDATE ticket_statuses SET is_default_for_kind = false WHERE kind = 'delivered'")
-    )
-    db.commit()
-    try:
-        r = client.post(f"{chamado}/entregar", data=formulario(client))
-        assert aviso(client, numero, r.text) == "Status não encontrado."
-    finally:
-        db.execute(
-            text(
-                "UPDATE ticket_statuses SET is_default_for_kind = true WHERE id = "
-                "(SELECT min(id) FROM ticket_statuses WHERE kind = 'delivered')"
-            )
-        )
-        db.commit()
 
     # Tarefa de outra pessoa ou id inválido: volta ao chamado com o aviso.
     tarefa = client.post(f"{API}/{numero}/comments", json={"body": "Da Ana"}).json()["id"]

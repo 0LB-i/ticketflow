@@ -160,7 +160,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="submit" name="acao" value="" data-exige-texto class="{{ button_class() }}">{{ t("chamado.comentar") }}</button>
-          {#- Aguardar não aparece na tela (decisão de 2026-10-14); entregar e cancelar ficam na lateral. #}
+          {#- Aguardar não aparece na tela (decisão de 2026-10-14); entregar e cancelar, só pelo status. #}
           {%- for action in ("resume", "reopen") if action in actions %}
           <button type="submit" name="acao" value="{{ action }}" class="{{ button_class('secondary') }}">{{ t("chamado.acoes." ~ action) }}</button>
           {%- endfor %}
@@ -238,9 +238,6 @@
         {%- endif %}
         {%- if "transfer" in actions %}
         <button type="button" data-abre-dialogo="transferir" class="{{ button_class('secondary', 'sm') }}">{{ t("chamado.transferir") }}</button>
-        {%- endif %}
-        {%- if "cancel" in actions %}
-        <button type="button" data-abre-dialogo="cancelar" class="{{ button_class('danger', 'sm') }}">{{ t("chamado.acoes.cancel") }}</button>
         {%- endif %}
       </div>
       {%- if "assign_others" in actions %}
@@ -342,15 +339,6 @@
         {{ attachment_list(ticket.attachments) }}
       </section>
       {%- endif %}
-
-      {%- if delivered %}
-      {#- Marcar como entregue: um clique leva à revisão do supervisor. #}
-      <form method="post" action="{{ base }}/entregar">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="versao" value="{{ ticket.etag }}">
-        <button type="submit" class="w-full {{ button_class('gold') }}">{{ t("chamado.entregue.marcar") }}</button>
-      </form>
-      {%- endif %}
     </aside>
   </div>
 </div>
@@ -378,16 +366,6 @@
     <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
     <button type="submit" class="{{ button_class() }}">{{ t("chamado.transferir") }}</button>
   </div>
-</form>
-{% endcall %}
-{%- endif %}
-
-{%- if "cancel" in actions %}
-{% call dialog("cancelar", t("chamado.cancelarTitulo"), t("chamado.cancelarTexto")) %}
-<form method="post" action="{{ base }}/cancelar" class="mt-6 flex justify-end gap-2">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("chamado.naoCancelar") }}</button>
-  <button type="submit" class="{{ button_class('danger') }}">{{ t("chamado.acoes.cancel") }}</button>
 </form>
 {% endcall %}
 {%- endif %}

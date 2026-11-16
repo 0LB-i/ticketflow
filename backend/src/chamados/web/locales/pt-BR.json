@@ -329,12 +329,8 @@
     "comentado": "Tarefa adicionada",
     "acoes": {
       "resume": "Retomar",
-      "reopen": "Reabrir",
-      "cancel": "Cancelar chamado"
+      "reopen": "Reabrir"
     },
-    "cancelarTitulo": "Cancelar o chamado?",
-    "cancelarTexto": "Um chamado cancelado não volta a ser aberto.",
-    "naoCancelar": "Voltar",
     "textoObrigatorio": {
       "reopen": "Escreva na tarefa o motivo da reabertura."
     },
@@ -360,10 +356,6 @@
     "contatoDica": "Quem pediu o atendimento.",
     "buscarCliente": "Buscar pelo nome",
     "nenhumCliente": "Nenhum cliente encontrado.",
-    "entregue": {
-      "marcar": "Marcar como entregue",
-      "feito": "Chamado entregue"
-    },
     "mudou": "O chamado mudou desde que você o abriu: confira e tente de novo.",
     "presenca": {
       "um": "{nome} também está vendo",

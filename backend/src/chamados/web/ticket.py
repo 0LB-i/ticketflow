@@ -391,7 +391,6 @@ async def _ticket_page(
     me = str(auth.user.public_id)
     people = _people(teams)
     watcher_ids = {str(w.id) for w in ticket.watchers}
-    delivered = next((s for s in statuses if s.kind == "delivered" and s.is_default), None)
     assignees = [ticket.assignee, *ticket.co_assignees]
     assigned = {str(u.id) for u in assignees}
     outside = [m for m in _members(teams, str(ticket.team.id)) if m[0] not in assigned]
@@ -443,10 +442,6 @@ async def _ticket_page(
         destination_members=_members(teams, destination),
         watching=me in watcher_ids,
         watcher_options=[p for p in people if p[0] not in watcher_ids],
-        # Marcar como entregue: já entregue, concluído ou cancelado não tem o botão.
-        delivered=delivered
-        if "set_status" in actions and ticket.status.kind not in ("delivered", "closed", "canceled")
-        else None,
         # Concluído ou cancelado: a data gravada (a da mudança), para corrigir abaixo do status.
         finished=DateTimeInput.at(finished_at)
         if finished_at
@@ -664,22 +659,6 @@ async def change_finished_at(
     )
 
 
-@router.post("/chamados/{number:int}/entregar")
-async def deliver(
-    number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "", versao: Field = ""
-) -> Response:
-    """Um clique leva ao status padrão do comportamento Entregue (a revisão do supervisor)."""
-
-    async def action() -> None:
-        statuses = await catalog_api.status_options(db)
-        delivered = next((s for s in statuses if s.kind == "delivered" and s.is_default), None)
-        if delivered is None:  # o admin mudou os status com a página aberta
-            raise HTTPException(404, "Status não encontrado.")
-        await _update(page, db, number, TicketUpdate(status_id=delivered.id), versao)
-
-    return await _act(page, number, csrf_token, action, "chamado.entregue.feito")
-
-
 @router.post("/chamados/{number:int}/titulo")
 async def change_title(
     number: int,
@@ -765,20 +744,6 @@ async def transfer(
             db,
         ),
         "chamado.feito.transferido",
-    )
-
-
-@router.post("/chamados/{number:int}/cancelar")
-async def cancel(number: int, page: LoggedPageDep, db: DB, csrf_token: Field = "") -> Response:
-    """Só a confirmação, sem motivo."""
-    return await _act(
-        page,
-        number,
-        csrf_token,
-        lambda: tickets_api.transition_ticket(
-            str(number), TransitionIn(action="cancel"), page.auth, db
-        ),
-        "chamado.feito.cancel",
     )
 
 

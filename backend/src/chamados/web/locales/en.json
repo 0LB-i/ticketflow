@@ -329,12 +329,8 @@
     "comentado": "Task added",
     "acoes": {
       "resume": "Resume",
-      "reopen": "Reopen",
-      "cancel": "Cancel ticket"
+      "reopen": "Reopen"
     },
-    "cancelarTitulo": "Cancel the ticket?",
-    "cancelarTexto": "A canceled ticket cannot be reopened.",
-    "naoCancelar": "Go back",
     "textoObrigatorio": {
       "reopen": "Write in the task why it is being reopened."
     },
@@ -360,10 +356,6 @@
     "contatoDica": "Who asked for the work.",
     "buscarCliente": "Search by name",
     "nenhumCliente": "No client found.",
-    "entregue": {
-      "marcar": "Mark as delivered",
-      "feito": "Ticket delivered"
-    },
     "mudou": "The ticket changed since you opened it: check it and try again.",
     "presenca": {
       "um": "{nome} is also viewing",

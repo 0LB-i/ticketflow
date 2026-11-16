@@ -93,8 +93,9 @@ def test_tela_nao_sobrescreve_o_que_outro_mudou(
     )
     entrar(client, "ana@x.com")
 
-    for acao, campo in (("status", {"status_id": status_id(client, "Pendente")}), ("entregar", {})):
-        r = client.post(f"{tela}/{acao}", data=formulario(client, versao=versao, **campo))
+    for status in ("Pendente", "Entregue"):
+        dados = formulario(client, versao=versao, status_id=status_id(client, status))
+        r = client.post(f"{tela}/status", data=dados)
         assert aviso(client, numero, r.text) == (
             "O chamado mudou desde que você o abriu: confira e tente de novo."
         )

@@ -150,7 +150,10 @@ def test_so_o_supervisor_conclui(
     numero = registrar(client, cenario)["number"]
     # Ana (agente) não leva o cartão para Concluído, nem antes nem depois de entregar
     assert "Concluído" not in _destinos(client.get("/quadro").text, numero)
-    client.post(f"/chamados/{numero}/entregar", data=_form(client))
+    client.post(
+        f"/chamados/{numero}/status",
+        data=_form(client, status_id=_destinos(client.get("/quadro").text, numero)["Entregue"]),
+    )
     html = client.get("/quadro").text
     assert _colunas(html)["Entregue"] == [numero]
     assert "Concluído" not in _destinos(html, numero)
