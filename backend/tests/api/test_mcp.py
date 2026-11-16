@@ -75,7 +75,7 @@ def test_ferramentas_anunciadas(
     tools = {t["name"]: t for t in _rpc(client, raw, "tools/list")["tools"]}
     leitura = {"list_tickets", "get_ticket", "get_ticket_history", "list_options", "search_clients"}
     escrita = {"create_ticket", "add_task", "change_status", "assign_ticket", "transfer_ticket"}
-    escrita |= {"cancel_ticket"}
+    escrita |= {"cancel_ticket", "update_ticket"}
     assert set(tools) == leitura | escrita
     assert all(tools[n]["annotations"]["readOnlyHint"] for n in leitura)
     assert not any(tools[n]["annotations"]["readOnlyHint"] for n in escrita)
@@ -148,6 +148,63 @@ def test_escrita_registra_comenta_e_muda_o_status(
     tipos = {e["type"]: e for e in eventos(client, numero)}
     assert tipos["ticket.created"]["payload"]["via"] == "mcp"
     assert tipos["ticket.status_changed"]["payload"]["via"] == "mcp"
+
+
+def test_tarefa_com_a_data_em_que_foi_feita(
+    client: TestClient,
+    cenario: dict[str, Any],
+    db: Session,
+) -> None:
+    numero = registrar(client, cenario)["number"]
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com")
+    ontem = (datetime.now(UTC) - timedelta(days=1)).replace(microsecond=0)
+    tarefa = ferramenta(
+        client, ana, "add_task", number=numero, body="Ontem", done_at=ontem.isoformat()
+    )
+    assert datetime.fromisoformat(tarefa["done_at"]) == ontem
+    # Sem fuso, a data é ambígua: recusada
+    assert "done_at" in erro(
+        client, ana, "add_task", number=numero, body="x", done_at="2026-11-15T14:00:00"
+    )
+
+
+def test_altera_os_campos_do_chamado(
+    client: TestClient,
+    cenario: dict[str, Any],
+    db: Session,
+) -> None:
+    numero = registrar(client, cenario, beneficiary_name="João")["number"]
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com")
+    lido = ferramenta(client, ana, "get_ticket", number=numero)["ticket"]
+
+    r = ferramenta(
+        client,
+        ana,
+        "update_ticket",
+        number=numero,
+        title="Impressora do 3º andar",
+        contact="",
+        etag=lido["etag"],
+    )
+    assert r["title"] == "Impressora do 3º andar"
+    assert r["beneficiary_name"] is None
+    # Só os campos informados mudam
+    assert r["description"] == lido["description"]
+    assert r["client"] == lido["client"]
+    # O etag da leitura antiga não vale mais: não sobrescreve
+    texto = erro(client, ana, "update_ticket", number=numero, title="Outro", etag=lido["etag"])
+    assert texto == "O chamado foi alterado por outra pessoa. Recarregue e tente de novo."
+
+    client.headers["Authorization"] = f"Bearer {ana}"
+    alterado = next(e for e in eventos(client, numero) if e["type"] == "ticket.updated")
+    assert alterado["payload"]["via"] == "mcp"
+    assert set(alterado["payload"]["changes"]) == {"title", "beneficiary_name"}
+
+    leitura = criar_token(db, "ana@x.com", "read")
+    texto = erro(client, leitura, "update_ticket", number=numero, title="Não pode")
+    assert texto == "Este token de API só permite leitura."
 
 
 def test_token_de_leitura_nao_altera(

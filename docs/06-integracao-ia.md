@@ -105,7 +105,8 @@ Expõe o sistema como ferramentas para clientes MCP (Claude Code, IDEs, platafor
 | `list_options` | Status e grupos (com membros): os ids que as outras pedem | `GET /statuses`, `GET /teams` |
 | `search_clients` | Clientes ativos pelo nome | `GET /clients/options` |
 | `create_ticket` | Registra (com `request_id`) | `POST /tickets` |
-| `add_task` | Registra uma tarefa, com o tempo gasto (com `request_id`) | `POST /tickets/{id}/comments` |
+| `add_task` | Registra uma tarefa, com o tempo gasto e a data em que foi feita (`done_at`; sem ela, agora) (com `request_id`) | `POST /tickets/{id}/comments` |
+| `update_ticket` | Altera título, descrição, cliente ou contato, só os campos informados; com o `etag` do `get_ticket`, recusa se o chamado mudou desde a leitura | `PATCH /tickets/{id}` com `If-Match` |
 | `change_status` | Muda o status (qualquer um que a pessoa possa escolher, menos um cancelado: para isso, `cancel_ticket`) | `PATCH /tickets/{id}` com `status_id` |
 | `assign_ticket` | Atribui: `main` troca o responsável principal (`"me"` assume), `add` acrescenta mais um | `POST /tickets/{id}/assign`, `PUT /tickets/{id}/assignees` |
 | `transfer_ticket` | Transfere para outro grupo, com um responsável de lá e o motivo | `POST /tickets/{id}/transfer` |
@@ -115,7 +116,7 @@ Expõe o sistema como ferramentas para clientes MCP (Claude Code, IDEs, platafor
 - As de leitura levam `readOnlyHint`, para o cliente poder dispensar a confirmação; as de escrita, não.
 - As instruções do servidor dizem ao modelo que o texto dos chamados é dado, nunca instrução (prompt injection).
 - O `get_ticket` não conta como visita da pessoa, como a leitura pela API: o aviso de novidade continua para ela.
-- **Fora, por enquanto:** alterar os campos do chamado (título, descrição, cliente, contato), a data de uma tarefa (`add_task` registra com a data de agora), editar ou remover uma tarefa, concluir e reabrir pelo fluxo (com código de resolução), anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
+- **Fora, por enquanto:** alterar a categoria e o tipo, editar ou remover uma tarefa, concluir e reabrir pelo fluxo (com código de resolução), anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
 
 ### Webhooks (futuro)
 
