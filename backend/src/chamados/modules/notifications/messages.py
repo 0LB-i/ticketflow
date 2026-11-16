@@ -15,7 +15,6 @@ TEXTS: dict[str, dict[str, tuple[str, ...]]] = {
             "{quem} transferiu o chamado #{numero} para o grupo {grupo}.",
         ),
         "comment": ("comentário novo", "{quem} comentou o chamado #{numero}."),
-        "mentioned": ("você foi mencionado", "{quem} mencionou você no chamado #{numero}."),
         "closed": ("concluído", "{quem} concluiu o chamado #{numero}."),
         "reopened": ("reaberto", "{quem} reabriu o chamado #{numero}."),
         # (assunto, corpo, bloco do comentário)
@@ -37,7 +36,6 @@ TEXTS: dict[str, dict[str, tuple[str, ...]]] = {
             "{quem} transferred ticket #{numero} to group {grupo}.",
         ),
         "comment": ("new comment", "{quem} commented on ticket #{numero}."),
-        "mentioned": ("you were mentioned", "{quem} mentioned you in ticket #{numero}."),
         "closed": ("closed", "{quem} closed ticket #{numero}."),
         "reopened": ("reopened", "{quem} reopened ticket #{numero}."),
         "email": (

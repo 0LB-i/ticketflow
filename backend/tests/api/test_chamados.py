@@ -510,53 +510,23 @@ def test_cliente_e_contato_do_chamado(
     assert client.patch(url, json={"client_id": antigo}).status_code == 422
 
 
-# --- comentários, menções e observadores ---------------------------------------------------------
+# --- comentários -------------------------------------------------------------------------------
 
 
-def test_mencao_torna_observador_que_so_comenta(
-    client: TestClient, cenario: dict[str, Any]
-) -> None:
+def test_sem_observadores_nem_mencoes(client: TestClient, cenario: dict[str, Any]) -> None:
+    """Removidos em 2026-11-16: "@Nome" no texto é só texto e não dá acesso ao chamado."""
     t = registrar(client, cenario)
     url = f"{API}/{t['number']}"
+    assert "watchers" not in t
     r = client.post(
         f"{url}/comments",
         json={"body": "@Caio consegue olhar a porta 12?", "mention_ids": [cenario["caio"]]},
     )
     assert r.status_code == 201
-    assert client.get(url).json()["watchers"] == [
-        {"id": cenario["caio"], "display_name": "Caio", "kind": "mentioned"}
-    ]
+    assert client.put(f"{url}/watchers/{cenario['caio']}").status_code in (404, 405)
 
     entrar(client, "caio@x.com")
-    detalhe = client.get(url).json()
-    assert detalhe["allowed_actions"] == ["comment", "watch_self"]
-    assert client.post(f"{url}/comments", json={"body": "Porta ok."}).status_code == 201
-    assert client.patch(url, json={"title": "Outro título"}).status_code == 403
-    assert client.post(f"{url}/assign", json={"assignee": "me"}).status_code == 403
-    assert [c["body"] for c in client.get(f"{url}/comments").json()["items"]] == [
-        "@Caio consegue olhar a porta 12?",
-        "Porta ok.",
-    ]
-    # Observador de fora se retira; aí deixa de ver
-    assert client.delete(f"{url}/watchers/{cenario['caio']}").status_code == 204
     assert client.get(url).status_code == 403
-
-
-def test_observadores(client: TestClient, cenario: dict[str, Any]) -> None:
-    t = registrar(client, cenario, watcher_ids=[cenario["bia"]])
-    url = f"{API}/{t['number']}"
-    assert [w["display_name"] for w in t["watchers"]] == ["Bia"]
-    assert client.put(f"{url}/watchers/{cenario['caio']}").status_code == 204
-    assert [w["display_name"] for w in client.get(url).json()["watchers"]] == ["Bia", "Caio"]
-    assert client.put(f"{url}/watchers/{cenario['caio']}").status_code == 204  # já acompanha
-    assert client.delete(f"{url}/watchers/{cenario['caio']}").status_code == 204
-    assert client.delete(f"{url}/watchers/{cenario['caio']}").status_code == 404
-    tipos = [e["type"] for e in eventos(client, t["number"])]
-    assert tipos.count("watcher.added") == 2 and tipos.count("watcher.removed") == 1
-
-    # Quem não vê o chamado não consegue se incluir
-    entrar(client, "caio@x.com")
-    assert client.put(f"{url}/watchers/{cenario['caio']}").status_code == 403
 
 
 def test_edicao_de_tarefa_pelo_autor_sem_prazo(
@@ -845,7 +815,7 @@ def test_transferencia(client: TestClient, cenario: dict[str, Any]) -> None:
     assert t["team"]["name"] == "Infra" and t["assignee"]["display_name"] == "Caio"
     assert t["status"]["name"] == "Pendente"
     # O grupo anterior continua vendo, mas não altera mais
-    assert t["allowed_actions"] == ["watch_self"]
+    assert t["allowed_actions"] == []
     assert client.patch(url, json={"title": "Novo"}).status_code == 403
     assert client.get(f"{url}/comments").json()["items"][0]["body"] == "É da rede"
     transferido = eventos(client, t["number"])[-1]

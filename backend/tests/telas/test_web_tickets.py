@@ -136,22 +136,17 @@ def test_admin_filtra_concluidos_e_cancelados_em_todas_as_filas(
         json={"action": "close", "comment": "Pronto", "resolution_code_id": 1},
     )
     client.post(f"{API}/{cancelado}/transitions", json={"action": "cancel", "comment": "Engano"})
-    admin = client.get("/api/v1/me").json()["id"]
-    for numero in (aberto, concluido, cancelado):
-        assert client.put(f"{API}/{numero}/watchers/{admin}").status_code == 204
 
     concluido_id, cancelado_id = status_id(client, "Concluído"), status_id(client, "Cancelado")
-    for aba in ("meus", "aguardando", "acompanhando"):
+    for aba in ("meus", "aguardando"):
         r = client.get(f"/chamados?aba={aba}")
         assert f'<option value="{concluido_id}">Concluído</option>' in r.text
         assert f'<option value="{cancelado_id}">Cancelado</option>' in r.text
-    # A fila continua a mesma (os meus, os que acompanho); o status escolhido troca o "em
+    # A fila continua a mesma (os meus, os dos meus grupos); o status escolhido troca o "em
     # andamento". Sem escolha, só os em andamento, e as contagens também.
     assert _numeros(client.get("/chamados?aba=meus").text) == [aberto]
     assert _numeros(client.get(f"/chamados?aba=meus&status={concluido_id}").text) == [concluido]
-    assert _numeros(client.get(f"/chamados?aba=acompanhando&status={cancelado_id}").text) == [
-        cancelado
-    ]
+    assert _numeros(client.get(f"/chamados?aba=meus&status={cancelado_id}").text) == [cancelado]
     assert _numeros(client.get(f"/chamados?aba=aguardando&status={concluido_id}").text) == [
         concluido
     ]

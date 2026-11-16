@@ -151,9 +151,6 @@ EN: dict[str, str] = {
     "O responsável precisa ser um membro ativo do grupo.": (
         "The assignee must be an active member of the team."
     ),
-    "Observador ou mencionado não encontrado ou inativo.": (
-        "Watcher or mentioned user not found or inactive."
-    ),
     "Escolha o grupo: a categoria não tem um grupo padrão ativo.": (
         "Choose the team: the category has no active default team."
     ),
@@ -227,7 +224,6 @@ EN: dict[str, str] = {
     ),
     "Escreva o comentário do tempo gasto.": "Write a comment for the time spent.",
     "Escolha o código de resolução.": "Choose the resolution code.",
-    "Este usuário não acompanha o chamado.": "This user is not watching the ticket.",
     # Configurações
     "Logotipo inválido: envie uma imagem PNG, JPEG ou WebP.": (
         "Invalid logo: upload a PNG, JPEG or WebP image."

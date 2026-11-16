@@ -35,7 +35,6 @@ erDiagram
     tickets ||--o{ attachments : anexos
     ticket_comments ||--o{ attachments : anexos
     tickets ||--o{ ticket_events : historico
-    tickets ||--o{ ticket_watchers : observadores
     tickets ||--o{ ticket_links : vinculos
     tickets ||--o{ ticket_approvals : aprovacoes
     kb_articles ||--o{ attachments : anexos
@@ -49,7 +48,7 @@ erDiagram
 | Número do chamado | Coluna `number` alimentada pela sequence `ticket_number_seq`, exibida como `#000123` | Legível para humanos |
 | Status | Tabela `ticket_statuses` com um `kind` fixo (`approval`, `open`, `waiting`, `closed`, `canceled`); status novos criados pelo admin escolhem um `kind` | Nomes de status configuráveis, enquanto as regras dependem do `kind` |
 | Para quem é o chamado | `tickets.client_id` (cliente) e `tickets.beneficiary_name` (contato, texto livre). Os setores atendidos (`departments`) saíram antes da migração base | Os atendidos não têm conta ([08](08-organizacao-e-permissoes.md)); os campos servem aos relatórios |
-| Visibilidade | `ticket_teams` (grupos que já atuaram) e `ticket_watchers` (inclui mencionados) alimentam o filtro de visibilidade | Regras 2 e 4 de [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) sem varrer o histórico |
+| Visibilidade | `ticket_teams` (grupos que já atuaram) alimenta o filtro de visibilidade | Regra 2 de [8.4](08-organizacao-e-permissoes.md#84-regras-de-visibilidade-de-chamados) sem varrer o histórico |
 | Papéis | Tabela `roles` com `permissions text[]`; papéis do sistema vindos de *seed*. Hoje as permissões em vigor vêm do código (`core/permissions.py`); a coluna prepara os papéis personalizados | Papéis personalizados (futuro) sem mudar o schema |
 | Auditoria | `ticket_events` (o que acontece no chamado) separado de `audit_log` (login, administração, permissões) | Consultas e retenção diferentes |
 | Anexos | Tabela única `attachments` com dono opcional; sem visibilidade própria (vale a do chamado); sem dono = upload temporário | Upload em duas etapas ([11.4](11-anexos-e-arquivos.md#114-fluxo-de-envio-em-duas-etapas)) |

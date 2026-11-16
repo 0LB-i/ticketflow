@@ -35,7 +35,6 @@ MATRIZ = {
     P.TICKET_TRANSFER: (S, S, S, N),
     P.TICKET_TRANSITION: (S, S, S, N),
     P.TICKET_APPROVE: (N, S, S, N),
-    P.TICKET_WATCH: (S, S, S, N),
     P.TICKET_MERGE: (S, S, S, N),
     P.TICKET_BULK: (N, S, S, N),
     P.TICKET_HIDE_CONTENT: (N, S, S, N),
@@ -79,9 +78,9 @@ def test_permissoes_efetivas_incluem_as_de_supervisor() -> None:
     assert "ticket.approve" in effective_permissions(supervisor)
 
 
-def _base() -> Any:
-    caminho = Path(__file__).parents[2] / "migrations/versions/0047_base.py"
-    spec = importlib.util.spec_from_file_location("migracao_base", caminho)
+def _migracao(arquivo: str) -> Any:
+    caminho = Path(__file__).parents[2] / "migrations/versions" / arquivo
+    spec = importlib.util.spec_from_file_location(arquivo.removesuffix(".py"), caminho)
     assert spec and spec.loader
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
@@ -95,11 +94,13 @@ def test_clientes_so_pelo_grupo_marcado() -> None:
 
 
 def test_papeis_da_migracao_batem_com_o_catalogo() -> None:
-    # Os papéis do sistema e as permissões que a migração base grava em roles.permissions.
-    papeis = _base().SYSTEM_ROLES
+    # Os papéis do sistema e as permissões que a migração base grava em roles.permissions,
+    # menos as que a 0050 tirou.
+    papeis = _migracao("0047_base.py").SYSTEM_ROLES
+    removidas = set(_migracao("0050_sem_observadores.py").REMOVED_PERMISSIONS)
     assert {codigo for codigo, _, _ in papeis} == set(ROLES)
     for codigo, _, permissoes in papeis:
-        assert set(permissoes) == {str(p) for p in ROLES[codigo]}, codigo
+        assert set(permissoes) - removidas == {str(p) for p in ROLES[codigo]}, codigo
 
 
 def test_papel_cliente_nao_tem_nenhuma_permissao() -> None:

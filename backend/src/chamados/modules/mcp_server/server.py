@@ -196,10 +196,10 @@ def build(app: FastAPI) -> MCPServer:
     async def list_tickets(
         ctx: Context,
         view: Annotated[
-            Literal["mine", "waiting", "watching", "all"],
+            Literal["mine", "waiting", "all"],
             Field(
                 description="fila: mine (sou responsável, em aberto), waiting (aguardando, nos "
-                "meus grupos), watching (acompanho), all (tudo o que vejo)"
+                "meus grupos), all (tudo o que vejo)"
             ),
         ] = "all",
         status: Annotated[

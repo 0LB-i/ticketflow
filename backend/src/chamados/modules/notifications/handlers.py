@@ -2,7 +2,7 @@
 
 Na Fase 1 (sem o sino), os eventos marcados só com 🔔 também vão por e-mail. Quem causou o evento
 não recebe, e quem está inativo, foi excluído ou não tem e-mail fica de fora. Cada pessoa recebe um
-e-mail só por ação: vale o primeiro motivo da lista do handler (menção, atribuição, o resto).
+e-mail só por ação: vale o primeiro motivo da lista do handler (atribuição, o resto).
 """
 
 import uuid
@@ -49,10 +49,6 @@ async def _team_members(db: AsyncSession, team_ref: dict[str, Any]) -> list[User
 
 def _assignees(ticket: Ticket) -> list[User]:
     return [ticket.assignee, *(c.user for c in ticket.co_assignees)]
-
-
-def _watchers(ticket: Ticket) -> list[User]:
-    return [w.user for w in ticket.watchers]
 
 
 async def _send(
@@ -102,7 +98,7 @@ async def _ticket(db: AsyncSession, event: OutboxEvent) -> Ticket:
         await db.scalars(
             select(Ticket)
             .where(Ticket.id == event.payload["ticket_id"])
-            .options(selectinload(Ticket.watchers), selectinload(Ticket.co_assignees))
+            .options(selectinload(Ticket.co_assignees))
         )
     ).one()
 
@@ -111,7 +107,6 @@ async def ticket_created(db: AsyncSession, settings: Settings, event: OutboxEven
     ticket = await _ticket(db, event)
     data = event.payload["data"]
     recipients: list[tuple[str, Iterable[User]]] = [
-        ("mentioned", await _users(db, event.payload.get("mention_ids", []))),
         ("assigned", await _users(db, [data["assignee"], *data.get("co_assignees", [])])),
     ]
     # O grupo é avisado conforme a configuração dele (docs/10 §10.4).
@@ -141,7 +136,7 @@ async def ticket_transferred(db: AsyncSession, settings: Settings, event: Outbox
 
 async def status_changed(db: AsyncSession, settings: Settings, event: OutboxEvent) -> None:
     """Concluído (entrando num status `closed`) e reaberto (saindo de um, menos para cancelado); os
-    demais, só para quem foi mencionado no comentário da mudança."""
+    demais não avisam ninguém."""
     ticket = await _ticket(db, event)
     data = event.payload["data"]
     rows = await db.execute(
@@ -151,23 +146,17 @@ async def status_changed(db: AsyncSession, settings: Settings, event: OutboxEven
     )
     kinds = {status_id: kind for status_id, kind in rows}
     before, after = kinds.get(data["from"]["id"]), kinds.get(data["to"]["id"])
-    recipients: list[tuple[str, Iterable[User]]] = [
-        ("mentioned", await _users(db, event.payload.get("mention_ids", [])))
-    ]
+    recipients: list[tuple[str, Iterable[User]]] = []
     if after == "closed" and before != "closed":
-        recipients.append(("closed", [*_watchers(ticket), ticket.created_by]))
+        recipients.append(("closed", [ticket.created_by]))
     elif before == "closed" and after not in ("closed", "canceled"):
-        recipients.append(("reopened", [*_assignees(ticket), *_watchers(ticket)]))
+        recipients.append(("reopened", _assignees(ticket)))
     await _send(db, settings, event, ticket, recipients)
 
 
 async def comment_created(db: AsyncSession, settings: Settings, event: OutboxEvent) -> None:
     ticket = await _ticket(db, event)
-    recipients = [
-        ("mentioned", await _users(db, event.payload.get("mention_ids", []))),
-        ("comment", [*_assignees(ticket), *_watchers(ticket)]),
-    ]
-    await _send(db, settings, event, ticket, recipients)
+    await _send(db, settings, event, ticket, [("comment", _assignees(ticket))])
 
 
 HANDLERS: dict[str, Handler] = {

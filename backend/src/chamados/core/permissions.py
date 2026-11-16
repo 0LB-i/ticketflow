@@ -33,7 +33,6 @@ class P(StrEnum):
     TICKET_TRANSFER = "ticket.transfer"
     TICKET_TRANSITION = "ticket.transition"
     TICKET_APPROVE = "ticket.approve"
-    TICKET_WATCH = "ticket.watch"
     TICKET_MERGE = "ticket.merge"
     TICKET_BULK = "ticket.bulk"
     TICKET_HIDE_CONTENT = "ticket.hide_content"
@@ -75,7 +74,6 @@ ROLES: dict[str, frozenset[P]] = {
             P.TICKET_ASSIGN_OTHERS,
             P.TICKET_TRANSFER,
             P.TICKET_TRANSITION,
-            P.TICKET_WATCH,
             P.TICKET_MERGE,
             P.KB_READ,
             P.KB_WRITE,

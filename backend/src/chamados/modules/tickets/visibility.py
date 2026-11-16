@@ -8,7 +8,7 @@ from sqlalchemy import ColumnElement, and_, exists, false, or_, true
 
 from chamados.core.permissions import CLIENT_ROLE, Actor, P, can
 from chamados.modules.catalog.models import Category
-from chamados.modules.tickets.models import Ticket, TicketCoAssignee, TicketTeam, TicketWatcher
+from chamados.modules.tickets.models import Ticket, TicketCoAssignee, TicketTeam
 
 # Regra 6: leem tudo, inclusive os confidenciais (o acesso a estes vai para a auditoria).
 SEE_EVERYTHING = frozenset({"admin", "auditor"})
@@ -32,12 +32,7 @@ def ticket_visibility_filter(actor: Actor) -> ColumnElement[bool]:
         # confidenciais), e nenhum outro.
         return Ticket.client_id == actor.client_id if actor.client_id else false()
     not_confidential = ~exists().where(Category.id == Ticket.category_id, Category.is_confidential)
-    rules: list[ColumnElement[bool]] = [
-        assigned_to(actor.user_id),  # 3
-        exists().where(  # 4 (inclui os mencionados)
-            TicketWatcher.ticket_id == Ticket.id, TicketWatcher.user_id == actor.user_id
-        ),
-    ]
+    rules: list[ColumnElement[bool]] = [assigned_to(actor.user_id)]  # 3
     if can(actor, P.TICKET_VIEW_TEAM) and actor.teams:
         rules.append(Ticket.team_id.in_(actor.teams))  # 1
         rules.append(  # 2: grupos que atuaram antes de uma transferência
@@ -54,10 +49,9 @@ def ticket_visibility_filter(actor: Actor) -> ColumnElement[bool]:
 
 
 def sees_without_privilege(actor: Actor, ticket: Ticket) -> bool:
-    """Regras 1, 3 e 4: o acesso de admin/auditor fora delas a um confidencial é auditado."""
+    """Regras 1 e 3: o acesso de admin/auditor fora delas a um confidencial é auditado."""
     return (
         ticket.team_id in actor.teams
         or ticket.assignee_id == actor.user_id
         or any(c.user_id == actor.user_id for c in ticket.co_assignees)
-        or any(w.user_id == actor.user_id for w in ticket.watchers)
     )

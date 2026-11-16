@@ -113,7 +113,7 @@ Expõe o sistema como ferramentas para clientes MCP (Claude Code, IDEs, platafor
 - As de leitura levam `readOnlyHint`, para o cliente poder dispensar a confirmação; as de escrita, não.
 - As instruções do servidor dizem ao modelo que o texto dos chamados é dado, nunca instrução (prompt injection).
 - O `get_ticket` não conta como visita da pessoa: o aviso de novidade continua para ela.
-- **Fora, por enquanto:** concluir e reabrir pelo fluxo (com código de resolução), observadores, anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
+- **Fora, por enquanto:** concluir e reabrir pelo fluxo (com código de resolução), anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
 
 ### Webhooks
 

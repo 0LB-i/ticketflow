@@ -13,7 +13,7 @@ Este documento define **quem é quem** no sistema e **quem pode fazer o quê**. 
 | **Grupo** | `team` | Equipe que registra e executa chamados. Cada grupo tem uma fila. | TI – Suporte; TI – Infraestrutura; RH – Departamento Pessoal |
 | **Categoria** | `category` | **O que** é a tarefa. Árvore de até 3 níveis. | TI › Acessos › Novo acesso a sistema; TI › Equipamentos › Instalação |
 | **Papel** | `role` | Conjunto de permissões **globais** do usuário | Agente, Administrador, Auditor |
-| **Atribuição contextual** | — | Permissão extra que vale só em um contexto | Supervisor *de um grupo*, observador *de um chamado* |
+| **Atribuição contextual** | — | Permissão extra que vale só em um contexto | Supervisor *de um grupo* |
 
 ```mermaid
 erDiagram
@@ -46,7 +46,6 @@ erDiagram
 | Atribuição | Como se ganha | O que acrescenta |
 |------------|---------------|------------------|
 | **Supervisor de grupo** | `team_members.role = 'supervisor'` | No seu grupo: atribui chamados a qualquer membro, **aprova** chamados das categorias que exigem aprovação, vê relatórios do grupo e (Fase 2) adiciona e remove membros |
-| **Observador** | Adicionado ao chamado por um colega, ou se adiciona sozinho | Vê o chamado, comenta e recebe as atualizações, mesmo sendo de outro grupo |
 
 ### Papéis personalizados (futuro)
 
@@ -70,7 +69,6 @@ As permissões são códigos fixos definidos no código (`core/permissions.py`).
 | `ticket.transfer` | Transferir para outro grupo |
 | `ticket.transition` | Mudar status (respeitando o [fluxo](10-chamados.md#105-status-e-fluxo)) |
 | `ticket.approve` | Aprovar ou reprovar chamados que aguardam aprovação |
-| `ticket.watch` | Adicionar e remover observadores |
 | `ticket.merge` | Mesclar duplicados e vincular chamados |
 | `ticket.bulk` | Ações em massa |
 | `ticket.hide_content` | Ocultar comentário ou anexo (com motivo; o conteúdo fica na auditoria) |
@@ -109,7 +107,6 @@ Futuro: `admin.roles` (papéis personalizados), `admin.integrations` (tokens de 
 | `ticket.transfer` | ✅ | ✅ | — |
 | `ticket.transition` | ✅ | ✅ | — |
 | `ticket.approve` | 👤 | ✅ | — |
-| `ticket.watch` | ✅ | ✅ | — |
 | `ticket.merge` | ✅ | ✅ | — |
 | `ticket.bulk` | 👤 | ✅ | — |
 | `ticket.hide_content` | 👤 | ✅ | — |
@@ -135,7 +132,7 @@ Um usuário **vê** um chamado se **pelo menos uma** condição for verdadeira:
 | 1 | É membro do **grupo atual** do chamado |
 | 2 | É membro de um grupo que **já atuou** no chamado (antes de uma transferência) |
 | 3 | É o **responsável** atual |
-| 4 | É **observador** (inclui quem foi mencionado com `@nome`, que vira observador automaticamente) |
+| 4 | *(Removida em 2026-11-16: era ser observador ou mencionado)* |
 | 5 | Tem `ticket.view_all` e a categoria **não** é confidencial |
 | 6 | É **administrador** ou **auditor**. O acesso a chamados confidenciais fica registrado na auditoria |
 | 7 | Tem o papel **Cliente** e o chamado é da **empresa dele** (`tickets.client_id`), inclusive os confidenciais. Para esse papel, só esta regra vale |
@@ -144,9 +141,9 @@ Todos os comentários e anexos são visíveis a quem vê o chamado: não existe 
 
 **Casos importantes:**
 
-- **Categorias confidenciais** (ex.: RH › Folha de pagamento) ficam restritas às regras 1, 3, 4 e 6. Grupos que atuaram antes de uma transferência deixam de ver, e `ticket.view_all` não basta.
+- **Categorias confidenciais** (ex.: RH › Folha de pagamento) ficam restritas às regras 1, 3 e 6. Grupos que atuaram antes de uma transferência deixam de ver, e `ticket.view_all` não basta.
 - Depois de uma transferência, os membros do grupo anterior **continuam vendo** o chamado (regra 2), mas não podem mais alterá-lo.
-- **Alterar** um chamado exige vê-lo **e** ser membro do grupo atual (ou admin), além da permissão específica. Observadores de outros grupos só comentam.
+- **Alterar** um chamado exige vê-lo **e** ser membro do grupo atual (ou admin), além da permissão específica. O responsável que é de outro grupo só comenta.
 
 ### Implementação
 
@@ -156,14 +153,13 @@ Todos os comentários e anexos são visíveis a quem vê o chamado: não existe 
 
 ## 8.5 O que cada perfil pode alterar em um chamado
 
-| Campo | Membro do grupo | Supervisor do grupo | Observador de outro grupo |
+| Campo | Membro do grupo | Supervisor do grupo | Responsável de outro grupo |
 |-------|-----------------|---------------------|---------------------------|
 | Título, descrição, categoria, tipo | Sim | Sim | — |
 | Cliente e contato | Sim | Sim | — |
 | Grupo (transferência) | Sim, com motivo | Sim | — |
 | Responsável | Assumir para si (todo chamado tem responsável: não volta para a fila) | Qualquer membro do grupo | — |
 | Status | Conforme o fluxo | Conforme o fluxo + aprovar | — |
-| Observadores | Sim | Sim | Remover a si mesmo |
 | Tags | Sim | Sim | — |
 | Comentários | Sim | Sim | Sim |
 

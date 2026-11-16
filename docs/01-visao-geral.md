@@ -39,7 +39,7 @@ Construir uma ferramenta de trabalho para as equipes que:
 
 - Registro de chamados pela própria equipe, com cliente e pessoa atendidos
 - Filas, atribuição, transferência, status e categorias
-- Comentários com @menções, observadores e anexos
+- Comentários com anexos
 - Aprovação do supervisor para categorias selecionadas
 - Notificações por e-mail e no sistema
 - Busca textual em português

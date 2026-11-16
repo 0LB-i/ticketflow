@@ -84,10 +84,10 @@ O roteiro, como estava. Lista do que muda:
 
 | O quê | Situação |
 |-------|----------|
-| Editor (menções, imagem colada) sem teste automático | Os testes do Vue saíram com a SPA. Conferido no jsdom; fica para o Playwright |
+| Editor (imagem colada) sem teste automático | Os testes do Vue saíram com a SPA. Conferido no jsdom; fica para o Playwright |
 | Erro 4xx num trecho pedido pelo HTMX | A tela fica como estava, sem aviso. Raro: esses pedidos são só leitura |
 | JavaScript das telas sem teste automático | Desde a WEB-06 não há jsdom no projeto. Mudanças em `web/static/js/` são conferidas no navegador até os testes com Playwright (F1-S5-04) |
 | Primeiro deploy em produção | Precisa de acesso ao GitHub para baixar o binário do Tailwind (CHANGELOG, docs/18) |
 | Templates novos no deploy | Valem assim que o `update.sh` termina; o código Python, só depois do restart. Reiniciar logo depois da atualização |
-| Select que envia ao mudar, pelo teclado | Status, observadores e "Atribuir a" da lateral do chamado, os filtros da lista de chamados e o período, o grupo e a pessoa dos relatórios são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |
+| Select que envia ao mudar, pelo teclado | Status e "Atribuir a" da lateral do chamado, os filtros da lista de chamados e o período, o grupo e a pessoa dos relatórios são `<select>` nativos com `data-envia-ao-mudar`. No Chrome (Windows e Linux) e no Firefox, a seta com o campo fechado já troca o valor e envia: no "Atribuir a", a primeira opção é "Todas as pessoas do grupo". Na SPA, a lista do Reka UI só enviava ao escolher. A decidir: botão de confirmar ou enviar só com Enter ou clique |
 | Validação dos formulários | O servidor confere tudo. Campo `required` escondido bloqueia o envio no navegador sem avisar (aconteceu nos clientes). Campos de um tipo que não está em uso vão num `<fieldset disabled>` |

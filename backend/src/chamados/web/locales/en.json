@@ -175,9 +175,7 @@
     "negrito": "Bold",
     "italico": "Italic",
     "lista": "List",
-    "listaNumerada": "Numbered list",
-    "mencionar": "Mention a colleague",
-    "ninguem": "No one found"
+    "listaNumerada": "Numbered list"
   },
   "tipos": {
     "incident": "Incident",
@@ -201,7 +199,6 @@
     "abas": {
       "mine": "Mine",
       "waiting": "Waiting",
-      "watching": "Watching",
       "all": "All"
     },
     "filtros": {
@@ -230,7 +227,6 @@
     "vazio": {
       "mine": "No tickets with you.",
       "waiting": "No tickets waiting.",
-      "watching": "You are not watching any open ticket.",
       "all": "No tickets found.",
       "busca": "No tickets match this search."
     },
@@ -267,7 +263,7 @@
     "tituloDica": "What needs to be done, in a few words.",
     "tituloCurto": "Enter a title with at least 3 letters.",
     "descricao": "Description",
-    "descricaoDica": "Details. Type the at sign and a name to mention a colleague.",
+    "descricaoDica": "Details.",
     "usuarios": "Users",
     "escolhaResponsavel": "Choose at least one assignee.",
     "adicionarUsuario": "Add person…",
@@ -296,13 +292,6 @@
     "transferir": "Transfer",
     "atribuirA": "Assign to",
     "escolhaMembro": "Choose a team member",
-    "observadores": "Watchers",
-    "acompanhar": "Watch",
-    "deixarDeAcompanhar": "Stop watching",
-    "semObservadores": "No one is watching this ticket.",
-    "adicionarObservador": "Add watcher",
-    "adicionarColega": "Add colleague…",
-    "removerObservador": "Remove {nome} from watchers",
     "transferirTitulo": "Transfer to another team",
     "transferirTexto": "The ticket goes to the other team, assigned to the person you choose. Your team can still see it but can no longer change it.",
     "grupoDestino": "Destination team",
@@ -319,7 +308,7 @@
     "removerTarefaPergunta": "Remove this task?",
     "feitaEm": "Task date and time",
     "novoComentario": "Task",
-    "comentarioDica": "Describe the task done. Type the at sign and a name to mention a colleague.",
+    "comentarioDica": "Describe the task done.",
     "tempoGasto": "Time spent",
     "tempoInvalido": "Enter valid hours and minutes, such as 01:30.",
     "semTempo": "No time logged.",
@@ -342,10 +331,6 @@
       "atribuido": "Assignee changed",
       "cliente": "Client changed",
       "transferido": "Ticket transferred",
-      "observador": "Watcher added",
-      "observadorRemovido": "Watcher removed",
-      "acompanhando": "You are watching the ticket",
-      "deixouDeAcompanhar": "You stopped watching the ticket",
       "status": "Status changed",
       "dataConclusao": "Date changed",
       "titulo": "Title changed",

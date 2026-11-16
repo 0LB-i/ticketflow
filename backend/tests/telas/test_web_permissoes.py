@@ -90,7 +90,7 @@ def _protected() -> dict[Callable[..., Any], set[P]]:
 
 class _Calls(ast.NodeVisitor):
     """Percorre uma função da tela: as permissões das funções protegidas da API que ela usa
-    (chamadas, ou passadas adiante como em `api_call = tickets_api.add_watcher`) e as funções do
+    (chamadas, ou passadas adiante numa variável, como `api_call = tickets_api.x`) e as funções do
     mesmo módulo que ela chama. Dentro de `if page.can("x")`, a permissão x já foi conferida."""
 
     def __init__(self, module: ModuleType, protected: dict[Callable[..., Any], set[P]]) -> None:

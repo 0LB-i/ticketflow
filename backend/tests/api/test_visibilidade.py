@@ -9,7 +9,7 @@ from chamados.core.permissions import Actor
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.catalog.models import TicketStatus
 from chamados.modules.identity.models import User
-from chamados.modules.tickets.models import Ticket, TicketTeam, TicketWatcher
+from chamados.modules.tickets.models import Ticket, TicketTeam
 from chamados.modules.tickets.visibility import ticket_visibility_filter
 from tests.conftest import criar_categoria, criar_usuario, entrar, grupo
 
@@ -19,13 +19,12 @@ CHAMADOS = {
     "transferido do TI": "regra 2: o TI atuou antes, agora está na Infra",
     "confidencial transferido do TI": "regra 2 não vale para confidencial",
     "atribuído à Ana na Infra": "regra 3: responsável, mesmo fora do grupo",
-    "confidencial observado pela Bia": "regra 4: observador",
 }
 TODOS = set(CHAMADOS)
 ESPERADO = {
     "ana": {"do TI", "transferido do TI", "atribuído à Ana na Infra"},
-    "bia": {"transferido do TI", "atribuído à Ana na Infra", "confidencial observado pela Bia"},
-    "caio": {"confidencial transferido do TI", "confidencial observado pela Bia"},
+    "bia": {"transferido do TI", "atribuído à Ana na Infra"},
+    "caio": {"confidencial transferido do TI"},
     "admin": TODOS,
     "auditor": TODOS,
     "sem grupo": set(),
@@ -70,8 +69,6 @@ def _cenario(db: Session) -> dict[str, User]:
     chamado("transferido do TI", infra.id, [ti.id], normal.id)
     chamado("confidencial transferido do TI", rh.id, [ti.id], folha.id)
     chamado("atribuído à Ana na Infra", infra.id, [], normal.id, assignee_id=users["ana"].id)
-    observado = chamado("confidencial observado pela Bia", rh.id, [], folha.id)
-    db.add(TicketWatcher(ticket_id=observado.id, user_id=users["bia"].id, kind="mentioned"))
     db.commit()
     return users
 
@@ -124,7 +121,7 @@ def test_confidencial_lido_pelo_auditor_vai_para_a_auditoria(
     _cenario(db)
     entrar(client, "auditor@x.com")
     numeros = _numeros(db)
-    r = client.get(f"/api/v1/tickets/{numeros['confidencial observado pela Bia']}")
+    r = client.get(f"/api/v1/tickets/{numeros['confidencial transferido do TI']}")
     assert r.status_code == 200
     assert r.json()["allowed_actions"] == []
     assert client.get(f"/api/v1/tickets/{numeros['do TI']}").status_code == 200

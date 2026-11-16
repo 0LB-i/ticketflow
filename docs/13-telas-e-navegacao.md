@@ -54,7 +54,7 @@ flowchart LR
 | `/login` | Login | Todos | 1 |
 | `/esqueci-senha` · `/redefinir-senha/:token` · `/convite/:token` | Recuperação de senha e primeiro acesso | Todos | 1 |
 | `/` | **Início** | Todos (conteúdo muda por perfil, 13.4) | 1 |
-| `/chamados` | **Filas** (abas: Meus, Aguardando, Acompanhando, Todos) | Agentes, admin, auditor (só leitura) | 1 |
+| `/chamados` | **Filas** (abas: Meus, Aguardando, Todos) | Agentes, admin, auditor (só leitura) | 1 |
 | `/chamados/novo` | **Novo chamado** ([10.4](10-chamados.md#formulário)) | Agentes, admin | 1 |
 | `/chamados/:numero` | **Detalhe do chamado**. O que aparece depende das permissões (`allowed_actions`) | Quem pode ver o chamado | 1 |
 | `/aprovacoes` | Aprovações pendentes e decididas | Supervisores, admin | 2 |
@@ -97,7 +97,7 @@ Páginas de erro: **403** ("Você não tem acesso a este chamado"), **404** e **
 
 ```
 Chamados
-[Meus 12] [Aguardando 5] [Acompanhando 2] [Todos]
+[Meus 12] [Aguardando 5] [Todos]
 Grupo: [TI – Suporte ▾]  Categoria: [Todas ▾]
 ┌───┬──────┬────────────────────────────┬──────────────┬───────────┬──────────┐
 │ ☐ │ #    │ Título                     │ Para         │ Responsáv.│ Parado há│

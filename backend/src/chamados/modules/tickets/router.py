@@ -150,19 +150,6 @@ async def transition_ticket(
     return await queries.load_detail(db, auth, ticket_ref)
 
 
-# 204: quem se retira de um chamado de outro grupo deixa de vê-lo.
-@router.put("/{ticket_ref}/watchers/{user_id}", status_code=204)
-async def add_watcher(ticket_ref: str, user_id: uuid.UUID, auth: CurrentAuth, db: DB) -> None:
-    ticket = await service.load(db, auth, ticket_ref)
-    await service.set_watcher(db, auth, ticket, user_id, watching=True)
-
-
-@router.delete("/{ticket_ref}/watchers/{user_id}", status_code=204)
-async def remove_watcher(ticket_ref: str, user_id: uuid.UUID, auth: CurrentAuth, db: DB) -> None:
-    ticket = await service.load(db, auth, ticket_ref)
-    await service.set_watcher(db, auth, ticket, user_id, watching=False)
-
-
 @router.get("/{ticket_ref}/comments", response_model=CommentList)
 async def list_comments(ticket_ref: str, auth: CurrentAuth, db: DB) -> CommentList:
     return await queries.comments(db, await service.load(db, auth, ticket_ref))

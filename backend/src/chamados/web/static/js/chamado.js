@@ -26,104 +26,10 @@ function formatarTamanho(bytes) {
   return `${formato.format(bytes / 1024 / 1024)} MB`
 }
 
-const semAcento = (s) =>
-  s
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-
 // --- editor (Tiptap → Markdown) -------------------------------------------------------------
 
-const editores = new WeakMap()
-
-function pessoas() {
-  const dados = document.getElementById('pessoas')
-  return dados ? JSON.parse(dados.textContent) : []
-}
-
-/** Lista de sugestões do @, posicionada embaixo do cursor. */
-function sugestoesDeMencao(caixa) {
-  let lista = null
-  let itens = []
-  let ativo = 0
-  let comando = null
-
-  function desenhar() {
-    lista.replaceChildren()
-    if (!itens.length) {
-      const vazio = document.createElement('li')
-      vazio.className = 'px-2 py-1 text-muted'
-      vazio.textContent = caixa.dataset.ninguem
-      lista.append(vazio)
-      return
-    }
-    itens.forEach((pessoa, i) => {
-      const li = document.createElement('li')
-      li.setAttribute('role', 'option')
-      li.setAttribute('aria-selected', String(i === ativo))
-      li.className =
-        'cursor-pointer rounded px-2 py-1 ' +
-        (i === ativo ? 'bg-primary-subtle text-primary' : 'hover:bg-surface-raised')
-      li.textContent = pessoa.label
-      li.addEventListener('mousedown', (e) => {
-        e.preventDefault()
-        comando(pessoa)
-      })
-      lista.append(li)
-    })
-  }
-
-  function posicionar(props) {
-    const rect = props.clientRect?.()
-    if (!rect || !lista) return
-    const esquerda = Math.min(rect.left, window.innerWidth - lista.offsetWidth - 8)
-    Object.assign(lista.style, {
-      position: 'fixed',
-      left: `${Math.max(8, esquerda)}px`,
-      top: `${rect.bottom + 4}px`,
-      zIndex: '50',
-    })
-  }
-
-  function atualizar(props) {
-    itens = props.items
-    comando = props.command
-    ativo = Math.min(ativo, Math.max(0, itens.length - 1))
-    desenhar()
-    posicionar(props)
-  }
-
-  return {
-    onStart(props) {
-      lista = document.createElement('ul')
-      lista.setAttribute('role', 'listbox')
-      lista.setAttribute('aria-label', caixa.dataset.mencionar)
-      lista.className =
-        'max-h-60 min-w-48 overflow-y-auto rounded-md border border-border bg-surface p-1 text-fg shadow-lg'
-      document.body.append(lista)
-      ativo = 0
-      atualizar(props)
-    },
-    onUpdate: atualizar,
-    onKeyDown({ event }) {
-      const n = itens.length
-      if (event.key === 'Escape' || !n) return false
-      if (event.key === 'ArrowDown') ativo = (ativo + 1) % n
-      else if (event.key === 'ArrowUp') ativo = (ativo + n - 1) % n
-      else if (event.key === 'Enter' || event.key === 'Tab') comando(itens[ativo])
-      else return false
-      desenhar()
-      return true
-    },
-    onExit() {
-      lista?.remove()
-      lista = null
-    },
-  }
-}
-
 function criarEditor(caixa) {
-  const { Editor, StarterKit, Markdown, Placeholder, Mention, Image } = window.Tiptap
+  const { Editor, StarterKit, Markdown, Placeholder, Image } = window.Tiptap
   const texto = caixa.querySelector('textarea')
   const area = caixa.querySelector('[data-editor-area]')
   const enviando = caixa.querySelector('[data-editor-enviando]')
@@ -135,20 +41,6 @@ function criarEditor(caixa) {
     Markdown,
     Placeholder.configure({ placeholder: caixa.dataset.placeholder || '' }),
   ]
-  if ('mencoes' in caixa.dataset) {
-    const colegas = pessoas()
-    extensoes.push(
-      Mention.extend({ renderMarkdown: (node) => `@${node.attrs?.label ?? ''}` }).configure({
-        HTMLAttributes: { class: 'mencao' },
-        renderText: ({ node }) => `@${node.attrs.label}`,
-        suggestion: {
-          items: ({ query }) =>
-            colegas.filter((p) => semAcento(p.label).includes(semAcento(query))).slice(0, 8),
-          render: () => sugestoesDeMencao(caixa),
-        },
-      }),
-    )
-  }
   const anexar = 'anexar' in caixa.dataset
   if (anexar) extensoes.push(Image)
 
@@ -218,7 +110,6 @@ function criarEditor(caixa) {
       }
     },
   })
-  editores.set(caixa, editor)
 
   for (const botao of caixa.querySelectorAll('[data-comando]')) {
     botao.addEventListener('click', () => editor.chain().focus()[botao.dataset.comando]().run())
@@ -231,23 +122,6 @@ function criarEditor(caixa) {
   caixa.querySelector('[data-editor-caixa]').hidden = false
   texto.hidden = true
   caixa.dataset.pronto = ''
-}
-
-/**
- * Ids das pessoas mencionadas. O texto guarda só "@Nome": quando o formulário volta com erro,
- * o editor recomeça do Markdown e as menções viram texto, por isso "@Nome" de um colega
- * também conta.
- */
-function mencionados(caixa) {
-  const ids = new Set()
-  editores.get(caixa)?.state.doc.descendants((node) => {
-    if (node.type.name === 'mention' && node.attrs.id) ids.add(String(node.attrs.id))
-  })
-  const texto = caixa.querySelector('textarea').value
-  for (const pessoa of pessoas()) {
-    if (texto.includes(`@${pessoa.label}`)) ids.add(pessoa.id)
-  }
-  return [...ids]
 }
 
 /** Arquivo ainda subindo (anexo ou imagem colada): o formulário espera. */
@@ -276,21 +150,9 @@ htmx.onLoad((raiz) => {
   for (const form of raiz.querySelectorAll('form')) atualizarBotoes(form)
 })
 
-// No envio: os ids das menções vão junto; com arquivo ainda subindo, o formulário espera.
+// Com arquivo ainda subindo, o formulário espera.
 document.addEventListener('submit', (e) => {
-  const form = e.target
-  if (subindo(form)) {
-    e.preventDefault()
-    return
-  }
-  form.querySelectorAll('input[name="mention_ids"]').forEach((i) => i.remove())
-  for (const caixa of form.querySelectorAll('[data-editor]')) {
-    for (const id of mencionados(caixa)) {
-      const campo = document.createElement('input')
-      Object.assign(campo, { type: 'hidden', name: 'mention_ids', value: id })
-      form.append(campo)
-    }
-  }
+  if (subindo(e.target)) e.preventDefault()
 })
 
 // --- anexos ---------------------------------------------------------------------------------

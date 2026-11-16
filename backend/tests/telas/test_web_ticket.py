@@ -116,12 +116,10 @@ def test_registro(client: TestClient, cenario: dict[str, Any]) -> None:
     dados = _novo(
         cenario,
         responsaveis=[cenario["bia"], cenario["ana"]],
-        observadores=[cenario["caio"]],
         contato="Seu Zé",
         inicio_data="2026-10-01",
         inicio_hora="09:30",
         inicio_ajustado="1",
-        mention_ids=[cenario["bia"]],
     )
     r = client.post("/chamados/novo", data=formulario(client, **dados), follow_redirects=False)
     assert r.status_code == 303
@@ -131,7 +129,6 @@ def test_registro(client: TestClient, cenario: dict[str, Any]) -> None:
     # Quem registra fica como principal, se estiver na lista.
     assert chamado["assignee"]["display_name"] == "Ana"
     assert [u["display_name"] for u in chamado["co_assignees"]] == ["Bia"]
-    assert {w["display_name"] for w in chamado["watchers"]} == {"Bia", "Caio"}
     assert chamado["beneficiary_name"] == "Seu Zé"
     inicio = datetime.fromisoformat(chamado["started_at"])
     assert inicio == datetime(2026, 10, 1, 12, 30, tzinfo=UTC)  # 09:30 em São Paulo
@@ -205,14 +202,8 @@ def test_tarefa_nova_e_reabertura(client: TestClient, cenario: dict[str, Any]) -
     entrar(client, "ana@x.com")
     r = client.post(url, data=formulario(client, texto="", acao="reopen"))
     assert "Escreva na tarefa o motivo da reabertura." in r.text
-    dados = formulario(
-        client, texto="Voltou a falhar, @Bia", acao="reopen", mention_ids=cenario["bia"]
-    )
-    client.post(url, data=dados)
-    chamado = client.get(f"{API}/{numero}").json()
-    assert chamado["status"]["kind"] == "open"
-    # A menção no texto da reabertura vale como numa tarefa comum
-    assert {w["id"]: w["kind"] for w in chamado["watchers"]} == {cenario["bia"]: "mentioned"}
+    client.post(url, data=formulario(client, texto="Voltou a falhar", acao="reopen"))
+    assert client.get(f"{API}/{numero}").json()["status"]["kind"] == "open"
 
 
 def test_tarefa_que_cita_imagem_ja_vinculada(
@@ -291,19 +282,6 @@ def test_acoes_da_lateral(client: TestClient, cenario: dict[str, Any], db: Any) 
     outro = criar_cliente(db, "Padaria Pão Quente", "11222333000181")
     client.post(f"{lateral}/cliente", data=formulario(client, client_id=outro))
     assert client.get(f"{API}/{numero}").json()["client"]["name"] == "Padaria Pão Quente"
-
-    r = client.post(
-        f"{lateral}/observadores", data=formulario(client, user_id=cenario["caio"], observar="1")
-    )
-    assert aviso(client, numero, r.text) == "Observador adicionado"
-    client.post(
-        f"{lateral}/observadores", data=formulario(client, user_id=cenario["caio"], observar="0")
-    )
-    r = client.post(
-        f"{lateral}/observadores", data=formulario(client, user_id="invalido", observar="1")
-    )
-    assert aviso(client, numero, r.text) == "Algo deu errado. Tente de novo."
-    assert client.get(f"{API}/{numero}").json()["watchers"] == []
 
     entregue = formulario(client, status_id=status_id(client, "Entregue"))
     client.post(f"{lateral}/status", data=entregue)

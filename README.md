@@ -40,8 +40,8 @@ Se o código no servidor tiver mudanças locais ou estiver numa versão anterior
 
 ## O que o sistema faz
 
-- **Chamados:** registro com grupo, categoria, cliente e responsáveis; tarefas com o tempo gasto, @menções, observadores e anexos; assumir, atribuir, transferir, aguardar, concluir, reabrir e cancelar; histórico de tudo.
-- **Filas e Kanban:** filas (Não atribuídos, Meus, Com novidades, Aguardando, Acompanhando, Todos) com busca em português, e o quadro por status em `/quadro`.
+- **Chamados:** registro com grupo, categoria, cliente e responsáveis; tarefas com o tempo gasto e anexos; assumir, atribuir, transferir, aguardar, concluir, reabrir e cancelar; histórico de tudo.
+- **Filas e Kanban:** filas (Não atribuídos, Meus, Com novidades, Aguardando, Todos) com busca em português, e o quadro por status em `/quadro`.
 - **Relatórios** (`/relatorios`): produtividade, clientes (com as horas no plano do contrato e as excedentes), horas extras e indicadores de chamados, com filtros, comparação de períodos e PDF; a aba Clientes geral gera o relatório de cada cliente e o ZIP com todos os PDFs.
 - **Notificações por e-mail**, enviadas pelo worker no idioma de quem recebe.
 - **Administração:** usuários, grupos, papéis e permissões, clientes, categorias, status, expediente, dados da empresa, idioma, cores e logotipo, e a auditoria.

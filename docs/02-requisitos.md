@@ -17,13 +17,13 @@ Na revisão de escopo de 2026-10-09, vários itens passaram para **W** (depois d
 | RF-01.3 | Fluxo de status configurável, com um fluxo padrão (ver abaixo) | M |
 | RF-01.4 | ~~Prioridade (baixa, média, alta, crítica) definida por impacto × urgência~~ (removida em 2026-10-13) | W |
 | RF-01.5 | Atribuição a equipe (fila) e a agente | M |
-| RF-01.6 | Comentários com @menções (todos visíveis a quem vê o chamado) | M |
+| RF-01.6 | Comentários (todos visíveis a quem vê o chamado; as @menções foram removidas em 2026-11-16) | M |
 | RF-01.7 | Histórico completo e imutável de alterações | M |
 | RF-01.8 | Tags livres | S |
 | RF-01.9 | Campos personalizados por categoria (formulários dinâmicos) | W (futuro) |
 | RF-01.10 | Vincular chamados (duplicado de, relacionado a, bloqueado por) | S |
 | RF-01.11 | Mesclar chamados duplicados | C |
-| RF-01.12 | Observadores (colegas que acompanham) | M |
+| RF-01.12 | ~~Observadores (colegas que acompanham)~~: removidos em 2026-11-16 | M |
 | RF-01.13 | Pesquisa de satisfação ao fechar | W (sem solicitante com conta) |
 | RF-01.14 | Abertura de chamado por e-mail (caixa monitorada) e resposta por e-mail | W (sem solicitante com conta) |
 | RF-01.15 | Tipos de chamado: incidente, requisição, tarefa | M |

@@ -15,7 +15,6 @@ Este documento descreve o ciclo de vida de um chamado. No TicketFlow, um chamado
 | Registrado por | Membro que criou o chamado | Sistema |
 | Pessoa atendida | Nome de quem pediu ou será atendido, em texto livre, sem conta no sistema (opcional) | Quem registra |
 | Status | Etapa do ciclo de vida (10.5) | Fluxo |
-| Observadores | Colegas que acompanham | Qualquer membro do grupo |
 | Tags | Marcadores livres | Membros do grupo |
 | Vínculos | Duplicado de, relacionado a, bloqueado por | Membros do grupo |
 | Anexos | Ver [Anexos e arquivos](11-anexos-e-arquivos.md) | Quem comenta |
@@ -57,7 +56,6 @@ Descrição      [ editor de texto (colar prints)       ]
 Para quem      Pessoa [Carla Dias      ]   (opcional)
 Usuários       [Ana ×] [+ adicionar pessoa ▾]   (começa com quem registra; pelo menos uma pessoa;
                                                  "Todas as pessoas do grupo" marca todos os membros)
-Observadores   [+ adicionar colega]
 📎 Arraste arquivos aqui ou clique para anexar
                                                    [Cancelar] [Registrar]
 ```
@@ -129,7 +127,6 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 |-------|----------|-----------|
 | **Meus chamados** | Chamados em que sou o responsável, ainda abertos | Todos |
 | **Aguardando** | Chamados dos meus grupos parados em `waiting` | Todos |
-| **Acompanhando** | Chamados em que sou observador | Todos |
 | **Todos** | Tudo o que vejo; abre só com os em andamento (sem concluídos e cancelados), e o filtro de status mostra os outros | Todos |
 | **Aprovações** | Chamados aguardando a minha aprovação | Supervisores (Fase 2) |
 
@@ -161,8 +158,8 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 │                                               │ Tipo: Incidente              │
 │ ● Ana · 09:20                                 │ Para: Financeiro · João Silva│
 │   Verificar o switch do andar                 │──────────────────────────────│
-│ ● Ana · 09:25 · @Carlos                       │ Observadores: Bruno, Carlos  │
-│   Carlos, consegue olhar a porta 12?          │ Tags · Vínculos              │
+│ ● Ana · 09:25                                 │ Tags · Vínculos              │
+│   Carlos, consegue olhar a porta 12?          │                              │
 │                                               │ Anexos (2)                   │
 ├───────────────────────────────────────────────┤                              │
 │ ┌───────────────────────────────────────────┐ │                              │
@@ -173,14 +170,14 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 └───────────────────────────────────────────────┴──────────────────────────────┘
 ```
 
-- **Linha do tempo:** mostra só o registro e os comentários (andamentos), cada um com a sua data. As alterações (assumir, devolver, acompanhar, transferir, mudar status…) continuam gravadas no histórico, mas não aparecem na tela.
+- **Linha do tempo:** mostra só o registro e os comentários (andamentos), cada um com a sua data. As alterações (assumir, devolver, transferir, mudar status…) continuam gravadas no histórico, mas não aparecem na tela.
 - **Tarefas:** na tela, os comentários se chamam **tarefas** (o andamento do chamado); na API continuam `comments`. O botão é **Adicionar tarefa**.
-- **Tarefa e mudança de status:** a tarefa e a mudança de status saem numa única ação. Concluir não aparece na tela: no fim da lateral, o botão amarelo-ouro **Marcar como entregue** (quem tem `set_status`) leva o chamado à revisão do supervisor ("Entregue"), num clique, sem confirmação, sem tarefa nem código de resolução. Ele usa o status padrão do comportamento Entregue (`delivered`), não o nome, e não aparece em chamado já entregue, concluído ou cancelado. "Aguardar" não aparece na tela (decisão de 2026-10-14); quem já está aguardando pode ser retomado.
+- **Tarefa e mudança de status:** a tarefa e a mudança de status saem numa única ação. Concluir não aparece na tela. Entregar e cancelar também não têm botão próprio (decisão de 2026-11-16): são feitos pelo seletor de status da lateral. "Aguardar" não aparece na tela (decisão de 2026-10-14); quem já está aguardando pode ser retomado.
 - **Status na lateral:** quem tem `set_status` escolhe qualquer status num seletor na lateral, sem tarefa nem comentário.
-- **Entregue (revisão do supervisor):** comportamento próprio (`delivered`), como Em aberto, Em espera, Encerrado e Cancelado, com o status "Entregue" como padrão (decisões de 2026-10-14). É para os chamados entregues que o supervisor vai verificar antes de concluir. Só o **supervisor do grupo ou o admin** leva o chamado a um status encerrado (Concluído), esteja ele entregue ou não, e só eles registram um chamado já concluído: para os demais, o seletor (no registro, no detalhe e no Kanban) não mostra esses status. Os entregues continuam em **Meus**, **Acompanhando** e na aba **Aguardando** (onde o supervisor os encontra); dali dá para retomar (volta a Pendente) ou cancelar.
+- **Entregue (revisão do supervisor):** comportamento próprio (`delivered`), como Em aberto, Em espera, Encerrado e Cancelado, com o status "Entregue" como padrão (decisões de 2026-10-14). É para os chamados entregues que o supervisor vai verificar antes de concluir. Só o **supervisor do grupo ou o admin** leva o chamado a um status encerrado (Concluído), esteja ele entregue ou não, e só eles registram um chamado já concluído: para os demais, o seletor (no registro, no detalhe e no Kanban) não mostra esses status. Os entregues continuam em **Meus** e na aba **Aguardando** (onde o supervisor os encontra); dali dá para retomar (volta a Pendente) ou cancelar.
 - **Tempo gasto (andamentos):** cada comentário é um andamento do chamado e pode levar o **tempo gasto** nele (opcional), num campo **hh:mm**: digitado (os números entram pela direita: "130" vira 01:30) ou escolhido na lista de horários (00:20, 00:30, de 15 em 15 minutos até 03:00 e de hora em hora até 24:00). A cobrança dos funcionários é feita por esse tempo. A lateral mostra o **total** do chamado e a **soma de cada pessoa** (quem gastou mais primeiro); cada comentário mostra o seu tempo. Tempo sem comentário não é aceito (ex.: "Retomar" sem texto). O tempo se corrige na edição do comentário (10 minutos), e o valor anterior fica no histórico.
-- **Menções:** `@nome` notifica o colega, que vira observador do chamado.
-- **Colisão:** o sistema mostra quem mais está com o chamado aberto ("Ana também está vendo", ao lado de "Registrado há…", atualizado a cada 20 s; "está vendo" é quem tem o chamado numa aba à vista: a aba escondida não pergunta e some em até 45 s, e volta na hora em que reaparece; se a sessão expirou nesse meio-tempo, o trecho só para de atualizar, sem levar ao login, para não apagar o que estava sendo escrito). Se chegou um comentário novo depois que a tela foi carregada, o mesmo trecho avisa ("1 tarefa nova · Recarregar"), e o envio de uma tarefa com a tela desatualizada não grava: a página volta com a tarefa nova à vista e o texto preservado, e o envio seguinte passa. Alterações de campos (status, cliente, "Marcar como entregue" e o `PATCH` da API) usam `ETag` para não sobrescrever a mudança de outra pessoa; tarefas, responsáveis e observadores não contam.
+- **Sem menções:** "@nome" num texto é só texto, sem aviso nem acesso ao chamado (removidas em 2026-11-16).
+- **Colisão:** o sistema mostra quem mais está com o chamado aberto ("Ana também está vendo", ao lado de "Registrado há…", atualizado a cada 20 s; "está vendo" é quem tem o chamado numa aba à vista: a aba escondida não pergunta e some em até 45 s, e volta na hora em que reaparece; se a sessão expirou nesse meio-tempo, o trecho só para de atualizar, sem levar ao login, para não apagar o que estava sendo escrito). Se chegou um comentário novo depois que a tela foi carregada, o mesmo trecho avisa ("1 tarefa nova · Recarregar"), e o envio de uma tarefa com a tela desatualizada não grava: a página volta com a tarefa nova à vista e o texto preservado, e o envio seguinte passa. Alterações de campos (status, cliente e o `PATCH` da API) usam `ETag` para não sobrescrever a mudança de outra pessoa; tarefas e responsáveis não contam.
 - **Rascunho automático:** o texto em edição é salvo localmente no navegador e restaurado se a página for recarregada.
 
 ### Transferência
@@ -188,11 +185,10 @@ Feito · Feito com solução de contorno · Não reproduzível · Fora do escopo
 | Situação | Como funciona |
 |----------|---------------|
 | **Transferência** (ex.: Suporte → Infraestrutura) | Escolhe-se o grupo de destino e escreve-se um **motivo obrigatório**, que vira comentário. Escolhe-se também o **novo responsável**, um membro do grupo de destino. O chamado continua **Pendente**, com esse responsável. O grupo anterior mantém acesso de leitura |
-| **Pedir ajuda sem transferir** | Comentário com `@menção` a um colega de outro grupo, que vira observador |
 
 ### Duplicados e vínculos
 
-- **Mesclar:** o chamado secundário é **cancelado** com o código "Duplicado" e vinculado ao principal (`duplicate_of`). Os observadores do secundário passam para o principal. Os conteúdos não são movidos: o vínculo permite consultar os dois.
+- **Mesclar:** o chamado secundário é **cancelado** com o código "Duplicado" e vinculado ao principal (`duplicate_of`). Os conteúdos não são movidos: o vínculo permite consultar os dois.
 - **Relacionado a / bloqueado por:** só informativos, exibidos nos dois chamados.
 
 ### Ações em massa (supervisor ou permissão `ticket.bulk`)
@@ -208,9 +204,7 @@ Planejado: atribuir, transferir, adicionar tag, concluir com o mesmo texto (ex.:
 
 ## 10.7 Observadores
 
-- Qualquer membro do grupo adiciona colegas como observadores; qualquer usuário pode se adicionar a um chamado que já vê.
-- Observadores de **outros grupos** veem o chamado e comentam, mas não alteram campos nem status.
-- O observador recebe as atualizações (10.10) e encontra os chamados na visão **Acompanhando**.
+Removidos em 2026-11-16, junto com as @menções e a fila **Acompanhando**: não havia uso no momento. Os eventos antigos continuam no histórico.
 
 ## 10.8 Aprovações (Fase 2)
 
@@ -229,20 +223,19 @@ Não há SLA: não existem metas de prazo, alertas de vencimento nem calendário
 
 ## 10.10 Notificações
 
-| Evento | Responsável | Observadores | Grupo | Supervisores | Outros |
-|--------|:-:|:-:|:-:|:-:|---|
-| Atribuído a alguém | ✉️🔔 | | | | |
-| Aguardando aprovação | | | | ✉️🔔 | |
-| Aprovado / reprovado | 🔔 | 🔔 | | | Quem registrou 🔔 |
-| Comentário novo | 🔔 | 🔔 | | | |
-| @menção | | | | | Mencionado ✉️🔔 |
-| Transferido | | | 🔔 novo grupo | | |
-| Concluído | | ✉️🔔 | | | Quem registrou 🔔 |
-| Reaberto | ✉️🔔 | 🔔 | | | |
+| Evento | Responsável | Grupo | Supervisores | Outros |
+|--------|:-:|:-:|:-:|---|
+| Atribuído a alguém | ✉️🔔 | | | |
+| Aguardando aprovação | | | ✉️🔔 | |
+| Aprovado / reprovado | 🔔 | | | Quem registrou 🔔 |
+| Comentário novo | 🔔 | | | |
+| Transferido | | 🔔 novo grupo | | |
+| Concluído | | | | Quem registrou 🔔 |
+| Reaberto | ✉️🔔 | | | |
 
-✉️ e-mail · 🔔 notificação dentro do sistema (Fase 2). Na Fase 1, enquanto o sino não existe, os eventos marcados só com 🔔 também vão por e-mail. Quem causou o evento nunca é notificado dele. Cada usuário escolhe nas preferências como quer receber, exceto atribuição, menção e aprovação pendente, que não podem ser desligadas.
+✉️ e-mail · 🔔 notificação dentro do sistema (Fase 2). Na Fase 1, enquanto o sino não existe, os eventos marcados só com 🔔 também vão por e-mail. Quem causou o evento nunca é notificado dele. Cada usuário escolhe nas preferências como quer receber, exceto atribuição e aprovação pendente, que não podem ser desligadas.
 
-**Na Fase 1 (F1-S4-04, [ARCHITECTURE 3.13](../ARCHITECTURE.md#313-notificações-por-e-mail-modulesnotifications)):** tudo por e-mail, ainda sem preferências (elas entram com o sino, F2-S6-01). No registro, o grupo com "e-mail para todos os membros" (10.4) também é avisado. Cada pessoa recebe um e-mail só por ação (menção, depois atribuição, depois o resto). O comentário de uma ação vai no e-mail dela; o de aguardar, retomar ou cancelar não gera e-mail. Concluído e reaberto valem também para a mudança pelo formulário e em massa.
+**Na Fase 1 (F1-S4-04, [ARCHITECTURE 3.13](../ARCHITECTURE.md#313-notificações-por-e-mail-modulesnotifications)):** tudo por e-mail, ainda sem preferências (elas entram com o sino, F2-S6-01). No registro, o grupo com "e-mail para todos os membros" (10.4) também é avisado. Cada pessoa recebe um e-mail só por ação (atribuição, depois o resto). O comentário de uma ação vai no e-mail dela; o de aguardar, retomar ou cancelar não gera e-mail. Concluído e reaberto valem também para a mudança pelo formulário e em massa.
 
 ## 10.11 Rotinas automáticas (worker)
 

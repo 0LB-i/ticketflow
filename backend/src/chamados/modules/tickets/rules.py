@@ -47,7 +47,6 @@ class TicketState:
     kind: str
     created_by_id: int
     assignee_id: int
-    is_watcher: bool
     co_assignee_ids: frozenset[int] = frozenset()
 
 
@@ -58,19 +57,16 @@ def is_supervisor(actor: Actor, team_id: int) -> bool:
 def allowed_actions(actor: Actor, t: TicketState) -> set[str]:
     """Ações que o ator pode fazer no chamado. A API devolve a lista para a interface."""
     mine = t.assignee_id == actor.user_id or actor.user_id in t.co_assignee_ids
-    # Alterar exige ser do grupo atual (ou admin); observadores de outros grupos só comentam.
+    # Alterar exige ser do grupo atual (ou admin); um responsável de outro grupo só comenta.
     member = t.team_id in actor.teams or actor.role == "admin"
     actions: set[str] = set()
-    if can(actor, P.TICKET_COMMENT) and (member or t.is_watcher or mine):
+    if can(actor, P.TICKET_COMMENT) and (member or mine):
         actions.add("comment")
-    if can(actor, P.TICKET_WATCH):
-        actions.add("watch_self")
     if not member:
         return actions
 
     for permission, action in (
         (P.TICKET_EDIT, "edit"),
-        (P.TICKET_WATCH, "manage_watchers"),
         # Escolher qualquer status no formulário, sem as exigências do fluxo.
         (P.TICKET_TRANSITION, "set_status"),
     ):

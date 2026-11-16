@@ -51,7 +51,7 @@ Na própria produção, antes da virada. O administrador cria um grupo **Treinam
 | Tempo | Conteúdo |
 |-------|----------|
 | 10 min | Por que o TicketFlow, os combinados (16.4) e a data D |
-| 15 min | Demonstração: registrar, assumir, comentar com @menção, aguardar, transferir, concluir |
+| 15 min | Demonstração: registrar, assumir, comentar, aguardar, transferir, concluir |
 | 25 min | Mão na massa no grupo Treinamento: cada um faz o ciclo completo com dois chamados de teste e testa um pelo celular |
 | 10 min | Dúvidas, perfil (senha, notificações, tema) e como dar retorno |
 

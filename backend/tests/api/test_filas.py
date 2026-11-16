@@ -30,13 +30,7 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
     )
     entrar(client, "caio@x.com")
     da_infra = client.post(
-        API,
-        json={
-            **base(cenario),
-            "title": "Da Infra",
-            "team_id": cenario["infra"],
-            "watcher_ids": [cenario["ana"]],
-        },
+        API, json={**base(cenario), "title": "Da Infra", "team_id": cenario["infra"]}
     ).json()["number"]
     entrar(client, "ana@x.com")
 
@@ -44,14 +38,13 @@ def test_filas_e_contadores(client: TestClient, cenario: dict[str, Any]) -> None
     assert client.get(API, params={"view": "news"}).status_code == 422
     assert numeros(client, view="mine") == [parado, meu]
     assert numeros(client, view="waiting") == [parado]
-    assert numeros(client, view="watching") == [da_infra]
-    assert set(numeros(client)) == {da_bia, meu, parado, concluido, da_infra}
+    assert client.get(API, params={"view": "watching"}).status_code == 422
+    assert set(numeros(client)) == {da_bia, meu, parado, concluido}
     assert numeros(client, view="all", status=["closed"]) == [concluido]
     assert client.get(f"{API}/counts").json() == {
         "mine": 2,
         "waiting": 1,
-        "watching": 1,
-        "all": 4,  # os em andamento: sem o concluído
+        "all": 3,  # os em andamento: sem o concluído
     }
 
     # Caio não vê as filas do TI

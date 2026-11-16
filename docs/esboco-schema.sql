@@ -278,17 +278,6 @@ CREATE TABLE ticket_comments (
 CREATE INDEX ticket_comments_ticket_idx ON ticket_comments (ticket_id, created_at);
 CREATE INDEX ticket_comments_search_idx ON ticket_comments USING gin (search_vector);
 
-CREATE TABLE ticket_watchers (
-    ticket_id       bigint      NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    user_id         bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    kind            text        NOT NULL DEFAULT 'watcher'
-                    CHECK (kind IN ('watcher', 'mentioned')),   -- 'mentioned' = adicionado por @menção
-    added_by        bigint      REFERENCES users(id),
-    added_at        timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (ticket_id, user_id)
-);
-CREATE INDEX ticket_watchers_user_idx ON ticket_watchers (user_id);
-
 CREATE TABLE ticket_links (
     source_id       bigint NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     target_id       bigint NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,

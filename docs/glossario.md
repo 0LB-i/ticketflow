@@ -16,8 +16,6 @@ Termos do domínio em português e o nome usado no código (ver [ADR 0001](adr/0
 | Categoria | `category` | O que é a tarefa |
 | Status (etapa) | `ticket_status` + `kind` | Padrão: Pendente (`open`), Aguardando (`waiting`), Concluído (`closed`), Cancelado (`canceled`) |
 | Tipo | `type` | Incidente (`incident`), requisição (`request`) ou tarefa (`task`) |
-| Observador | `watcher` | Colega que acompanha um chamado |
-| Mencionado | `ticket_watchers.kind = 'mentioned'` | Colega citado com @ num comentário ou na descrição; vira observador |
 | Grupos que atuaram | `ticket_teams` | Grupos por onde o chamado passou; os anteriores continuam vendo (se não for confidencial) |
 | Histórico | `ticket_events` | Registro de tudo o que mudou no chamado, só de inserção |
 | Ações permitidas | `allowed_actions` | O que a pessoa pode fazer num chamado, calculado pelo backend; a interface mostra os botões a partir dela |

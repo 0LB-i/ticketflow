@@ -1,4 +1,4 @@
-"""Chamados, observadores, comentários e histórico (docs/04, docs/10)."""
+"""Chamados, comentários e histórico (docs/04, docs/10)."""
 
 import uuid
 from datetime import datetime
@@ -97,9 +97,6 @@ class Ticket(Base):
     client: Mapped[Client | None] = relationship(lazy="joined")
     status: Mapped[TicketStatus] = relationship(lazy="joined")
     resolution_code: Mapped[ResolutionCode | None] = relationship(lazy="joined")
-    watchers: Mapped[list["TicketWatcher"]] = relationship(
-        cascade="all, delete-orphan", order_by="TicketWatcher.added_at"
-    )
     co_assignees: Mapped[list["TicketCoAssignee"]] = relationship(
         cascade="all, delete-orphan", order_by="TicketCoAssignee.added_at"
     )
@@ -130,24 +127,6 @@ class TicketTeam(Base):
     )
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), primary_key=True, index=True)
     first_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class TicketWatcher(Base):
-    __tablename__ = "ticket_watchers"
-    __table_args__ = (CheckConstraint("kind IN ('watcher', 'mentioned')", name="kind"),)
-
-    ticket_id: Mapped[int] = mapped_column(
-        ForeignKey("tickets.id", ondelete="CASCADE"), primary_key=True
-    )
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
-    )
-    # 'mentioned' = entrou por @menção
-    kind: Mapped[str] = mapped_column(Text, server_default=text("'watcher'"))
-    added_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    user: Mapped[User] = relationship(foreign_keys=[user_id], lazy="joined")
 
 
 class TicketComment(Base):

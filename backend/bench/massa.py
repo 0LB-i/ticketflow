@@ -243,15 +243,6 @@ PASSOS = [
     WHERE random() < 0.1
     """,
     """
-    INSERT INTO ticket_watchers (ticket_id, user_id, added_by, added_at)
-    SELECT t.id, w.id, t.created_by_id, t.created_at
-    FROM tickets t
-    CROSS JOIN LATERAL (
-        SELECT u.id FROM users u WHERE u.email LIKE '%@bench.local' AND u.id <> t.assignee_id
-        ORDER BY random() + 0 * t.id LIMIT 1) w
-    WHERE random() < 0.15
-    """,
-    """
     INSERT INTO ticket_co_assignees (ticket_id, user_id, added_at)
     SELECT t.id, eq.membros[1 + floor(random() * cardinality(eq.membros))::int], t.created_at
     FROM tickets t JOIN eq ON eq.id = t.team_id

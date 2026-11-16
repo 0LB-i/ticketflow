@@ -35,7 +35,7 @@
     <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
       <div class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6">
         {{ field("titulo", t("novoChamado.tituloCampo"), value=form.title, hint=t("novoChamado.tituloDica"), error=t(errors.title) if errors.title else None, required=True) }}
-        {{ editor("descricao", "descricao", t("novoChamado.descricao"), value=form.description, placeholder=t("novoChamado.descricaoDica"), mentions=True, attach=True, tall=True) }}
+        {{ editor("descricao", "descricao", t("novoChamado.descricao"), value=form.description, placeholder=t("novoChamado.descricaoDica"), attach=True, tall=True) }}
         {{ uploader(pending) }}
       </div>
 
@@ -67,16 +67,10 @@
           {{ client_picker(t("chamado.cliente"), form.client_id, form.client_name, error=t(errors.client) if errors.client else None) }}
           {{ field("contato", t("chamado.contato"), value=form.contact, hint=t("chamado.contatoDica")) }}
         </div>
-
-        <div class="border-t border-border pt-4">
-          {{ chips("observadores", t("chamado.observadores"), watcher_options, form.watchers, names, t("chamado.adicionarColega"), "chamado.removerObservador") }}
-        </div>
       </div>
     </div>
   </form>
   {%- endif %}
 </div>
-{#- Colegas para o @ do editor. #}
-<script type="application/json" id="pessoas">{{ people | tojson }}</script>
 {{ suggested_times_list() }}
 {% endblock %}

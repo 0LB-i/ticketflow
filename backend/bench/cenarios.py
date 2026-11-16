@@ -32,11 +32,10 @@ ZIP_CLIENTES = 30_000
 
 ATIVOS = "('open', 'waiting', 'delivered')"
 POR_PAGINA = TicketList().page_size  # da tela de chamados, sem configuração
-# Regras 1 a 5 da visibilidade (docs/08 §8.4) para quem tem o papel agent. O admin vê tudo.
+# Regras 1, 2, 3 e 5 da visibilidade (docs/08 §8.4) para quem tem o papel agent. O admin vê tudo.
 VISIVEL = """(
     t.assignee_id = :u
     OR EXISTS (SELECT 1 FROM ticket_co_assignees x WHERE x.ticket_id = t.id AND x.user_id = :u)
-    OR EXISTS (SELECT 1 FROM ticket_watchers w WHERE w.ticket_id = t.id AND w.user_id = :u)
     OR t.team_id IN (SELECT team_id FROM team_members WHERE user_id = :u)
     OR (NOT EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND c.is_confidential)
         AND EXISTS (SELECT 1 FROM ticket_teams tt JOIN team_members m ON m.team_id = tt.team_id
@@ -44,7 +43,6 @@ VISIVEL = """(
 )"""
 RESPONSAVEL = """(t.assignee_id = :u OR EXISTS (
     SELECT 1 FROM ticket_co_assignees x WHERE x.ticket_id = t.id AND x.user_id = :u))"""
-OBSERVA = "EXISTS (SELECT 1 FROM ticket_watchers w WHERE w.ticket_id = t.id AND w.user_id = :u)"
 DOS_MEUS_GRUPOS = "t.team_id IN (SELECT team_id FROM team_members WHERE user_id = :u)"
 
 
@@ -477,14 +475,6 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
             ),
         ),
         Cenario(
-            "api · lista Observando (agente)",
-            "agente",
-            lambda c: c.get(f"{API}/tickets", params={"view": "watching"}),
-            lambda r: igual(
-                numeros(r), ctx.chamados("agente", f"{OBSERVA} AND s.kind IN {ATIVOS}"), "página"
-            ),
-        ),
-        Cenario(
             "api · lista do grupo, só Pendentes (supervisora)",
             "supervisora",
             lambda c: c.get(f"{API}/tickets", params={"team": ctx.suporte, "status": "open"}),
@@ -513,9 +503,6 @@ def cenarios(ctx: Contexto, clientes: dict[str, TestClient]) -> list[Cenario]:
                             f"{DOS_MEUS_GRUPOS} AND s.kind IN ('waiting', 'delivered')",
                             None,
                         )
-                    ),
-                    "watching": len(
-                        ctx.chamados("agente", f"{OBSERVA} AND s.kind IN {ATIVOS}", None)
                     ),
                     "all": len(ctx.chamados("agente", f"s.kind IN {ATIVOS}", None)),
                 },

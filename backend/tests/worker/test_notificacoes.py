@@ -68,42 +68,21 @@ def test_atribuido_a_alguem(
     assert list(enviados()) == ["bia@x.com"]
 
 
-def test_comentario_novo_e_mencao(
+def test_comentario_novo(
     client: TestClient,
     cenario: dict[str, Any],
     enviados: Enviados,
 ) -> None:
-    numero = registrar(client, cenario, watcher_ids=[cenario["caio"]])["number"]
+    numero = registrar(client, cenario)["number"]
     assert enviados() == {}
     entrar(client, "bia@x.com")
-    r = client.post(
-        f"{API}/{numero}/comments",
-        json={"body": "Troquei o toner, @Auditor confira.", "mention_ids": [cenario["auditor"]]},
-    )
+    r = client.post(f"{API}/{numero}/comments", json={"body": "Troquei o toner, @Ana confira."})
     assert r.status_code == 201, r.text
     emails = enviados()
-    assert set(emails) == {"ana@x.com", "caio@x.com", "auditor@x.com"}  # a Bia comentou
+    assert set(emails) == {"ana@x.com"}  # a responsável; a Bia comentou
     assunto, corpo = emails["ana@x.com"]
     assert assunto.endswith(": comentário novo")
-    assert "Bia comentou o chamado" in corpo and "Troquei o toner, @Auditor confira." in corpo
-    assert emails["auditor@x.com"][0].endswith(": você foi mencionado")
-
-    # Mencionado e também responsável: um e-mail só, o da menção.
-    client.post(f"{API}/{numero}/comments", json={"body": "@Ana", "mention_ids": [cenario["ana"]]})
-    emails = enviados()
-    assert emails["ana@x.com"][0].endswith(": você foi mencionado")
-    assert set(emails) == {"ana@x.com", "caio@x.com", "auditor@x.com"}
-
-
-def test_mencao_no_registro(
-    client: TestClient,
-    cenario: dict[str, Any],
-    enviados: Enviados,
-) -> None:
-    registrar(client, cenario, mention_ids=[cenario["bia"]])
-    emails = enviados()
-    assert list(emails) == ["bia@x.com"]
-    assert emails["bia@x.com"][0].endswith(": você foi mencionado")
+    assert "Bia comentou o chamado" in corpo and "Troquei o toner, @Ana confira." in corpo
 
 
 def test_transferido(
@@ -134,16 +113,14 @@ def test_concluido_e_reaberto(
     db: Session,
 ) -> None:
     entrar(client, "bia@x.com")
-    numero = registrar(client, cenario, assignee=cenario["ana"], watcher_ids=[cenario["caio"]])[
-        "number"
-    ]
+    numero = registrar(client, cenario, assignee=cenario["ana"])["number"]
     enviados()
     entrar(client, "ana@x.com")
     url = f"{API}/{numero}/transitions"
     concluir = {"action": "close", "comment": "Troquei o toner.", "resolution_code_id": 1}
     assert client.post(url, json=concluir).status_code == 200
     emails = enviados()
-    assert set(emails) == {"bia@x.com", "caio@x.com"}  # quem registrou e o observador
+    assert set(emails) == {"bia@x.com"}  # quem registrou
     assunto, corpo = emails["bia@x.com"]
     assert assunto.endswith(": concluído")
     assert "Ana concluiu o chamado" in corpo and "Troquei o toner." in corpo
@@ -151,7 +128,7 @@ def test_concluido_e_reaberto(
     entrar(client, "bia@x.com")
     assert client.post(url, json={"action": "reopen", "comment": "Voltou."}).status_code == 200
     emails = enviados()
-    assert set(emails) == {"ana@x.com", "caio@x.com"}  # responsável e observador
+    assert set(emails) == {"ana@x.com"}  # a responsável
     assert emails["ana@x.com"][0].endswith(": reaberto")
 
     # Aguardar não está na tabela do §10.10: o comentário dele não vira e-mail.
@@ -159,26 +136,12 @@ def test_concluido_e_reaberto(
     assert client.post(url, json={"action": "wait", "comment": "Fornecedor."}).status_code == 200
     assert enviados() == {}
 
-    # Mas quem foi mencionado no comentário da mudança é avisado (e passa a observar).
-    retomar = {
-        "action": "resume",
-        "comment": "@Auditor confira",
-        "mention_ids": [cenario["auditor"]],
-    }
-    assert client.post(url, json=retomar).status_code == 200
-    emails = enviados()
-    assert set(emails) == {"auditor@x.com"}
-    assert emails["auditor@x.com"][0].endswith(": você foi mencionado")
-    observadores = client.get(f"{API}/{numero}").json()["watchers"]
-    assert {w["id"]: w["kind"] for w in observadores}[cenario["auditor"]] == "mentioned"
+    # Retomar também não.
+    assert client.post(url, json={"action": "resume", "comment": "Chegou."}).status_code == 200
+    assert enviados() == {}
 
-    # Na conclusão, o mencionado recebe o da menção, e os demais o de concluído.
-    concluir["mention_ids"] = [cenario["auditor"], cenario["caio"]]
     assert client.post(url, json=concluir).status_code == 200
-    emails = enviados()
-    assert emails["auditor@x.com"][0].endswith(": você foi mencionado")
-    assert emails["caio@x.com"][0].endswith(": você foi mencionado")
-    assert emails["bia@x.com"][0].endswith(": concluído")
+    assert enviados()["bia@x.com"][0].endswith(": concluído")
 
     # De um concluído para outro, ou para cancelado, não é conclusão nova nem reabertura.
     entrar(client, "bia@x.com")

@@ -34,32 +34,25 @@ def test_eventos_do_chamado_vao_para_o_outbox(
     cenario: dict[str, Any],
     db: Session,
 ) -> None:
-    numero = registrar(client, cenario, mention_ids=[cenario["bia"]])["number"]
+    numero = registrar(client, cenario)["number"]
     ticket = db.scalars(select(Ticket).where(Ticket.number == numero)).one()
-    r = client.post(
-        f"{API}/{numero}/comments",
-        json={"body": "Troquei o toner, @Bia.", "mention_ids": [cenario["bia"]]},
-    )
+    r = client.post(f"{API}/{numero}/comments", json={"body": "Troquei o toner."})
     assert r.status_code == 201, r.text
     # O comentário de uma ação vai no evento dela (comment_id), sem um comment.created à parte.
     acao = {"action": "wait", "comment": "Aguardando o fornecedor"}
     assert client.post(f"{API}/{numero}/transitions", json=acao).status_code == 200
 
-    criado, mencao, comentario, espera = eventos_do_outbox(db)
+    criado, comentario, espera = eventos_do_outbox(db)
     assert criado.event_type == "ticket.created"
     assert criado.payload["ticket_id"] == ticket.id
     assert criado.payload["actor_user_id"] == ticket.created_by_id
     assert criado.payload["data"]["assignee"]["id"] == cenario["ana"]
-    assert criado.payload["mention_ids"] == [cenario["bia"]]
     assert criado.processed_at is None
-    assert (mencao.event_type, mencao.payload["data"]["kind"]) == ("watcher.added", "mentioned")
     # O comentário novo não vai para o histórico (ele é o próprio registro), mas vai para o
-    # outbox: as notificações (docs/10 §10.10) precisam dele, com todos os mencionados (a Bia
-    # já acompanhava o chamado, então não há outro watcher.added).
+    # outbox: as notificações (docs/10 §10.10) precisam dele.
     assert comentario.event_type == "comment.created"
     assert comentario.payload["ticket_id"] == ticket.id
     assert comentario.payload["data"]["comment_id"] == r.json()["id"]
-    assert comentario.payload["mention_ids"] == [cenario["bia"]]
     assert espera.event_type == "ticket.status_changed"
     assert "comment_id" in espera.payload["data"]
 
@@ -159,28 +152,25 @@ def test_evento_de_transacao_desfeita_nao_vira_tarefa(
     db: Session,
     settings: Settings,
 ) -> None:
-    r = client.post(
-        API,
-        json={
-            "client_id": cenario["cliente"],
-            "assignee": "me",
-            "title": "Impressora",
-            "category_id": cenario["impressao"],
-            "mention_ids": [str(uuid.uuid4())],
-        },
-    )
-    assert r.status_code == 422, r.text
-    assert repassar(settings, {"ticket.created": avisar}) == 0
+    numero = registrar(client, cenario)["number"]
+    url = f"{API}/{numero}/comments"
+    tarefa = client.post(url, json={"body": "Primeira versão"}).json()["id"]
+    assert repassar(settings, {}) == 2  # o registro e a tarefa, sem handler: só marcados
+    # A edição grava o evento e depois recusa o anexo: a transação é desfeita com ele.
+    editar = {"body": "Segunda versão", "attachment_ids": [str(uuid.uuid4())]}
+    assert client.patch(f"{url}/{tarefa}", json=editar).status_code == 422
+    assert repassar(settings, {"comment.edited": avisar}) == 0
     assert db.scalars(select(Job)).all() == []
 
-    registrar(client, cenario)
-    assert repassar(settings, {"ticket.created": avisar}) == 1
+    editar["attachment_ids"] = []
+    assert client.patch(f"{url}/{tarefa}", json=editar).status_code == 200
+    assert repassar(settings, {"comment.edited": avisar}) == 1
     db.expire_all()
     job = db.scalars(select(Job)).one()
     assert job.task == "teste.avisar"
     assert job.args == {"ticket_id": db.scalars(select(Ticket.id)).one()}
     assert all(e.processed_at is not None for e in eventos_do_outbox(db))
-    assert repassar(settings, {"ticket.created": avisar}) == 0  # não repassa de novo
+    assert repassar(settings, {"comment.edited": avisar}) == 0  # não repassa de novo
 
 
 def test_handler_que_falha_nao_trava_os_outros(db: Session, settings: Settings) -> None:

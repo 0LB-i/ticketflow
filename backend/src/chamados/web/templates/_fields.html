@@ -40,12 +40,11 @@
 </datalist>
 {%- endmacro %}
 
-{#- Editor da descrição e das tarefas (Tiptap): grava Markdown no <textarea>. Com `mentions`, o
-    @ abre a lista de colegas (JSON em #pessoas) e os ids vão em mention_ids; com `attach`,
+{#- Editor da descrição e das tarefas (Tiptap): grava Markdown no <textarea>. Com `attach`,
     imagens coladas ou arrastadas sobem para a API e entram no texto. Sem JavaScript, fica o
     <textarea>. -#}
-{% macro editor(name, id, label, value="", placeholder="", mentions=False, attach=False, tall=False, required=False, error=None) -%}
-<div data-editor data-id="{{ id }}" data-placeholder="{{ placeholder }}"{% if mentions %} data-mencoes{% endif %}{% if attach %} data-anexar{% endif %}{% if tall %} data-alto{% endif %} data-ninguem="{{ t('editor.ninguem') }}" data-mencionar="{{ t('editor.mencionar') }}" class="flex flex-col gap-1">
+{% macro editor(name, id, label, value="", placeholder="", attach=False, tall=False, required=False, error=None) -%}
+<div data-editor data-id="{{ id }}" data-placeholder="{{ placeholder }}"{% if attach %} data-anexar{% endif %}{% if tall %} data-alto{% endif %} class="flex flex-col gap-1">
   <label id="{{ id }}-rotulo" for="{{ id }}-texto" class="font-medium">
     {{- label }}{% if required %}<span class="text-danger" aria-hidden="true"> *</span>{% endif -%}
   </label>

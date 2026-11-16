@@ -43,7 +43,6 @@ router = APIRouter()
 TABS: dict[str, TicketView] = {
     "meus": "mine",
     "aguardando": "waiting",
-    "acompanhando": "watching",
     "todos": "all",
 }
 KINDS: tuple[StatusKind, ...] = ("open", "waiting", "delivered", "closed", "canceled")
@@ -52,7 +51,6 @@ ACTIVE_KINDS: tuple[StatusKind, ...] = ("open", "waiting", "delivered")
 TAB_KINDS: dict[TicketView, tuple[StatusKind, ...]] = {
     "mine": ACTIVE_KINDS,
     "waiting": ("waiting", "delivered"),
-    "watching": ACTIVE_KINDS,
     "all": KINDS,
 }
 ALL_KINDS = "todos"  # o status da aba Todos que mostra também os encerrados e os cancelados

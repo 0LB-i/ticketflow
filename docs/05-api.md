@@ -52,17 +52,16 @@ Authorization: Bearer tf_...
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `mine`, `waiting`, `watching`, `all`), `team`, `assignee` (`me` ou o id), `status` e a busca textual `q` |
+| `GET` | `/tickets` | Listar e filtrar: fila (`view`: `mine`, `waiting`, `all`), `team`, `assignee` (`me` ou o id), `status` e a busca textual `q` |
 | `GET` | `/tickets/counts` | Quantos chamados há em cada fila (os contadores das abas); em `all`, os em andamento |
 | `POST` | `/tickets` | Registrar chamado: `assignee` (`"me"` ou um membro do grupo) e `client_id` são obrigatórios |
 | `GET` | `/tickets/{id}` | Detalhe |
 | `PATCH` | `/tickets/{id}` | Alterar campos (título, categoria, cliente e contato, tags) |
 | `POST` | `/tickets/{id}/transitions` | Mudar status pelo fluxo: `{"action": "close", "comment": "...", "resolution_code_id": ...}`. Ações: `wait`, `resume`, `close`, `reopen`, `cancel` ([10.5](10-chamados.md#105-status-e-fluxo)); o comentário vira comentário do chamado |
 | `GET` | `/tickets/{id}/comments` | Listar comentários |
-| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "mention_ids": [...], "attachment_ids": [...]}`. Os `@mencionados` vão em `mention_ids` (o editor os escolhe numa lista) e viram observadores |
+| `POST` | `/tickets/{id}/comments` | Comentar: `{"body", "attachment_ids": [...]}` |
 | `PATCH` | `/tickets/{id}/comments/{cid}` | Editar o próprio comentário, por até 10 minutos |
 | `GET` | `/tickets/{id}/events` | Histórico / linha do tempo |
-| `PUT` / `DELETE` | `/tickets/{id}/watchers/{user_id}` | Observadores (respondem `204`: quem se retira de um chamado de outro grupo deixa de vê-lo) |
 | `POST` | `/tickets/{id}/links` | Vincular chamados |
 | `POST` | `/tickets/{id}/assign` | Assumir (`{"assignee": "me"}`) ou atribuir (id de um membro do grupo); o chamado nunca fica sem responsável |
 | `PUT` | `/tickets/{id}/assignees` | Vários responsáveis (ou o grupo todo): `{"assignee_ids": [...]}`, a lista inteira; quem entra é membro ativo do grupo (quem já estava e saiu do grupo pode ficar ou sair); o principal continua se estiver nela, senão o primeiro assume |

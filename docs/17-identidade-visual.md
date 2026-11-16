@@ -34,7 +34,7 @@ As cores da empresa são **laranja, cinza e branco**. A interface é majoritaria
 | `chart-1` | = `primary` | = `primary` | Série dos gráficos dos relatórios |
 | `chart-before` | `#D3785C` | `#BE7844` | Série do período anterior (comparar): a `primary` mais clara |
 
-O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro); o **amarelo-ouro** (`gold`, só para "Marcar como entregue") é `#FACC15` com texto `#171717` nos dois modos, `#EAB308` no hover.
+O **botão principal** é laranja escuro com texto branco; o **secundário** é branco com borda cinza; o **destrutivo** (cancelar chamado, reprovar) é vermelho (`#B91C1C` no claro, `#DC2626` no escuro); o **amarelo-ouro** (`gold`, hoje sem uso: era do "Marcar como entregue", removido em 2026-11-16) é `#FACC15` com texto `#171717` nos dois modos, `#EAB308` no hover.
 
 ### Cores de status
 
@@ -61,7 +61,7 @@ Mínimos: **4,5:1** para texto e **3:1** para bordas de campos e contorno de foc
 | Branco sobre `primary` `#C2410C` | 5,18 | ✅ Botão principal (claro) |
 | `primary` `#C2410C` como texto de link sobre branco | 5,18 | ✅ |
 | Escuro `#0A0A0A` sobre `primary` `#FB923C` | 8,75 | ✅ Botão principal (escuro) |
-| `#171717` sobre `gold` `#FACC15` / hover `#EAB308` | 11,71 / 9,35 | ✅ Marcar como entregue |
+| `#171717` sobre `gold` `#FACC15` / hover `#EAB308` | 11,71 / 9,35 | ✅ (sem uso) |
 | `text` sobre `surface` | 17,93 / 16,44 | ✅ claro / escuro |
 | `text-muted` sobre `surface` | 7,81 / 7,11 | ✅ claro / escuro |
 | `border-input` sobre `surface` | 4,74 / 3,78 | ✅ claro / escuro |

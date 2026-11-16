@@ -7,7 +7,7 @@ from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 TicketType = Literal["incident", "request", "task"]
 StatusKind = Literal["approval", "open", "waiting", "delivered", "closed", "canceled"]
 TransitionAction = Literal["wait", "resume", "close", "reopen", "cancel"]
-TicketView = Literal["mine", "waiting", "watching", "all"]
+TicketView = Literal["mine", "waiting", "all"]
 Body = Annotated[str, Field(min_length=1, max_length=50_000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
 # Até 1000 horas num andamento: mais que isso é erro de digitação.
@@ -49,10 +49,6 @@ class AttachmentOut(BaseModel):
     created_at: datetime
 
 
-class WatcherOut(UserRef):
-    kind: Literal["watcher", "mentioned"]
-
-
 class TicketSummary(BaseModel):
     id: uuid.UUID
     number: int
@@ -81,7 +77,6 @@ class TicketOut(TicketSummary):
     closed_at: datetime | None
     canceled_at: datetime | None
     co_assignees: list[UserRef] = Field(description="outros responsáveis, além do assignee")
-    watchers: list[WatcherOut]
     attachments: list[AttachmentOut] = Field(description="do registro e de todos os comentários")
     time_spent_minutes: int = Field(description="soma do tempo gasto nos comentários")
     time_by_person: list[PersonTime] = Field(description="a mesma soma, por autor (maior primeiro)")
@@ -108,7 +103,6 @@ class TicketCounts(BaseModel):
 
     mine: int
     waiting: int
-    watching: int
     all: int  # em andamento: o que a aba Todos mostra sem um status escolhido
 
 
@@ -151,10 +145,6 @@ class TicketCreate(BaseModel):
         max_length=200,
         description="outros responsáveis, membros ativos do grupo; exige o assignee",
     )
-    watcher_ids: list[uuid.UUID] = Field(default=[], max_length=50)
-    mention_ids: list[uuid.UUID] = Field(
-        default=[], max_length=50, description="@mencionados na descrição: viram observadores"
-    )
     attachment_ids: list[uuid.UUID] = Field(
         default=[], max_length=10, description="envios (POST /uploads) a vincular"
     )
@@ -190,7 +180,6 @@ class CommentIn(BaseModel):
     done_at: AwareDatetime | None = Field(
         default=None, description="quando a tarefa foi feita; sem valor, agora (na edição, mantém)"
     )
-    mention_ids: list[uuid.UUID] = Field(default=[], max_length=50)
     attachment_ids: list[uuid.UUID] = Field(
         default=[], max_length=10, description="envios (POST /uploads) a vincular"
     )
@@ -237,9 +226,6 @@ class TransitionIn(BaseModel):
     comment: str | None = Field(default=None, max_length=50_000)
     time_spent_minutes: TimeSpent = None
     resolution_code_id: int | None = None
-    mention_ids: list[uuid.UUID] = Field(
-        default=[], max_length=50, description="@mencionados no comentário: viram observadores"
-    )
     attachment_ids: list[uuid.UUID] = Field(
         default=[], max_length=10, description="envios (POST /uploads) a vincular"
     )

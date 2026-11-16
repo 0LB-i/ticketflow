@@ -175,9 +175,7 @@
     "negrito": "Negrito",
     "italico": "Itálico",
     "lista": "Lista",
-    "listaNumerada": "Lista numerada",
-    "mencionar": "Mencionar colega",
-    "ninguem": "Ninguém encontrado"
+    "listaNumerada": "Lista numerada"
   },
   "tipos": {
     "incident": "Incidente",
@@ -201,7 +199,6 @@
     "abas": {
       "mine": "Meus",
       "waiting": "Aguardando",
-      "watching": "Acompanhando",
       "all": "Todos"
     },
     "filtros": {
@@ -230,7 +227,6 @@
     "vazio": {
       "mine": "Nenhum chamado com você.",
       "waiting": "Nenhum chamado aguardando.",
-      "watching": "Você não acompanha nenhum chamado em aberto.",
       "all": "Nenhum chamado encontrado.",
       "busca": "Nenhum chamado encontrado para essa busca."
     },
@@ -267,7 +263,7 @@
     "tituloDica": "O que precisa ser feito, em poucas palavras.",
     "tituloCurto": "Informe um título com pelo menos 3 letras.",
     "descricao": "Descrição",
-    "descricaoDica": "Detalhes. Digite arroba e o nome para mencionar um colega.",
+    "descricaoDica": "Detalhes.",
     "usuarios": "Usuários",
     "escolhaResponsavel": "Escolha pelo menos uma pessoa responsável.",
     "adicionarUsuario": "Adicionar pessoa…",
@@ -296,13 +292,6 @@
     "transferir": "Transferir",
     "atribuirA": "Atribuir a",
     "escolhaMembro": "Escolha um membro do grupo",
-    "observadores": "Observadores",
-    "acompanhar": "Acompanhar",
-    "deixarDeAcompanhar": "Deixar de acompanhar",
-    "semObservadores": "Ninguém acompanha este chamado.",
-    "adicionarObservador": "Adicionar observador",
-    "adicionarColega": "Adicionar colega…",
-    "removerObservador": "Remover {nome} dos observadores",
     "transferirTitulo": "Transferir para outro grupo",
     "transferirTexto": "O chamado vai para o outro grupo, com a pessoa escolhida como responsável. Seu grupo continua vendo, mas não altera mais.",
     "grupoDestino": "Grupo de destino",
@@ -319,7 +308,7 @@
     "removerTarefaPergunta": "Remover esta tarefa?",
     "feitaEm": "Data e hora da tarefa",
     "novoComentario": "Tarefa",
-    "comentarioDica": "Descreva a tarefa feita. Digite arroba e o nome para mencionar um colega.",
+    "comentarioDica": "Descreva a tarefa feita.",
     "tempoGasto": "Tempo gasto",
     "tempoInvalido": "Informe horas e minutos válidos, como 01:30.",
     "semTempo": "Nenhum tempo lançado.",
@@ -342,10 +331,6 @@
       "atribuido": "Responsável alterado",
       "cliente": "Cliente alterado",
       "transferido": "Chamado transferido",
-      "observador": "Observador adicionado",
-      "observadorRemovido": "Observador removido",
-      "acompanhando": "Você está acompanhando o chamado",
-      "deixouDeAcompanhar": "Você deixou de acompanhar o chamado",
       "status": "Status alterado",
       "dataConclusao": "Data alterada",
       "titulo": "Título alterado",

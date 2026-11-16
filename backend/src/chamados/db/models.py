@@ -15,7 +15,6 @@ from chamados.modules.tickets.models import (
     TicketComment,
     TicketEvent,
     TicketTeam,
-    TicketWatcher,
 )
 
 __all__ = [
@@ -39,7 +38,6 @@ __all__ = [
     "TicketEvent",
     "TicketStatus",
     "TicketTeam",
-    "TicketWatcher",
     "User",
     "UserSession",
     "WorkSchedule",

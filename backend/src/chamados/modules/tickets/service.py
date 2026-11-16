@@ -46,7 +46,6 @@ from chamados.modules.tickets.models import (
     TicketEvent,
     TicketRead,
     TicketTeam,
-    TicketWatcher,
 )
 from chamados.modules.tickets.schemas import (
     CommentIn,
@@ -81,12 +80,10 @@ def add_event(
     ticket: Ticket,
     event_type: str,
     auth: Auth,
-    *,
-    mention_ids: Sequence[uuid.UUID] = (),
     **payload: Any,
 ) -> None:
-    """Grava no histórico e no outbox. `mention_ids` vai só para o outbox (as notificações). Fora
-    da interface, o payload leva `via` (ex.: "api", por um token)."""
+    """Grava no histórico e no outbox. Fora da interface, o payload leva `via` (ex.: "api", por
+    um token)."""
     if auth.via != "web":
         payload["via"] = auth.via
     db.add(
@@ -94,7 +91,7 @@ def add_event(
             ticket_id=ticket.id, event_type=event_type, actor_user_id=auth.user.id, payload=payload
         )
     )
-    publish_ticket_event(db, ticket, event_type, auth, payload, mention_ids)
+    publish_ticket_event(db, ticket, event_type, auth, payload)
 
 
 def publish_ticket_event(
@@ -103,11 +100,8 @@ def publish_ticket_event(
     event_type: str,
     auth: Auth,
     data: dict[str, Any],
-    mention_ids: Sequence[uuid.UUID] = (),
 ) -> None:
-    extra: dict[str, Any] = (
-        {"mention_ids": [str(i) for i in dict.fromkeys(mention_ids)]} if mention_ids else {}
-    )
+    extra: dict[str, Any] = {}
     if auth.via != "web":
         extra["via"] = auth.via
     publish(db, event_type, ticket_id=ticket.id, actor_user_id=auth.user.id, data=data, **extra)
@@ -135,7 +129,7 @@ def _with_visibility(auth: Auth) -> Select[Ticket, bool]:
     """Chamados com o que as ações precisam e, em `visible`, se a pessoa os vê."""
     return (
         select(Ticket, ticket_visibility_filter(auth.actor).label("visible"))
-        .options(selectinload(Ticket.watchers), selectinload(Ticket.co_assignees))
+        .options(selectinload(Ticket.co_assignees))
         # Depois de uma alteração, relê tudo (a sessão não expira os objetos no commit).
         .execution_options(populate_existing=True)
     )
@@ -162,7 +156,6 @@ def actions(auth: Auth, ticket: Ticket) -> set[str]:
         kind=ticket.status.kind,
         created_by_id=ticket.created_by_id,
         assignee_id=ticket.assignee_id,
-        is_watcher=any(w.user_id == auth.user.id for w in ticket.watchers),
         co_assignee_ids=frozenset(c.user_id for c in ticket.co_assignees),
     )
     return rules.allowed_actions(auth.actor, state)
@@ -236,7 +229,7 @@ PT_BR: ColumnElement[Any] = literal_column("'pt_br'::regconfig")
 
 def view_filter(auth: Auth, view: TicketView, *, any_status: bool = False) -> ColumnElement[bool]:
     """As filas da lista (docs/10 §10.6). O status vem do join com ticket_statuses. Com
-    `any_status`, só quem a fila mostra (os meus, os dos meus grupos, os que acompanho), sem os
+    `any_status`, só quem a fila mostra (os meus, os dos meus grupos), sem os
     status dela."""
     me = auth.user.id
     my_teams = Ticket.team_id.in_(auth.actor.teams)
@@ -249,11 +242,6 @@ def view_filter(auth: Auth, view: TicketView, *, any_status: bool = False) -> Co
             return and_(assigned_to(me), kinds(ACTIVE))
         case "waiting":
             return and_(my_teams, kinds(WAITING))
-        case "watching":
-            return and_(
-                exists().where(TicketWatcher.ticket_id == Ticket.id, TicketWatcher.user_id == me),
-                kinds(ACTIVE),
-            )
         case "all":
             return true()
 
@@ -453,7 +441,7 @@ async def list_tickets(
 ) -> tuple[list[tuple[Ticket, bool, int]], str | None]:
     """Chamados visíveis de uma fila, com o aviso de novidade e o tempo gasto de cada um. O admin,
     escolhendo status (`kinds`), vê esses status em qualquer fila: também os concluídos e os
-    cancelados dos seus, dos seus grupos e dos que acompanha. Com `sort` (`SORTS` ou "time"), na
+    cancelados dos seus e dos seus grupos. Com `sort` (`SORTS` ou "time"), na
     ordem dessa coluna; a página seguinte, então, vem pela posição (o valor da coluna muda).
     Sem `cursor`, `offset` pula os primeiros (as páginas numeradas da tela)."""
     stmt = (
@@ -542,11 +530,10 @@ async def board(
     stmt = (
         select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
-        # Os observadores e os outros responsáveis entram nas ações de cada cartão. O cartão não
+        # Os outros responsáveis entram nas ações de cada cartão. O cartão não
         # mostra quem registrou, o código de resolução, o grupo nem a categoria: sem esses joins.
         .options(
             contains_eager(Ticket.status),
-            selectinload(Ticket.watchers),
             selectinload(Ticket.co_assignees),
             raiseload(Ticket.created_by),
             raiseload(Ticket.resolution_code),
@@ -573,7 +560,7 @@ async def counts(db: AsyncSession, auth: Auth) -> dict[str, int]:
     """Quantos chamados visíveis há em cada fila, numa consulta só. Em Todos, os em andamento
     (o que a aba mostra sem um status escolhido). Todas as filas contam só os em andamento: o
     filtro vem antes, para não passar pelos concluídos (a maioria)."""
-    views: tuple[TicketView, ...] = ("mine", "waiting", "watching")
+    views: tuple[TicketView, ...] = ("mine", "waiting")
     row = (
         await db.execute(
             select(
@@ -678,43 +665,11 @@ async def _team_members(db: AsyncSession, public_ids: set[uuid.UUID], team_id: i
     return list(users)
 
 
-async def _add_watchers(
-    db: AsyncSession,
-    auth: Auth,
-    ticket: Ticket,
-    user_ids: list[uuid.UUID],
-    kind: Literal["watcher", "mentioned"],
-) -> None:
-    """Inclui observadores (ou mencionados). Quem já acompanha continua como está."""
-    if not user_ids:
-        return
-    users = (
-        await db.scalars(select(User).where(User.public_id.in_(user_ids), User.is_active))
-    ).all()
-    if len(users) != len(set(user_ids)):
-        raise HTTPException(422, "Observador ou mencionado não encontrado ou inativo.")
-    current = set(
-        (
-            await db.scalars(
-                select(TicketWatcher.user_id).where(TicketWatcher.ticket_id == ticket.id)
-            )
-        ).all()
-    )
-    for user in users:
-        if user.id in current:
-            continue
-        db.add(
-            TicketWatcher(ticket_id=ticket.id, user_id=user.id, kind=kind, added_by=auth.user.id)
-        )
-        add_event(db, ticket, "watcher.added", auth, user=ref(user), kind=kind)
-
-
 async def _comment(
     db: AsyncSession,
     auth: Auth,
     ticket: Ticket,
     body: str,
-    mention_ids: list[uuid.UUID] | None = None,
     attachment_ids: list[uuid.UUID] | None = None,
     *,
     time_spent_minutes: int | None = None,
@@ -732,7 +687,6 @@ async def _comment(
         comment.done_at = _done_at(done_at)
     db.add(comment)
     await db.flush()
-    await _add_watchers(db, auth, ticket, mention_ids or [], "mentioned")
     await attachments.link(db, auth, ticket, attachment_ids or [], comment)
     ticket.updated_at = func.now()
     return comment
@@ -808,8 +762,6 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     if not member and not can(auth.actor, P.TICKET_VIEW_ALL):
         raise HTTPException(403, "Você só registra chamados nos grupos de que é membro.")
     client = await _active(db, Client, data.client_id)
-    if data.watcher_ids and not can(auth.actor, P.TICKET_WATCH):
-        raise HTTPException(403, FORBIDDEN)
     if data.status_id is not None and not can(auth.actor, P.TICKET_TRANSITION):
         raise HTTPException(403, FORBIDDEN)
     status = await (
@@ -860,9 +812,7 @@ async def create(db: AsyncSession, auth: Auth, data: TicketCreate) -> Ticket:
     created: dict[str, Any] = {"team": ref(team), "assignee": ref(assignee)}
     if co_assignees:
         created["co_assignees"] = [ref(u) for u in co_assignees]
-    add_event(db, ticket, "ticket.created", auth, mention_ids=data.mention_ids, **created)
-    await _add_watchers(db, auth, ticket, data.watcher_ids, "watcher")
-    await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
+    add_event(db, ticket, "ticket.created", auth, **created)
     await db.commit()
     return ticket
 
@@ -885,8 +835,8 @@ FINISHED_ONLY_FINAL = "A data de conclusão só vale num status concluído ou ca
 
 
 def etag(ticket: Ticket) -> str:
-    """Versão dos campos que o PATCH altera (docs/05, "Concorrência"). Tarefas, responsáveis e
-    observadores não mudam o ETag: o PATCH não os sobrescreve."""
+    """Versão dos campos que o PATCH altera (docs/05, "Concorrência"). Tarefas e responsáveis não
+    mudam o ETag: o PATCH não os sobrescreve."""
     values = [str(getattr(ticket, f)) for f in sorted(EDIT_FIELDS | {"status_id"})]
     return '"' + hashlib.sha256("\x1f".join(values).encode()).hexdigest()[:20] + '"'
 
@@ -1072,7 +1022,6 @@ async def add_comment(
         auth,
         ticket,
         required_text(data.body, "Escreva o comentário."),
-        data.mention_ids,
         data.attachment_ids,
         time_spent_minutes=data.time_spent_minutes,
         done_at=_not_after_finish(ticket, data.done_at),
@@ -1080,7 +1029,7 @@ async def add_comment(
     # O comentário não vai para o histórico (é o próprio registro), mas as notificações precisam.
     # O de uma ação (transição, transferência) vai no evento dela, pelo comment_id.
     data_out = {"comment_id": str(comment.public_id)}
-    publish_ticket_event(db, ticket, "comment.created", auth, data_out, data.mention_ids)
+    publish_ticket_event(db, ticket, "comment.created", auth, data_out)
     await db.commit()
     return comment
 
@@ -1130,7 +1079,6 @@ async def edit_comment(
         comment.time_spent_minutes = minutes
         comment.done_at = done_at
         comment.edited_at = func.now()
-    await _add_watchers(db, auth, ticket, data.mention_ids, "mentioned")
     await attachments.link(db, auth, ticket, data.attachment_ids, comment)
     await db.commit()
     await db.refresh(comment)
@@ -1279,7 +1227,6 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
             auth,
             ticket,
             text,
-            data.mention_ids,
             data.attachment_ids,
             time_spent_minutes=data.time_spent_minutes,
             is_solution=data.action == "close",
@@ -1287,29 +1234,11 @@ async def transition(db: AsyncSession, auth: Auth, ticket: Ticket, data: Transit
         payload["comment_id"] = str(comment.public_id)
     if code is not None:
         payload["resolution_code"] = ref(code)
-    # As menções só existem no comentário: sem ele, não há em quem avisar.
-    mentions = data.mention_ids if text else []
-    add_event(db, ticket, "ticket.status_changed", auth, mention_ids=mentions, **payload)
+    add_event(db, ticket, "ticket.status_changed", auth, **payload)
     # Reabrir volta para o mesmo responsável (docs/10 §10.5).
     _apply_status(ticket, ticket.status, status)
     if code is not None:
         ticket.resolution_code_id = code.id
-    await db.commit()
-
-
-async def set_watcher(
-    db: AsyncSession, auth: Auth, ticket: Ticket, user_id: uuid.UUID, *, watching: bool
-) -> None:
-    """Qualquer um se inclui ou se retira; incluir ou retirar colegas exige ser do grupo."""
-    require(auth, ticket, "watch_self" if user_id == auth.user.public_id else "manage_watchers")
-    if watching:
-        await _add_watchers(db, auth, ticket, [user_id], "watcher")
-    else:
-        watcher = next((w for w in ticket.watchers if w.user.public_id == user_id), None)
-        if watcher is None:
-            raise HTTPException(404, "Este usuário não acompanha o chamado.")
-        add_event(db, ticket, "watcher.removed", auth, user=ref(watcher.user))
-        await db.delete(watcher)
     await db.commit()
 
 

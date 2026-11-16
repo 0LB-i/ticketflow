@@ -76,7 +76,7 @@ def _sort_key(name: str) -> str:
 
 
 def _people(teams: list[TeamOut]) -> list[tuple[str, str]]:
-    """Colegas ativos de todos os grupos (menções, observadores), em ordem alfabética."""
+    """Colegas ativos de todos os grupos (participantes da agenda), em ordem alfabética."""
     seen: dict[str, str] = {}
     for team in teams:
         for m in team.members:
@@ -158,7 +158,6 @@ class NewTicketForm:
     client_name: str = ""
     contact: str = ""
     assignees: list[str] = field(default_factory=list)
-    watchers: list[str] = field(default_factory=list)
     attachments: list[str] = field(default_factory=list)
 
 
@@ -176,8 +175,6 @@ async def _new_ticket_page(
     statuses = await catalog_api.status_options(db)
     if not form.status:
         form.status = str(next((s.id for s in statuses if s.kind == "open"), ""))
-    people = _people(teams)
-    names = dict(people)
     members = _members(teams, form.team)
     return page.render(
         "tickets/new.html",
@@ -187,7 +184,7 @@ async def _new_ticket_page(
         error=error,
         team_options=team_options,
         members=members,
-        names={**names, **dict(members)},
+        names=dict(members),
         can_choose_status=page.can("ticket.transition"),
         # Os concluídos só para quem supervisiona algum grupo (ou o admin); o serviço confere o
         # grupo escolhido.
@@ -196,8 +193,6 @@ async def _new_ticket_page(
             for s in statuses
             if s.kind != "closed" or auth.actor.role == "admin" or auth.actor.supervises
         ],
-        watcher_options=[p for p in people if p[0] != str(auth.user.public_id)],
-        people=[{"id": i, "label": n} for i, n in people],
         pending=await _pending_attachments(page, db, form.attachments),
         suggested_times=SUGGESTED_TIMES,
     )
@@ -246,9 +241,7 @@ async def create_ticket(
     cliente_nome: Field = "",
     contato: Field = "",
     responsaveis: Ids = None,
-    observadores: Ids = None,
     attachment_ids: Ids = None,
-    mention_ids: Ids = None,
 ) -> Response:
     check_csrf(page, csrf_token)
     form = NewTicketForm(
@@ -261,7 +254,6 @@ async def create_ticket(
         client_name=cliente_nome,
         contact=contato,
         assignees=list(dict.fromkeys(responsaveis or [])),
-        watchers=list(dict.fromkeys(observadores or [])),
         attachments=attachment_ids or [],
     )
     started = form.started.value()
@@ -301,8 +293,6 @@ async def create_ticket(
                 "beneficiary_name": contato.strip() or None,
                 "assignee": "me" if main == me else main,
                 "co_assignee_ids": [a for a in form.assignees if a != main],
-                "watcher_ids": form.watchers,
-                "mention_ids": mention_ids or [],
                 "attachment_ids": list(
                     dict.fromkeys([*form.attachments, *await _uploads_in_text(page, db, descricao)])
                 ),
@@ -389,8 +379,6 @@ async def _ticket_page(
     statuses = await catalog_api.status_options(db)
     actions = set(ticket.allowed_actions)
     me = str(auth.user.public_id)
-    people = _people(teams)
-    watcher_ids = {str(w.id) for w in ticket.watchers}
     assignees = [ticket.assignee, *ticket.co_assignees]
     assigned = {str(u.id) for u in assignees}
     outside = [m for m in _members(teams, str(ticket.team.id)) if m[0] not in assigned]
@@ -424,7 +412,6 @@ async def _ticket_page(
         actions=actions,
         me=me,
         attachments=_attachments_by_place(ticket, comments),
-        people=[{"id": i, "label": n} for i, n in people],
         # Qualquer status (set_status); os concluídos só com set_status_closed (em revisão, só o
         # supervisor ou o admin).
         status_options=[
@@ -440,8 +427,6 @@ async def _ticket_page(
         ],
         destination=destination,
         destination_members=_members(teams, destination),
-        watching=me in watcher_ids,
-        watcher_options=[p for p in people if p[0] not in watcher_ids],
         # Concluído ou cancelado: a data gravada (a da mudança), para corrigir abaixo do status.
         finished=DateTimeInput.at(finished_at)
         if finished_at
@@ -747,34 +732,6 @@ async def transfer(
     )
 
 
-@router.post("/chamados/{number:int}/observadores")
-async def watchers(
-    number: int,
-    page: LoggedPageDep,
-    db: DB,
-    csrf_token: Field = "",
-    user_id: Field = "",
-    observar: Field = "1",
-) -> Response:
-    watching = observar == "1"
-    me = user_id == str(page.auth.user.public_id)
-    done = {
-        (True, True): "chamado.feito.acompanhando",
-        (True, False): "chamado.feito.deixouDeAcompanhar",
-        (False, True): "chamado.feito.observador",
-        (False, False): "chamado.feito.observadorRemovido",
-    }[(me, watching)]
-    api_call = tickets_api.add_watcher if watching else tickets_api.remove_watcher
-
-    return await _act(
-        page,
-        number,
-        csrf_token,
-        lambda: api_call(str(number), UUID.validate_python(user_id), page.auth, db),
-        done,
-    )
-
-
 @router.post("/chamados/{number:int}/tarefas")
 async def add_comment(
     number: int,
@@ -787,7 +744,6 @@ async def add_comment(
     acao: Field = "",
     visto_ate: Field = "",
     attachment_ids: Ids = None,
-    mention_ids: Ids = None,
 ) -> Response:
     """Tarefa nova (comentário na API) e, na mesma ação, retomar ou reabrir (docs/10 §10.6).
 
@@ -827,7 +783,6 @@ async def add_comment(
                     "action": acao,
                     "comment": texto,
                     "time_spent_minutes": minutes,
-                    "mention_ids": mention_ids or [],
                     "attachment_ids": attachments,
                 }
             )
@@ -837,7 +792,6 @@ async def add_comment(
                 {
                     "body": texto,
                     "time_spent_minutes": minutes,
-                    "mention_ids": mention_ids or [],
                     "attachment_ids": attachments,
                 }
             )
@@ -866,7 +820,6 @@ async def edit_comment(
     feita_data: Field = "",
     feita_hora: Field = "",
     feita_ajustado: Field = "",
-    mention_ids: Ids = None,
 ) -> Response:
     """O autor edita o texto, o tempo gasto e a data e hora da tarefa a qualquer momento."""
     check_csrf(page, csrf_token)
@@ -900,7 +853,6 @@ async def edit_comment(
                     "body": texto,
                     "time_spent_minutes": minutes,
                     "done_at": form.done.value() or datetime.now(UTC),
-                    "mention_ids": mention_ids or [],
                     "attachment_ids": await _uploads_in_text(page, db, texto),
                 }
             )

@@ -274,9 +274,6 @@
   .texto-formatado h3 {
     @apply font-semibold;
   }
-  .texto-formatado .mencao {
-    @apply rounded bg-primary-subtle px-1 font-medium text-primary;
-  }
   .texto-formatado p.is-editor-empty:first-child::before {
     @apply pointer-events-none float-left h-0 text-muted content-[attr(data-placeholder)];
   }

@@ -32,7 +32,6 @@ from chamados.modules.tickets.schemas import (
     TicketSummary,
     TicketView,
     UserRef,
-    WatcherOut,
 )
 from chamados.modules.tickets.schemas import Ref as RefOut
 from chamados.modules.tickets.visibility import SEE_EVERYTHING, sees_without_privilege
@@ -132,10 +131,6 @@ async def detail(db: AsyncSession, auth: Auth, t: Ticket) -> TicketOut:
         canceled_at=t.canceled_at,
         co_assignees=[
             UserRef(id=c.user.public_id, display_name=c.user.display_name) for c in t.co_assignees
-        ],
-        watchers=[
-            WatcherOut(id=w.user.public_id, display_name=w.user.display_name, kind=w.kind)
-            for w in t.watchers
         ],
         attachments=await attachments.of_ticket(db, t.id),
         time_spent_minutes=sum(p.minutes for p in times),
