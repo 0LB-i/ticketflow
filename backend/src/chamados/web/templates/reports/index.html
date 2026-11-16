@@ -17,6 +17,10 @@
 {% endblock %}
 
 
+{% macro clear_link() -%}
+<a href="{{ clear_url }}" hx-boost="true" class="text-sm text-primary underline">{{ t("relatorios.limparFiltros") }}</a>
+{%- endmacro %}
+
 {% block content %}
 {#- Avisa o leitor de tela quando o relatório chega pelo HTMX (chamado.js); fora do #relatorio,
     que é trocado. #}
@@ -68,10 +72,17 @@
     {{ period_fields(period) }}
     {%- endif %}
     {#- Vários valores em etiquetas; nenhuma é "todos". #}
+    {#- O "Limpar filtros" vai logo depois das etiquetas do último filtro com alguma escolhida. #}
+    {%- set last = namespace(name=None) %}
+    {%- for f in filters if f[3] %}{% set last.name = f[0] %}{% endfor %}
     {%- for name, label, options, selected, all_key, names in filters %}
     {%- set placeholder = t("relatorios.adicionar") if selected else t("relatorios." ~ all_key) %}
-    {%- if options is none %}
+    {%- if options is none and name == last.name %}
+    {% call client_chips(name, t("relatorios." ~ label), selected, names, placeholder, "relatorios.tirarFiltro", clients_url) %}{{ clear_link() }}{% endcall %}
+    {%- elif options is none %}
     {{ client_chips(name, t("relatorios." ~ label), selected, names, placeholder, "relatorios.tirarFiltro", clients_url) }}
+    {%- elif name == last.name %}
+    {% call chips(name, t("relatorios." ~ label), options, selected, names, placeholder, "relatorios.tirarFiltro") %}{{ clear_link() }}{% endcall %}
     {%- else %}
     {{ chips(name, t("relatorios." ~ label), options, selected, names, placeholder, "relatorios.tirarFiltro") }}
     {%- endif %}
@@ -118,7 +129,8 @@
     {%- endif %}
   </form>
 
-  {#- O que está filtrado (cada × tira um valor) e a trilha do detalhar por período. #}
+  {#- A trilha do detalhar por período e, só na impressão (os campos não saem no papel), o que
+      está filtrado. #}
   {%- if chosen or drilled %}
   <div hx-boost="true" class="flex flex-col gap-2 text-sm">
     {%- if drilled %}
@@ -126,14 +138,13 @@
     <p class="flex flex-wrap items-center gap-2"><span>{{ text }}</span> <a href="{{ back_url }}" class="inline-flex items-center gap-1 text-primary underline print:hidden">{{ icon("arrow-left", "size-4") }} {{ back_label }}</a></p>
     {%- endif %}
     {%- if chosen %}
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="hidden flex-wrap items-center gap-2 print:flex">
       <span class="text-muted">{{ t("relatorios.filtradoPor") }}</span>
       <ul class="flex flex-wrap items-center gap-2">
-        {%- for name, url in chosen %}
-        <li class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">{{ name }} <a href="{{ url }}" class="rounded-full p-0.5 text-muted hover:bg-border print:hidden" aria-label="{{ t('relatorios.tirarFiltro', nome=name) }}" title="{{ t('relatorios.tirarFiltro', nome=name) }}">{{ icon("x", "size-4") }}</a></li>
+        {%- for name in chosen %}
+        <li class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 px-3">{{ name }}</li>
         {%- endfor %}
       </ul>
-      <a href="{{ clear_url }}" class="text-primary underline print:hidden">{{ t("relatorios.limparFiltros") }}</a>
     </div>
     {%- endif %}
   </div>

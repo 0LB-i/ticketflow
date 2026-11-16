@@ -864,12 +864,9 @@ def test_resumo_dos_filtros_e_limpar(client: TestClient, cenario: dict[str, Any]
     r = client.get(
         "/relatorios/blocos", params={"pessoa": cenario["ana"], "cliente": "sem-cliente"}
     )
+    # O resumo só sai na impressão: na tela, as etiquetas ficam nos campos.
+    assert '<div class="hidden flex-wrap items-center gap-2 print:flex">' in r.text
     assert "Filtrado por:" in r.text
-    # Cada × tira só aquele valor; o período continua.
-    (tira_ana,) = _links(r.text, "Tirar Ana")
-    query = parse_qs(urlsplit(tira_ana).query)
-    assert "pessoa" not in query and query["cliente"] == ["sem-cliente"]
-    assert query["periodo"] == ["mes-atual"] and query["aba"] == ["produtividade"]
     # "Limpar" tira todos e mantém a aba e o período.
     (limpar,) = _links(r.text, "Limpar filtros")
     assert parse_qs(urlsplit(limpar).query) == {"periodo": ["mes-atual"], "aba": ["produtividade"]}

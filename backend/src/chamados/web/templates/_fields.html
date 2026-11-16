@@ -156,11 +156,7 @@
     <p id="campo-{{ name }}-erro" class="text-danger">{{ error }}</p>
     {%- endif %}
   </div>
-  <ul data-chips-lista class="flex flex-wrap gap-2">
-    {%- for value in selected %}
-    {{ chip(name, value, names.get(value, value), t(remove_key, nome=names.get(value, value))) }}
-    {%- endfor %}
-  </ul>
+  {{ chips_list(name, selected, names, remove_key, caller) }}
   <template data-modelo>{{ chip(name, "", "", t(remove_key, nome="{nome}")) }}</template>
 </div>
 {%- endmacro %}
@@ -181,13 +177,23 @@
     </div>
     <ul id="campo-{{ name }}-opcoes" role="listbox" data-opcoes hidden class="absolute inset-x-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 text-fg shadow-lg"></ul>
   </div>
-  <ul data-chips-lista class="flex flex-wrap gap-2">
+  {{ chips_list(name, selected, names, remove_key, caller) }}
+  <template data-modelo>{{ chip(name, "", "", t(remove_key, nome="{nome}")) }}</template>
+</div>
+{%- endmacro %}
+{#- As etiquetas escolhidas. Com `{% call %}`, o que vem no call fica logo depois da última
+    etiqueta, na mesma linha (o "Limpar filtros" dos relatórios). -#}
+{% macro chips_list(name, selected, names, remove_key, after) -%}
+{%- if after %}<div class="flex flex-wrap items-center gap-2">{% endif %}
+  <ul data-chips-lista class="{{ 'contents' if after else 'flex flex-wrap gap-2' }}">
     {%- for value in selected %}
     {{ chip(name, value, names.get(value, value), t(remove_key, nome=names.get(value, value))) }}
     {%- endfor %}
   </ul>
-  <template data-modelo>{{ chip(name, "", "", t(remove_key, nome="{nome}")) }}</template>
+{%- if after %}
+  {{ after() }}
 </div>
+{%- endif %}
 {%- endmacro %}
 {% macro chip(name, value, text, remove_label) -%}
 <li data-valor="{{ value }}" class="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pr-1 pl-3">

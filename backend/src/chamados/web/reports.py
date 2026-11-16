@@ -279,8 +279,8 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
             )
         )
 
-    # "Filtrado por": cada valor escolhido com o link que o tira, e "Limpar filtros", que tira
-    # todos e mantém a aba e o período.
+    # "Filtrado por" (na impressão): os valores escolhidos; e "Limpar filtros", que tira todos e
+    # mantém a aba e o período.
     here = {**query, "aba": slug}
     names = {
         "grupo": dict(team_options),
@@ -288,12 +288,10 @@ async def _report(page: LoggedPage, db: DB, params: Params, *, lazy: bool) -> HT
         "cliente": client_names,
         "status": dict(status_options),
     }
-    chosen = []
+    chosen: list[str] = []
     for name, known in names.items():
         values = query[name] or []
-        for value in values:
-            without = with_query("/relatorios", {**here, name: [v for v in values if v != value]})
-            chosen.append((known.get(value, value), without))
+        chosen.extend(known.get(value, value) for value in values)
     clear_url = with_query("/relatorios", {k: v for k, v in here.items() if k not in names})
 
     # A trilha do detalhar: o período clicado e o link que volta ao de antes.
