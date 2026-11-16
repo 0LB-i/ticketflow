@@ -542,11 +542,16 @@ async def board(
     stmt = (
         select(Ticket, has_news(auth.user.id).label("has_news"), time_spent().label("minutes"))
         .join(Ticket.status)
-        # Os observadores e os outros responsáveis entram nas ações de cada cartão.
+        # Os observadores e os outros responsáveis entram nas ações de cada cartão. O cartão não
+        # mostra quem registrou, o código de resolução, o grupo nem a categoria: sem esses joins.
         .options(
             contains_eager(Ticket.status),
             selectinload(Ticket.watchers),
             selectinload(Ticket.co_assignees),
+            raiseload(Ticket.created_by),
+            raiseload(Ticket.resolution_code),
+            raiseload(Ticket.team),
+            raiseload(Ticket.category),
         )
         .where(
             ticket_visibility_filter(actor),

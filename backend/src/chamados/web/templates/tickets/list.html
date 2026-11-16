@@ -17,7 +17,7 @@
 {% macro sortable(column, label, class="") -%}
 {%- set active = sort == column %}
 <th scope="col" class="px-3 py-2 font-medium {{ class }}"{% if active %} aria-sort="{{ 'descending' if descending else 'ascending' }}"{% endif %}>
-  <a href="{{ sort_url(column) }}" class="group inline-flex items-center gap-1 hover:text-fg {{ 'text-fg' if active }}">
+  <a href="{{ sort_url(column) }}" data-pre-carrega class="group inline-flex items-center gap-1 hover:text-fg {{ 'text-fg' if active }}">
     {{- label }}
     {%- if active %}
     {{ icon("arrow-down" if descending else "arrow-up", "size-4 text-primary") }}
@@ -35,7 +35,7 @@
   <nav aria-label="{{ t('chamados.filas') }}" class="flex flex-wrap gap-1 border-b border-border">
     {%- for slug, fila in tabs.items() %}
     {%- set count = counts[fila] %}
-    <a href="{{ tab_url(slug) }}" class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>
+    <a href="{{ tab_url(slug) }}" data-pre-carrega class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 {{ 'border-primary font-medium text-fg' if slug == tab else 'border-transparent text-muted hover:text-fg' }}"{% if slug == tab %} aria-current="page"{% endif %}>
       {{ t("chamados.abas." ~ fila) }}
       {%- if count %}
       <span class="rounded-full bg-surface-raised px-2 text-sm tabular-nums">{{ count }}</span>
@@ -88,10 +88,10 @@
   <div class="flex flex-wrap items-center gap-2">
     {%- if filters.q %}
     <span>{{ t("chamados.resultadosPara", q=filters.q) }}</span>
-    <a href="{{ url(q=None) }}" class="{{ button_class('ghost', 'sm') }}">{{ t("chamados.limparBusca") }}</a>
+    <a href="{{ url(q=None) }}" data-pre-carrega class="{{ button_class('ghost', 'sm') }}">{{ t("chamados.limparBusca") }}</a>
     {%- endif %}
     {%- if filtered %}
-    <a href="{{ url(grupo=None, status=None, responsavel=None, cliente=None, de=None, ate=None) }}" class="{{ button_class('ghost', 'sm') }}">{{ icon("x", "size-4") }} {{ t("chamados.limparFiltros") }}</a>
+    <a href="{{ url(grupo=None, status=None, responsavel=None, cliente=None, de=None, ate=None) }}" data-pre-carrega class="{{ button_class('ghost', 'sm') }}">{{ icon("x", "size-4") }} {{ t("chamados.limparFiltros") }}</a>
     {%- endif %}
   </div>
   {%- endif %}
@@ -168,7 +168,7 @@
     <ul class="flex flex-wrap items-center justify-center gap-1">
       <li>
         {%- if current_page > 1 %}
-        <a href="{{ page_url(current_page - 1) }}" class="{{ button_class('secondary', 'sm') }}">{{ icon("chevron-left", "size-4") }} {{ t("chamados.paginas.anterior") }}</a>
+        <a href="{{ page_url(current_page - 1) }}" data-pre-carrega class="{{ button_class('secondary', 'sm') }}">{{ icon("chevron-left", "size-4") }} {{ t("chamados.paginas.anterior") }}</a>
         {%- else %}
         <button type="button" disabled class="{{ button_class('secondary', 'sm') }}">{{ icon("chevron-left", "size-4") }} {{ t("chamados.paginas.anterior") }}</button>
         {%- endif %}
@@ -180,13 +180,13 @@
         {%- elif n == current_page %}
         <a href="{{ page_url(n) }}" aria-current="page" aria-label="{{ t('chamados.paginas.pagina', n=n) }}" class="{{ button_class('primary', 'sm') }} min-w-9 tabular-nums">{{ n }}</a>
         {%- else %}
-        <a href="{{ page_url(n) }}" aria-label="{{ t('chamados.paginas.pagina', n=n) }}" class="{{ button_class('ghost', 'sm') }} min-w-9 tabular-nums">{{ n }}</a>
+        <a href="{{ page_url(n) }}" aria-label="{{ t('chamados.paginas.pagina', n=n) }}" class="{{ button_class('ghost', 'sm') }} min-w-9 tabular-nums" data-pre-carrega>{{ n }}</a>
         {%- endif %}
       </li>
       {%- endfor %}
       <li>
         {%- if current_page < pages %}
-        <a href="{{ page_url(current_page + 1) }}" class="{{ button_class('secondary', 'sm') }}">{{ t("chamados.paginas.proxima") }} {{ icon("chevron-right", "size-4") }}</a>
+        <a href="{{ page_url(current_page + 1) }}" data-pre-carrega class="{{ button_class('secondary', 'sm') }}">{{ t("chamados.paginas.proxima") }} {{ icon("chevron-right", "size-4") }}</a>
         {%- else %}
         <button type="button" disabled class="{{ button_class('secondary', 'sm') }}">{{ t("chamados.paginas.proxima") }} {{ icon("chevron-right", "size-4") }}</button>
         {%- endif %}

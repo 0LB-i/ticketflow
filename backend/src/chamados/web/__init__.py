@@ -24,8 +24,9 @@ from chamados.web.page import PREFETCH_RULES
 router = APIRouter(include_in_schema=False)
 
 # Regras do Chrome (Speculation Rules) para pedir a tela assim que o mouse encosta num link do menu
-# (eager: ~10 ms no Chrome 141+), antes do clique. Só os links com data-pre-carrega: abrir um
-# chamado grava a visita (mark_read), então a lista não entra. Só prefetch (sem prerender): os
+# ou da lista de chamados (abas, ordem, páginas, limpar; eager: ~10 ms no Chrome 141+), antes do
+# clique. Só os links com data-pre-carrega: abrir um chamado grava a visita (mark_read), então os
+# links dos chamados não entram. Só prefetch (sem prerender): os
 # blocos dos relatórios não rodam à toa.
 # Vão pelo cabeçalho Speculation-Rules (page.py), porque a CSP não aceita script embutido.
 _PREFETCH_RULES = (
