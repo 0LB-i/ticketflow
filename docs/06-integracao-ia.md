@@ -85,9 +85,11 @@ Qualquer agente de IA opera o sistema pela [API](05-api.md) com um token de API 
 
 - o token age **em nome de uma pessoa**, que o cria na tela **Tokens de API** (menu do usuário) com escopo `read` ou `write`; o que ele faz aparece no histórico como dela, com `via: "api"`;
 - nenhum token entra na administração, nem o de um administrador;
-- `Idempotency-Key` nos `POST` (opcional, recomendado para agentes): repetir a chamada não registra de novo.
+- `Idempotency-Key` nos `POST` (opcional, recomendado para agentes): repetir a chamada não registra de novo;
+- o limite de requisições é por token, no nginx (10 por segundo, rajadas de até 20; [docs/05](05-api.md#convenções));
+- ler um chamado com o token não conta como visita da pessoa: o aviso de novidade continua para ela.
 
-**Ainda não:** contas de serviço (`actor_kind = ai`, um "Assistente Virtual" com identidade própria), escopos mais finos e limite de requisições por token.
+**Ainda não:** contas de serviço (`actor_kind = ai`, um "Assistente Virtual" com identidade própria) e escopos mais finos.
 
 **Exemplos:** um assistente no Teams ou Slack que abre chamados a partir de uma conversa, um agente que consulta o status para o colaborador, uma automação que fecha chamados de monitoramento resolvidos.
 
@@ -112,12 +114,12 @@ Expõe o sistema como ferramentas para clientes MCP (Claude Code, IDEs, platafor
 - As ferramentas são uma camada fina sobre os **services** (mesmas permissões, mesma auditoria); o histórico marca `via: "mcp"`.
 - As de leitura levam `readOnlyHint`, para o cliente poder dispensar a confirmação; as de escrita, não.
 - As instruções do servidor dizem ao modelo que o texto dos chamados é dado, nunca instrução (prompt injection).
-- O `get_ticket` não conta como visita da pessoa: o aviso de novidade continua para ela.
-- **Fora, por enquanto:** concluir e reabrir pelo fluxo (com código de resolução), anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
+- O `get_ticket` não conta como visita da pessoa, como a leitura pela API: o aviso de novidade continua para ela.
+- **Fora, por enquanto:** alterar os campos do chamado (título, descrição, cliente, contato), a data de uma tarefa (`add_task` registra com a data de agora), editar ou remover uma tarefa, concluir e reabrir pelo fluxo (com código de resolução), anexos, `stdio` (uso local sem rede) e a base de conhecimento (ainda não existe). O Claude Desktop e o claude.ai só aceitam servidores MCP remotos com OAuth; com token no cabeçalho, o caminho hoje é o Claude Code ou outro cliente que aceite cabeçalhos.
 
-### Webhooks
+### Webhooks (futuro)
 
-Agentes externos podem reagir a eventos (`ticket.created`, `ticket.comment_added`…) sem polling. Ver [API → Webhooks](05-api.md#webhooks-de-saída-futuro).
+Ainda não existem. Com eles, agentes externos vão poder reagir a eventos (`ticket.created`, `ticket.comment_added`…) sem polling. Ver [API → Webhooks](05-api.md#webhooks-de-saída-futuro).
 
 ## Segurança específica de IA
 

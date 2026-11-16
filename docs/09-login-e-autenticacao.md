@@ -7,7 +7,7 @@
 | **E-mail + senha** (login local) | Todos | 1 |
 | **SSO via OIDC** (Microsoft Entra ID, Google Workspace, Keycloak, Okta…) | Todos os usuários | Futuro |
 | **MFA por TOTP** (aplicativo autenticador) | Obrigatório para administradores no login local; opcional para os demais | 2 |
-| **Token de API** | Integrações e agentes de IA (não é login de pessoa; ver [API](05-api.md#tokens-de-api-futuro)) | Futuro |
+| **Token de API** | Integrações e agentes de IA (não é login de pessoa; ver [API](05-api.md#tokens-de-api)) | Feito (2026-10-23) |
 | LDAP / Active Directory direto | Só se a empresa não tiver OIDC | Futuro |
 | Passkeys (WebAuthn) | Alternativa a senha + TOTP | Futuro |
 
