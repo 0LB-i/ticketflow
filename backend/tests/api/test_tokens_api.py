@@ -6,14 +6,14 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from chamados import cli
 from chamados.modules.audit.models import AuditLog
 from chamados.modules.identity.models import ApiToken, User
 from chamados.modules.jobs.models import OutboxEvent
-from chamados.modules.tickets.models import Ticket
+from chamados.modules.tickets.models import Ticket, TicketRead
 from tests.apoio import API, com_token, criar_token, eventos, registrar
 from tests.conftest import criar_usuario, entrar, outra_sessao
 
@@ -68,6 +68,8 @@ def test_token_de_leitura_so_le(
     numero = registrar(client, cenario)["number"]
     com_token(client, criar_token(db, "ana@x.com", "read"))
     assert client.get(f"{API}/{numero}").status_code == 200
+    # Uma integração lê sem contar como visita da pessoa (o aviso de novidade continua)
+    assert db.scalar(select(func.count()).select_from(TicketRead)) == 0
     assert [t["number"] for t in client.get(API).json()["items"]] == [numero]
     r = client.post(f"{API}/{numero}/comments", json={"body": "Não pode"})
     assert r.status_code == 403

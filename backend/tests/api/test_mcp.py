@@ -300,6 +300,19 @@ def test_dados_invalidos_sem_os_valores(
     assert texto == "Dados inválidos: title."
 
 
+def test_titulo_ate_300_caracteres_como_na_api(
+    client: TestClient,
+    cenario: dict[str, Any],
+    db: Session,
+) -> None:
+    client.cookies.clear()
+    ana = criar_token(db, "ana@x.com")
+    dados = {"client_id": cenario["cliente"], "team_id": cenario["ti"]}
+    criado = ferramenta(client, ana, "create_ticket", title="x" * 300, **dados)
+    assert len(criado["title"]) == 300
+    assert "title" in erro(client, ana, "create_ticket", title="x" * 301, **dados)
+
+
 def test_senha_provisoria(client: TestClient, db: Session) -> None:
     criar_usuario(db, "ana@x.com", trocar_senha=True)
     ana = criar_token(db, "ana@x.com", "read")

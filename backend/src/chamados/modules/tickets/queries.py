@@ -150,9 +150,13 @@ async def open_ticket(
     db: AsyncSession, auth: Auth, ticket: Ticket, request: Request | None = None
 ) -> TicketOut:
     """A abertura do detalhe (já carregado com `service.load`): audita o acesso a confidencial,
-    guarda a visita e monta o detalhe. `request` só dá o IP e o navegador à auditoria."""
+    guarda a visita e monta o detalhe. `request` só dá o IP e o navegador à auditoria.
+
+    Lido por um token de API (uma integração), não conta como visita da pessoa: o aviso de
+    novidade continua para ela, como no MCP."""
     await audit_confidential(db, auth, ticket, request)
-    await service.mark_read(db, auth, ticket)
+    if auth.token is None:
+        await service.mark_read(db, auth, ticket)
     return await detail(db, auth, ticket)
 
 

@@ -292,7 +292,7 @@ def build(app: FastAPI) -> MCPServer:
     @server.tool(annotations=WRITE)
     async def create_ticket(
         ctx: Context,
-        title: Annotated[str, Field(min_length=3, max_length=200)],
+        title: Annotated[str, Field(min_length=3, max_length=300)],
         client_id: Annotated[uuid.UUID, Field(description="de search_clients")],
         team_id: Annotated[uuid.UUID, Field(description="de list_options")],
         description: Annotated[str, Field(max_length=50_000, description="Markdown")] = "",
