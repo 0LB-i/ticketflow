@@ -772,7 +772,6 @@
     "novo": "Novo cliente",
     "editar": "Cliente",
     "cadastrado": "Cliente cadastrado",
-    "buscaDica": "Nome, nome fantasia, CPF/CNPJ ou e-mail.",
     "total": "{n} cliente(s)",
     "mostrandoDe": "Mostrando {n} de {total} clientes. Refine a busca para ver os outros.",
     "nome": "Nome",

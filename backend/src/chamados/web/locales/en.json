@@ -772,7 +772,6 @@
     "novo": "New client",
     "editar": "Client",
     "cadastrado": "Client registered",
-    "buscaDica": "Name, trade name, CPF/CNPJ or e-mail.",
     "total": "{n} client(s)",
     "mostrandoDe": "Showing {n} of {total} clients. Refine the search to see the others.",
     "nome": "Name",
