@@ -89,7 +89,7 @@
         </div>
         {%- for item in d.items[:month_items] %}
         {%- set a = item.appointment %}
-        {% call open_panel(url(view, day, editar=a.public_id | string), "block truncate rounded px-1.5 py-0.5 text-xs " ~ ("bg-primary-subtle font-medium text-fg" if a.all_day else "text-fg hover:bg-surface-raised")) %}
+        {% call open_panel(url(view, day, editar=a.public_id | string), "block truncate rounded px-1.5 py-0.5 text-xs text-fg " ~ ("bg-primary/25 font-medium hover:bg-primary/35" if a.all_day else "bg-primary/15 hover:bg-primary/25")) %}
           {%- if not a.all_day %}<span class="tabular-nums text-muted">{{ item.start.strftime("%H:%M") }}</span> {% endif %}{{ a.title }}
         {%- endcall %}
         {%- endfor %}
