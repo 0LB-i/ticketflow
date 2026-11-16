@@ -2,7 +2,7 @@
 
 Sistema interno de chamados para as equipes de uma empresa, em que os próprios membros registram, distribuem e executam as tarefas. Escrito em **Python** com **PostgreSQL 16/17**, com arquitetura preparada para se integrar a **IAs via API** depois da versão 1.0.
 
-> **Status:** Fase 1 (MVP) do [roadmap](docs/07-roadmap.md); faltam a instalação no servidor de produção, a carga inicial e o treinamento. O andamento de cada item está em [TAREFAS.md](TAREFAS.md).
+> **Status:** Fase 1 (MVP) do [roadmap](docs/07-roadmap.md); faltam a instalação no servidor de produção, a carga inicial e o treinamento.
 
 ## Instalação (produção)
 

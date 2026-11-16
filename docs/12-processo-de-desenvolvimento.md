@@ -5,12 +5,11 @@
 ## 12.1 Repositório e tarefas
 
 - **Repositório:** Git local, monorepo `backend/` (API e telas, [ADR 0011](adr/0011-interface-web-no-servidor.md)) + `docs/`. O remoto fica no [GitHub](https://github.com/0LB-i/ticketflow), de onde o servidor de produção busca o código ([18.3](18-manual-do-servidor.md#5-código)).
-- **Tarefas:** arquivo `TAREFAS.md` na raiz, criado na Fase 0. Uma linha por item do [roadmap](07-roadmap.md), com o código, o estado (`a fazer`, `fazendo`, `feito`) e o commit que concluiu. Bugs e pedidos do piloto entram numa seção própria, com data e quem relatou.
 - **Decisões:** continuam como ADR em `docs/adr/` e nas [questões em aberto](questoes-em-aberto.md).
 
 ### Modelo de tarefa
 
-Cada item do roadmap é detalhado assim antes de começar, no próprio `TAREFAS.md` ou no documento de referência:
+Cada item do roadmap é detalhado assim antes de começar, no documento de referência:
 
 ```markdown
 **Como** membro da TI – Suporte
@@ -43,7 +42,7 @@ docs/10-chamados.md#transferência
 | Antes de cada versão (tag) | `scripts/check.sh --completo` | Tudo acima com **todos** os testes, também no **PostgreSQL 16**, Playwright (quando entrar) e auditoria de dependências (`pip-audit`) |
 
 - O `check.sh` para com uma mensagem clara se o PostgreSQL não estiver respondendo.
-- **Dependências:** sem Dependabot, a atualização é uma rotina mensal registrada no `TAREFAS.md`: `uv lock --upgrade`, verificação completa e commit.
+- **Dependências:** sem Dependabot, a atualização é uma rotina mensal: `uv lock --upgrade`, verificação completa e commit.
 - **Segredos:** `.env` e chaves nunca entram no repositório (`.gitignore`); o `check.sh` falha se encontrar padrões de chave nos arquivos alterados.
 
 ## 12.4 Definição de pronto
@@ -95,7 +94,6 @@ Ao criar o remoto, o que hoje é local passa para o GitHub, sem mudar o resto do
 
 | Hoje (local) | No GitHub |
 |--------------|-----------|
-| `TAREFAS.md` | Issues com o código do roadmap no título (ex.: `[F1-S3-07] Transferir chamado entre grupos`), milestones por fase e GitHub Projects (*Backlog → Pronto para desenvolver → Em andamento → Concluído*) |
 | `scripts/check.sh` | GitHub Actions: `backend.yml` (matriz PostgreSQL 16 e 17), `e2e.yml` (Playwright) e `codeql.yml` |
 | Rotina mensal de dependências | Dependabot (uv, Actions), secret scanning e push protection |
 | Tag + `CHANGELOG.md` | `release.yml` gerando a release a partir da tag |

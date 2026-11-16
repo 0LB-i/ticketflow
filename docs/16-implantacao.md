@@ -69,7 +69,7 @@ Entregue no treinamento e linkado na tela inicial do sistema. Conteúdo:
 
 ## 16.7 Retorno e correções durante o piloto
 
-- **Canal único de retorno:** um formulário simples ou um grupo de mensagens combinado no treinamento. Cada retorno vira um item no `TAREFAS.md` ([12.1](12-processo-de-desenvolvimento.md#121-repositório-e-tarefas)).
+- **Canal único de retorno:** um formulário simples ou um grupo de mensagens combinado no treinamento.
 - **Triagem semanal** entre o supervisor e o desenvolvedor: o que é bug, o que é ajuste de configuração e o que vai para o backlog.
 - **Bug crítico** (impede registrar ou trabalhar chamados): correção no mesmo dia ou plano de contorno (16.8).
 

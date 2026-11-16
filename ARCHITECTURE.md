@@ -4,7 +4,6 @@ Guia da **estrutura do código como ela é hoje**: onde fica cada coisa, como as
 
 - **Por que** cada tecnologia foi escolhida e o que está **planejado** para depois: [docs/03-arquitetura.md](docs/03-arquitetura.md) e os [ADRs](docs/adr/).
 - **O que** o sistema faz (regras de negócio): [docs/08](docs/08-organizacao-e-permissoes.md), [docs/10](docs/10-chamados.md) e os demais documentos em [docs/](docs/).
-- **Em que ponto está** cada item do roadmap: [TAREFAS.md](TAREFAS.md).
 
 Situação em 2026-10-13: Fase 0, Sprint 2, Sprint 3, as Configurações (F1-S3-11), o cadastro de clientes (ligado aos chamados) e, da Sprint 4, as filas, a busca e os anexos prontos. A seção 10 lista o que ainda não existe.
 
@@ -42,7 +41,6 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── ARCHITECTURE.md        este guia
 ├── README.md              apresentação e "como rodar"
 ├── CLAUDE.md              regras de trabalho (commits na main, não reiniciar o serviço)
-├── TAREFAS.md             andamento do roadmap, item a item, com o commit
 ├── CHANGELOG.md           notas para quem administra uma instalação
 ├── update.sh              atualização de uma instalação de produção (seção 8)
 ├── install.sh             instalação de produção num Ubuntu 24.04 novo, direto do GitHub (sem
@@ -533,7 +531,7 @@ As escritas usam uma pessoa e um grupo só delas ("Escritas"): não mudam as fil
 | **Desenvolvimento, e-mails** | O `instalar-servico-dev.sh` instala o Mailpit (`mailpit.service`): SMTP em `127.0.0.1:1025`, tela em `https://IP:8025`, com senha (usuário `ticketflow`, senha em `/etc/ticketflow/mailpit-senha`), porque os links de convite e redefinição passam por ela, e `SMTP_HOST=localhost` no `/etc/ticketflow/env`. Por terminais, sem `SMTP_HOST`, os e-mails vão para o log, com o corpo (`LOG_EMAIL_BODY=true` no `.env.example`) |
 | **Desenvolvimento, worker** | Com o serviço: o `instalar-servico-dev.sh` instala o `ticketflow-worker.service` (o da produção, que acompanha o `ticketflow`) com um drop-in que o roda pelo `watchfiles`, reiniciando o worker quando um `.py` de `backend/src` muda. Por terminais: `uv run chamados worker` (com o `backend/.env`), em primeiro plano; Ctrl+C encerra |
 | **Desenvolvimento, serviço** | `sudo scripts/instalar-servico-dev.sh`: modo de desenvolvimento, sem build, atrás do nginx em `https://IP` (80 redireciona para 443; certificado autoassinado em `/etc/ticketflow/tls`). O nginx manda tudo para o `ticketflow.service` (a unit da produção com um drop-in: uvicorn em `127.0.0.1:8001` com `--reload` em `backend/src`). O `ticketflow-css.service` gera o CSS das telas (`scripts/css.sh --watch`) e o `ticketflow-worker.service`, o worker (com o `watchfiles`). Aplica as migrações e, de instalações antigas, desativa e apaga o `ticketflow-frontend.service` (Vite) |
-| **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), uvicorn com 4 workers (para 8 núcleos), nginx com HTTPS, PostgreSQL 17. Instalação por `install.sh [DOMINIO]` (os passos 2 a 9 do manual, com certificado autoassinado e domínio padrão `ticketflow.local`, a trocar depois no nginx; o checkout esparso deixa de fora `TAREFAS.md`, `ARCHITECTURE.md`, `CLAUDE.md`, `docs/`, `backend/tests`, `backend/bench` e os scripts de desenvolvimento, e o `update.sh` respeita o filtro). Atualização por `update.sh` na raiz (`--force` descarta as mudanças locais e volta à `main`). O backup não faz parte do programa: fica com quem administra o servidor. Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
+| **Produção** | Ubuntu 24.04, systemd (`deploy/*.service`), uvicorn com 4 workers (para 8 núcleos), nginx com HTTPS, PostgreSQL 17. Instalação por `install.sh [DOMINIO]` (os passos 2 a 9 do manual, com certificado autoassinado e domínio padrão `ticketflow.local`, a trocar depois no nginx; o checkout esparso deixa de fora `ARCHITECTURE.md`, `CLAUDE.md`, `docs/`, `backend/tests`, `backend/bench` e os scripts de desenvolvimento, e o `update.sh` respeita o filtro). Atualização por `update.sh` na raiz (`--force` descarta as mudanças locais e volta à `main`). O backup não faz parte do programa: fica com quem administra o servidor. Passo a passo no [manual do servidor](docs/18-manual-do-servidor.md) |
 
 Quem reinicia o serviço é sempre a pessoa responsável, nunca um script ou o Claude Code ([CLAUDE.md](CLAUDE.md)). Na máquina de desenvolvimento não é preciso: o `--reload`, o `watchfiles` do worker e o `ticketflow-css.service` pegam as mudanças, que aparecem ao recarregar a página. Na produção, templates e CSS mudam assim que o `update.sh` termina; o código Python, só depois do `systemctl restart`.
 

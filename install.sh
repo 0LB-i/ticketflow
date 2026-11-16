@@ -27,7 +27,7 @@ TLS_DIR=/etc/ticketflow/tls
 SERVICO=ticketflow
 # O que não vai para o servidor (sintaxe do .gitignore).
 FORA_DA_PRODUCAO=(
-  /TAREFAS.md /ARCHITECTURE.md /CLAUDE.md /.claude/ /docs/
+  /ARCHITECTURE.md /CLAUDE.md /.claude/ /docs/
   /backend/tests/ /backend/bench/ /backend/.env.example
   /scripts/check.sh /scripts/install-hooks.sh /scripts/instalar-servico-dev.sh
   /scripts/preparar-maquina-dev.sh /scripts/vendor-tiptap.sh

@@ -4,7 +4,6 @@
 
 - **Equipe (2026-10-10):** **uma pessoa** desenvolvendo com o Claude Code, que também faz o papel de produto e de testes. A primeira versão deste roadmap supunha 2 desenvolvedores + 1 pessoa de produto/QA; as durações abaixo foram refeitas para uma pessoa.
 - **Sprints** continuam sendo os blocos de entrega, na ordem fixa. A duração de cada um é uma estimativa e é revista ao fim da Fase 0, com o ritmo real medido, e depois a cada sprint.
-- Cada item abaixo vira uma linha no `TAREFAS.md` do repositório ([12.1](12-processo-de-desenvolvimento.md#121-repositório-e-tarefas)). Os códigos (ex.: `F1-S3-02`) servem para rastrear.
 
 ## Visão geral
 
@@ -189,7 +188,7 @@ O desenho de banco destes itens está em [`esboco-schema-futuro.sql`](esboco-sch
 | Risco | Mitigação |
 |-------|-----------|
 | Regras de permissão complexas gerando vazamento de dados | Função única de visibilidade + testes tabelados obrigatórios desde a Sprint 2 |
-| Desenvolvedor único: indisponibilidade ou conhecimento concentrado | Documentação em `docs/`, testes automatizados, `TAREFAS.md` sempre atualizado e decisões registradas em ADR |
+| Desenvolvedor único: indisponibilidade ou conhecimento concentrado | Documentação em `docs/`, testes automatizados e decisões registradas em ADR |
 | Código só na máquina de desenvolvimento | `git push` frequente para o GitHub, de onde o servidor busca o código ([18.3](18-manual-do-servidor.md#5-código)) |
 | Escopo do MVP crescer | Tudo que não está na Fase 1 vai para o backlog. O critério de M1 é "a TI consegue operar", não "tem todas as funções" |
 | A equipe registrar só parte do trabalho | Virada com data marcada, combinados da equipe e acompanhamento diário nas duas primeiras semanas ([16](16-implantacao.md)) |
