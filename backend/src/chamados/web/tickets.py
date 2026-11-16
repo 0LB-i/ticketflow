@@ -136,15 +136,18 @@ async def tickets_page(
     tab = aba if aba in TABS else ("meus" if auth.actor.teams else "todos")
     view = TABS[tab]
     team = _uuid(grupo)
-    # Status: os da fila e, para o admin, também os concluídos e os cancelados (a fila continua a
-    # dos seus chamados, service.list_tickets). Na aba Todos, sem escolha, só os em andamento;
-    # "todos" tira o filtro.
+    # Status: os cadastrados (pelo nome) cujo tipo a fila mostra e, para o admin, também os
+    # concluídos e os cancelados (a fila continua a dos seus chamados, service.list_tickets). Na
+    # aba Todos, sem escolha, só os em andamento; "todos" tira o filtro.
     tab_kinds = TAB_KINDS[view]
     if auth.actor.role == "admin":
         tab_kinds += tuple(k for k in ("closed", "canceled") if k not in tab_kinds)
-    kind = status if status in tab_kinds else None
-    if kind:
-        kinds = [kind]
+    statuses = await catalog_api.status_options(db)
+    tab_statuses = [s for s in statuses if s.kind in tab_kinds]
+    chosen = next((s for s in tab_statuses if str(s.id) == status), None)
+    status_ids = [chosen.id] if chosen else []
+    if chosen:
+        kinds = [chosen.kind]
     elif view == "all" and status != ALL_KINDS:
         kinds = list(ACTIVE_KINDS)
     else:
@@ -170,6 +173,7 @@ async def tickets_page(
         team=team,
         assignee="me" if mine else None,
         kinds=kinds,
+        status_ids=status_ids,
         q=q,
         clients=clients,
         no_client=no_client,
@@ -200,7 +204,8 @@ async def tickets_page(
     filters: dict[str, str | list[str] | None] = {
         "aba": tab,
         "grupo": str(team) if team else None,
-        "status": kind or (ALL_KINDS if view == "all" and status == ALL_KINDS else None),
+        "status": (str(chosen.id) if chosen else None)
+        or (ALL_KINDS if view == "all" and status == ALL_KINDS else None),
         "responsavel": "eu" if mine else None,
         "cliente": chosen_clients,
         "de": start.isoformat() if start else None,
@@ -228,10 +233,9 @@ async def tickets_page(
         status_choices.append((ALL_KINDS, page.t("chamados.filtros.todos")))
     else:
         status_choices = [("", page.t("chamados.filtros.todos"))]
-    status_choices += [(k, page.t(f"chamados.filtros.kinds.{k}")) for k in tab_kinds]
+    status_choices += [(str(s.id), s.name) for s in tab_statuses]
     bulk = page.can("ticket.bulk")
     teams = (await organization_api.list_teams(auth, db)).items
-    statuses = await catalog_api.status_options(db) if bulk else []
     return page.render(
         "tickets/list.html",
         tabs=TABS,
@@ -260,7 +264,7 @@ async def tickets_page(
         period_error=period_error,
         period_text=_period_text(page, start, end),
         bulk=bulk,
-        status_options=[(s.id, s.name) for s in statuses],
+        status_options=[(s.id, s.name) for s in statuses] if bulk else [],
     )
 
 

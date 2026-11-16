@@ -350,6 +350,7 @@ def _list_filters(
     assignee: str | None,
     kinds: Sequence[str],
     q: str | None,
+    status_ids: Sequence[int] = (),
     clients: Sequence[uuid.UUID] = (),
     no_client: bool = False,
     started_from: datetime | None = None,
@@ -380,6 +381,8 @@ def _list_filters(
         )
     if kinds:
         where.append(TicketStatus.kind.in_(kinds))
+    if status_ids:
+        where.append(Ticket.status_id.in_(status_ids))
     # Clientes: os escolhidos e, com `no_client`, também os chamados sem cliente.
     by_client: list[ColumnElement[bool]] = (
         [Ticket.client.has(Client.public_id.in_(clients))] if clients else []
@@ -404,6 +407,7 @@ async def count_tickets(
     assignee: str | None,
     kinds: Sequence[str],
     q: str | None,
+    status_ids: Sequence[int] = (),
     clients: Sequence[uuid.UUID] = (),
     no_client: bool = False,
     started_from: datetime | None = None,
@@ -417,6 +421,7 @@ async def count_tickets(
         assignee=assignee,
         kinds=kinds,
         q=q,
+        status_ids=status_ids,
         clients=clients,
         no_client=no_client,
         started_from=started_from,
@@ -435,6 +440,7 @@ async def list_tickets(
     assignee: str | None,
     kinds: Sequence[str],
     q: str | None,
+    status_ids: Sequence[int] = (),
     limit: int,
     cursor: str | None,
     clients: Sequence[uuid.UUID] = (),
@@ -471,6 +477,7 @@ async def list_tickets(
                 assignee=assignee,
                 kinds=kinds,
                 q=q,
+                status_ids=status_ids,
                 clients=clients,
                 no_client=no_client,
                 started_from=started_from,

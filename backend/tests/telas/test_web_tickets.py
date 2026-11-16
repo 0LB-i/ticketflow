@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from chamados.modules.system.models import SystemSetting
 from chamados.web.tickets import _page_numbers
-from tests.apoio import API, registrar
+from tests.apoio import API, registrar, status_id
 from tests.conftest import criar_cliente, criar_usuario, entrar, token_csrf
 
 
@@ -97,6 +97,10 @@ def test_filas_contadores_e_filtros(client: TestClient, cenario: dict[str, Any])
     parado = registrar(client, cenario, title="Parado")["number"]
     client.post(f"{API}/{parado}/transitions", json={"action": "wait", "comment": "Esperando"})
     da_bia = registrar(client, cenario, title="Com a Bia", assignee=cenario["bia"])["number"]
+    aguardando, concluido_id = (
+        status_id(client, "Aguardando cliente"),
+        status_id(client, "Concluído"),
+    )
 
     r = client.get("/chamados")  # sem aba: Meus
     assert _numeros(r.text) == [parado, meu]
@@ -107,11 +111,11 @@ def test_filas_contadores_e_filtros(client: TestClient, cenario: dict[str, Any])
 
     assert _numeros(client.get("/chamados?aba=aguardando").text) == [parado]
     assert _numeros(client.get("/chamados?aba=todos").text) == [da_bia, parado, meu]
-    assert _numeros(client.get("/chamados?aba=todos&status=waiting").text) == [parado]
+    assert _numeros(client.get(f"/chamados?aba=todos&status={aguardando}").text) == [parado]
     assert _numeros(client.get("/chamados?aba=todos&responsavel=eu").text) == [parado, meu]
     # Status também nas outras filas, só com os status delas; responsável, fora da aba Meus.
-    assert _numeros(client.get("/chamados?aba=meus&status=waiting").text) == [parado]
-    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == [parado, meu]
+    assert _numeros(client.get(f"/chamados?aba=meus&status={aguardando}").text) == [parado]
+    assert _numeros(client.get(f"/chamados?aba=meus&status={concluido_id}").text) == [parado, meu]
     assert _numeros(client.get("/chamados?aba=aguardando&responsavel=eu").text) == [parado]
     assert 'name="responsavel"' not in client.get("/chamados?aba=meus").text
     r = client.get(f"/chamados?aba=todos&grupo={cenario['infra']}")
@@ -136,31 +140,37 @@ def test_admin_filtra_concluidos_e_cancelados_em_todas_as_filas(
     for numero in (aberto, concluido, cancelado):
         assert client.put(f"{API}/{numero}/watchers/{admin}").status_code == 204
 
+    concluido_id, cancelado_id = status_id(client, "Concluído"), status_id(client, "Cancelado")
     for aba in ("meus", "aguardando", "acompanhando"):
         r = client.get(f"/chamados?aba={aba}")
-        assert '<option value="closed">Encerrados</option>' in r.text
-        assert '<option value="canceled">Cancelados</option>' in r.text
+        assert f'<option value="{concluido_id}">Concluído</option>' in r.text
+        assert f'<option value="{cancelado_id}">Cancelado</option>' in r.text
     # A fila continua a mesma (os meus, os que acompanho); o status escolhido troca o "em
     # andamento". Sem escolha, só os em andamento, e as contagens também.
     assert _numeros(client.get("/chamados?aba=meus").text) == [aberto]
-    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == [concluido]
-    assert _numeros(client.get("/chamados?aba=acompanhando&status=canceled").text) == [cancelado]
-    assert _numeros(client.get("/chamados?aba=aguardando&status=closed").text) == [concluido]
+    assert _numeros(client.get(f"/chamados?aba=meus&status={concluido_id}").text) == [concluido]
+    assert _numeros(client.get(f"/chamados?aba=acompanhando&status={cancelado_id}").text) == [
+        cancelado
+    ]
+    assert _numeros(client.get(f"/chamados?aba=aguardando&status={concluido_id}").text) == [
+        concluido
+    ]
 
     # Para os demais, nada muda: as filas só têm os em andamento.
     entrar(client, "ana@x.com")
     r = client.get("/chamados?aba=meus")
-    assert '<option value="closed">' not in r.text
-    assert _numeros(client.get("/chamados?aba=meus&status=closed").text) == []
+    assert f'<option value="{concluido_id}">' not in r.text
+    assert _numeros(client.get(f"/chamados?aba=meus&status={concluido_id}").text) == []
 
 
 def test_todos_comeca_nos_em_andamento(client: TestClient, cenario: dict[str, Any]) -> None:
     aberto = registrar(client, cenario)["number"]
     encerrado = registrar(client, cenario)["number"]
     client.post(f"{API}/{encerrado}/transitions", json={"action": "cancel", "comment": "Engano"})
+    cancelado_id = status_id(client, "Cancelado")
     assert _numeros(client.get("/chamados?aba=todos").text) == [aberto]
     assert _numeros(client.get("/chamados?aba=todos&status=todos").text) == [encerrado, aberto]
-    assert _numeros(client.get("/chamados?aba=todos&status=canceled").text) == [encerrado]
+    assert _numeros(client.get(f"/chamados?aba=todos&status={cancelado_id}").text) == [encerrado]
     # A contagem da aba também é a dos em andamento.
     r = client.get("/chamados?aba=todos")
     assert re.search(r'Todos\s*<span class="rounded-full[^"]*">1</span>', r.text)

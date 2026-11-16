@@ -219,14 +219,7 @@
       "ateData": "Até {data}",
       "limparPeriodo": "Limpar",
       "hoje": "Hoje",
-      "periodoInvalido": "A data final precisa ser igual ou depois da inicial.",
-      "kinds": {
-        "open": "Em aberto",
-        "waiting": "Em espera",
-        "delivered": "Entregues",
-        "closed": "Encerrados",
-        "canceled": "Cancelados"
-      }
+      "periodoInvalido": "A data final precisa ser igual ou depois da inicial."
     },
     "ultimaAlteracao": "Última alteração",
     "totalHoras": "Total de horas",

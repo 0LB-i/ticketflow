@@ -219,14 +219,7 @@
       "ateData": "Until {data}",
       "limparPeriodo": "Clear",
       "hoje": "Today",
-      "periodoInvalido": "The end date must be on or after the start date.",
-      "kinds": {
-        "open": "Open",
-        "waiting": "On hold",
-        "delivered": "Delivered",
-        "closed": "Closed",
-        "canceled": "Canceled"
-      }
+      "periodoInvalido": "The end date must be on or after the start date."
     },
     "ultimaAlteracao": "Last change",
     "totalHoras": "Total hours",
