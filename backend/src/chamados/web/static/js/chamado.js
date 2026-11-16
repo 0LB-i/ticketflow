@@ -578,11 +578,61 @@ function escolherCliente(caixa, opcao) {
   if ('enviaAoEscolher' in caixa.dataset) caixa.closest('form').requestSubmit()
 }
 
+function mostrarOpcoes(lista) {
+  lista.hidden = false
+  lista.closest('[data-cliente]').querySelector('[role=combobox]').setAttribute('aria-expanded', 'true')
+}
+
 document.addEventListener('htmx:afterSwap', (e) => {
   const lista = e.detail.target
   if (!lista.matches?.('[data-opcoes]')) return
-  lista.hidden = false
-  lista.closest('[data-cliente]').querySelector('[role=combobox]').setAttribute('aria-expanded', 'true')
+  mostrarOpcoes(lista)
+})
+
+// Filtro de cliente (as etiquetas): a lista inicial (busca vazia, sem os já escolhidos) é pedida
+// logo depois de a página terminar de carregar, e abrir a lista a mostra sem esperar o servidor.
+// O endereço inclui os escolhidos: trocar uma etiqueta pede a lista nova.
+const opcoesIniciais = new Map()
+
+function enderecoInicial(campo) {
+  const url = new URL(campo.getAttribute('hx-get'), location.href)
+  url.searchParams.set('q', '')
+  campo.closest('[data-chips]').querySelectorAll('[data-chips-lista] input').forEach((i) => {
+    url.searchParams.append(i.name, i.value)
+  })
+  return url.pathname + url.search
+}
+
+function preCarregarClientes(raiz) {
+  raiz.querySelectorAll?.('[data-chips] [data-cliente] [role=combobox]').forEach((campo) => {
+    const url = enderecoInicial(campo)
+    if (opcoesIniciais.has(url)) return
+    const pedido = fetch(url, { headers: { 'HX-Request': 'true' } })
+      // Sessão expirada (HX-Redirect) ou erro: a abertura vai ao servidor, como antes.
+      .then((r) => (r.ok && !r.headers.has('HX-Redirect') ? r.text() : Promise.reject(r.status)))
+      .catch(() => { opcoesIniciais.delete(url) })
+    opcoesIniciais.set(url, pedido)
+  })
+}
+window.addEventListener('load', () => {
+  preCarregarClientes(document)
+  // Depois do carregamento, também nos trechos trocados pelo HTMX (os filtros dos relatórios).
+  htmx.onLoad(preCarregarClientes)
+})
+// Com a busca vazia e a lista já pedida, a abertura usa ela em vez de ir ao servidor.
+document.addEventListener('htmx:beforeRequest', (e) => {
+  const campo = e.detail.elt
+  if (!campo.matches?.('[data-chips] [data-cliente] [role=combobox]') || campo.value.trim()) return
+  const pedido = opcoesIniciais.get(enderecoInicial(campo))
+  if (!pedido) return
+  e.preventDefault()
+  pedido.then((html) => {
+    if (html === undefined) return htmx.trigger(campo, 'abrir')
+    const lista = campo.closest('[data-cliente]').querySelector('[data-opcoes]')
+    if (document.activeElement !== campo || campo.value.trim()) return
+    lista.innerHTML = html
+    mostrarOpcoes(lista)
+  })
 })
 // Nas etiquetas, o clique na seta (ou fora do texto, no contorno) abre a lista, ou a fecha se
 // já estiver aberta, como nos <select>; o foco fica na busca.
