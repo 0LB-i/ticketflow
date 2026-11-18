@@ -40,3 +40,5 @@ def configure_logging(level: str, fmt: str) -> None:
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logging.getLogger(name).handlers = []
         logging.getLogger(name).propagate = True
+    # Cada pergunta à ponte do WhatsApp (a cada 25 s, no worker) iria para o log.
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
