@@ -52,8 +52,7 @@
   },
   "usuario": {
     "menu": "User menu",
-    "sair": "Sign out",
-    "tokens": "API tokens"
+    "sair": "Sign out"
   },
   "login": {
     "titulo": "Sign in",
@@ -824,8 +823,6 @@
     "demais": "At most {n} files per submission."
   },
   "tokens": {
-    "titulo": "API tokens",
-    "explicacao": "A token lets an integration or an AI assistant (such as Claude Code) use TicketFlow on your behalf, with your permissions. It cannot access administration. Revoke the ones you no longer use.",
     "criado": "Token \"{nome}\" created",
     "copieAgora": "Copy the value now: it won't be shown again. Keep it like a password.",
     "valor": "Token value",
@@ -849,7 +846,6 @@
     "nuncaUsado": "Never used",
     "revogar": "Revoke",
     "revogado": "Token revoked.",
-    "nenhum": "You don't have any tokens yet.",
     "comoUsar": "How to use",
     "comoUsarApi": "In the API, send the token in the Authorization header:",
     "comoUsarMcp": "For an AI assistant, through the MCP server: in Claude Code, run this in a terminal (with the token in place of tf_…):",
@@ -857,9 +853,11 @@
   },
   "tokensAdmin": {
     "titulo": "API tokens",
-    "explicacao": "Everyone's active tokens, with their last use. Revoking cuts off access immediately. Each person creates their own in API tokens, in the user menu.",
+    "explicacao": "A token lets an integration or an AI assistant (such as Claude Code) use TicketFlow on someone's behalf, with their permissions. It cannot access administration. Only administrators create tokens; revoking cuts off access immediately.",
+    "novoExplicacao": "The new token is in your name, with your permissions.",
     "pessoa": "Person",
     "todasAsPessoas": "Everyone",
+    "ativos": "Active tokens",
     "nenhum": "No active tokens."
   },
   "painel": {

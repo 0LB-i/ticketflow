@@ -83,7 +83,7 @@ ticket.created → outbox → worker: ai.classify_ticket
 
 Qualquer agente de IA opera o sistema pela [API](05-api.md) com um token de API ([docs/05](05-api.md#tokens-de-api)):
 
-- o token age **em nome de uma pessoa**, que o cria na tela **Tokens de API** (menu do usuário) com escopo `read` ou `write`; o que ele faz aparece no histórico como dela, com `via: "api"`;
+- o token age **em nome de uma pessoa**; a administração o cria na tela **Administração → Tokens de API** com escopo `read` ou `write`; o que ele faz aparece no histórico como dela, com `via: "api"`;
 - nenhum token entra na administração, nem o de um administrador;
 - `Idempotency-Key` nos `POST` (opcional, recomendado para agentes): repetir a chamada não registra de novo;
 - o limite de requisições é por token, no nginx (10 por segundo, rajadas de até 20; [docs/05](05-api.md#convenções));

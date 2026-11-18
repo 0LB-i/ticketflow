@@ -17,7 +17,6 @@ from chamados.web import (
     settings,
     ticket,
     tickets,
-    tokens,
 )
 from chamados.web.page import PREFETCH_RULES
 
@@ -58,5 +57,4 @@ router.include_router(company.router)
 router.include_router(reports.router)
 router.include_router(reports_all_clients.router)
 router.include_router(reports_downloads.router)
-router.include_router(tokens.router)
 router.include_router(client_panel.router)

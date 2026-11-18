@@ -1,5 +1,5 @@
-"""Administração dos tokens de API (docs/05): quem administra os usuários vê os tokens ativos de
-todas as pessoas e revoga qualquer um. Criar continua com cada pessoa (`/me/tokens`)."""
+"""Tokens de API (docs/05): só quem administra os usuários cria (no próprio nome), vê os tokens
+ativos de todas as pessoas e revoga qualquer um. Nenhum token entra aqui (`require`)."""
 
 import uuid
 from typing import Annotated
@@ -13,8 +13,8 @@ from chamados.core.permissions import P
 from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, require
 from chamados.modules.identity.models import ApiToken, User
-from chamados.modules.identity.schemas import ApiTokenOut
-from chamados.modules.identity.tokens import revoke_api_token
+from chamados.modules.identity.schemas import ApiTokenCreated, ApiTokenIn, ApiTokenOut
+from chamados.modules.identity.tokens import issue_api_token, revoke_api_token
 
 router = APIRouter(prefix="/admin/api-tokens", tags=["usuários"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_USERS))]
@@ -69,6 +69,30 @@ async def list_api_tokens(
             )
             for t in await db.scalars(stmt)
         ]
+    )
+
+
+@router.post("", response_model=ApiTokenCreated, status_code=201)
+async def create_api_token(
+    data: ApiTokenIn, auth: Admin, db: DB, request: Request
+) -> ApiTokenCreated:
+    """Um token no nome de quem cria; o valor vem só nesta resposta."""
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(422, "Dê um nome ao token.")
+    raw, token = issue_api_token(
+        db, auth.user, name, data.scope, data.days, actor_user_id=auth.user.id, request=request
+    )
+    await db.commit()
+    await db.refresh(token)
+    return ApiTokenCreated(
+        id=token.public_id,
+        name=token.name,
+        scope=token.scope,
+        created_at=token.created_at,
+        expires_at=token.expires_at,
+        last_used_at=token.last_used_at,
+        token=raw,
     )
 
 

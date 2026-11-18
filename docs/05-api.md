@@ -29,7 +29,7 @@ A API REST é o **contrato principal** do sistema. A interface web usa as mesmas
 
 ### Tokens de API
 
-Desde 2026-10-23. Um token sempre age **em nome de um usuário**: passa pelas mesmas permissões e pela mesma visibilidade dele, e o que faz aparece no histórico e na auditoria como dele, com `via: "api"` no histórico. Cada pessoa cria e revoga os próprios na tela **Tokens de API** (menu do usuário, `/meus-tokens`) ou por `GET`/`POST /me/tokens` e `DELETE /me/tokens/{id}` (só com a sessão da interface; o valor vem uma vez, no campo `token` da criação; validade de 1 a 365 dias, padrão 90). Quem tem `admin.users` vê os tokens ativos de todos e revoga qualquer um na tela **Administração → Tokens de API** (`/admin/tokens`) ou por `GET /admin/api-tokens` e `DELETE /admin/api-tokens/{id}` (nenhum token entra nessas rotas). Quem administra o servidor também pode usar o comando `chamados token` ([ARCHITECTURE 3.10](../ARCHITECTURE.md#310-comando-chamados-clipy)).
+Desde 2026-10-23. Um token sempre age **em nome de um usuário**: passa pelas mesmas permissões e pela mesma visibilidade dele, e o que faz aparece no histórico e na auditoria como dele, com `via: "api"` no histórico. Só quem tem `admin.users` cria tokens (no próprio nome), vê os tokens ativos de todos e revoga qualquer um, na tela **Administração → Tokens de API** (`/admin/tokens`) ou por `POST`/`GET /admin/api-tokens` e `DELETE /admin/api-tokens/{id}` (só com a sessão da interface: nenhum token entra nessas rotas; o valor vem uma vez, no campo `token` da criação; validade de 1 a 365 dias, padrão 90). Quem administra o servidor também pode usar o comando `chamados token` ([ARCHITECTURE 3.10](../ARCHITECTURE.md#310-comando-chamados-clipy)).
 
 ```
 Authorization: Bearer tf_...

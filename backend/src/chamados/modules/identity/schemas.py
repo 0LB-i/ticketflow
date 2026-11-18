@@ -72,7 +72,3 @@ class ApiTokenOut(BaseModel):
 
 class ApiTokenCreated(ApiTokenOut):
     token: str = Field(description="o valor, mostrado só nesta resposta")
-
-
-class ApiTokenList(BaseModel):
-    items: list[ApiTokenOut]

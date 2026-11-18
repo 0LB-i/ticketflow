@@ -24,7 +24,7 @@ from chamados.modules.organization import router as organization
 from chamados.modules.reports import router as reports
 from chamados.modules.system import router as system
 from chamados.modules.tickets import router as tickets
-from chamados.web import admin, auth, company, settings, ticket, tokens
+from chamados.web import admin, auth, company, settings, ticket
 from chamados.web import admin_tokens as web_admin_tokens
 from chamados.web import agenda as web_agenda
 from chamados.web import board as web_board
@@ -44,7 +44,6 @@ WEB: tuple[ModuleType, ...] = (
     company,
     settings,
     ticket,
-    tokens,
     web_clients,
     web_reports,
     web_reports_all_clients,

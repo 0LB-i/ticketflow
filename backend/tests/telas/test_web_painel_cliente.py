@@ -79,12 +79,12 @@ def test_contrato_anual_mostra_o_ano_e_avulso_fica_sem_plano(
 
 def test_cliente_so_abre_o_painel(client: TestClient, cenario: dict[str, str], db: Session) -> None:
     sessao = _cliente(client, cenario, db)
-    for tela in ("/chamados", "/quadro", "/relatorios", "/admin/usuarios", "/meus-tokens"):
+    for tela in ("/chamados", "/quadro", "/relatorios", "/admin/usuarios", "/admin/tokens"):
         r = sessao.get(tela, follow_redirects=False)
         assert (r.status_code, r.headers["location"]) == (303, "/painel"), tela
     html = sessao.get("/painel").text
     assert 'href="/painel"' in html
-    assert 'href="/chamados"' not in html and 'href="/meus-tokens"' not in html
+    assert 'href="/chamados"' not in html
     # A página de erro também volta para o painel, não para a lista que ele não abre.
     html = sessao.get("/uma/rota/qualquer").text
     assert 'href="/painel"' in html and 'href="/chamados"' not in html
