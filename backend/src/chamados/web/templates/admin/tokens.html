@@ -8,10 +8,7 @@
 
 {% block content %}
 <div class="mx-auto flex max-w-pagina flex-col gap-6">
-  <div class="flex flex-col gap-1">
-    <h1 class="text-xl font-semibold">{{ t("tokensAdmin.titulo") }}</h1>
-    <p class="text-muted">{{ t("tokensAdmin.explicacao") }}</p>
-  </div>
+  <h1 class="text-xl font-semibold">{{ t("tokensAdmin.titulo") }}</h1>
 
   {%- if created %}
   <section class="flex flex-col gap-3 rounded-lg border border-border bg-green-bg p-4 shadow-md text-green-fg" aria-labelledby="token-criado">
@@ -23,17 +20,14 @@
   {%- endif %}
 
   <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="novo-token">
-    <div class="flex flex-col gap-1">
-      <h2 id="novo-token" class="font-semibold">{{ t("tokens.novo") }}</h2>
-      <p class="text-muted">{{ t("tokensAdmin.novoExplicacao") }}</p>
-    </div>
+    <h2 id="novo-token" class="font-semibold">{{ t("tokens.novo") }}</h2>
     {%- if error %}{{ alert(error) }}{% endif %}
     <form method="post" action="/admin/tokens" class="flex flex-wrap items-end gap-4">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="w-full max-w-sm">{{ field("nome", t("tokens.nome"), value=form.nome, hint=t("tokens.nomeDica"), required=True, maxlength=100) }}</div>
-      <div class="w-56 pb-7">{{ select_field("escopo", t("tokens.escopo"), [("read", t("tokens.escopos.read")), ("write", t("tokens.escopos.write"))], form.escopo) }}</div>
-      <div class="w-40 pb-7">{{ select_field("dias", t("tokens.validade"), days_options, form.dias) }}</div>
-      <div class="pb-7"><button type="submit" class="{{ button_class() }}">{{ icon("plus", "size-4") }} {{ t("tokens.criar") }}</button></div>
+      <div class="w-full max-w-sm">{{ field("nome", t("tokens.nome"), value=form.nome, required=True, maxlength=100) }}</div>
+      <div class="w-56">{{ select_field("escopo", t("tokens.escopo"), [("read", t("tokens.escopos.read")), ("write", t("tokens.escopos.write"))], form.escopo) }}</div>
+      <div class="w-40">{{ select_field("dias", t("tokens.validade"), days_options, form.dias) }}</div>
+      <div><button type="submit" class="{{ button_class() }}">{{ icon("plus", "size-4") }} {{ t("tokens.criar") }}</button></div>
     </form>
   </section>
 

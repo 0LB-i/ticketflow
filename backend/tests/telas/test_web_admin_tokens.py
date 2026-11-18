@@ -68,6 +68,16 @@ def test_criar_sem_nome_volta_com_o_erro(client: TestClient, db: Session) -> Non
     assert db.scalar(select(ApiToken)) is None
 
 
+def test_criar_sem_validade(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "adm@x.com", "admin")
+    entrar(client, "adm@x.com")
+    assert '<option value="sem">Sem validade</option>' in client.get("/admin/tokens").text
+    status, texto = _criar(client, nome="Integração", dias="sem")
+    assert status == 201 and TOKEN.search(texto) is not None
+    token = _token_de(db, "adm@x.com")
+    assert token.expires_at is None
+
+
 def test_api_cria(client: TestClient, db: Session) -> None:
     criar_usuario(db, "adm@x.com", "admin")
     entrar(client, "adm@x.com")
@@ -81,6 +91,8 @@ def test_api_cria(client: TestClient, db: Session) -> None:
     assert "token" not in itens[0]
     r = client.post("/api/v1/admin/api-tokens", json={"name": "x", "days": 400})
     assert r.status_code == 422
+    r = client.post("/api/v1/admin/api-tokens", json={"name": "Sempre", "days": None})
+    assert r.status_code == 201 and r.json()["expires_at"] is None
     # As rotas da própria pessoa não existem mais
     assert client.get("/api/v1/me/tokens").status_code == 404
 

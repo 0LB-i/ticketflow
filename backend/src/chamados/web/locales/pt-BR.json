@@ -828,7 +828,6 @@
     "valor": "Valor do token",
     "novo": "Novo token",
     "nome": "Nome",
-    "nomeDica": "Para que serve, ex.: Claude Code no meu computador.",
     "semNome": "Dê um nome ao token.",
     "escopo": "Acesso",
     "escopos": {
@@ -853,8 +852,6 @@
   },
   "tokensAdmin": {
     "titulo": "Tokens de API",
-    "explicacao": "Um token deixa uma integração ou um assistente de IA (como o Claude Code) usar o TicketFlow em nome de uma pessoa, com as permissões dela. Ele não acessa a administração. Só a administração cria tokens; revogar corta o acesso na hora.",
-    "novoExplicacao": "O token novo fica no seu nome, com as suas permissões.",
     "pessoa": "Pessoa",
     "todasAsPessoas": "Todas as pessoas",
     "ativos": "Tokens ativos",

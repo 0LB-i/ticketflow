@@ -828,7 +828,6 @@
     "valor": "Token value",
     "novo": "New token",
     "nome": "Name",
-    "nomeDica": "What it is for, e.g. Claude Code on my computer.",
     "semNome": "Give the token a name.",
     "escopo": "Access",
     "escopos": {
@@ -853,8 +852,6 @@
   },
   "tokensAdmin": {
     "titulo": "API tokens",
-    "explicacao": "A token lets an integration or an AI assistant (such as Claude Code) use TicketFlow on someone's behalf, with their permissions. It cannot access administration. Only administrators create tokens; revoking cuts off access immediately.",
-    "novoExplicacao": "The new token is in your name, with your permissions.",
     "pessoa": "Person",
     "todasAsPessoas": "Everyone",
     "ativos": "Active tokens",

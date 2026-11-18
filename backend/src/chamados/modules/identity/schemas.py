@@ -58,7 +58,7 @@ class MeUpdate(BaseModel):
 class ApiTokenIn(BaseModel):
     name: str = Field(min_length=1, max_length=100, description="para que serve (ex.: Claude Code)")
     scope: Literal["read", "write"] = "read"
-    days: int = Field(default=90, ge=1, le=365, description="validade em dias")
+    days: int | None = Field(default=90, ge=1, le=365, description="validade em dias; null: sem")
 
 
 class ApiTokenOut(BaseModel):

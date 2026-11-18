@@ -23,6 +23,7 @@ TokensAdmin = Annotated[LoggedPage, requires(P.ADMIN_USERS)]
 Field = Annotated[str, Form()]
 URL = "/admin/tokens"
 DAYS = (30, 90, 365)
+NO_EXPIRY = "sem"  # a opção Sem validade do campo dias
 
 
 def _uuid(value: str | None) -> uuid.UUID | None:
@@ -56,7 +57,10 @@ async def _page(
         created=created,
         form=form or {"nome": "", "escopo": "read", "dias": "90"},
         error=error,
-        days_options=[(str(d), page.t("tokens.dias", n=d)) for d in DAYS],
+        days_options=[
+            *((str(d), page.t("tokens.dias", n=d)) for d in DAYS),
+            (NO_EXPIRY, page.t("tokens.semValidade")),
+        ],
         now=datetime.now(UTC),
         base_url=page.request.app.state.settings.app_base_url.rstrip("/"),
     )
@@ -82,7 +86,8 @@ async def create_token(
     if not nome.strip():
         return await _page(page, db, form=form, error=page.t("tokens.semNome"), status_code=422)
     try:
-        data = ApiTokenIn.model_validate({"name": nome, "scope": escopo, "days": dias})
+        days = None if dias == NO_EXPIRY else dias
+        data = ApiTokenIn.model_validate({"name": nome, "scope": escopo, "days": days})
         created = await api.create_api_token(data, page.auth, db, request)
     except ValidationError:
         error = page.t("comum.erroInesperado")
