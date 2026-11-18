@@ -170,7 +170,11 @@ def test_admin_cadastra_o_numero_escolhe_os_responsaveis_e_conecta(
     db.expire_all()
     assert canal.state == "logged_out"
 
-    acoes = db.scalars(select(AuditLog.action).where(AuditLog.target_type == "whatsapp_channel"))
+    acoes = db.scalars(
+        select(AuditLog.action)
+        .where(AuditLog.target_type == "whatsapp_channel")
+        .order_by(AuditLog.id)
+    )
     assert list(acoes) == [
         "whatsapp_channel.created",
         "whatsapp_channel.updated",
@@ -301,6 +305,11 @@ def test_a_conversa_aberta_so_atualiza_quando_algo_muda(
     # O "entregue" atrasado não volta o tick.
     _chega(settings, {**status, "status": "delivered"})
     assert client.get(url, params={"versao": versao}).status_code == 204
+    # A confirmação de uma mensagem do contato não vira tick.
+    _chega(settings, {**status, "id": "M1", "status": "read"})
+    assert (
+        db.scalar(select(WhatsAppMessage.status).where(WhatsAppMessage.wa_id == "M1")) == "received"
+    )
 
     media = settings.whatsapp_dir / "media"
     (media / "in" / "c").mkdir(parents=True)

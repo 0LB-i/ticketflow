@@ -29,7 +29,7 @@ import makeWASocket, {
 import pino from 'pino';
 import QRCode from 'qrcode';
 
-import { isGroup, MEDIA_KINDS, messageEvent, receiptEvent, statusEvent } from './content.js';
+import { isGroup, MEDIA_KINDS, messageEvent, receiptOf } from './content.js';
 import { diskOk, HISTORY_MAX, incomingPath, makeSerialQueue, mediaContent, resolveInside } from './media.js';
 import { openQueue } from './queue.js';
 
@@ -90,17 +90,50 @@ function download(id, channel, msg, event) {
   });
 }
 
-// Nome dos grupos: a mensagem não traz o assunto; pergunta uma vez e guarda.
-async function groupName(channel, jid) {
+// O assunto e o tamanho dos grupos: a mensagem não traz; pergunta uma vez e guarda.
+async function groupInfo(channel, jid) {
   channel.groups ??= new Map();
   if (channel.groups.has(jid)) return channel.groups.get(jid);
   try {
     const meta = await channel.sock.groupMetadata(jid);
-    channel.groups.set(jid, meta.subject || null);
-    return meta.subject || null;
+    // Os outros participantes (sem o próprio número): quantos precisam ler para o tick ficar azul.
+    const info = { name: meta.subject || null, others: Math.max(1, (meta.participants?.length || 2) - 1) };
+    channel.groups.set(jid, info);
+    return info;
   } catch {
-    return null;
+    return { name: null, others: null };
   }
+}
+
+async function groupName(channel, jid) {
+  return (await groupInfo(channel, jid)).name;
+}
+
+// No grupo, como no WhatsApp: ✓✓ quando todos receberam, azul quando todos leram. Quem recebeu e
+// leu cada mensagem fica na memória (uma ponte reiniciada recomeça a conta; os ticks já gravados
+// ficam). Sem saber o tamanho do grupo, fica no entregue.
+const groupReceipts = new Map(); // `${canal}|${grupo}|${id}` → { delivered: Set, read: Set }
+const GROUP_RECEIPTS_MAX = 5000;
+
+async function groupReceipt(channelId, channel, receipt) {
+  const { others } = await groupInfo(channel, receipt.jid);
+  const events = [];
+  for (const mid of receipt.ids) {
+    const key = `${channelId}|${receipt.jid}|${mid}`;
+    let seen = groupReceipts.get(key);
+    if (!seen) {
+      seen = { delivered: new Set(), read: new Set() };
+      groupReceipts.set(key, seen);
+      if (groupReceipts.size > GROUP_RECEIPTS_MAX) groupReceipts.delete(groupReceipts.keys().next().value);
+    }
+    const before = { delivered: seen.delivered.size, read: seen.read.size };
+    seen.delivered.add(receipt.reader); // quem leu também recebeu
+    if (receipt.status === 'read') seen.read.add(receipt.reader);
+    const reached = (kind) => others && seen[kind].size >= others && before[kind] < others;
+    const status = reached('read') ? 'read' : reached('delivered') ? 'delivered' : null;
+    if (status) events.push({ type: 'status', channel: channelId, jid: receipt.jid, id: mid, status });
+  }
+  queue.push(...events);
 }
 
 async function start(id) {
@@ -216,13 +249,17 @@ async function start(id) {
     for (const [msg, event] of media) download(id, channel, msg, event);
   });
 
-  // Os ticks das nossas mensagens: entregue (✓✓) e lida (✓✓ azul).
-  sock.ev.on('messages.update', (updates) => {
-    queue.push(...(updates || []).map((u) => statusEvent(id, u)).filter(Boolean));
-  });
-  // No grupo, as confirmações vêm uma por participante.
-  sock.ev.on('message-receipt.update', (receipts) => {
-    queue.push(...(receipts || []).map((r) => receiptEvent(id, r)).filter(Boolean));
+  // Os ticks das nossas mensagens: entregue (✓✓) e lida (✓✓ azul), pelas confirmações lidas
+  // direto (receiptOf), só as de outra pessoa. A Baileys continua confirmando o recebimento delas.
+  sock.ws.on('CB:receipt', (node) => {
+    const me = [sock.user?.id, sock.user?.lid, state.creds.me?.id, state.creds.me?.lid];
+    const receipt = receiptOf(node, me);
+    if (!receipt) return;
+    if (!receipt.group) {
+      queue.push(...receipt.ids.map((mid) => ({ type: 'status', channel: id, jid: receipt.jid, id: mid, status: receipt.status })));
+      return;
+    }
+    groupReceipt(id, channel, receipt).catch((error) => log('erro_no_tick', { channel: id, error: String(error) }));
   });
 
   sock.ev.on('messaging-history.set', ({ chats, contacts, messages }) => {

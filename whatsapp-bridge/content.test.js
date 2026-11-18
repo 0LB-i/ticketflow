@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { messageEvent, receiptEvent, statusEvent } from './content.js';
+import { messageEvent, receiptOf } from './content.js';
 
 const key = (extra = {}) => ({ remoteJid: '5511999990000@s.whatsapp.net', id: 'ABC', fromMe: false, ...extra });
 
@@ -95,27 +95,7 @@ test('mídia: o tipo e o tamanho do arquivo para baixar', () => {
   assert.equal(event.size, 2048);
 });
 
-test('ticks: a mudança de estado das nossas mensagens', () => {
-  const nossa = key({ fromMe: true, remoteJid: '999@lid', remoteJidAlt: '5511777770000@s.whatsapp.net' });
-  assert.deepEqual(statusEvent('c1', { key: nossa, update: { status: 3 } }), {
-    type: 'status',
-    channel: 'c1',
-    jid: '5511777770000@s.whatsapp.net',
-    id: 'ABC',
-    status: 'delivered',
-  });
-  assert.equal(statusEvent('c1', { key: nossa, update: { status: 4 } }).status, 'read');
-  assert.equal(statusEvent('c1', { key: key(), update: { status: 4 } }), null); // a do contato
-  assert.equal(statusEvent('c1', { key: nossa, update: {} }), null);
-  const doCelular = messageEvent('c1', { key: nossa, message: { conversation: 'x' }, status: 2 });
-  assert.equal(doCelular.status, 'sent');
-});
-
-test('ticks no grupo e no histórico: pelas confirmações de quem recebeu', () => {
-  const nossa = key({ fromMe: true, remoteJid: '1203630@g.us' });
-  assert.equal(receiptEvent('c1', { key: nossa, receipt: { receiptTimestamp: 10 } }).status, 'delivered');
-  assert.equal(receiptEvent('c1', { key: nossa, receipt: { readTimestamp: 11 } }).status, 'read');
-  assert.equal(receiptEvent('c1', { key: key(), receipt: { readTimestamp: 11 } }), null);
+test('ticks no histórico: pelas confirmações de quem recebeu', () => {
   const lida = messageEvent('c1', {
     key: key({ fromMe: true }),
     message: { conversation: 'x' },
@@ -124,4 +104,30 @@ test('ticks no grupo e no histórico: pelas confirmações de quem recebeu', () 
   assert.equal(lida.status, 'read');
   const semNada = messageEvent('c1', { key: key({ fromMe: true }), message: { conversation: 'x' } });
   assert.equal(semNada.status, null);
+});
+
+test('confirmações: só as de outra pessoa contam', () => {
+  const eu = ['5511000000000:12@s.whatsapp.net', '999000@lid'];
+  const contato = '5511999990000@s.whatsapp.net';
+  assert.deepEqual(receiptOf({ attrs: { from: contato, id: 'A' } }, eu), {
+    jid: contato, group: false, reader: contato, status: 'delivered', ids: ['A'],
+  });
+  const lida = receiptOf({
+    attrs: { from: contato, id: 'A', type: 'read' },
+    content: [{ tag: 'list', content: [{ tag: 'item', attrs: { id: 'B' } }] }],
+  }, eu);
+  assert.deepEqual([lida.status, lida.ids], ['read', ['A', 'B']]);
+  // Os nossos aparelhos lendo (o celular sincronizando): não é o destinatário.
+  assert.equal(receiptOf({ attrs: { from: contato, id: 'A', type: 'read-self' } }, eu), null);
+  assert.equal(receiptOf({ attrs: { from: '5511000000000:3@s.whatsapp.net', id: 'A', type: 'read' } }, eu), null);
+  assert.equal(receiptOf({ attrs: { from: '1203@g.us', participant: '999000:2@lid', id: 'A', type: 'read' } }, eu), null);
+  // No grupo, quem leu é o participante.
+  const grupo = receiptOf({ attrs: { from: '1203@g.us', participant: contato, id: 'A', type: 'read' } }, eu);
+  assert.deepEqual([grupo.group, grupo.reader, grupo.status], [true, contato, 'read']);
+  assert.equal(receiptOf({ attrs: { from: contato, id: 'A', type: 'retry' } }, eu), null);
+});
+
+test('a nossa mandada pelo celular chega com o estado', () => {
+  const doCelular = messageEvent('c1', { key: key({ fromMe: true }), message: { conversation: 'x' }, status: 2 });
+  assert.equal(doCelular.status, 'sent');
 });

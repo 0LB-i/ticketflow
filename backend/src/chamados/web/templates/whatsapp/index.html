@@ -127,14 +127,8 @@
   </section>
 
   {#- Conversa aberta #}
-  <section id="conversa" aria-labelledby="conversa-titulo" class="relative flex min-w-0 flex-1 flex-col">
+  <section id="conversa" aria-labelledby="conversa-titulo" class="flex min-w-0 flex-1 flex-col">
     {%- if chat %}
-    {#- Arrastar arquivos sobre a conversa: o aviso cobre a área e, ao soltar, os arquivos entram
-        como os escolhidos pelo clipe (static/js/whatsapp.js). #}
-    <div id="soltar" class="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 border-4 border-dashed border-primary bg-primary-subtle/90 text-primary" hidden>
-      {{ icon("paperclip", "size-10") }}
-      <p class="text-lg font-semibold">{{ t("whatsapp.soltar") }}</p>
-    </div>
     <div class="flex h-16 shrink-0 items-center gap-3 border-b border-border px-4">
       {{ chat_avatar(chat) }}
       <div class="flex min-w-0 flex-col">
@@ -143,6 +137,14 @@
       </div>
     </div>
 
+    {#- Arrastar arquivos sobre as mensagens (entre o nome da conversa e o campo de escrever): o
+        aviso cobre essa área e, ao soltar, os arquivos entram como os escolhidos pelo clipe
+        (static/js/whatsapp.js). O aviso fica fora do #mensagens, que se atualiza sozinho. #}
+    <div id="area-mensagens" class="relative flex min-h-0 flex-1 flex-col">
+    <div id="soltar" class="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 border-4 border-dashed border-primary bg-primary-subtle/90 text-primary" hidden>
+      {{ icon("paperclip", "size-10") }}
+      <p class="text-lg font-semibold">{{ t("whatsapp.soltar") }}</p>
+    </div>
     <div id="mensagens" class="flex flex-1 flex-col gap-1 overflow-y-auto bg-bg px-6 py-4" data-rolar-fim aria-live="polite" aria-relevant="additions">
       <div hx-get="/whatsapp/conversa/{{ chat.public_id }}?versao={{ version }}&amp;filtro={{ filtro }}" hx-trigger="every 3s" hx-select="#mensagens" hx-target="#mensagens" hx-swap="outerHTML" hidden></div>
       {%- for b in bubbles %}
@@ -164,6 +166,7 @@
       </div>
       {%- endfor %}
       {%- if error %}<div class="mt-2">{{ alert(error) }}</div>{% endif %}
+    </div>
     </div>
 
     <form id="escrever" method="post" action="/whatsapp/conversa/{{ chat.public_id }}/enviar" enctype="multipart/form-data" hx-post="/whatsapp/conversa/{{ chat.public_id }}/enviar" hx-encoding="multipart/form-data" hx-select="#mensagens" hx-target="#mensagens" hx-swap="outerHTML" class="flex shrink-0 flex-col gap-2 border-t border-border bg-surface p-3">

@@ -430,10 +430,12 @@ async def _message_of(
 
 
 async def _ingest_status(db: AsyncSession, channel: WhatsAppChannel, event: dict[str, Any]) -> None:
-    """Os ticks: o estado só avança."""
+    """Os ticks, só das nossas mensagens: o estado só avança."""
     status = event.get("status")
     message = await _message_of(db, channel, event)
-    if message is not None and status in RANK and RANK[status] > RANK.get(message.status, 0):
+    if message is None or not message.from_me:
+        return
+    if status in RANK and RANK[status] > RANK.get(message.status, 0):
         message.status = status
 
 

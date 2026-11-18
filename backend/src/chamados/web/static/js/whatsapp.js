@@ -1,5 +1,5 @@
 // Chat do WhatsApp (web/templates/whatsapp/index.html): Enter envia (Shift+Enter quebra a linha), o
-// campo cresce com o texto, os arquivos escolhidos (pelo clipe ou arrastados sobre a conversa)
+// campo cresce com o texto, os arquivos escolhidos (pelo clipe ou arrastados sobre as mensagens)
 // aparecem acima do campo (com o X para tirar), o
 // envio mostra o progresso, a conversa abre no fim e continua no fim quando chega mensagem (se a
 // pessoa estava lá embaixo), e a lista de conversas não volta ao topo ao se atualizar.
@@ -84,44 +84,51 @@ document.addEventListener('change', (e) => {
   }
 })
 
-// Arrastar arquivos sobre a tela: o aviso aparece e, ao soltar, os arquivos se juntam aos já
-// escolhidos. Só com uma conversa aberta (é nela que vão) e só arrastando arquivos (não um texto).
+// Arrastar arquivos sobre as mensagens (#area-mensagens, entre o nome da conversa e o campo de
+// escrever): o aviso aparece e, ao soltar, os arquivos se juntam aos já escolhidos. Só arrastando
+// arquivos (não um texto). Fora dessa área, soltar não faz nada (o navegador não abre o arquivo).
 function arrastandoArquivos (e) {
   return Array.from(e.dataTransfer?.types || []).includes('Files')
 }
 
-let arrastos = 0 // dragenter e dragleave disparam a cada elemento por baixo do mouse
-document.addEventListener('dragenter', (e) => {
-  const aviso = document.getElementById('soltar')
-  if (!aviso || !arrastandoArquivos(e)) return
-  e.preventDefault()
-  arrastos++
-  aviso.hidden = false
-})
 document.addEventListener('dragover', (e) => {
-  if (!document.getElementById('soltar') || !arrastandoArquivos(e)) return
+  if (!arrastandoArquivos(e) || !document.getElementById('area-mensagens')) return
   e.preventDefault() // sem isto, o navegador abre o arquivo no lugar da tela
-  e.dataTransfer.dropEffect = 'copy'
-})
-document.addEventListener('dragleave', (e) => {
-  const aviso = document.getElementById('soltar')
-  if (!aviso || !arrastandoArquivos(e)) return
-  arrastos = Math.max(0, arrastos - 1)
-  if (!arrastos) aviso.hidden = true
+  e.dataTransfer.dropEffect = e.target.closest?.('#area-mensagens') ? 'copy' : 'none'
 })
 document.addEventListener('drop', (e) => {
+  if (arrastandoArquivos(e) && document.getElementById('area-mensagens')) e.preventDefault()
+})
+
+function prepararArrastar () {
+  const area = document.getElementById('area-mensagens')
   const aviso = document.getElementById('soltar')
   const entrada = document.querySelector('[data-anexos-entrada]')
-  if (!aviso || !entrada || !arrastandoArquivos(e)) return
-  e.preventDefault()
-  arrastos = 0
-  aviso.hidden = true
-  const juntos = new DataTransfer()
-  for (const arquivo of [...entrada.files, ...e.dataTransfer.files]) juntos.items.add(arquivo)
-  entrada.files = juntos.files
-  mostrarAnexos(entrada)
-  document.querySelector('[data-envia-com-enter]')?.focus()
-})
+  if (!area || !aviso || !entrada) return
+  let arrastos = 0 // dragenter e dragleave disparam a cada elemento por baixo do mouse
+  area.addEventListener('dragenter', (e) => {
+    if (!arrastandoArquivos(e)) return
+    arrastos++
+    aviso.hidden = false
+  })
+  area.addEventListener('dragleave', (e) => {
+    if (!arrastandoArquivos(e)) return
+    arrastos = Math.max(0, arrastos - 1)
+    if (!arrastos) aviso.hidden = true
+  })
+  area.addEventListener('drop', (e) => {
+    if (!arrastandoArquivos(e)) return
+    e.preventDefault()
+    arrastos = 0
+    aviso.hidden = true
+    const juntos = new DataTransfer()
+    for (const arquivo of [...entrada.files, ...e.dataTransfer.files]) juntos.items.add(arquivo)
+    entrada.files = juntos.files
+    mostrarAnexos(entrada)
+    document.querySelector('[data-envia-com-enter]')?.focus()
+  })
+}
+document.addEventListener('DOMContentLoaded', prepararArrastar)
 
 // Sem texto e sem arquivo, não envia.
 document.addEventListener('submit', (e) => {

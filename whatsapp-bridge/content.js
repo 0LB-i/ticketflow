@@ -1,7 +1,7 @@
 // Converte uma mensagem da Baileys no evento simples que o TicketFlow grava. Puro (sem socket),
 // para os testes (content.test.js).
 
-import { getContentType, jidNormalizedUser, normalizeMessageContent } from '@whiskeysockets/baileys';
+import { areJidsSameUser, getContentType, jidNormalizedUser, normalizeMessageContent } from '@whiskeysockets/baileys';
 
 // Conversas que não são de ninguém: status, canais e listas de transmissão.
 function ignoredJid(jid) {
@@ -121,31 +121,32 @@ export function statusName(value) {
   }
 }
 
+// Uma confirmação do WhatsApp (o nó <receipt>), lida direto, sem o filtro da Baileys: ela repassa
+// como "lida" também as leituras dos nossos próprios aparelhos (o celular sincronizando a mensagem
+// mandada daqui), e o tick ficava azul antes de o destinatário ler. Fica só a de outra pessoa:
+// sem tipo = entregue; read ou played = lida. Os ids são das mensagens a que ela se refere.
+export function receiptOf(node, me = []) {
+  const { from, participant, type } = node?.attrs || {};
+  if (!from || ignoredJid(from) || !node.attrs.id) return null;
+  const status = type === undefined || type === '' ? 'delivered' : ['read', 'played'].includes(type) ? 'read' : null;
+  if (!status) return null; // read-self, played-self, sender, retry, inactive…
+  const group = from.endsWith('@g.us');
+  const reader = group ? participant : from;
+  if (!reader || me.some((jid) => jid && areJidsSameUser(reader, jid))) return null;
+  const ids = [node.attrs.id];
+  const list = Array.isArray(node.content) ? node.content.find((c) => c?.tag === 'list') : null;
+  for (const item of Array.isArray(list?.content) ? list.content : []) {
+    if (item?.tag === 'item' && item.attrs?.id) ids.push(item.attrs.id);
+  }
+  return { jid: jidNormalizedUser(from), group, reader: jidNormalizedUser(reader), status, ids };
+}
+
 // O estado pelas confirmações de quem recebeu: lida (ou ouvida) por alguém, ou só entregue.
 function receiptsStatus(receipts) {
   if (!Array.isArray(receipts) || !receipts.length) return null;
   if (receipts.some((r) => Number(r?.readTimestamp) || Number(r?.playedTimestamp))) return 'read';
   if (receipts.some((r) => Number(r?.receiptTimestamp))) return 'delivered';
   return null;
-}
-
-// A confirmação de um participante do grupo (message-receipt.update): no grupo, a Baileys não manda
-// o messages.update. Fica lida na primeira leitura (o WhatsApp só pinta de azul quando todos leram,
-// mas a ponte não sabe quantos são).
-export function receiptEvent(channel, { key, receipt }) {
-  if (!key?.fromMe || !key.id || !key.remoteJid || ignoredJid(key.remoteJid)) return null;
-  const status = receiptsStatus([receipt]);
-  if (!status) return null;
-  return { type: 'status', channel, jid: preferPhone(key.remoteJid, key.remoteJidAlt), id: key.id, status };
-}
-
-// A mudança de estado de uma mensagem nossa (messages.update), para os ticks. O aviso pode chegar
-// pelo LID do contato, e a conversa estar guardada pelo número: o TicketFlow acha a mensagem pelo id.
-export function statusEvent(channel, { key, update }) {
-  if (!key?.fromMe || !key.id || !key.remoteJid || ignoredJid(key.remoteJid)) return null;
-  const status = statusName(update?.status);
-  if (!status) return null;
-  return { type: 'status', channel, jid: preferPhone(key.remoteJid, key.remoteJidAlt), id: key.id, status };
 }
 
 export function isGroup(jid) {
