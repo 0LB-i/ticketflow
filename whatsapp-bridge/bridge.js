@@ -8,37 +8,46 @@
 //   POST /channels/:id/start     conecta (sem sessão salva, gera o QR code)
 //   POST /channels/:id/logout    desconecta o aparelho e apaga a sessão
 //   POST /channels/:id/send      { jid, text, id } envia um texto com o id que o TicketFlow gerou
+//   POST /channels/:id/send-media { jid, path, kind, mime, file_name, caption, id } envia um arquivo
+//                                da pasta media (o caminho é relativo a ela)
 //   GET  /events?after=N&wait=S  eventos depois de N (espera até S segundos se não houver)
 //   POST /events/ack             { upto } o TicketFlow guardou até este evento
 //
 // A estrutura segue a ponte do Hermes Agent (NousResearch, licença MIT), com a fila em disco.
 
 import { createServer } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, unlinkSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 import makeWASocket, {
   DisconnectReason,
+  downloadMediaMessage,
   jidNormalizedUser,
   useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCode from 'qrcode';
 
-import { isGroup, messageEvent } from './content.js';
+import { isGroup, MEDIA_KINDS, messageEvent, statusEvent } from './content.js';
+import { diskOk, HISTORY_MAX, incomingPath, makeSerialQueue, mediaContent, resolveInside } from './media.js';
 import { openQueue } from './queue.js';
 
 const DIR = process.env.WHATSAPP_DIR || '/var/lib/ticketflow/whatsapp';
 const SESSIONS = path.join(DIR, 'sessions');
 const SOCKET = path.join(DIR, 'bridge.sock');
+const MEDIA = path.join(DIR, 'media');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_WAIT_S = 30;
 const BATCH = 500;
 
 const logger = pino({ level: process.env.WHATSAPP_LOG_LEVEL || 'warn' });
 mkdirSync(SESSIONS, { recursive: true, mode: 0o700 });
+mkdirSync(MEDIA, { recursive: true, mode: 0o750 });
 const queue = openQueue(path.join(DIR, 'queue.sqlite'));
 const channels = new Map(); // id → { sock, state, qr, phone, name, stopping, retries }
+// Ids das mídias enviadas daqui: o arquivo já está na pasta media, não precisa baixar de novo.
+const sentHere = new Set();
 
 function log(event, fields = {}) {
   console.log(JSON.stringify({ event, ...fields }));
@@ -46,6 +55,39 @@ function log(event, fields = {}) {
 
 function connectionEvent(id, channel) {
   queue.push({ type: 'connection', channel: id, state: channel.state, phone: channel.phone, name: channel.name });
+}
+
+// Downloads da mídia que chega, um de cada vez e fora do caminho das mensagens: a mensagem aparece
+// na hora, e o arquivo chega depois (evento `media`). Uma ponte reiniciada no meio perde os que
+// estavam na fila (a mensagem fica com "mídia não baixada").
+const downloads = makeSerialQueue((error) => log('erro_ao_baixar', { error: String(error) }));
+
+function download(id, channel, msg, event) {
+  if (!MEDIA_KINDS.has(event.kind)) return;
+  if (event.history && (!event.size || event.size > HISTORY_MAX)) return;
+  downloads(async () => {
+    if (!diskOk(DIR)) {
+      log('disco_quase_cheio', { channel: id });
+      return;
+    }
+    const relative = incomingPath(id, event.id);
+    const file = path.join(MEDIA, relative);
+    mkdirSync(path.dirname(file), { recursive: true });
+    const stream = await downloadMediaMessage(msg, 'stream', {}, {
+      logger,
+      reuploadRequest: channel.sock?.updateMediaMessage,
+    });
+    await pipeline(stream, createWriteStream(file));
+    queue.push({
+      type: 'media',
+      channel: id,
+      jid: event.jid,
+      id: event.id,
+      path: relative,
+      mime: event.mime,
+      size: statSync(file).size,
+    });
+  });
 }
 
 // Nome dos grupos: a mensagem não traz o assunto; pergunta uma vez e guarda.
@@ -161,13 +203,22 @@ async function start(id) {
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const events = [];
+    const media = [];
     for (const msg of messages || []) {
       const event = messageEvent(id, msg);
       if (!event) continue;
       if (isGroup(event.jid)) event.chat_name = await groupName(channel, event.jid);
       events.push(event);
+      // O que enviamos daqui o TicketFlow já tem; o resto (inclusive o do celular), baixa.
+      if (!sentHere.has(event.id)) media.push([msg, event]);
     }
     queue.push(...events);
+    for (const [msg, event] of media) download(id, channel, msg, event);
+  });
+
+  // Os ticks das nossas mensagens: entregue (✓✓) e lida (✓✓ azul).
+  sock.ev.on('messages.update', (updates) => {
+    queue.push(...(updates || []).map((u) => statusEvent(id, u)).filter(Boolean));
   });
 
   sock.ev.on('messaging-history.set', ({ chats, contacts, messages }) => {
@@ -181,12 +232,16 @@ async function start(id) {
       if (jid && name) names.push({ jid: jidNormalizedUser(jid), name });
     }
     const events = [];
+    const media = [];
     if (names.length) events.push({ type: 'names', channel: id, names });
     for (const msg of messages || []) {
       const event = messageEvent(id, msg, { history: true });
-      if (event) events.push(event);
+      if (!event) continue;
+      events.push(event);
+      media.push([msg, event]);
     }
     queue.push(...events);
+    for (const [msg, event] of media) download(id, channel, msg, event);
     log('historico_recebido', { channel: id, mensagens: messages?.length || 0 });
   });
 
@@ -270,6 +325,20 @@ async function handle(req, res) {
     if (action === 'logout') {
       await logout(id);
       return send(res, 200, { ok: true });
+    }
+    if (action === 'send-media') {
+      const channel = channels.get(id);
+      if (!channel?.sock || channel.state !== 'connected') return send(res, 503, { error: 'desconectado' });
+      const { jid, path: relative, kind, mime, file_name: fileName, caption, id: messageId } = await readJson(req);
+      const file = resolveInside(MEDIA, relative);
+      if (!jid || !file || !existsSync(file)) return send(res, 400, { error: 'arquivo inválido' });
+      if (messageId) {
+        sentHere.add(messageId);
+        if (sentHere.size > 10_000) sentHere.delete(sentHere.values().next().value);
+      }
+      const content = mediaContent({ file, kind, mime, fileName, caption });
+      const sent = await channel.sock.sendMessage(jid, content, messageId ? { messageId } : {});
+      return send(res, 200, { id: sent?.key?.id ?? messageId });
     }
     if (action === 'send') {
       const channel = channels.get(id);

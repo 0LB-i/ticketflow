@@ -1,5 +1,6 @@
 // Chat do WhatsApp (web/templates/whatsapp/index.html): Enter envia (Shift+Enter quebra a linha), o
-// campo cresce com o texto, a conversa abre no fim e continua no fim quando chega mensagem (se a
+// campo cresce com o texto, os arquivos escolhidos aparecem acima do campo (com o X para tirar), o
+// envio mostra o progresso, a conversa abre no fim e continua no fim quando chega mensagem (se a
 // pessoa estava lá embaixo), e a lista de conversas não volta ao topo ao se atualizar.
 
 const PERTO_DO_FIM = 80 // px
@@ -12,6 +13,46 @@ function rolarAteOFim () {
 function ajustarAltura (campo) {
   campo.style.height = 'auto'
   campo.style.height = `${campo.scrollHeight}px`
+}
+
+function tamanho (bytes) {
+  const unidades = ['B', 'KB', 'MB', 'GB']
+  let valor = bytes
+  let i = 0
+  while (valor >= 1024 && i < unidades.length - 1) {
+    valor /= 1024
+    i++
+  }
+  return `${valor.toLocaleString(document.documentElement.lang, { maximumFractionDigits: i ? 1 : 0 })} ${unidades[i]}`
+}
+
+// Os arquivos escolhidos, como etiquetas com o X para tirar um deles.
+function mostrarAnexos (entrada) {
+  const lista = document.getElementById('anexos')
+  if (!lista) return
+  lista.replaceChildren()
+  const arquivos = Array.from(entrada.files)
+  arquivos.forEach((arquivo, indice) => {
+    const item = document.createElement('li')
+    item.className = 'inline-flex max-w-xs items-center gap-2 rounded-md bg-surface-raised px-2 py-1 text-sm'
+    const nome = document.createElement('span')
+    nome.className = 'truncate'
+    nome.textContent = `${arquivo.name} · ${tamanho(arquivo.size)}`
+    const tirar = document.createElement('button')
+    tirar.type = 'button'
+    tirar.className = 'shrink-0 rounded px-1 text-muted hover:text-fg'
+    tirar.textContent = '×'
+    tirar.setAttribute('aria-label', `${entrada.dataset.tirar || 'Remover'} ${arquivo.name}`)
+    tirar.addEventListener('click', () => {
+      const restantes = new DataTransfer()
+      Array.from(entrada.files).forEach((f, i) => { if (i !== indice) restantes.items.add(f) })
+      entrada.files = restantes.files
+      mostrarAnexos(entrada)
+    })
+    item.append(nome, tirar)
+    lista.append(item)
+  })
+  lista.hidden = arquivos.length === 0
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,14 +68,41 @@ document.addEventListener('keydown', (e) => {
   const campo = e.target.closest?.('[data-envia-com-enter]')
   if (!campo || e.key !== 'Enter' || e.shiftKey || e.isComposing) return
   e.preventDefault()
-  if (campo.value.trim()) campo.form.requestSubmit()
+  const arquivos = campo.form.querySelector('[data-anexos-entrada]')
+  if (campo.value.trim() || arquivos?.files.length) campo.form.requestSubmit()
 })
 
 document.addEventListener('input', (e) => {
   if (e.target.matches?.('[data-envia-com-enter]')) ajustarAltura(e.target)
 })
 
-// Antes da troca: onde estava a rolagem. O erro do envio (422) também troca, para aparecer.
+document.addEventListener('change', (e) => {
+  if (e.target.matches?.('[data-anexos-entrada]')) {
+    mostrarAnexos(e.target)
+    document.querySelector('[data-envia-com-enter]')?.focus()
+  }
+})
+
+// Sem texto e sem arquivo, não envia.
+document.addEventListener('submit', (e) => {
+  const form = e.target
+  if (form.id !== 'escrever') return
+  const texto = form.querySelector('[data-envia-com-enter]')
+  const arquivos = form.querySelector('[data-anexos-entrada]')
+  if (!texto?.value.trim() && !arquivos?.files.length) e.preventDefault()
+}, true)
+
+// O progresso do envio dos arquivos.
+document.addEventListener('htmx:xhr:progress', (e) => {
+  const form = e.detail.elt
+  if (form?.id !== 'escrever' || !e.detail.lengthComputable) return
+  if (!form.querySelector('[data-anexos-entrada]')?.files.length) return
+  const progresso = document.getElementById('progresso')
+  progresso.hidden = false
+  progresso.textContent = `${Math.round((e.detail.loaded / e.detail.total) * 100)}%`
+})
+
+// Antes da troca: onde estava a rolagem. O erro do envio (422, 507) também troca, para aparecer.
 const rolagem = {}
 document.addEventListener('htmx:beforeSwap', (e) => {
   const alvo = e.detail.target
@@ -42,7 +110,7 @@ document.addEventListener('htmx:beforeSwap', (e) => {
   if (alvo.id === 'mensagens') {
     rolagem.noFim = alvo.scrollHeight - alvo.scrollTop - alvo.clientHeight < PERTO_DO_FIM
     rolagem.mensagens = alvo.scrollTop
-    if (e.detail.xhr.status === 422) {
+    if ([422, 507].includes(e.detail.xhr.status)) {
       e.detail.shouldSwap = true
       e.detail.isError = false
     }
@@ -60,16 +128,31 @@ document.addEventListener('htmx:afterSwap', (e) => {
   const enviou = e.detail.requestConfig?.elt?.id === 'escrever'
   if (enviou || rolagem.noFim) rolarAteOFim()
   else if (mensagens) mensagens.scrollTop = rolagem.mensagens
+  // As fotos carregam depois: quem está no fim continua no fim.
+  if (enviou || rolagem.noFim) {
+    mensagens?.querySelectorAll('img, video').forEach((midia) => {
+      midia.addEventListener('load', rolarAteOFim, { once: true })
+      midia.addEventListener('loadedmetadata', rolarAteOFim, { once: true })
+    })
+  }
 })
 
-// Enviada: o campo fica limpo (no erro, o texto continua lá).
+// Enviada: o campo e os arquivos ficam limpos (no erro, continuam lá).
 document.addEventListener('htmx:afterRequest', (e) => {
   const form = e.detail.elt
-  if (form?.id !== 'escrever' || !e.detail.successful) return
+  if (form?.id !== 'escrever') return
+  const progresso = document.getElementById('progresso')
+  if (progresso) progresso.hidden = true
+  if (!e.detail.successful) return
   form.reset()
+  const entrada = form.querySelector('[data-anexos-entrada]')
+  if (entrada) mostrarAnexos(entrada)
   const campo = form.querySelector('[data-envia-com-enter]')
   if (campo) {
     ajustarAltura(campo)
     campo.focus()
   }
 })
+
+// Na abertura, as fotos também empurram a conversa: fica no fim depois que carregam.
+window.addEventListener('load', rolarAteOFim)

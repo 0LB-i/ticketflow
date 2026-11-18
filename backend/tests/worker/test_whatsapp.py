@@ -93,3 +93,38 @@ def test_sem_a_ponte_espera_e_para_com_o_worker(settings: Settings) -> None:
         await asyncio.wait_for(tarefa, 2)
 
     rodar(settings, roda)
+
+
+def test_falha_na_gravacao_nao_derruba_o_consumidor(
+    db: Session, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Um erro qualquer (não só a ponte fora) vai para o log, e o consumidor tenta de novo."""
+    canal = _canal(db)
+    ponte = PonteComEventos([_evento(canal, 1, "A")])
+    tentativas: list[int] = []
+
+    async def falha_uma_vez(sm: async_sessionmaker[AsyncSession], b: Bridge, wait: int) -> int:
+        tentativas.append(1)
+        if len(tentativas) == 1:
+            raise RuntimeError("coluna não existe")
+        return await original(sm, b, wait)
+
+    original = consumer.drain
+    monkeypatch.setattr(consumer, "drain", falha_uma_vez)
+    monkeypatch.setattr(consumer, "get_bridge", lambda _s: ponte)
+    monkeypatch.setattr(consumer, "RETRY_S", 0.05)
+
+    async def roda(sm: async_sessionmaker[AsyncSession]) -> None:
+        stop = asyncio.Event()
+        tarefa = asyncio.create_task(consumer.run(sm, settings, stop))
+        for _ in range(100):
+            if ponte.confirmados:
+                break
+            await asyncio.sleep(0.05)
+        stop.set()
+        await asyncio.wait_for(tarefa, 2)
+
+    rodar(settings, roda)
+    # A ponte falsa entrega de novo depois da confirmação: a mensagem entra uma vez só.
+    assert len(tentativas) >= 2 and ponte.confirmados[0] == 1
+    assert list(db.scalars(select(WhatsAppMessage.wa_id))) == ["A"]

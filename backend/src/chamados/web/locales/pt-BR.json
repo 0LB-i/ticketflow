@@ -966,9 +966,6 @@
     "mensagem": "Mensagem",
     "digite": "Digite uma mensagem",
     "enviar": "Enviar",
-    "enviando": "Enviando",
-    "enviada": "Enviada",
-    "falhou": "Não enviada",
     "tipos": {
       "text": "Mensagem",
       "image": "📷 Foto",
@@ -982,6 +979,23 @@
       "contact": "👤 Contato",
       "poll": "📊 Enquete",
       "other": "Mensagem não suportada"
+    },
+    "filtros": "Filtrar conversas",
+    "filtro": {
+      "todas": "Todas",
+      "nao_lidas": "Não lidas",
+      "lidas": "Lidas"
+    },
+    "nenhumaNoFiltro": "Nenhuma conversa aqui.",
+    "anexar": "Anexar arquivos",
+    "arquivosEscolhidos": "Arquivos escolhidos",
+    "tirar": "Tirar",
+    "situacao": {
+      "pending": "Enviando",
+      "sent": "Enviada",
+      "delivered": "Entregue",
+      "read": "Lida",
+      "failed": "Não enviada"
     }
   },
   "whatsappAdmin": {

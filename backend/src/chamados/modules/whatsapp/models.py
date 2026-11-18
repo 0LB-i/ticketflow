@@ -43,7 +43,8 @@ KINDS = (
     "poll",
     "other",
 )
-STATUSES = ("pending", "sent", "failed", "received")
+# As nossas: pending → sent → delivered → read (os ticks); as de fora: received.
+STATUSES = ("pending", "sent", "delivered", "read", "failed", "received")
 
 
 class WhatsAppChannel(Base):
@@ -139,6 +140,11 @@ class WhatsAppMessage(Base):
     kind: Mapped[str] = mapped_column(Text, server_default=text("'text'"))
     body: Mapped[str | None] = mapped_column(Text)  # o texto ou a legenda, sem a assinatura
     file_name: Mapped[str | None] = mapped_column(Text)
+    # O arquivo (foto, vídeo, áudio, documento), relativo à pasta `media` da ponte; sem ele, a
+    # mídia não foi baixada (o histórico grande, o disco quase cheio, o link expirado).
+    media_path: Mapped[str | None] = mapped_column(Text)
+    mime_type: Mapped[str | None] = mapped_column(Text)
+    file_size: Mapped[int | None] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(Text)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

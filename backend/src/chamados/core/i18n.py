@@ -261,4 +261,8 @@ EN: dict[str, str] = {
     "Número do WhatsApp não encontrado.": "WhatsApp number not found.",
     "Informe o nome do número.": "Enter the number's name.",
     "Os responsáveis precisam ser membros do grupo.": "Managers must be members of the group.",
+    "Espaço em disco insuficiente para guardar o arquivo. Avise quem administra o servidor.": (
+        "Not enough disk space to store the file. Let the server administrator know."
+    ),
+    "Arquivo não encontrado.": "File not found.",
 }

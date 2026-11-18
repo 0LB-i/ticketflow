@@ -47,6 +47,14 @@ async def run(
             with suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), RETRY_S)
             continue
+        except Exception:
+            # A gravação falhou (ex.: banco fora do ar, migração ainda não aplicada): os eventos
+            # continuam na ponte, sem a confirmação. Sem isto, a tarefa morreria em silêncio e as
+            # mensagens parariam de entrar até o worker reiniciar.
+            log.exception("whatsapp_falha_ao_gravar")
+            with suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), RETRY_S)
+            continue
         if down:
             log.info("whatsapp_ponte_de_volta")
             down = False

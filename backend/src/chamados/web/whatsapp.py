@@ -1,7 +1,7 @@
 """Chat do WhatsApp (/whatsapp): as conversas dos números dos grupos da pessoa, no jeito do WhatsApp
-Web, e o envio de texto. A conversa aberta pergunta a cada 3 s se chegou mensagem (`depois`: 204
-sem nada novo) e a lista, a cada 5 s; a fase 2 troca isso por SSE. As regras ficam em
-`modules/whatsapp/service`.
+Web, com as abas Todas, Não lidas e Lidas, o envio de texto e de arquivos e os ticks. A conversa
+aberta pergunta a cada 3 s se mudou algo (`versao`: 204 sem mudança) e a lista, a cada 5 s; a fase
+2 troca isso por SSE. As regras ficam em `modules/whatsapp/service`.
 """
 
 import uuid
@@ -9,14 +9,15 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from chamados.core.timezone import LOCAL_TZ
 from chamados.db.session import DB
 from chamados.modules.whatsapp import service
-from chamados.modules.whatsapp.bridge import Bridge, get_bridge
+from chamados.modules.whatsapp.bridge import Bridge, get_bridge, media_dir
 from chamados.modules.whatsapp.models import WhatsAppChannel, WhatsAppChat, WhatsAppMessage
+from chamados.modules.whatsapp.service import RANK
 from chamados.web.formatting import format_date
 from chamados.web.page import LoggedPage, LoggedPageDep, check_csrf
 
@@ -103,13 +104,31 @@ def _bubbles(page: LoggedPage, chat: WhatsAppChat, messages: list[WhatsAppMessag
     return bubbles
 
 
+FILTERS = ("todas", "nao_lidas", "lidas")
+
+
+def _filter(value: str | None) -> str:
+    return value if value in FILTERS else "todas"
+
+
+def version(messages: list[WhatsAppMessage]) -> str:
+    """O que a conversa aberta mostra: muda com mensagem nova, com os ticks e com o arquivo que
+    terminou de baixar. A atualização a cada 3 s só troca a tela quando muda."""
+    last = messages[-1].id if messages else 0
+    ticks = sum(RANK.get(m.status, 0) for m in messages if m.from_me)
+    files = sum(1 for m in messages if m.media_path)
+    return f"{last}-{ticks}-{files}"
+
+
 async def _render(
     page: LoggedPage,
     db: DB,
     *,
     channel_id: uuid.UUID | None = None,
     chat: WhatsAppChat | None = None,
+    filtro: str = "todas",
     only_list: bool = False,
+    messages: list[WhatsAppMessage] | None = None,
     draft: str = "",
     error: str | None = None,
     status_code: int = 200,
@@ -120,11 +139,17 @@ async def _render(
         channel = next((c for c in channels if c.id == chat.channel_id), None)
     elif channels:
         channel = next((c for c in channels if c.public_id == channel_id), channels[0])
-    rows = await service.list_chats(db, channel) if channel else []
-    messages: list[WhatsAppMessage] = []
+    unread = {"nao_lidas": True, "lidas": False}.get(filtro)
+    rows = (
+        await service.list_chats(db, channel, unread=unread, keep=chat.id if chat else None)
+        if channel
+        else []
+    )
     if chat is not None and not only_list:
-        messages = await service.list_messages(db, chat)
+        if messages is None:
+            messages = await service.list_messages(db, chat)
         await service.mark_read(db, chat)
+    messages = messages or []
     labels = Labels(page)
     return page.render(
         "whatsapp/index.html",
@@ -133,51 +158,92 @@ async def _render(
         channel=channel,
         rows=rows,
         chat=chat,
+        filtro=filtro,
         bubbles=_bubbles(page, chat, messages) if chat else [],
-        last_id=messages[-1].id if messages else 0,
+        version=version(messages),
         when=labels.when,
         contact_label=contact_label,
+        inline=service.inline_mime,
         draft=draft,
         error=error,
     )
 
 
 @router.get(URL)
-async def whatsapp_page(page: LoggedPageDep, db: DB, numero: str | None = None) -> HTMLResponse:
-    return await _render(page, db, channel_id=_uuid(numero))
+async def whatsapp_page(
+    page: LoggedPageDep, db: DB, numero: str | None = None, filtro: str | None = None
+) -> HTMLResponse:
+    return await _render(page, db, channel_id=_uuid(numero), filtro=_filter(filtro))
 
 
 @router.get(URL + "/conversa/{chat_id}")
 async def chat_page(
-    chat_id: str, page: LoggedPageDep, db: DB, depois: int | None = None
+    chat_id: str,
+    page: LoggedPageDep,
+    db: DB,
+    versao: str | None = None,
+    filtro: str | None = None,
 ) -> Response:
     chat = await service.get_chat(db, page.auth.actor, _uuid(chat_id) or uuid.UUID(int=0))
-    if depois is not None and not await service.list_messages(db, chat, after=depois):
-        return Response(status_code=204)  # nada novo: o HTMX não troca nada
-    return await _render(page, db, chat=chat)
+    messages = await service.list_messages(db, chat)
+    if versao is not None and versao == version(messages):
+        return Response(status_code=204)  # nada mudou: o HTMX não troca nada
+    return await _render(page, db, chat=chat, filtro=_filter(filtro), messages=messages)
 
 
 @router.get(URL + "/conversa/{chat_id}/lista")
-async def chat_list(chat_id: str, page: LoggedPageDep, db: DB) -> HTMLResponse:
+async def chat_list(
+    chat_id: str, page: LoggedPageDep, db: DB, filtro: str | None = None
+) -> HTMLResponse:
     """A lista de conversas, com a conversa aberta marcada (a atualização a cada 5 s)."""
     chat = await service.get_chat(db, page.auth.actor, _uuid(chat_id) or uuid.UUID(int=0))
-    return await _render(page, db, chat=chat, only_list=True)
+    return await _render(page, db, chat=chat, filtro=_filter(filtro), only_list=True)
+
+
+@router.get(URL + "/conversa/{chat_id}/arquivo/{message_id}")
+async def media(
+    chat_id: str, message_id: int, request: Request, page: LoggedPageDep, db: DB
+) -> FileResponse:
+    """O arquivo de uma mensagem, com o acesso da conversa. Foto, vídeo e áudio dos tipos que o
+    navegador mostra abrem na tela; o resto (e todo o resto do cliente) só baixa."""
+    chat = await service.get_chat(db, page.auth.actor, _uuid(chat_id) or uuid.UUID(int=0))
+    media = media_dir(request.app.state.settings)
+    message, path = await service.chat_media(db, media, chat, message_id)
+    show = service.inline_mime(message.mime_type)
+    return FileResponse(
+        path,
+        media_type=show or "application/octet-stream",
+        filename=message.file_name or path.name,
+        content_disposition_type="inline" if show else "attachment",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
 
 
 @router.post(URL + "/conversa/{chat_id}/enviar")
 async def send(
     chat_id: str,
+    request: Request,
     page: LoggedPageDep,
     db: DB,
     bridge: BridgeDep,
     csrf_token: Field = "",
     texto: Field = "",
+    filtro: Field = "todas",
+    arquivos: Annotated[list[UploadFile] | None, File()] = None,
 ) -> HTMLResponse:
     check_csrf(page, csrf_token)
     chat = await service.get_chat(db, page.auth.actor, _uuid(chat_id) or uuid.UUID(int=0))
+    chosen = [f for f in arquivos or [] if f.filename]
     try:
-        await service.send_text(db, bridge, page.auth, chat, texto)
+        if chosen:
+            uploads = [service.Upload(f.filename or "", f.content_type, f.file) for f in chosen]
+            media = media_dir(request.app.state.settings)
+            await service.send_files(db, media, page.auth, chat, uploads, texto)
+        else:
+            await service.send_text(db, bridge, page.auth, chat, texto)
     except HTTPException as exc:
         error = page.api_message(exc)
-        return await _render(page, db, chat=chat, draft=texto, error=error, status_code=422)
-    return await _render(page, db, chat=chat)
+        return await _render(
+            page, db, chat=chat, filtro=_filter(filtro), draft=texto, error=error, status_code=422
+        )
+    return await _render(page, db, chat=chat, filtro=_filter(filtro))

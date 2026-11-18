@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { messageEvent } from './content.js';
+import { messageEvent, statusEvent } from './content.js';
 
 const key = (extra = {}) => ({ remoteJid: '5511999990000@s.whatsapp.net', id: 'ABC', fromMe: false, ...extra });
 
@@ -23,6 +23,9 @@ test('texto de uma conversa individual', () => {
     ts: 1763460000,
     history: false,
     file_name: null,
+    mime: null,
+    size: null,
+    status: null,
     kind: 'text',
     text: 'Bom dia',
   });
@@ -81,4 +84,29 @@ test('ignora status, canais, avisos do protocolo e reações', () => {
   assert.equal(messageEvent('c1', { key: key(), message: { protocolMessage: {} } }), null);
   assert.equal(messageEvent('c1', { key: key(), message: { reactionMessage: { text: '👍' } } }), null);
   assert.equal(messageEvent('c1', { key: key(), message: null }), null);
+});
+
+test('mídia: o tipo e o tamanho do arquivo para baixar', () => {
+  const event = messageEvent('c1', {
+    key: key(),
+    message: { imageMessage: { mimetype: 'image/jpeg', fileLength: { toNumber: () => 2048 } } },
+  });
+  assert.equal(event.mime, 'image/jpeg');
+  assert.equal(event.size, 2048);
+});
+
+test('ticks: a mudança de estado das nossas mensagens', () => {
+  const nossa = key({ fromMe: true, remoteJid: '999@lid', remoteJidAlt: '5511777770000@s.whatsapp.net' });
+  assert.deepEqual(statusEvent('c1', { key: nossa, update: { status: 3 } }), {
+    type: 'status',
+    channel: 'c1',
+    jid: '5511777770000@s.whatsapp.net',
+    id: 'ABC',
+    status: 'delivered',
+  });
+  assert.equal(statusEvent('c1', { key: nossa, update: { status: 4 } }).status, 'read');
+  assert.equal(statusEvent('c1', { key: key(), update: { status: 4 } }), null); // a do contato
+  assert.equal(statusEvent('c1', { key: nossa, update: {} }), null);
+  const doCelular = messageEvent('c1', { key: nossa, message: { conversation: 'x' }, status: 2 });
+  assert.equal(doCelular.status, 'sent');
 });

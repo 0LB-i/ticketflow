@@ -10,7 +10,7 @@ function ignoredJid(jid) {
 
 // O número de telefone quando a Baileys o conhece: com os LIDs (identificadores sem o número), o
 // mesmo contato pode chegar de um jeito ou de outro, e a conversa precisa ser uma só.
-function preferPhone(jid, alt) {
+export function preferPhone(jid, alt) {
   if (!jid) return null;
   if (jid.endsWith('@lid') && alt) return jidNormalizedUser(alt);
   return jidNormalizedUser(jid);
@@ -22,7 +22,13 @@ function timestamp(value) {
   return Number.isFinite(number) && number > 0 ? number : Math.floor(Date.now() / 1000);
 }
 
-// Tipo e texto de cada conteúdo. Mídia: a fase 3 baixa o arquivo; por enquanto vai só a legenda.
+// O tipo e o tamanho do arquivo, nas mensagens com mídia (a ponte baixa depois).
+function media(inner) {
+  const size = Number(inner?.fileLength?.toNumber?.() ?? inner?.fileLength);
+  return { mime: inner?.mimetype || null, size: Number.isFinite(size) && size > 0 ? size : null };
+}
+
+// Tipo e texto de cada conteúdo; nas mídias, a legenda e o tipo e o tamanho do arquivo.
 function describe(content) {
   const type = getContentType(content);
   const inner = type ? content[type] : null;
@@ -32,17 +38,17 @@ function describe(content) {
     case 'extendedTextMessage':
       return { kind: 'text', text: inner.text };
     case 'imageMessage':
-      return { kind: 'image', text: inner.caption || null };
+      return { kind: 'image', text: inner.caption || null, ...media(inner) };
     case 'videoMessage':
-      return { kind: inner.gifPlayback ? 'gif' : 'video', text: inner.caption || null };
+      return { kind: inner.gifPlayback ? 'gif' : 'video', text: inner.caption || null, ...media(inner) };
     case 'audioMessage':
-      return { kind: inner.ptt ? 'voice' : 'audio', text: null };
+      return { kind: inner.ptt ? 'voice' : 'audio', text: null, ...media(inner) };
     case 'documentMessage':
-      return { kind: 'document', text: inner.caption || null, file_name: inner.fileName || null };
+      return { kind: 'document', text: inner.caption || null, file_name: inner.fileName || null, ...media(inner) };
     case 'documentWithCaptionMessage':
       return describe(inner.message || {});
     case 'stickerMessage':
-      return { kind: 'sticker', text: null };
+      return { kind: 'sticker', text: null, ...media(inner) };
     case 'locationMessage':
     case 'liveLocationMessage':
       return { kind: 'location', text: inner.name || inner.address || null };
@@ -88,8 +94,38 @@ export function messageEvent(channel, msg, { history = false } = {}) {
     ts: timestamp(msg.messageTimestamp),
     history,
     file_name: null,
+    mime: null,
+    size: null,
+    // A nossa mandada pelo celular já chega com o estado (os ticks).
+    status: fromMe ? statusName(msg.status) : null,
     ...described,
   };
+}
+
+// Os tipos que têm arquivo para baixar.
+export const MEDIA_KINDS = new Set(['image', 'video', 'gif', 'audio', 'voice', 'document', 'sticker']);
+
+// O estado de uma mensagem nossa (proto.WebMessageInfo.Status) nos nomes do TicketFlow.
+export function statusName(value) {
+  switch (Number(value)) {
+    case 2:
+      return 'sent'; // SERVER_ACK: chegou ao servidor (✓)
+    case 3:
+      return 'delivered'; // DELIVERY_ACK: chegou ao celular (✓✓)
+    case 4:
+    case 5:
+      return 'read'; // READ, PLAYED: lida ou ouvida (✓✓ azul)
+    default:
+      return null;
+  }
+}
+
+// A mudança de estado de uma mensagem nossa (messages.update), para os ticks.
+export function statusEvent(channel, { key, update }) {
+  if (!key?.fromMe || !key.id || !key.remoteJid || ignoredJid(key.remoteJid)) return null;
+  const status = statusName(update?.status);
+  if (!status) return null;
+  return { type: 'status', channel, jid: preferPhone(key.remoteJid, key.remoteJidAlt), id: key.id, status };
 }
 
 export function isGroup(jid) {

@@ -53,7 +53,8 @@
       </div>
     </header>
 
-    <main id="conteudo" tabindex="-1" class="flex-1 p-4 md:p-6">
+    {#- O chat do WhatsApp ocupa a área inteira, sem o espaçamento das outras telas. #}
+    <main id="conteudo" tabindex="-1" class="{% block main_class %}flex-1 p-4 md:p-6{% endblock %}">
       {% block content %}{% endblock %}
     </main>
   </div>

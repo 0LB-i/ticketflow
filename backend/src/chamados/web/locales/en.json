@@ -966,9 +966,6 @@
     "mensagem": "Message",
     "digite": "Type a message",
     "enviar": "Send",
-    "enviando": "Sending",
-    "enviada": "Sent",
-    "falhou": "Not sent",
     "tipos": {
       "text": "Message",
       "image": "📷 Photo",
@@ -982,6 +979,23 @@
       "contact": "👤 Contact",
       "poll": "📊 Poll",
       "other": "Unsupported message"
+    },
+    "filtros": "Filter conversations",
+    "filtro": {
+      "todas": "All",
+      "nao_lidas": "Unread",
+      "lidas": "Read"
+    },
+    "nenhumaNoFiltro": "No conversations here.",
+    "anexar": "Attach files",
+    "arquivosEscolhidos": "Chosen files",
+    "tirar": "Remove",
+    "situacao": {
+      "pending": "Sending",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "failed": "Not sent"
     }
   },
   "whatsappAdmin": {

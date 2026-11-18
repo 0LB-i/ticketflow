@@ -1,11 +1,14 @@
-{#- Chat do WhatsApp, no jeito do WhatsApp Web: as conversas à esquerda e a conversa aberta à direita.
-    A lista (#conversas) e as mensagens (#mensagens) se atualizam sozinhas (web/whatsapp.py); o
-    campo de escrever fica fora delas, para não perder o que está sendo digitado. -#}
+{#- Chat do WhatsApp, no jeito do WhatsApp Web, ocupando a área inteira: as conversas à esquerda (com
+    as abas Todas, Não lidas e Lidas) e a conversa aberta à direita. A lista (#conversas) e as
+    mensagens (#mensagens) se atualizam sozinhas (web/whatsapp.py); o campo de escrever fica fora
+    delas, para não perder o que está sendo digitado. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert with context %}
 {% from "_icons.html" import icon %}
 
 {% block title %}{{ chat and (chat.name or contact_label(chat.jid)) or t("whatsapp.titulo") }}{% endblock %}
+
+{% block main_class %}flex min-h-0 min-w-0 flex-1{% endblock %}
 
 {% macro chat_avatar(item, size="size-10") -%}
 <span class="inline-flex {{ size }} shrink-0 items-center justify-center rounded-full bg-primary-subtle font-semibold text-primary" aria-hidden="true">
@@ -13,56 +16,99 @@
 </span>
 {%- endmacro %}
 
+{#- O arquivo de uma mensagem: foto, vídeo e áudio na própria tela; o resto, para baixar. #}
+{% macro attachment(m) -%}
+{%- set url = "/whatsapp/conversa/" ~ chat.public_id ~ "/arquivo/" ~ m.id -%}
+{%- set show = inline(m.mime_type) -%}
+{%- if not m.media_path %}
+<p class="text-sm text-muted italic">{{ t("whatsapp.tipos." ~ m.kind) }}{% if m.file_name %} · {{ m.file_name }}{% endif %}</p>
+{%- elif m.kind == "sticker" and show %}
+<img src="{{ url }}" alt="{{ t('whatsapp.tipos.sticker') }}" loading="lazy" class="size-32 object-contain">
+{%- elif m.kind == "image" and show %}
+<a href="{{ url }}" target="_blank" rel="noopener" class="block"><img src="{{ url }}" alt="{{ m.file_name or t('whatsapp.tipos.image') }}" loading="lazy" class="max-h-80 max-w-full rounded-md object-contain"></a>
+{%- elif m.kind == "gif" and show %}
+<video src="{{ url }}" autoplay loop muted playsinline class="max-h-80 max-w-full rounded-md"></video>
+{%- elif m.kind == "video" and show %}
+<video src="{{ url }}" controls preload="metadata" class="max-h-80 max-w-full rounded-md"></video>
+{%- elif m.kind in ("audio", "voice") and show %}
+<audio src="{{ url }}" controls preload="none" class="w-72 max-w-full"></audio>
+{%- else %}
+<a href="{{ url }}" class="flex items-center gap-3 rounded-md bg-surface-raised px-3 py-2 hover:bg-border" download>
+  {{ icon("file-text", "size-8 shrink-0 text-muted") }}
+  <span class="flex min-w-0 flex-col">
+    <span class="truncate font-medium">{{ m.file_name or t("whatsapp.tipos." ~ m.kind) }}</span>
+    {%- if m.file_size %}<span class="text-xs text-muted">{{ size(m.file_size) }}</span>{% endif %}
+  </span>
+  {{ icon("download", "size-4 shrink-0 text-muted") }}
+</a>
+{%- endif %}
+{%- endmacro %}
+
+{#- Os ticks das nossas mensagens, como no WhatsApp. #}
+{% macro ticks(status) -%}
+{%- set label = t("whatsapp.situacao." ~ status) -%}
+{%- if status == "pending" %}<span title="{{ label }}">{{ icon("clock", "size-3.5") }}<span class="sr-only">{{ label }}</span></span>
+{%- elif status == "sent" %}<span title="{{ label }}">{{ icon("check", "size-4") }}<span class="sr-only">{{ label }}</span></span>
+{%- elif status == "delivered" %}<span title="{{ label }}">{{ icon("check-check", "size-4") }}<span class="sr-only">{{ label }}</span></span>
+{%- elif status == "read" %}<span title="{{ label }}" class="text-blue-fg">{{ icon("check-check", "size-4") }}<span class="sr-only">{{ label }}</span></span>
+{%- elif status == "failed" %}<span class="text-danger">{{ label }}</span>
+{%- endif %}
+{%- endmacro %}
+
 {% block head %}
-{#- Enter envia, a conversa rola até o fim e o erro do envio aparece (static/js/whatsapp.js). #}
+{#- Enter envia, os arquivos escolhidos, o progresso do envio, a rolagem e o erro do envio
+    (static/js/whatsapp.js). #}
 <script src="{{ static('js/whatsapp.js') }}" defer></script>
 {% endblock %}
 
 {% block content %}
-<div class="mx-auto flex h-[calc(100dvh-6.5rem)] max-w-pagina overflow-hidden rounded-lg border border-border bg-surface shadow-md">
+{%- set suffix = "?filtro=" ~ filtro -%}
+<div class="flex h-[calc(100dvh-3.5rem)] min-w-0 flex-1 overflow-hidden bg-surface">
   {#- Conversas #}
   <section id="conversas" aria-labelledby="conversas-titulo" class="flex w-96 shrink-0 flex-col border-r border-border"
-    {%- if channel %} hx-get="{{ '/whatsapp/conversa/' ~ chat.public_id ~ '/lista' if chat else '/whatsapp?numero=' ~ channel.public_id }}" hx-trigger="every 5s" hx-select="#conversas" hx-swap="outerHTML"{% endif %}>
-    <div class="flex h-16 shrink-0 items-center gap-2 border-b border-border px-4">
-      <h1 id="conversas-titulo" class="sr-only">{{ t("whatsapp.titulo") }}</h1>
-      {%- if channels | length > 1 %}
-      <form method="get" action="/whatsapp" class="flex-1">
-        <label for="numero" class="sr-only">{{ t("whatsapp.numero") }}</label>
-        <select id="numero" name="numero" data-envia-ao-mudar class="h-10 w-full rounded-md border border-border-input bg-surface px-3 text-fg">
-          {%- for c in channels %}
-          <option value="{{ c.public_id }}"{% if channel and c.id == channel.id %} selected{% endif %}>{{ c.name }}{% if c.phone %} · +{{ c.phone }}{% endif %}</option>
-          {%- endfor %}
-        </select>
-      </form>
-      {%- elif channel %}
-      <div class="flex min-w-0 flex-col">
-        <p class="truncate font-semibold">{{ channel.name }}</p>
-        {%- if channel.phone %}<p class="truncate text-sm text-muted">+{{ channel.phone }}</p>{% endif %}
-      </div>
-      {%- endif %}
-    </div>
+    {%- if channel %} hx-get="{{ ('/whatsapp/conversa/' ~ chat.public_id ~ '/lista' ~ suffix) if chat else ('/whatsapp' ~ suffix ~ '&numero=' ~ channel.public_id) }}" hx-trigger="every 5s" hx-select="#conversas" hx-swap="outerHTML"{% endif %}>
+    <h1 id="conversas-titulo" class="sr-only">{{ t("whatsapp.titulo") }}</h1>
+    {%- if channels | length > 1 %}
+    <form method="get" action="/whatsapp" class="border-b border-border px-3 pt-3">
+      <input type="hidden" name="filtro" value="{{ filtro }}">
+      <label for="numero" class="sr-only">{{ t("whatsapp.numero") }}</label>
+      <select id="numero" name="numero" data-envia-ao-mudar class="mb-3 h-9 w-full rounded-md border border-border-input bg-surface px-3 text-fg">
+        {%- for c in channels %}
+        <option value="{{ c.public_id }}"{% if channel and c.id == channel.id %} selected{% endif %}>{{ c.name }}</option>
+        {%- endfor %}
+      </select>
+    </form>
+    {%- endif %}
+    {%- if channel %}
+    <nav aria-label="{{ t('whatsapp.filtros') }}" class="flex shrink-0 gap-2 border-b border-border px-3 py-3">
+      {%- for key in ("todas", "nao_lidas", "lidas") %}
+      {%- set url = ("/whatsapp/conversa/" ~ chat.public_id ~ "?filtro=" ~ key) if chat else ("/whatsapp?filtro=" ~ key ~ "&numero=" ~ channel.public_id) %}
+      <a href="{{ url }}" class="rounded-full px-3 py-1 text-sm font-medium {{ 'bg-primary-subtle text-primary' if filtro == key else 'bg-surface-raised text-muted hover:text-fg' }}"{% if filtro == key %} aria-current="page"{% endif %}>{{ t("whatsapp.filtro." ~ key) }}</a>
+      {%- endfor %}
+    </nav>
+    {%- endif %}
 
     {%- if not channel %}
     <p class="p-4 text-muted">{{ t("whatsapp.semNumero") }}</p>
     {%- elif not rows %}
-    <p class="p-4 text-muted">{{ t("whatsapp.semConversas") }}</p>
+    <p class="p-4 text-muted">{{ t("whatsapp.semConversas") if filtro == "todas" else t("whatsapp.nenhumaNoFiltro") }}</p>
     {%- else %}
     <ul id="lista-conversas" class="flex-1 overflow-y-auto" data-mantem-rolagem>
       {%- for row in rows %}
       {%- set item = row.chat %}
       {%- set current = chat and chat.id == item.id %}
       <li>
-        <a href="/whatsapp/conversa/{{ item.public_id }}" class="flex items-center gap-3 border-b border-border px-4 py-3 {{ 'bg-primary-subtle' if current else 'hover:bg-surface-raised' }}"{% if current %} aria-current="page"{% endif %}>
+        <a href="/whatsapp/conversa/{{ item.public_id }}{{ suffix }}" class="flex items-center gap-3 border-b border-border px-4 py-3 {{ 'bg-primary-subtle' if current else 'hover:bg-surface-raised' }}"{% if current %} aria-current="page"{% endif %}>
           {{ chat_avatar(item) }}
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="flex items-baseline gap-2">
               <span class="truncate font-medium">{{ item.name or contact_label(item.jid) }}</span>
               <span class="ml-auto shrink-0 text-xs {{ 'font-semibold text-primary' if item.unread else 'text-muted' }}">{{ when(item.last_message_at) }}</span>
             </span>
-            <span class="flex items-center gap-2">
+            <span class="flex items-center gap-1">
+              {%- if row.last and row.last.from_me %}<span class="shrink-0 text-muted">{{ ticks(row.last.status) }}</span>{% endif %}
               <span class="truncate text-sm text-muted">
                 {%- if row.last %}
-                {%- if row.last.from_me %}{{ t("whatsapp.voce") }}: {% endif -%}
                 {{ row.last.body if row.last.kind == "text" else t("whatsapp.tipos." ~ row.last.kind) }}
                 {%- endif -%}
               </span>
@@ -92,39 +138,43 @@
     </div>
 
     <div id="mensagens" class="flex flex-1 flex-col gap-1 overflow-y-auto bg-bg px-6 py-4" data-rolar-fim aria-live="polite" aria-relevant="additions">
-      <div hx-get="/whatsapp/conversa/{{ chat.public_id }}?depois={{ last_id }}" hx-trigger="every 3s" hx-select="#mensagens" hx-target="#mensagens" hx-swap="outerHTML" hidden></div>
+      <div hx-get="/whatsapp/conversa/{{ chat.public_id }}?versao={{ version }}&amp;filtro={{ filtro }}" hx-trigger="every 3s" hx-select="#mensagens" hx-target="#mensagens" hx-swap="outerHTML" hidden></div>
       {%- for b in bubbles %}
       {%- set m = b.message %}
       {%- if b.day %}
       <p class="my-3 self-center rounded-md bg-surface px-3 py-1 text-xs text-muted shadow-sm">{{ b.day }}</p>
       {%- endif %}
-      <div class="flex max-w-[70%] flex-col rounded-lg px-3 py-2 shadow-sm {{ 'self-end bg-primary-subtle' if m.from_me else 'self-start bg-surface' }}">
+      <div class="flex max-w-[70%] flex-col gap-1 rounded-lg px-3 py-2 shadow-sm {{ 'self-end bg-primary-subtle' if m.from_me else 'self-start bg-surface' }}">
         {%- if b.who %}
         <p class="text-sm font-semibold {{ 'text-primary' if m.from_me else 'text-teal-fg' }}">{{ b.who }}</p>
         {%- endif %}
-        {%- if m.kind != "text" %}
-        <p class="text-sm text-muted italic">{{ t("whatsapp.tipos." ~ m.kind) }}{% if m.file_name %} · {{ m.file_name }}{% endif %}</p>
-        {%- endif %}
+        {%- if m.kind != "text" %}{{ attachment(m) }}{% endif %}
         {%- if m.body %}
         <p class="break-words whitespace-pre-wrap">{{ m.body }}</p>
         {%- endif %}
-        <p class="mt-0.5 flex items-center justify-end gap-1 self-end text-xs text-muted">
-          {{ b.time }}
-          {%- if m.status == "pending" %}<span title="{{ t('whatsapp.enviando') }}">{{ icon("clock", "size-3.5") }}<span class="sr-only">{{ t("whatsapp.enviando") }}</span></span>
-          {%- elif m.status == "sent" %}<span title="{{ t('whatsapp.enviada') }}">{{ icon("check", "size-3.5") }}<span class="sr-only">{{ t("whatsapp.enviada") }}</span></span>
-          {%- elif m.status == "failed" %}<span class="text-danger">{{ t("whatsapp.falhou") }}</span>
-          {%- endif %}
+        <p class="flex items-center justify-end gap-1 self-end text-xs text-muted">
+          {{ b.time }}{% if m.from_me %}{{ ticks(m.status) }}{% endif %}
         </p>
       </div>
       {%- endfor %}
       {%- if error %}<div class="mt-2">{{ alert(error) }}</div>{% endif %}
     </div>
 
-    <form id="escrever" method="post" action="/whatsapp/conversa/{{ chat.public_id }}/enviar" hx-post="/whatsapp/conversa/{{ chat.public_id }}/enviar" hx-select="#mensagens" hx-target="#mensagens" hx-swap="outerHTML" class="flex shrink-0 items-end gap-2 border-t border-border bg-surface p-3">
+    <form id="escrever" method="post" action="/whatsapp/conversa/{{ chat.public_id }}/enviar" enctype="multipart/form-data" hx-post="/whatsapp/conversa/{{ chat.public_id }}/enviar" hx-encoding="multipart/form-data" hx-select="#mensagens" hx-target="#mensagens" hx-swap="outerHTML" class="flex shrink-0 flex-col gap-2 border-t border-border bg-surface p-3">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="texto" class="sr-only">{{ t("whatsapp.mensagem") }}</label>
-      <textarea id="texto" name="texto" rows="1" maxlength="4096" required placeholder="{{ t('whatsapp.digite') }}" data-envia-com-enter class="max-h-40 min-h-10 flex-1 resize-none rounded-md border border-border-input bg-surface px-3 py-2 text-fg placeholder:text-muted">{{ draft }}</textarea>
-      <button type="submit" class="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-on-primary hover:bg-primary-hover" aria-label="{{ t('whatsapp.enviar') }}">{{ icon("send", "size-5") }}</button>
+      <input type="hidden" name="filtro" value="{{ filtro }}">
+      {#- Os arquivos escolhidos (o whatsapp.js preenche) e o progresso do envio. #}
+      <ul id="anexos" class="flex flex-wrap gap-2" aria-label="{{ t('whatsapp.arquivosEscolhidos') }}" hidden></ul>
+      <p id="progresso" class="text-sm text-muted" role="status" hidden></p>
+      <div class="flex items-end gap-2">
+        <label for="arquivos" class="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-surface-raised hover:text-fg" title="{{ t('whatsapp.anexar') }}">
+          {{ icon("paperclip", "size-5") }}<span class="sr-only">{{ t("whatsapp.anexar") }}</span>
+        </label>
+        <input type="file" id="arquivos" name="arquivos" multiple class="sr-only" data-anexos-entrada data-tirar="{{ t('whatsapp.tirar') }}">
+        <label for="texto" class="sr-only">{{ t("whatsapp.mensagem") }}</label>
+        <textarea id="texto" name="texto" rows="1" maxlength="4096" placeholder="{{ t('whatsapp.digite') }}" data-envia-com-enter class="max-h-40 min-h-10 flex-1 resize-none rounded-md border border-border-input bg-surface px-3 py-2 text-fg placeholder:text-muted">{{ draft }}</textarea>
+        <button type="submit" class="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-on-primary hover:bg-primary-hover" aria-label="{{ t('whatsapp.enviar') }}">{{ icon("send", "size-5") }}</button>
+      </div>
     </form>
     {%- else %}
     <div class="flex flex-1 flex-col items-center justify-center gap-2 bg-bg p-6 text-center text-muted">

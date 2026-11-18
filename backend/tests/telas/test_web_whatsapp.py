@@ -1,6 +1,7 @@
 """Chat do WhatsApp: os números na administração (/admin/whatsapp), as conversas (/whatsapp), o
 envio com o nome de quem respondeu e o que chega da ponte. A ponte é falsa (PonteFalsa)."""
 
+import re
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -37,6 +38,7 @@ class PonteFalsa(Bridge):
         self.fora = False
         self.estado: dict[uuid.UUID, dict[str, Any]] = {}
         self.enviadas: list[tuple[uuid.UUID, str, str, str]] = []
+        self.midias: list[dict[str, Any]] = []
         self.iniciados: list[uuid.UUID] = []
         self.desconectados: list[uuid.UUID] = []
 
@@ -60,6 +62,10 @@ class PonteFalsa(Bridge):
     async def send_text(self, channel: uuid.UUID, jid: str, text: str, wa_id: str) -> None:
         self._confere()
         self.enviadas.append((channel, jid, text, wa_id))
+
+    async def send_media(self, channel: uuid.UUID, jid: str, **dados: Any) -> None:
+        self._confere()
+        self.midias.append({"channel": channel, "jid": jid, **dados})
 
 
 @pytest.fixture
@@ -85,7 +91,7 @@ def _chega(settings: Settings, *eventos: dict[str, Any]) -> None:
     rodar(settings, gravar)
 
 
-def _msg(canal: WhatsAppChannel, wa_id: str, texto: str, **extra: Any) -> dict[str, Any]:
+def _msg(canal: WhatsAppChannel, wa_id: str, texto: str | None, **extra: Any) -> dict[str, Any]:
     return {
         "type": "message",
         "channel": str(canal.public_id),
@@ -256,20 +262,94 @@ def test_mensagens_que_chegam_aparecem_para_o_grupo_do_numero(
     assert caio.get(f"/whatsapp/conversa/{chat.public_id}").status_code == 403
 
 
-def test_a_conversa_aberta_so_atualiza_quando_chega_mensagem(
+def _versao(html: str) -> str:
+    # A do trecho que se atualiza (o menu do usuário repete o endereço pedido, com a antiga).
+    achou = re.search(r'hx-get="/whatsapp/conversa/[^"?]+\?versao=([0-9-]+)&amp;', html)
+    assert achou is not None
+    return achou.group(1)
+
+
+def test_a_conversa_aberta_so_atualiza_quando_algo_muda(
     client: TestClient, db: Session, settings: Settings
 ) -> None:
+    """Mensagem nova, tick novo ou arquivo baixado: a tela troca; sem mudança, 204."""
     criar_usuario(db, "ana@x.com", nome="Ana", grupos={"Suporte": "member"})
     canal = _numero(db)
-    _chega(settings, _msg(canal, "M1", "Primeira"))
+    _chega(
+        settings,
+        _msg(canal, "M1", "Primeira"),
+        _msg(canal, "N1", "Nossa", from_me=True, sender=None),
+        _msg(canal, "F1", None, kind="image", mime="image/jpeg"),
+    )
     chat = _conversa(db)
     entrar(client, "ana@x.com")
-    ultima = db.scalar(select(WhatsAppMessage.id))
     url = f"/whatsapp/conversa/{chat.public_id}"
-    assert client.get(url, params={"depois": ultima}).status_code == 204
+    versao = _versao(client.get(url).text)
+    assert client.get(url, params={"versao": versao}).status_code == 204
+
     _chega(settings, _msg(canal, "M2", "Segunda"))
-    r = client.get(url, params={"depois": ultima})
+    r = client.get(url, params={"versao": versao})
     assert r.status_code == 200 and "Segunda" in r.text
+    versao = _versao(r.text)
+
+    status = {"type": "status", "channel": str(canal.public_id), "jid": CLIENTE, "id": "N1"}
+    _chega(settings, {**status, "status": "read"})
+    r = client.get(url, params={"versao": versao})
+    assert r.status_code == 200 and "Lida" in r.text
+    versao = _versao(r.text)
+    # O "entregue" atrasado não volta o tick.
+    _chega(settings, {**status, "status": "delivered"})
+    assert client.get(url, params={"versao": versao}).status_code == 204
+
+    media = settings.whatsapp_dir / "media"
+    (media / "in" / "c").mkdir(parents=True)
+    (media / "in" / "c" / "F1").write_bytes(b"\xff\xd8foto")
+    _chega(
+        settings,
+        {
+            "type": "media",
+            "channel": str(canal.public_id),
+            "jid": CLIENTE,
+            "id": "F1",
+            "path": "in/c/F1",
+            "mime": "image/jpeg",
+            "size": 6,
+        },
+    )
+    r = client.get(url, params={"versao": versao})
+    assert r.status_code == 200
+    foto = db.scalar(select(WhatsAppMessage).where(WhatsAppMessage.wa_id == "F1"))
+    assert foto is not None and f'<img src="{url}/arquivo/{foto.id}"' in r.text
+    arquivo = client.get(f"{url}/arquivo/{foto.id}")
+    assert arquivo.status_code == 200 and arquivo.content == b"\xff\xd8foto"
+    assert arquivo.headers["content-type"] == "image/jpeg"
+    assert arquivo.headers["content-disposition"].startswith("inline")
+
+
+def test_abas_todas_nao_lidas_e_lidas(client: TestClient, db: Session, settings: Settings) -> None:
+    criar_usuario(db, "ana@x.com", nome="Ana", grupos={"Suporte": "member"})
+    canal = _numero(db)
+    outro = "5511888880000@s.whatsapp.net"
+    _chega(
+        settings,
+        _msg(canal, "M1", "Mensagem da Maria"),
+        _msg(canal, "M2", "Mensagem do João", jid=outro, sender=outro, push_name="João"),
+    )
+    joao = _conversa(db, outro)
+    joao.unread = 0
+    db.commit()
+    entrar(client, "ana@x.com")
+    html = client.get("/whatsapp").text
+    assert "+55" not in html.split('id="lista-conversas"')[0]  # o número saiu do topo
+    assert "Maria Cliente" in html and "João" in html
+    nao_lidas = client.get("/whatsapp", params={"filtro": "nao_lidas"}).text
+    assert "Maria Cliente" in nao_lidas and "João" not in nao_lidas
+    lidas = client.get("/whatsapp", params={"filtro": "lidas"}).text
+    assert "João" in lidas and "Maria Cliente" not in lidas
+    # Aberta (e por isso lida), a conversa continua na aba Não lidas, como no WhatsApp.
+    maria = _conversa(db)
+    html = client.get(f"/whatsapp/conversa/{maria.public_id}", params={"filtro": "nao_lidas"}).text
+    assert "Maria Cliente" in html.split('id="conversa"')[0]
 
 
 def test_no_grupo_do_whatsapp_aparece_quem_mandou(
@@ -340,6 +420,79 @@ def test_envio_vai_com_o_nome_em_negrito_e_aparece_em_cima_da_mensagem(
 
     r = client.post(url, data={"csrf_token": token_csrf(client), "texto": "   "})
     assert r.status_code == 422 and "Escreva a mensagem." in r.text
+
+
+def test_envio_de_arquivos_vai_pela_fila_com_a_legenda_assinada(
+    client: TestClient, db: Session, settings: Settings, ponte: PonteFalsa
+) -> None:
+    criar_usuario(db, "ana@x.com", nome="Ana", grupos={"Suporte": "member"})
+    canal = _numero(db)
+    _chega(settings, _msg(canal, "M1", "Oi"))
+    chat = _conversa(db)
+    entrar(client, "ana@x.com")
+    r = client.post(
+        f"/whatsapp/conversa/{chat.public_id}/enviar",
+        data={"csrf_token": token_csrf(client), "texto": "Segue o orçamento"},
+        files=[
+            ("arquivos", ("orçamento.pdf", b"%PDF-1.7", "application/pdf")),
+            ("arquivos", ("foto.png", b"\x89PNGfoto", "image/png")),
+            ("arquivos", ("pagina.html", b"<script>alert(1)</script>", "text/html")),
+        ],
+    )
+    assert r.status_code == 200
+    pdf, foto, pagina = db.scalars(
+        select(WhatsAppMessage).where(WhatsAppMessage.from_me).order_by(WhatsAppMessage.id)
+    ).all()
+    assert (pdf.kind, pdf.body, pdf.file_size) == ("document", "Segue o orçamento", 8)
+    assert (foto.kind, foto.body, pagina.kind) == ("image", None, "document")
+    assert all(m.status == "pending" for m in (pdf, foto, pagina))
+    assert "orçamento.pdf" in r.text and f"/arquivo/{foto.id}" in r.text
+    jobs = db.scalars(select(Job.args).where(Job.task == "whatsapp.send")).all()
+    assert sorted(j["message_id"] for j in jobs) == [pdf.id, foto.id, pagina.id]
+
+    # O arquivo do cliente que não é foto, vídeo ou áudio só baixa, nunca abre na tela.
+    html = client.get(f"/whatsapp/conversa/{chat.public_id}/arquivo/{pagina.id}")
+    assert html.headers["content-type"] == "application/octet-stream"
+    assert html.headers["content-disposition"].startswith("attachment")
+
+    async def enviar(sm: async_sessionmaker[AsyncSession]) -> None:
+        async with sm() as s:
+            for m in (pdf, foto):
+                await service.retry_send(s, ponte, m.id)
+
+    rodar(settings, enviar)
+    primeiro, segundo = ponte.midias
+    assert primeiro["caption"] == "*Ana:*\nSegue o orçamento"
+    assert (primeiro["kind"], primeiro["file_name"]) == ("document", "orçamento.pdf")
+    assert segundo["caption"] == "*Ana:*" and segundo["path"] == foto.media_path
+    assert (settings.whatsapp_dir / "media" / segundo["path"]).read_bytes() == b"\x89PNGfoto"
+    db.expire_all()
+    assert pdf.status == "sent"
+
+    # De outro grupo: o arquivo não abre.
+    criar_usuario(db, "caio@x.com", nome="Caio", grupos={"Infra": "member"})
+    caio = TestClient(client.app)
+    caio.portal = client.portal
+    entrar(caio, "caio@x.com")
+    assert caio.get(f"/whatsapp/conversa/{chat.public_id}/arquivo/{foto.id}").status_code == 403
+
+
+def test_disco_quase_cheio_recusa_o_arquivo(
+    client: TestClient, db: Session, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    criar_usuario(db, "ana@x.com", nome="Ana", grupos={"Suporte": "member"})
+    canal = _numero(db)
+    _chega(settings, _msg(canal, "M1", "Oi"))
+    chat = _conversa(db)
+    entrar(client, "ana@x.com")
+    monkeypatch.setattr(service, "disk_ok", lambda _path: False)
+    r = client.post(
+        f"/whatsapp/conversa/{chat.public_id}/enviar",
+        data={"csrf_token": token_csrf(client), "texto": ""},
+        files=[("arquivos", ("a.pdf", b"x", "application/pdf"))],
+    )
+    assert r.status_code == 422 and "Espaço em disco insuficiente" in r.text
+    assert db.scalar(select(WhatsAppMessage).where(WhatsAppMessage.from_me)) is None
 
 
 def test_sem_a_ponte_a_mensagem_espera_na_fila(

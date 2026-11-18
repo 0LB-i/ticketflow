@@ -5,19 +5,23 @@ Acesso: os membros do grupo do número veem e respondem todas as conversas dele.
 (`whatsapp_channel_managers`) vão decidir o acesso a cada conversa (fase 2).
 """
 
+import mimetypes
 import secrets
+import shutil
 import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from pathlib import Path
+from typing import Any, BinaryIO
 
 import structlog
 from fastapi import HTTPException, Request
-from sqlalchemy import Select, select, true, update
+from sqlalchemy import Select, or_, select, true, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
+from starlette.concurrency import run_in_threadpool
 
 from chamados.core.permissions import Actor
 from chamados.modules.audit.service import record
@@ -48,6 +52,14 @@ CHANNEL_NOT_FOUND = "Número do WhatsApp não encontrado."
 NAME_REQUIRED = "Informe o nome do número."
 TEAM_NOT_FOUND = "Grupo não encontrado."
 MANAGER_NOT_MEMBER = "Os responsáveis precisam ser membros do grupo."
+DISK_FULL = "Espaço em disco insuficiente para guardar o arquivo. Avise quem administra o servidor."
+NO_FILE = "Arquivo não encontrado."
+
+# Abaixo disto de espaço livre, nenhum arquivo entra (o mesmo limite da ponte, media.js): disco
+# cheio derruba o PostgreSQL, e os chamados param junto.
+MIN_FREE = 0.1
+# A ordem dos ticks: um estado só avança (o "entregue" atrasado não apaga o "lida").
+RANK = {"pending": 0, "sent": 1, "delivered": 2, "read": 3}
 
 
 # Acesso -----------------------------------------------------------------------------------------
@@ -80,9 +92,16 @@ class ChatRow:
     last: WhatsAppMessage | None
 
 
-async def list_chats(db: AsyncSession, channel: WhatsAppChannel) -> list[ChatRow]:
+async def list_chats(
+    db: AsyncSession,
+    channel: WhatsAppChannel,
+    *,
+    unread: bool | None = None,
+    keep: int | None = None,
+) -> list[ChatRow]:
     """As conversas do número, da mais recente para trás, com a última mensagem (LATERAL: uma
-    leitura do índice por conversa)."""
+    leitura do índice por conversa). `unread`: só as não lidas (True) ou só as lidas (False); a
+    conversa aberta (`keep`) fica na lista mesmo depois de lida, como no WhatsApp."""
     last = (
         select(WhatsAppMessage.id)
         .where(WhatsAppMessage.chat_id == WhatsAppChat.id)
@@ -91,7 +110,7 @@ async def list_chats(db: AsyncSession, channel: WhatsAppChannel) -> list[ChatRow
         .lateral()
     )
     message = aliased(WhatsAppMessage)
-    rows = await db.execute(
+    query = (
         select(WhatsAppChat, message)
         .select_from(WhatsAppChat)
         .outerjoin(last, true())
@@ -100,6 +119,10 @@ async def list_chats(db: AsyncSession, channel: WhatsAppChannel) -> list[ChatRow
         .order_by(WhatsAppChat.last_message_at.desc().nulls_last(), WhatsAppChat.id.desc())
         .limit(CHATS)
     )
+    if unread is not None:
+        wanted = WhatsAppChat.unread > 0 if unread else WhatsAppChat.unread == 0
+        query = query.where(or_(wanted, WhatsAppChat.id == keep) if keep else wanted)
+    rows = await db.execute(query)
     return [ChatRow(chat, msg) for chat, msg in rows]
 
 
@@ -147,9 +170,23 @@ async def _deliver(db: AsyncSession, bridge: Bridge, message: WhatsAppMessage) -
         return
     text = message.body or ""
     if channel.sign_messages and message.author is not None:
-        text = signed(text, message.author.display_name)
-    await bridge.send_text(channel.public_id, chat.jid, text, message.wa_id)
-    message.status = "sent"
+        text = signed(text, message.author.display_name).rstrip()
+    if message.media_path:
+        await bridge.send_media(
+            channel.public_id,
+            chat.jid,
+            path=message.media_path,
+            kind=message.kind,
+            mime=message.mime_type,
+            file_name=message.file_name,
+            # O áudio não leva legenda: vai sem a assinatura.
+            caption=None if message.kind == "audio" else (text or None),
+            wa_id=message.wa_id,
+        )
+    else:
+        await bridge.send_text(channel.public_id, chat.jid, text, message.wa_id)
+    if RANK.get(message.status, 0) < RANK["sent"]:
+        message.status = "sent"
 
 
 async def send_text(
@@ -182,6 +219,125 @@ async def send_text(
         jobs.enqueue(db, "whatsapp.send", message_id=message.id)
     await db.commit()
     return message
+
+
+def kind_for(mime: str | None) -> str:
+    """O tipo da mensagem pelo tipo do arquivo; o resto vai como documento."""
+    family = (mime or "").split("/", 1)[0]
+    return {"image": "image", "video": "video", "audio": "audio"}.get(family, "document")
+
+
+def disk_ok(path: Path) -> bool:
+    path.mkdir(parents=True, exist_ok=True)
+    usage = shutil.disk_usage(path)
+    return usage.total > 0 and usage.free / usage.total >= MIN_FREE
+
+
+@dataclass
+class Upload:
+    """Um arquivo escolhido na tela: o nome, o tipo que o navegador informou e o conteúdo."""
+
+    name: str
+    content_type: str | None
+    file: BinaryIO
+
+
+def _copy(source: BinaryIO, target: Path) -> int:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("wb") as out:
+        shutil.copyfileobj(source, out, 1024 * 1024)
+    return target.stat().st_size
+
+
+async def send_files(
+    db: AsyncSession,
+    media: Path,
+    auth: Auth,
+    chat: WhatsAppChat,
+    uploads: Sequence[Upload],
+    caption: str,
+) -> list[WhatsAppMessage]:
+    """Guarda os arquivos na pasta media e os põe na fila de envio, um por mensagem (a legenda vai
+    no primeiro). Sem limite de tamanho além do do WhatsApp: só a reserva de disco."""
+    caption = caption.strip()
+    if len(caption) > MAX_TEXT:
+        raise HTTPException(422, TOO_LONG)
+    if not disk_ok(media):
+        raise HTTPException(507, DISK_FULL)
+    now = datetime.now(UTC)
+    messages = []
+    for i, upload in enumerate(uploads):
+        name = Path(upload.name or "arquivo").name[:200] or "arquivo"
+        mime = upload.content_type or mimetypes.guess_type(name)[0] or "application/octet-stream"
+        relative = Path("out") / str(chat.public_id) / f"{uuid.uuid4().hex}-{name}"
+        size = await run_in_threadpool(_copy, upload.file, media / relative)
+        message = WhatsAppMessage(
+            chat_id=chat.id,
+            wa_id=new_wa_id(),
+            from_me=True,
+            author_id=auth.user.id,
+            kind=kind_for(mime),
+            body=caption if i == 0 and caption else None,
+            file_name=name,
+            media_path=str(relative),
+            mime_type=mime,
+            file_size=size,
+            status="pending",
+            sent_at=now,
+        )
+        db.add(message)
+        messages.append(message)
+    chat.last_message_at = now
+    await db.flush()
+    # Subir um arquivo grande ao WhatsApp leva minutos: vai sempre pela fila do worker.
+    for message in messages:
+        jobs.enqueue(db, "whatsapp.send", message_id=message.id)
+    await db.commit()
+    return messages
+
+
+# Os tipos que o navegador mostra na própria tela; o resto só baixa (um HTML ou SVG mandado pelo
+# cliente nunca abre dentro do TicketFlow).
+INLINE = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "video/mp4",
+    "video/webm",
+    "audio/ogg",
+    "audio/mpeg",
+    "audio/mp4",
+    "audio/aac",
+    "audio/webm",
+    "audio/wav",
+}
+
+
+def inline_mime(mime: str | None) -> str | None:
+    base = (mime or "").split(";", 1)[0].strip().lower()
+    return base if base in INLINE else None
+
+
+async def chat_media(
+    db: AsyncSession, media: Path, chat: WhatsAppChat, message_id: int
+) -> tuple[WhatsAppMessage, Path]:
+    """O arquivo de uma mensagem desta conversa (a conversa já passou pelo acesso)."""
+    message = await db.get(WhatsAppMessage, message_id)
+    if message is None or message.chat_id != chat.id:
+        raise HTTPException(404, NO_FILE)
+    return message, media_file(media, message)
+
+
+def media_file(media: Path, message: WhatsAppMessage) -> Path:
+    """O arquivo de uma mensagem, só dentro da pasta media."""
+    if not message.media_path:
+        raise HTTPException(404, NO_FILE)
+    root = media.resolve()
+    path = (root / message.media_path).resolve()
+    if not path.is_relative_to(root) or not path.is_file():
+        raise HTTPException(404, NO_FILE)
+    return path
 
 
 async def retry_send(db: AsyncSession, bridge: Bridge, message_id: int) -> None:
@@ -243,7 +399,9 @@ async def _ingest_message(
             kind=event.get("kind") or "other",
             body=event.get("text"),
             file_name=event.get("file_name"),
-            status="sent" if event.get("from_me") else "received",
+            mime_type=event.get("mime"),
+            file_size=event.get("size"),
+            status=(event.get("status") or "sent") if event.get("from_me") else "received",
             sent_at=sent_at,
         )
         .on_conflict_do_nothing(index_elements=["chat_id", "wa_id"])
@@ -255,6 +413,37 @@ async def _ingest_message(
         chat.last_message_at = sent_at
     if not event.get("from_me") and not event.get("history"):
         chat.unread += 1
+
+
+async def _message_of(
+    db: AsyncSession, channel: WhatsAppChannel, event: dict[str, Any]
+) -> WhatsAppMessage | None:
+    return await db.scalar(
+        select(WhatsAppMessage)
+        .join(WhatsAppChat, WhatsAppChat.id == WhatsAppMessage.chat_id)
+        .where(
+            WhatsAppChat.channel_id == channel.id,
+            WhatsAppChat.jid == str(event.get("jid")),
+            WhatsAppMessage.wa_id == str(event.get("id")),
+        )
+    )
+
+
+async def _ingest_status(db: AsyncSession, channel: WhatsAppChannel, event: dict[str, Any]) -> None:
+    """Os ticks: o estado só avança."""
+    status = event.get("status")
+    message = await _message_of(db, channel, event)
+    if message is not None and status in RANK and RANK[status] > RANK.get(message.status, 0):
+        message.status = status
+
+
+async def _ingest_media(db: AsyncSession, channel: WhatsAppChannel, event: dict[str, Any]) -> None:
+    """A ponte baixou o arquivo de uma mensagem que chegou."""
+    message = await _message_of(db, channel, event)
+    if message is not None and event.get("path"):
+        message.media_path = str(event["path"])
+        message.mime_type = event.get("mime") or message.mime_type
+        message.file_size = event.get("size") or message.file_size
 
 
 async def _ingest_names(db: AsyncSession, channel: WhatsAppChannel, names: Iterable[Any]) -> None:
@@ -289,6 +478,10 @@ async def ingest(db: AsyncSession, events: Iterable[dict[str, Any]]) -> None:
             await _ingest_message(db, channel, event)
         elif kind == "names":
             await _ingest_names(db, channel, event.get("names") or [])
+        elif kind == "status":
+            await _ingest_status(db, channel, event)
+        elif kind == "media":
+            await _ingest_media(db, channel, event)
         elif kind == "connection" and event.get("state") in STATES:
             channel.state = event["state"]
             if event.get("phone"):

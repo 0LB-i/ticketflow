@@ -56,6 +56,35 @@ class Bridge:
             "POST", f"/channels/{channel}/send", json={"jid": jid, "text": text, "id": wa_id}
         )
 
+    async def send_media(
+        self,
+        channel: uuid.UUID,
+        jid: str,
+        *,
+        path: str,
+        kind: str,
+        mime: str | None,
+        file_name: str | None,
+        caption: str | None,
+        wa_id: str,
+    ) -> None:
+        """Envia um arquivo da pasta `media` (o caminho é relativo a ela). Um arquivo grande leva
+        minutos para subir ao WhatsApp: por isso só a fila do worker chama."""
+        await self._request(
+            "POST",
+            f"/channels/{channel}/send-media",
+            json={
+                "jid": jid,
+                "path": path,
+                "kind": kind,
+                "mime": mime,
+                "file_name": file_name,
+                "caption": caption,
+                "id": wa_id,
+            },
+            seconds=30 * 60,
+        )
+
     async def events(self, wait: int) -> list[dict[str, Any]]:
         """Os eventos ainda não confirmados; sem nenhum, espera até `wait` segundos."""
         events: list[dict[str, Any]] = await self._request(
@@ -69,3 +98,8 @@ class Bridge:
 
 def get_bridge(settings: Settings) -> Bridge:
     return Bridge(settings.whatsapp_dir / "bridge.sock")
+
+
+def media_dir(settings: Settings) -> Path:
+    """A pasta dos arquivos do chat, dividida com a ponte (whatsapp-bridge/media.js)."""
+    return settings.whatsapp_dir / "media"

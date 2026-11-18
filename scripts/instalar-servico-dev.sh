@@ -264,6 +264,16 @@ server {
     limit_req zone=ticketflow_tokens burst=20 nodelay;
     limit_req_status 429;
 
+    # O envio de arquivos do chat do WhatsApp: até 2 GB (o limite do WhatsApp), direto para o
+    # uvicorn, sem guardar o arquivo inteiro antes no nginx, e com tempo para subir.
+    location ~ ^/whatsapp/conversa/[^/]+/enviar$ {
+        client_max_body_size 2g;
+        proxy_request_buffering off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_pass http://127.0.0.1:$API_PORTA;
+    }
+
     # A API e as telas: tudo no uvicorn (ADR 0011).
     location / {
         proxy_pass http://127.0.0.1:$API_PORTA;
