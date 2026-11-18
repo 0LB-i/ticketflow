@@ -25,27 +25,37 @@ A API REST é o **contrato principal** do sistema. A interface web usa as mesmas
 | Cliente | Mecanismo |
 |---------|-----------|
 | Interface web (telas do servidor) | Sessão via cookie `HttpOnly` + `Secure` + `SameSite=Lax` + token CSRF num campo escondido do formulário ou no header (HTMX e envio de anexos). Nenhum token fica no `localStorage` |
-| Integrações e agentes de IA | `Authorization: Bearer <token>`, um token de API com escopo `read` ou `write` (abaixo) |
+| Integrações e agentes de IA | `Authorization: Bearer <token>`, um token de API com as permissões escolhidas por área (abaixo) |
 
 ### Tokens de API
 
-Desde 2026-10-23. Um token sempre age **em nome de um usuário**: passa pelas mesmas permissões e pela mesma visibilidade dele, e o que faz aparece no histórico e na auditoria como dele, com `via: "api"` no histórico. Só quem tem `admin.users` cria tokens (no próprio nome), vê os tokens ativos de todos e revoga qualquer um, na tela **Administração → Tokens de API** (`/admin/tokens`) ou por `POST`/`GET /admin/api-tokens` e `DELETE /admin/api-tokens/{id}` (só com a sessão da interface: nenhum token entra nessas rotas; o valor vem uma vez, no campo `token` da criação; validade de 1 a 365 dias, padrão 90, ou `null` para sem validade). Quem administra o servidor também pode usar o comando `chamados token` ([ARCHITECTURE 3.10](../ARCHITECTURE.md#310-comando-chamados-clipy)).
+Desde 2026-10-23. Um token sempre age **em nome de um usuário**: passa pelas mesmas permissões e pela mesma visibilidade dele, e o que faz aparece no histórico e na auditoria como dele, com `via: "api"` no histórico. Só quem tem `admin.users` cria tokens (no próprio nome), vê os tokens ativos de todos, muda as permissões deles e revoga qualquer um, na tela **Administração → Tokens de API** (`/admin/tokens`) ou por `POST`/`GET /admin/api-tokens`, `PATCH /admin/api-tokens/{id}` (`{"permissions": [...]}`; o valor continua o mesmo) e `DELETE /admin/api-tokens/{id}` (só com a sessão da interface: nenhum token entra nessas rotas; o valor vem uma vez, no campo `token` da criação; validade de 1 a 365 dias, padrão 90, ou `null` para sem validade). Quem administra o servidor também pode usar o comando `chamados token` ([ARCHITECTURE 3.10](../ARCHITECTURE.md#310-comando-chamados-clipy)).
 
 ```
 Authorization: Bearer tf_...
 ```
 
-| Escopo | Permite |
-|--------|---------|
-| `read` | Só `GET`: listar e ler chamados, tarefas, histórico, anexos, relatórios, opções dos formulários |
-| `write` | Também registrar e alterar chamados, registrar tarefas, enviar anexos |
+Cada token tem a lista `permissions`, com códigos `área.ação` (na criação, ao menos um):
 
-- **Fora da administração:** as rotas que exigem uma permissão de administração respondem 403 a qualquer token, mesmo o de um administrador: usuários, tokens de todos, a gestão de grupos, categorias, status e códigos de resolução (criar, alterar, ordenar, remover), configurações, auditoria e o cadastro de clientes. As leituras abertas a qualquer pessoa logada continuam: `GET /teams` (sem os e-mails dos membros), `/categories`, `/statuses`, `/resolution-codes`, `/clients/options`, `/work-hours`.
+| Área | Ações | Rotas |
+|------|-------|-------|
+| `tickets` | `view`, `create`, `edit`, `delete` | Ver: listar e ler chamados, tarefas, histórico e anexos. Criar: `POST /tickets`. Editar: alterar, status, responsáveis, transferir, registrar e alterar tarefas. Excluir: remover tarefas. Enviar anexo pede criar ou editar |
+| `clients` | `view`, `create`, `edit` | O cadastro de clientes (`/clients`) |
+| `users` | `view`, `create`, `edit`, `delete` | `/users` |
+| `teams` | `create`, `edit`, `delete` | Criar e alterar grupos; incluir (editar) e tirar (excluir) membros |
+| `catalog` | `create`, `edit`, `delete` | Categorias e status (inclusive ordenar) |
+| `reports` | `view` | `/reports` (com o PDF e o CSV) |
+| `settings` | `view`, `edit` | `/admin/settings/*` |
+| `audit` | `view` | `/admin/audit-log` |
+
+- **Sempre limitado ao dono:** a permissão do token só abre a porta; a rota ainda exige a do dono (um token com `users.view` de quem não tem `admin.users` recebe 403), as regras do chamado e a visibilidade.
+- **Listas de apoio:** qualquer token lê `GET /me`, `/teams` (sem os e-mails dos membros), `/categories`, `/statuses`, `/resolution-codes`, `/clients/options` e `/work-hours`, que servem para preencher um chamado.
+- **Nunca com token:** as rotas `/admin/api-tokens` e `PATCH /me`. Sem a permissão, a resposta é 403 "Este token de API não tem permissão para esta ação."
 - **Só pela interface:** sair e trocar a senha (403 com token). Enquanto a pessoa tem a senha provisória, o token dela recebe 403 em tudo, até ela trocá-la na tela.
 - **Leitura não conta como visita:** abrir um chamado com um token (`GET /tickets/{id}`) não apaga o aviso de novidade da pessoa (`has_news`), que continua até ela abrir o chamado na tela.
 - Token inválido, revogado, vencido ou de usuário inativo/excluído: 401. Desativar ou excluir a pessoa revoga os tokens dela: reativar a conta não os traz de volta. Requisições com token não usam cookie nem CSRF.
 
-**Depois:** escopos mais finos (`tickets:read`, `kb:write`…), contas de serviço (`actor_kind = api_client` ou `ai`).
+**Depois:** contas de serviço (`actor_kind = api_client` ou `ai`).
 
 ## Endpoints
 

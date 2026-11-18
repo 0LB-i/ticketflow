@@ -77,6 +77,7 @@ async def _create_token(login: str, name: str, read_only: bool, days: int) -> st
     from chamados.db.engine import create_engine
     from chamados.db.session import make_sessionmaker
     from chamados.modules.identity.models import User
+    from chamados.modules.identity.token_access import READ_ONLY, READ_WRITE
     from chamados.modules.identity.tokens import issue_api_token
 
     settings = get_settings()
@@ -88,8 +89,10 @@ async def _create_token(login: str, name: str, read_only: bool, days: int) -> st
             )
             if user is None or not user.is_active:
                 raise SystemExit(f"Usuário ativo não encontrado: {login}.")
-            scope = "read" if read_only else "write"
-            raw, _ = issue_api_token(db, user, name, scope, days, actor_user_id=None, via="cli")
+            permissions = list(READ_ONLY if read_only else READ_WRITE)
+            raw, _ = issue_api_token(
+                db, user, name, permissions, days, actor_user_id=None, via="cli"
+            )
             await db.commit()
             return raw
     finally:
@@ -115,7 +118,7 @@ async def _list_tokens() -> list[str]:
                     [
                         str(t.public_id),
                         t.user.email or t.user.username or "",
-                        t.scope,
+                        ",".join(t.permissions),
                         t.name,
                         f"expira {t.expires_at:%Y-%m-%d}" if t.expires_at else "sem validade",
                         f"usado {t.last_used_at:%Y-%m-%d %H:%M}"
@@ -197,7 +200,9 @@ def main(argv: list[str] | None = None) -> None:
     token_create = token.add_parser("create", help="cria um token de API e mostra o valor")
     token_create.add_argument("--user", required=True, help="e-mail ou nome de usuário")
     token_create.add_argument("--name", required=True, help="para que serve (ex.: Claude Code)")
-    token_create.add_argument("--read-only", action="store_true", help="só leitura")
+    token_create.add_argument(
+        "--read-only", action="store_true", help="só ver os chamados e os relatórios"
+    )
     token_create.add_argument(
         "--days", type=int, default=365, help="validade em dias (0: sem validade; padrão: 365)"
     )

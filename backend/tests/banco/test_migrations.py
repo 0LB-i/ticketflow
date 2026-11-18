@@ -11,6 +11,7 @@ from chamados.cli import alembic_config
 from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import verify_password
 from chamados.modules.organization.models import Team
+from tests.conftest import criar_usuario
 
 
 def _tsvector(url: str, texto: str) -> str:
@@ -87,3 +88,45 @@ def test_0048_marca_o_grupo_administradores(db: Session, database_url: str) -> N
         db.execute(text("SELECT name, manages_clients FROM teams")).all()
     )
     assert marcas == {" ADMINISTRADORES ": True, "Suporte": False}
+
+
+def test_0051_converte_os_escopos_em_permissoes(db: Session, database_url: str) -> None:
+    """Os tokens que já existiam ficam com o mesmo acesso; o downgrade volta ao escopo."""
+    cfg = alembic_config(database_url)
+    criar_usuario(db, "ana@x.com")
+    db.rollback()
+    command.downgrade(cfg, "0050")
+    # Na 0050 a coluna é `scope`: os tokens entram por SQL, não pelo modelo.
+    db.execute(
+        text(
+            "INSERT INTO api_tokens (user_id, name, scope, token_hash) "
+            "SELECT id, 'Leitura', 'read', 'h1' FROM users LIMIT 1"
+        )
+    )
+    db.execute(
+        text(
+            "INSERT INTO api_tokens (user_id, name, scope, token_hash) "
+            "SELECT id, 'Escrita', 'write', 'h2' FROM users LIMIT 1"
+        )
+    )
+    db.commit()
+    command.upgrade(cfg, "head")
+    permissoes: dict[str, list[str]] = dict(
+        db.execute(text("SELECT name, permissions FROM api_tokens")).all()
+    )
+    assert permissoes == {
+        "Leitura": ["tickets.view", "reports.view"],
+        "Escrita": [
+            "tickets.view",
+            "tickets.create",
+            "tickets.edit",
+            "tickets.delete",
+            "reports.view",
+        ],
+    }
+    db.commit()
+    command.downgrade(cfg, "0050")
+    escopos: dict[str, str] = dict(db.execute(text("SELECT name, scope FROM api_tokens")).all())
+    assert escopos == {"Leitura": "read", "Escrita": "write"}
+    db.commit()
+    command.upgrade(cfg, "head")

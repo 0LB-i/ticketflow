@@ -1,8 +1,10 @@
-{#- Tokens de API (admin.users): criar no próprio nome, ver os de todas as pessoas (com o filtro
-    por pessoa) e revogar. O valor do token novo aparece só nesta resposta. -#}
+{#- Tokens de API (admin.users): criar no próprio nome, com as permissões por área, ver os de
+    todas as pessoas (com o filtro por pessoa), mudar as permissões e revogar. O valor do token
+    novo aparece só nesta resposta. -#}
 {% extends "app.html" %}
 {% from "_ui.html" import alert, badge, button_class, field, select_field with context %}
 {% from "_icons.html" import icon %}
+{% from "admin/_token_permissoes.html" import permission_matrix, permission_summary with context %}
 
 {% block title %}{{ t("tokensAdmin.titulo") }}{% endblock %}
 
@@ -22,11 +24,13 @@
   <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="novo-token">
     <h2 id="novo-token" class="font-semibold">{{ t("tokens.novo") }}</h2>
     {%- if error %}{{ alert(error) }}{% endif %}
-    <form method="post" action="/admin/tokens" class="flex flex-wrap items-end gap-4">
+    <form method="post" action="/admin/tokens" class="flex flex-col gap-4">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="w-full max-w-sm">{{ field("nome", t("tokens.nome"), value=form.nome, required=True, maxlength=100) }}</div>
-      <div class="w-56">{{ select_field("escopo", t("tokens.escopo"), [("read", t("tokens.escopos.read")), ("write", t("tokens.escopos.write"))], form.escopo) }}</div>
-      <div class="w-40">{{ select_field("dias", t("tokens.validade"), days_options, form.dias) }}</div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="w-full max-w-sm">{{ field("nome", t("tokens.nome"), value=form.nome, required=True, maxlength=100) }}</div>
+        <div class="w-40">{{ select_field("dias", t("tokens.validade"), days_options, form.dias) }}</div>
+      </div>
+      {{ permission_matrix(areas, actions, form.permissoes) }}
       <div><button type="submit" class="{{ button_class() }}">{{ icon("plus", "size-4") }} {{ t("tokens.criar") }}</button></div>
     </form>
   </section>
@@ -44,7 +48,7 @@
           <tr>
             <th scope="col" class="px-3 py-2 font-medium">{{ t("tokensAdmin.pessoa") }}</th>
             <th scope="col" class="px-3 py-2 font-medium">{{ t("tokens.nome") }}</th>
-            <th scope="col" class="px-3 py-2 font-medium">{{ t("tokens.escopo") }}</th>
+            <th scope="col" class="px-3 py-2 font-medium">{{ t("tokens.permissoes") }}</th>
             <th scope="col" class="hidden px-3 py-2 font-medium lg:table-cell">{{ t("tokens.criadoEm") }}</th>
             <th scope="col" class="px-3 py-2 font-medium">{{ t("tokens.expiraEm") }}</th>
             <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">{{ t("tokens.ultimoUso") }}</th>
@@ -60,7 +64,7 @@
               {%- if tk.user.email %}<span class="block text-muted">{{ tk.user.email }}</span>{% endif %}
             </td>
             <td class="px-3 py-2">{{ tk.name }}</td>
-            <td class="px-3 py-2">{{ badge(t("tokens.escopos." ~ tk.scope), "violet" if tk.scope == "write" else "blue") }}</td>
+            <td class="px-3 py-2">{{ permission_summary(areas, tk.permissions) }}</td>
             <td class="hidden px-3 py-2 lg:table-cell">{{ datetime(tk.created_at) }}</td>
             <td class="px-3 py-2">
               {%- if tk.expires_at is none %}{{ t("tokens.semValidade") }}
@@ -69,11 +73,14 @@
             </td>
             <td class="hidden px-3 py-2 md:table-cell">{{ ago(tk.last_used_at) if tk.last_used_at else t("tokens.nuncaUsado") }}</td>
             <td class="px-3 py-2 text-right">
+              <div class="flex justify-end gap-1">
+              <a href="/admin/tokens/{{ tk.id }}" class="{{ button_class('ghost', 'sm') }}" aria-label="{{ t('tokens.editar') }} {{ tk.name }} ({{ tk.user.display_name }})">{{ icon("pencil", "size-4") }} <span class="hidden sm:inline">{{ t("tokens.editar") }}</span></a>
               <form method="post" action="/admin/tokens/{{ tk.id }}/revogar">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="volta" value="{{ page.request.url.path }}{{ '?' ~ page.request.url.query if page.request.url.query }}">
                 <button type="submit" class="{{ button_class('ghost', 'sm') }}" aria-label="{{ t('tokens.revogar') }} {{ tk.name }} ({{ tk.user.display_name }})">{{ icon("trash", "size-4") }} <span class="hidden sm:inline">{{ t("tokens.revogar") }}</span></button>
               </form>
+              </div>
             </td>
           </tr>
           {%- else %}

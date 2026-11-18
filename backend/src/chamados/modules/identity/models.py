@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    ARRAY,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -101,11 +102,10 @@ class AuthToken(Base):
 
 
 class ApiToken(Base):
-    """Token de API (`Authorization: Bearer`): age em nome do usuário, com as permissões dele.
-    `read` só permite leitura. Aqui fica só o hash."""
+    """Token de API (`Authorization: Bearer`): age em nome do usuário, com as permissões dele e
+    só no que `permissions` deixa (`identity/token_access.py`). Aqui fica só o hash."""
 
     __tablename__ = "api_tokens"
-    __table_args__ = (CheckConstraint("scope IN ('read', 'write')", name="scope"),)
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     public_id: Mapped[uuid.UUID] = mapped_column(
@@ -113,7 +113,7 @@ class ApiToken(Base):
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(Text)
-    scope: Mapped[str] = mapped_column(Text)
+    permissions: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
     token_hash: Mapped[str] = mapped_column(Text, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

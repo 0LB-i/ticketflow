@@ -11,6 +11,7 @@ from chamados.core.permissions import CLIENT_ROLE, Actor, P, can
 from chamados.db.session import DB
 from chamados.modules.identity.models import ApiToken, User, UserSession
 from chamados.modules.identity.sessions import CSRF_HEADER, cookie_names, csrf_ok, load_session
+from chamados.modules.identity.token_access import route_allows
 from chamados.modules.identity.tokens import load_api_token
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
@@ -69,15 +70,17 @@ async def get_auth(request: Request, db: DB, settings: SettingsDep) -> Auth:
 
 
 async def _token_auth(request: Request, db: DB, authorization: str) -> Auth:
-    """Token de API (docs/05): sem cookie, sem CSRF. O de leitura só passa em GET."""
+    """Token de API (docs/05): sem cookie, sem CSRF; só nas rotas que as permissões dele deixam
+    (`token_access.ROUTES`)."""
     scheme, _, raw = authorization.partition(" ")
     token = await load_api_token(db, raw.strip()) if scheme.lower() == "bearer" else None
     if token is None:
         raise HTTPException(401, "Token de API inválido, expirado ou revogado.")
     if token.user.must_change_password:
         raise HTTPException(403, "Troque a senha provisória antes de continuar.")
-    if request.method in UNSAFE and token.scope != "write":
-        raise HTTPException(403, "Este token de API só permite leitura.")
+    route = request.scope.get("route")
+    if not route_allows(token.permissions, request.method, getattr(route, "path", "")):
+        raise HTTPException(403, "Este token de API não tem permissão para esta ação.")
     return Auth(user=token.user, actor=actor_of(token.user), token=token, via="api")
 
 
@@ -104,10 +107,6 @@ CurrentAuth = Annotated[Auth, Depends(get_auth)]
 
 def require(permission: P) -> Callable[[Auth], Coroutine[Any, Any, Auth]]:
     async def dependency(auth: CurrentAuth) -> Auth:
-        # As rotas com permissão própria (administração, auditoria, clientes) ficam fora do
-        # alcance dos tokens de API, mesmo os de um administrador (docs/05).
-        if auth.token is not None:
-            raise HTTPException(403, "Tokens de API não acessam a administração.")
         if not can(auth.actor, permission):
             raise HTTPException(403, "Você não tem permissão para esta ação.")
         return auth

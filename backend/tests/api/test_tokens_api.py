@@ -1,21 +1,47 @@
 """Tokens de API (docs/05): `Authorization: Bearer`, em nome de um usuário, com as permissões
-dele; `read` só lê; a administração fica de fora."""
+dele, e só no que as permissões do token deixam (identity/token_access.py)."""
 
 from datetime import UTC, datetime, timedelta
+from types import ModuleType
 from typing import Any
 
 import pytest
+from fastapi.dependencies.models import Dependant
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from chamados import cli
+from chamados.modules.attachments import router as attachments
+from chamados.modules.audit import router as audit
 from chamados.modules.audit.models import AuditLog
+from chamados.modules.catalog import router as catalog
+from chamados.modules.clients import router as clients
+from chamados.modules.identity import admin_router, admin_tokens
+from chamados.modules.identity import router as identity
+from chamados.modules.identity.deps import get_auth
 from chamados.modules.identity.models import ApiToken, User
+from chamados.modules.identity.token_access import ANY, PERMISSIONS, ROUTES
 from chamados.modules.jobs.models import OutboxEvent
+from chamados.modules.organization import router as organization
+from chamados.modules.reports import router as reports
+from chamados.modules.system import router as system
+from chamados.modules.tickets import router as tickets
 from chamados.modules.tickets.models import Ticket, TicketRead
-from tests.apoio import API, com_token, criar_token, eventos, registrar
+from tests.apoio import API, NOVO_USUARIO, com_token, criar_token, eventos, registrar
 from tests.conftest import criar_usuario, entrar, outra_sessao
+
+MODULOS_DA_API: tuple[ModuleType, ...] = (
+    admin_router,
+    admin_tokens,
+    attachments,
+    audit,
+    catalog,
+    clients,
+    identity,
+)
+MODULOS_DA_API += (organization, reports, system, tickets)
 
 
 def test_token_de_escrita_age_como_o_usuario_sem_csrf(
@@ -73,7 +99,7 @@ def test_token_de_leitura_so_le(
     assert [t["number"] for t in client.get(API).json()["items"]] == [numero]
     r = client.post(f"{API}/{numero}/comments", json={"body": "Não pode"})
     assert r.status_code == 403
-    assert r.json()["detail"] == "Este token de API só permite leitura."
+    assert r.json()["detail"] == "Este token de API não tem permissão para esta ação."
 
 
 def test_token_segue_a_visibilidade(
@@ -110,13 +136,68 @@ def test_token_recusado(client: TestClient, db: Session, caso: str) -> None:
     assert r.json()["detail"] == "Token de API inválido, expirado ou revogado."
 
 
-def test_token_nao_entra_na_administracao(client: TestClient, db: Session) -> None:
+def test_token_nao_entra_na_administracao_sem_a_permissao(client: TestClient, db: Session) -> None:
     criar_usuario(db, "adm@x.com", "admin")
     com_token(client, criar_token(db, "adm@x.com"))
     for url in ("/api/v1/users", "/api/v1/admin/audit-log", "/api/v1/clients"):
         r = client.get(url)
         assert r.status_code == 403, url
-        assert r.json()["detail"] == "Tokens de API não acessam a administração."
+        assert r.json()["detail"] == "Este token de API não tem permissão para esta ação."
+
+
+def test_permissoes_por_area(client: TestClient, cenario: dict[str, Any], db: Session) -> None:
+    """Um token que vê os usuários, e outro que só cria chamados."""
+    criar_usuario(db, "adm@x.com", "admin")
+    com_token(client, criar_token(db, "adm@x.com", ["users.view"]))
+    assert client.get("/api/v1/users").status_code == 200
+    novo = {**NOVO_USUARIO, "email": "novo@x.com"}
+    r = client.post("/api/v1/users", json=novo)
+    assert r.status_code == 403
+    assert r.json()["detail"] == "Este token de API não tem permissão para esta ação."
+    # Gerenciar tokens e mudar o próprio perfil: nenhum token
+    assert client.get("/api/v1/admin/api-tokens").status_code == 403
+    assert client.patch("/api/v1/me", json={"locale": "en"}).status_code == 403
+
+    com_token(client, criar_token(db, "ana@x.com", ["tickets.create"]))
+    # As listas de apoio, para preencher o chamado, qualquer token lê
+    assert client.get("/api/v1/categories").status_code == 200
+    assert client.get("/api/v1/clients/options").status_code == 200
+    numero = registrar(client, cenario)["number"]
+    assert client.get(f"{API}/{numero}").status_code == 403
+    assert client.get(API).status_code == 403
+    assert client.post(f"{API}/{numero}/comments", json={"body": "Não"}).status_code == 403
+
+
+def test_token_nunca_passa_do_dono(client: TestClient, db: Session) -> None:
+    criar_usuario(db, "ana@x.com")  # agente: sem admin.users
+    com_token(client, criar_token(db, "ana@x.com", ["users.view", "audit.view"]))
+    for url in ("/api/v1/users", "/api/v1/admin/audit-log"):
+        r = client.get(url)
+        assert r.status_code == 403, url
+        assert r.json()["detail"] == "Você não tem permissão para esta ação."
+
+
+def test_toda_rota_da_api_tem_a_permissao_do_token() -> None:
+    """Uma rota nova que o token alcança precisa entrar em token_access.ROUTES (fora dela, nenhum
+    token entra); e a tabela não guarda rota que não existe mais."""
+    rotas = {
+        (metodo, r.path)
+        for modulo in MODULOS_DA_API
+        for r in modulo.router.routes
+        if isinstance(r, APIRoute) and _com_login(r.dependant)
+        for metodo in r.methods or ()
+    }
+    assert rotas - ROUTES.keys() == set()
+    assert ROUTES.keys() - rotas == set()
+    usadas: set[str] = set()
+    for pede in ROUTES.values():
+        if pede is not None and pede != ANY:
+            usadas |= {pede} if isinstance(pede, str) else set(pede)
+    assert usadas == PERMISSIONS
+
+
+def _com_login(dependant: Dependant) -> bool:
+    return any(d.call is get_auth or _com_login(d) for d in dependant.dependencies)
 
 
 def test_sair_e_trocar_senha_so_pela_interface(client: TestClient, db: Session) -> None:
@@ -143,8 +224,8 @@ def test_comando_cria_lista_e_revoga(
 
     cli.main(["token", "list"])
     linha = capsys.readouterr().out.strip()
-    token_id, email, scope, nome, validade, uso = linha.split("\t")
-    assert (email, scope, nome) == ("ana@x.com", "read", "Claude Code")
+    token_id, email, permissoes, nome, validade, uso = linha.split("\t")
+    assert (email, permissoes, nome) == ("ana@x.com", "tickets.view,reports.view", "Claude Code")
     assert validade.startswith("expira ")
     assert uso.startswith("usado ")  # o GET /me acima
 

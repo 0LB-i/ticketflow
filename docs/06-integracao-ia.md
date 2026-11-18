@@ -83,13 +83,13 @@ ticket.created → outbox → worker: ai.classify_ticket
 
 Qualquer agente de IA opera o sistema pela [API](05-api.md) com um token de API ([docs/05](05-api.md#tokens-de-api)):
 
-- o token age **em nome de uma pessoa**; a administração o cria na tela **Administração → Tokens de API** com escopo `read` ou `write`; o que ele faz aparece no histórico como dela, com `via: "api"`;
-- nenhum token entra na administração, nem o de um administrador;
+- o token age **em nome de uma pessoa**; a administração o cria na tela **Administração → Tokens de API** com as permissões escolhidas por área (ver, criar, editar e excluir; [docs/05](05-api.md#tokens-de-api)); o que ele faz aparece no histórico como dela, com `via: "api"`;
+- no servidor MCP, as ferramentas de leitura pedem ver os chamados, `create_ticket` pede criar e as outras de escrita pedem editar;
 - `Idempotency-Key` nos `POST` (opcional, recomendado para agentes): repetir a chamada não registra de novo;
 - o limite de requisições é por token, no nginx (10 por segundo, rajadas de até 20; [docs/05](05-api.md#convenções));
 - ler um chamado com o token não conta como visita da pessoa: o aviso de novidade continua para ela.
 
-**Ainda não:** contas de serviço (`actor_kind = ai`, um "Assistente Virtual" com identidade própria) e escopos mais finos.
+**Ainda não:** contas de serviço (`actor_kind = ai`, um "Assistente Virtual" com identidade própria).
 
 **Exemplos:** um assistente no Teams ou Slack que abre chamados a partir de uma conversa, um agente que consulta o status para o colaborador, uma automação que fecha chamados de monitoramento resolvidos.
 

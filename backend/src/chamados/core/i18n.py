@@ -51,8 +51,10 @@ EN: dict[str, str] = {
     "Sessão expirada ou inexistente. Entre novamente.": "Session expired. Please sign in again.",
     "Token CSRF ausente ou inválido.": "Missing or invalid CSRF token.",
     "Token de API inválido, expirado ou revogado.": "Invalid, expired or revoked API token.",
-    "Este token de API só permite leitura.": "This API token is read-only.",
-    "Tokens de API não acessam a administração.": "API tokens cannot access administration.",
+    "Este token de API não tem permissão para esta ação.": (
+        "This API token does not have permission for this action."
+    ),
+    "Marque ao menos uma permissão.": "Select at least one permission.",
     "Esta ação só pode ser feita pela interface.": "This action is only available in the app.",
     "Dê um nome ao token.": "Give the token a name.",
     "Para cancelar o chamado, use cancel_ticket.": "To cancel the ticket, use cancel_ticket.",

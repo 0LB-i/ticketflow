@@ -1,5 +1,6 @@
 """Tokens de API (docs/05): só quem administra os usuários cria (no próprio nome), vê os tokens
-ativos de todas as pessoas e revoga qualquer um. Nenhum token entra aqui (`require`)."""
+ativos de todas as pessoas, muda as permissões deles e revoga qualquer um. Nenhum token entra
+aqui (`token_access.ROUTES`)."""
 
 import uuid
 from typing import Annotated
@@ -13,8 +14,17 @@ from chamados.core.permissions import P
 from chamados.db.session import DB
 from chamados.modules.identity.deps import Auth, require
 from chamados.modules.identity.models import ApiToken, User
-from chamados.modules.identity.schemas import ApiTokenCreated, ApiTokenIn, ApiTokenOut
-from chamados.modules.identity.tokens import issue_api_token, revoke_api_token
+from chamados.modules.identity.schemas import (
+    ApiTokenCreated,
+    ApiTokenIn,
+    ApiTokenOut,
+    ApiTokenPermissionsIn,
+)
+from chamados.modules.identity.tokens import (
+    issue_api_token,
+    revoke_api_token,
+    set_api_token_permissions,
+)
 
 router = APIRouter(prefix="/admin/api-tokens", tags=["usuários"])
 Admin = Annotated[Auth, Depends(require(P.ADMIN_USERS))]
@@ -56,7 +66,7 @@ async def list_api_tokens(
             AdminApiTokenOut(
                 id=t.public_id,
                 name=t.name,
-                scope=t.scope,
+                permissions=t.permissions,
                 created_at=t.created_at,
                 expires_at=t.expires_at,
                 last_used_at=t.last_used_at,
@@ -80,15 +90,23 @@ async def create_api_token(
     name = data.name.strip()
     if not name:
         raise HTTPException(422, "Dê um nome ao token.")
+    if not data.permissions:
+        raise HTTPException(422, "Marque ao menos uma permissão.")
     raw, token = issue_api_token(
-        db, auth.user, name, data.scope, data.days, actor_user_id=auth.user.id, request=request
+        db,
+        auth.user,
+        name,
+        data.permissions,
+        data.days,
+        actor_user_id=auth.user.id,
+        request=request,
     )
     await db.commit()
     await db.refresh(token)
     return ApiTokenCreated(
         id=token.public_id,
         name=token.name,
-        scope=token.scope,
+        permissions=token.permissions,
         created_at=token.created_at,
         expires_at=token.expires_at,
         last_used_at=token.last_used_at,
@@ -96,12 +114,32 @@ async def create_api_token(
     )
 
 
-@router.delete("/{token_id}", status_code=204)
-async def revoke_any_api_token(token_id: uuid.UUID, auth: Admin, db: DB, request: Request) -> None:
+async def _active(db: DB, token_id: uuid.UUID) -> ApiToken:
     token = await db.scalar(
         select(ApiToken).where(ApiToken.public_id == token_id, ApiToken.revoked_at.is_(None))
     )
     if token is None:
         raise HTTPException(404, "Token não encontrado.")
+    return token
+
+
+@router.patch("/{token_id}", status_code=204)
+async def update_api_token(
+    token_id: uuid.UUID, data: ApiTokenPermissionsIn, auth: Admin, db: DB, request: Request
+) -> None:
+    """Muda as permissões do token; o valor continua o mesmo."""
+    token = await _active(db, token_id)
+    if not data.permissions:
+        raise HTTPException(422, "Marque ao menos uma permissão.")
+    if data.permissions != token.permissions:
+        set_api_token_permissions(
+            db, token, data.permissions, actor_user_id=auth.user.id, request=request
+        )
+        await db.commit()
+
+
+@router.delete("/{token_id}", status_code=204)
+async def revoke_any_api_token(token_id: uuid.UUID, auth: Admin, db: DB, request: Request) -> None:
+    token = await _active(db, token_id)
     revoke_api_token(db, token, actor_user_id=auth.user.id, request=request)
     await db.commit()

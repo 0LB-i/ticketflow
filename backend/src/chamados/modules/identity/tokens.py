@@ -31,7 +31,7 @@ def sha256(value: str) -> str:
 
 
 def new_api_token(
-    user: User, name: str, scope: str, expires_at: datetime | None
+    user: User, name: str, permissions: list[str], expires_at: datetime | None
 ) -> tuple[str, ApiToken]:
     """(valor mostrado uma vez só, token para gravar)."""
     raw = API_TOKEN_PREFIX + secrets.token_urlsafe(32)
@@ -40,7 +40,7 @@ def new_api_token(
         public_id=uuid.uuid4(),
         user=user,
         name=name,
-        scope=scope,
+        permissions=permissions,
         token_hash=sha256(raw),
         expires_at=expires_at,
     )
@@ -80,7 +80,7 @@ def issue_api_token(
     db: AsyncSession,
     user: User,
     name: str,
-    scope: str,
+    permissions: list[str],
     days: int | None,
     *,
     actor_user_id: int | None,
@@ -90,12 +90,12 @@ def issue_api_token(
     """Cria o token (validade em dias; None, sem validade) e grava na auditoria; o commit fica com
     quem chama. O valor só existe aqui: no banco fica o hash."""
     expires_at = datetime.now(UTC) + timedelta(days=days) if days else None
-    raw, token = new_api_token(user, name, scope, expires_at)
+    raw, token = new_api_token(user, name, permissions, expires_at)
     db.add(token)
     after = {
         "token": str(token.public_id),
         "name": name,
-        "scope": scope,
+        "permissions": permissions,
         "expires_at": expires_at.isoformat() if expires_at else None,
     }
     record(
@@ -108,6 +108,29 @@ def issue_api_token(
         after=after | ({"via": via} if via else {}),
     )
     return raw, token
+
+
+def set_api_token_permissions(
+    db: AsyncSession,
+    token: ApiToken,
+    permissions: list[str],
+    *,
+    actor_user_id: int | None,
+    request: Request | None = None,
+) -> None:
+    """Muda o que o token pode fazer (o valor continua o mesmo), com a auditoria."""
+    before = {"token": str(token.public_id), "permissions": token.permissions}
+    token.permissions = permissions
+    record(
+        db,
+        "api_token.updated",
+        request=request,
+        actor_user_id=actor_user_id,
+        target_type="user",
+        target_id=token.user.public_id,
+        before=before,
+        after={"token": str(token.public_id), "permissions": permissions},
+    )
 
 
 def revoke_api_token(

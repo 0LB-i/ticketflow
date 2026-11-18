@@ -1,0 +1,47 @@
+{#- Permissões de um token de API (identity/token_access.py): a tabela de caixas do formulário e o
+    resumo da lista. `areas`: área → ações que ela tem; `actions`: as colunas. -#}
+
+{% macro permission_matrix(areas, actions, selected) -%}
+<div class="overflow-x-auto">
+  <table class="w-full max-w-2xl border-collapse text-left">
+    <caption class="sr-only">{{ t("tokens.permissoes") }}</caption>
+    <thead class="text-muted">
+      <tr>
+        <th scope="col" class="py-2 pr-3 font-medium">{{ t("tokens.area") }}</th>
+        {%- for action in actions %}
+        <th scope="col" class="px-3 py-2 text-center font-medium">{{ t("tokens.acoes." ~ action) }}</th>
+        {%- endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {%- for area, allowed in areas.items() %}
+      <tr class="border-t border-border">
+        <th scope="row" class="py-2 pr-3 font-medium">{{ t("tokens.areas." ~ area) }}</th>
+        {%- for action in actions %}
+        <td class="px-3 py-2 text-center">
+          {%- if action in allowed %}
+          {%- set code = area ~ "." ~ action %}
+          <input type="checkbox" name="permissoes" value="{{ code }}"{% if code in selected %} checked{% endif %} aria-label="{{ t('tokens.areas.' ~ area) }}: {{ t('tokens.acoes.' ~ action) }}" class="size-4 accent-(--tf-primary)">
+          {%- else %}
+          <span class="text-muted" aria-hidden="true">—</span>
+          {%- endif %}
+        </td>
+        {%- endfor %}
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+</div>
+{%- endmacro %}
+
+{% macro permission_summary(areas, permissions) -%}
+<ul class="flex flex-col gap-0.5">
+  {%- for area, allowed in areas.items() %}
+  {%- set granted = [] %}
+  {%- for action in allowed if area ~ "." ~ action in permissions %}{% set _ = granted.append(action) %}{% endfor %}
+  {%- if granted %}
+  <li><span class="font-medium">{{ t("tokens.areas." ~ area) }}:</span> {% for action in granted %}{{ t("tokens.acoes." ~ action) | lower }}{{ ", " if not loop.last }}{% endfor %}</li>
+  {%- endif %}
+  {%- endfor %}
+</ul>
+{%- endmacro %}

@@ -1,0 +1,28 @@
+{#- Permissões de um token de API (admin.users): o valor continua o mesmo. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class with context %}
+{% from "admin/_token_permissoes.html" import permission_matrix with context %}
+
+{% block title %}{{ t("tokens.editarTitulo", nome=token.name) }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-pagina flex-col gap-6">
+  <div class="flex flex-col gap-1">
+    <h1 class="text-xl font-semibold">{{ t("tokens.editarTitulo", nome=token.name) }}</h1>
+    <p class="text-muted">{{ token.user.display_name }}{% if token.user.email %} · {{ token.user.email }}{% endif %}</p>
+  </div>
+
+  <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="permissoes">
+    <h2 id="permissoes" class="font-semibold">{{ t("tokens.permissoes") }}</h2>
+    {%- if error %}{{ alert(error) }}{% endif %}
+    <form method="post" action="/admin/tokens/{{ token.id }}" class="flex flex-col gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ permission_matrix(areas, actions, selected) }}
+      <div class="flex gap-2">
+        <button type="submit" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
+        <a href="/admin/tokens" class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

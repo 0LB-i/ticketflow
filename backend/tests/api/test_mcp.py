@@ -204,7 +204,7 @@ def test_altera_os_campos_do_chamado(
 
     leitura = criar_token(db, "ana@x.com", "read")
     texto = erro(client, leitura, "update_ticket", number=numero, title="Não pode")
-    assert texto == "Este token de API só permite leitura."
+    assert texto == "Este token de API não tem permissão para esta ação."
 
 
 def test_token_de_leitura_nao_altera(
@@ -216,7 +216,7 @@ def test_token_de_leitura_nao_altera(
     client.cookies.clear()
     ana = criar_token(db, "ana@x.com", "read")
     assert erro(client, ana, "add_task", number=numero, body="Não pode") == (
-        "Este token de API só permite leitura."
+        "Este token de API não tem permissão para esta ação."
     )
 
 
@@ -293,7 +293,8 @@ def test_cancelar_com_token_de_leitura(
     client.cookies.clear()
     ana = criar_token(db, "ana@x.com", "read")
     assert (
-        erro(client, ana, "cancel_ticket", number=numero) == "Este token de API só permite leitura."
+        erro(client, ana, "cancel_ticket", number=numero)
+        == "Este token de API não tem permissão para esta ação."
     )
 
 

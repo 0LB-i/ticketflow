@@ -3,9 +3,10 @@ outras plataformas) consultam e operam os chamados como ferramentas (docs/06).
 
 - **Transporte:** Streamable HTTP, sem estado e com respostas em JSON (cada POST é independente).
 - **Quem age:** o dono do token de API (`Authorization: Bearer tf_...`), com as permissões e a
-  visibilidade dele; o histórico marca `via: "mcp"`. Token de leitura só usa as ferramentas de
-  leitura. A rota recusa (401) quem chega sem token válido, e cada ferramenta o confere de novo, na
-  própria sessão do banco.
+  visibilidade dele; o histórico marca `via: "mcp"`. Cada ferramenta pede uma permissão do token
+  (`identity/token_access.py`): ver, criar ou editar os chamados; as listas de apoio, nenhuma. A
+  rota recusa (401) quem chega sem token válido, e cada ferramenta o confere de novo, na própria
+  sessão do banco.
 - **Camada fina:** as ferramentas chamam os mesmos services e `tickets/queries.py` da API; a recusa
   de uma regra (`HTTPException`) volta como erro da ferramenta, no idioma da pessoa.
 - **Repetição:** as ferramentas de escrita aceitam `request_id`: a mesma chamada repetida devolve o
@@ -48,6 +49,7 @@ from chamados.modules.clients import router as clients_api
 from chamados.modules.identity.deps import Auth, actor_of
 from chamados.modules.identity.idempotency import STALE, digest
 from chamados.modules.identity.models import IdempotencyKey
+from chamados.modules.identity.token_access import ANY, allows
 from chamados.modules.identity.tokens import load_api_token
 from chamados.modules.organization import router as organization_api
 from chamados.modules.system.service import user_locale
@@ -108,17 +110,16 @@ def build(app: FastAPI) -> MCPServer:
     server: MCPServer = MCPServer(name="TicketFlow", instructions=INSTRUCTIONS, version=__version__)
 
     @asynccontextmanager
-    async def call(
-        ctx: Context, *, write: bool = False
-    ) -> AsyncIterator[tuple[AsyncSession, Auth, Locale]]:
+    async def call(ctx: Context, needs: str) -> AsyncIterator[tuple[AsyncSession, Auth, Locale]]:
         """Sessão do banco, quem age e o idioma; a recusa de uma regra vira erro da ferramenta."""
         async with app.state.sessionmaker() as db:
             auth = await _auth(ctx, db)
             locale = await user_locale(db, auth.user)
             if auth.user.must_change_password:
                 raise ToolError(translate("Troque a senha provisória antes de continuar.", locale))
-            if write and auth.token is not None and auth.token.scope != "write":
-                raise ToolError(translate("Este token de API só permite leitura.", locale))
+            if auth.token is not None and not allows(auth.token.permissions, needs):
+                message = "Este token de API não tem permissão para esta ação."
+                raise ToolError(translate(message, locale))
             try:
                 yield db, auth, locale
             except HTTPException as exc:
@@ -220,7 +221,7 @@ def build(app: FastAPI) -> MCPServer:
         cursor: Annotated[str | None, Field(description="o next_cursor da página anterior")] = None,
     ) -> dict[str, Any]:
         """Lista os chamados que a pessoa vê, do mais novo para o mais antigo, com filtros."""
-        async with call(ctx) as (db, auth, _):
+        async with call(ctx, "tickets.view") as (db, auth, _):
             page = await queries.list_page(
                 db,
                 auth,
@@ -237,7 +238,7 @@ def build(app: FastAPI) -> MCPServer:
     @server.tool(annotations=READ)
     async def get_ticket(ctx: Context, number: int) -> dict[str, Any]:
         """O chamado completo, com as tarefas (andamentos) e as ações permitidas à pessoa."""
-        async with call(ctx) as (db, auth, _):
+        async with call(ctx, "tickets.view") as (db, auth, _):
             ticket = await service.load(db, auth, str(number))
             # Lido por um assistente: audita o confidencial, mas não conta como visita da pessoa.
             await queries.audit_confidential(db, auth, ticket)
@@ -251,7 +252,7 @@ def build(app: FastAPI) -> MCPServer:
     @server.tool(annotations=READ)
     async def get_ticket_history(ctx: Context, number: int) -> dict[str, Any]:
         """O histórico do chamado: cada mudança, com quem fez, antes e depois."""
-        async with call(ctx) as (db, auth, _):
+        async with call(ctx, "tickets.view") as (db, auth, _):
             events = await queries.events(db, await service.load(db, auth, str(number)))
             return events.model_dump(mode="json")
 
@@ -259,7 +260,7 @@ def build(app: FastAPI) -> MCPServer:
     async def list_options(ctx: Context) -> dict[str, Any]:
         """Os status (id, nome, comportamento) e os grupos ativos com os membros: os ids que as
         outras ferramentas pedem."""
-        async with call(ctx) as (db, auth, _):
+        async with call(ctx, ANY) as (db, auth, _):
             statuses = await catalog_api.status_options(db)
             teams = (await organization_api.list_teams(auth, db)).items
             return {
@@ -285,7 +286,7 @@ def build(app: FastAPI) -> MCPServer:
         ctx: Context, query: Annotated[str, Field(max_length=200, description="nome ou fantasia")]
     ) -> dict[str, Any]:
         """Clientes ativos pelo nome: o id que o registro do chamado pede."""
-        async with call(ctx) as (db, auth, _):
+        async with call(ctx, ANY) as (db, auth, _):
             options = await clients_api.client_options(auth, db, q=query)
             return options.model_dump(mode="json")
 
@@ -306,7 +307,7 @@ def build(app: FastAPI) -> MCPServer:
         request_id: RequestId = None,
     ) -> dict[str, Any]:
         """Registra um chamado. Devolve o chamado criado (com o número)."""
-        async with call(ctx, write=True) as (db, auth, locale):
+        async with call(ctx, "tickets.create") as (db, auth, locale):
             data = TicketCreate.model_validate(
                 {
                     "title": title,
@@ -345,7 +346,7 @@ def build(app: FastAPI) -> MCPServer:
     ) -> dict[str, Any]:
         """Registra uma tarefa (andamento) no chamado, com o tempo gasto e a data opcionais (ex.:
         o trabalho de ontem)."""
-        async with call(ctx, write=True) as (db, auth, locale):
+        async with call(ctx, "tickets.edit") as (db, auth, locale):
             data = CommentIn(body=body, time_spent_minutes=time_spent_minutes, done_at=done_at)
 
             async def run() -> dict[str, Any]:
@@ -379,7 +380,7 @@ def build(app: FastAPI) -> MCPServer:
     ) -> dict[str, Any]:
         """Altera o título, a descrição, o cliente ou o contato do chamado: só os campos
         informados. Devolve o chamado alterado."""
-        async with call(ctx, write=True) as (db, auth, _):
+        async with call(ctx, "tickets.edit") as (db, auth, _):
             ticket = await service.load(db, auth, str(number))
             given = {
                 "title": title,
@@ -401,7 +402,7 @@ def build(app: FastAPI) -> MCPServer:
         """Muda o status do chamado (qualquer status que a pessoa possa escolher na tela), menos
         para um status cancelado: para isso, cancel_ticket. Repetir com o mesmo status não muda
         nada."""
-        async with call(ctx, write=True) as (db, auth, locale):
+        async with call(ctx, "tickets.edit") as (db, auth, locale):
             ticket = await service.load(db, auth, str(number))
             # Cancelar pede a confirmação da pessoa (cancel_ticket é a ferramenta destrutiva):
             # change_status não pode ser o atalho.
@@ -428,7 +429,7 @@ def build(app: FastAPI) -> MCPServer:
         ] = "main",
     ) -> dict[str, Any]:
         """Atribui o chamado a uma pessoa do grupo. Repetir não muda nada."""
-        async with call(ctx, write=True) as (db, auth, _):
+        async with call(ctx, "tickets.edit") as (db, auth, _):
             ticket = await service.load(db, auth, str(number))
             who = AssignIn.model_validate({"assignee": assignee}).assignee
             if mode == "main":
@@ -461,7 +462,7 @@ def build(app: FastAPI) -> MCPServer:
     ) -> dict[str, Any]:
         """Transfere o chamado para outro grupo, com um responsável de lá. Quem transferiu continua
         vendo o chamado, mas pode deixar de poder alterá-lo."""
-        async with call(ctx, write=True) as (db, auth, _):
+        async with call(ctx, "tickets.edit") as (db, auth, _):
             ticket = await service.load(db, auth, str(number))
             await service.transfer(db, auth, ticket, team_id, assignee_id, reason)
             detail = await queries.load_detail(db, auth, str(number))
@@ -482,7 +483,7 @@ def build(app: FastAPI) -> MCPServer:
     ) -> dict[str, Any]:
         """Cancela o chamado (responsável, supervisor do grupo ou quem registrou). Um chamado já
         cancelado fica como está."""
-        async with call(ctx, write=True) as (db, auth, _):
+        async with call(ctx, "tickets.edit") as (db, auth, _):
             ticket = await service.load(db, auth, str(number))
             if ticket.status.kind != "canceled":
                 data = TransitionIn(action="cancel", comment=comment)

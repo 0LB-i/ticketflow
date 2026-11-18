@@ -18,6 +18,7 @@ from chamados.config import Settings
 from chamados.db.engine import create_engine
 from chamados.db.session import make_sessionmaker
 from chamados.modules.identity.models import User
+from chamados.modules.identity.token_access import READ_ONLY, READ_WRITE
 from chamados.modules.identity.tokens import new_api_token
 from chamados.modules.reports.service import TZ
 from tests.conftest import token_csrf
@@ -62,11 +63,17 @@ def anexo(client: TestClient, nome: str = "print.png", conteudo: bytes = PNG) ->
 
 
 def criar_token(
-    db: Session, email: str, scope: str = "write", expires_at: datetime | None = None
+    db: Session,
+    email: str,
+    permissoes: str | list[str] = "write",
+    expires_at: datetime | None = None,
 ) -> str:
+    """`permissoes`: "read" ou "write" (o acesso dos escopos antigos) ou a lista."""
     user = db.scalar(select(User).where(User.email == email))
     assert user is not None
-    raw, token = new_api_token(user, "Teste", scope, expires_at)
+    if isinstance(permissoes, str):
+        permissoes = list(READ_ONLY if permissoes == "read" else READ_WRITE)
+    raw, token = new_api_token(user, "Teste", permissoes, expires_at)
     db.add(token)
     db.commit()
     return raw

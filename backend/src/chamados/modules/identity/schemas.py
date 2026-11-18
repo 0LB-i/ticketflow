@@ -2,9 +2,10 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from chamados.core.i18n import Locale
+from chamados.modules.identity.token_access import PERMISSIONS, ordered
 
 
 class LoginIn(BaseModel):
@@ -55,16 +56,28 @@ class MeUpdate(BaseModel):
     locale: Locale | None = Field(description="nulo volta ao idioma padrão do sistema")
 
 
-class ApiTokenIn(BaseModel):
+class ApiTokenPermissionsIn(BaseModel):
+    permissions: list[str] = Field(
+        description="o que o token pode fazer: `área.ação` (ex.: tickets.view, users.create)"
+    )
+
+    @field_validator("permissions")
+    @classmethod
+    def _known(cls, value: list[str]) -> list[str]:
+        if unknown := sorted(set(value) - PERMISSIONS):
+            raise ValueError(f"permissões que não existem: {', '.join(unknown)}")
+        return ordered(set(value))
+
+
+class ApiTokenIn(ApiTokenPermissionsIn):
     name: str = Field(min_length=1, max_length=100, description="para que serve (ex.: Claude Code)")
-    scope: Literal["read", "write"] = "read"
     days: int | None = Field(default=90, ge=1, le=365, description="validade em dias; null: sem")
 
 
 class ApiTokenOut(BaseModel):
     id: uuid.UUID
     name: str
-    scope: Literal["read", "write"]
+    permissions: list[str]
     created_at: datetime
     expires_at: datetime | None
     last_used_at: datetime | None

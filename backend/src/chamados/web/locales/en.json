@@ -829,10 +829,24 @@
     "novo": "New token",
     "nome": "Name",
     "semNome": "Give the token a name.",
-    "escopo": "Access",
-    "escopos": {
-      "read": "Read only",
-      "write": "Read and write"
+    "semPermissao": "Select at least one permission.",
+    "permissoes": "Permissions",
+    "area": "Area",
+    "acoes": {
+      "view": "View",
+      "create": "Create",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "areas": {
+      "tickets": "Tickets",
+      "clients": "Clients",
+      "users": "Users",
+      "teams": "Teams",
+      "catalog": "Categories and statuses",
+      "reports": "Reports",
+      "settings": "Settings",
+      "audit": "Audit"
     },
     "validade": "Valid for",
     "dias": "{n} days",
@@ -845,10 +859,13 @@
     "nuncaUsado": "Never used",
     "revogar": "Revoke",
     "revogado": "Token revoked.",
+    "editar": "Edit",
+    "editarTitulo": "Permissions of token \"{nome}\"",
+    "salvo": "Permissions saved.",
     "comoUsar": "How to use",
     "comoUsarApi": "In the API, send the token in the Authorization header:",
     "comoUsarMcp": "For an AI assistant, through the MCP server: in Claude Code, run this in a terminal (with the token in place of tf_…):",
-    "mcpOutros": "In another MCP client, use the address {url} (Streamable HTTP) with the same Authorization header. With a read-only token, the assistant can look things up but not change anything."
+    "mcpOutros": "In another MCP client, use the address {url} (Streamable HTTP) with the same Authorization header. Without the create and edit permissions on Tickets, the assistant can look things up but not change anything."
   },
   "tokensAdmin": {
     "titulo": "API tokens",
