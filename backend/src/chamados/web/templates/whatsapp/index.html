@@ -127,8 +127,14 @@
   </section>
 
   {#- Conversa aberta #}
-  <section id="conversa" aria-labelledby="conversa-titulo" class="flex min-w-0 flex-1 flex-col">
+  <section id="conversa" aria-labelledby="conversa-titulo" class="relative flex min-w-0 flex-1 flex-col">
     {%- if chat %}
+    {#- Arrastar arquivos sobre a conversa: o aviso cobre a área e, ao soltar, os arquivos entram
+        como os escolhidos pelo clipe (static/js/whatsapp.js). #}
+    <div id="soltar" class="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 border-4 border-dashed border-primary bg-primary-subtle/90 text-primary" hidden>
+      {{ icon("paperclip", "size-10") }}
+      <p class="text-lg font-semibold">{{ t("whatsapp.soltar") }}</p>
+    </div>
     <div class="flex h-16 shrink-0 items-center gap-3 border-b border-border px-4">
       {{ chat_avatar(chat) }}
       <div class="flex min-w-0 flex-col">

@@ -17,7 +17,7 @@ from typing import Any, BinaryIO
 
 import structlog
 from fastapi import HTTPException, Request
-from sqlalchemy import Select, or_, select, true, update
+from sqlalchemy import Select, select, true, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -97,11 +97,9 @@ async def list_chats(
     channel: WhatsAppChannel,
     *,
     unread: bool | None = None,
-    keep: int | None = None,
 ) -> list[ChatRow]:
     """As conversas do número, da mais recente para trás, com a última mensagem (LATERAL: uma
-    leitura do índice por conversa). `unread`: só as não lidas (True) ou só as lidas (False); a
-    conversa aberta (`keep`) fica na lista mesmo depois de lida, como no WhatsApp."""
+    leitura do índice por conversa). `unread`: só as não lidas (True) ou só as lidas (False)."""
     last = (
         select(WhatsAppMessage.id)
         .where(WhatsAppMessage.chat_id == WhatsAppChat.id)
@@ -120,8 +118,7 @@ async def list_chats(
         .limit(CHATS)
     )
     if unread is not None:
-        wanted = WhatsAppChat.unread > 0 if unread else WhatsAppChat.unread == 0
-        query = query.where(or_(wanted, WhatsAppChat.id == keep) if keep else wanted)
+        query = query.where(WhatsAppChat.unread > 0 if unread else WhatsAppChat.unread == 0)
     rows = await db.execute(query)
     return [ChatRow(chat, msg) for chat, msg in rows]
 
@@ -418,14 +415,17 @@ async def _ingest_message(
 async def _message_of(
     db: AsyncSession, channel: WhatsAppChannel, event: dict[str, Any]
 ) -> WhatsAppMessage | None:
+    """A mensagem pelo id do WhatsApp, no número. Sem a conversa: o aviso de entregue ou lida pode
+    chegar pelo LID do contato, e a conversa estar guardada pelo número (ou o contrário)."""
     return await db.scalar(
         select(WhatsAppMessage)
         .join(WhatsAppChat, WhatsAppChat.id == WhatsAppMessage.chat_id)
         .where(
             WhatsAppChat.channel_id == channel.id,
-            WhatsAppChat.jid == str(event.get("jid")),
             WhatsAppMessage.wa_id == str(event.get("id")),
         )
+        .order_by(WhatsAppMessage.id.desc())
+        .limit(1)
     )
 
 

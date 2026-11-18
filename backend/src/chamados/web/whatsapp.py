@@ -139,17 +139,14 @@ async def _render(
         channel = next((c for c in channels if c.id == chat.channel_id), None)
     elif channels:
         channel = next((c for c in channels if c.public_id == channel_id), channels[0])
-    unread = {"nao_lidas": True, "lidas": False}.get(filtro)
-    rows = (
-        await service.list_chats(db, channel, unread=unread, keep=chat.id if chat else None)
-        if channel
-        else []
-    )
+    # Lida antes de montar a lista: a conversa aberta já sai da aba Não lidas.
     if chat is not None and not only_list:
         if messages is None:
             messages = await service.list_messages(db, chat)
         await service.mark_read(db, chat)
     messages = messages or []
+    unread = {"nao_lidas": True, "lidas": False}.get(filtro)
+    rows = await service.list_chats(db, channel, unread=unread) if channel else []
     labels = Labels(page)
     return page.render(
         "whatsapp/index.html",

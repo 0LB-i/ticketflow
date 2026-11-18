@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { messageEvent, statusEvent } from './content.js';
+import { messageEvent, receiptEvent, statusEvent } from './content.js';
 
 const key = (extra = {}) => ({ remoteJid: '5511999990000@s.whatsapp.net', id: 'ABC', fromMe: false, ...extra });
 
@@ -109,4 +109,19 @@ test('ticks: a mudança de estado das nossas mensagens', () => {
   assert.equal(statusEvent('c1', { key: nossa, update: {} }), null);
   const doCelular = messageEvent('c1', { key: nossa, message: { conversation: 'x' }, status: 2 });
   assert.equal(doCelular.status, 'sent');
+});
+
+test('ticks no grupo e no histórico: pelas confirmações de quem recebeu', () => {
+  const nossa = key({ fromMe: true, remoteJid: '1203630@g.us' });
+  assert.equal(receiptEvent('c1', { key: nossa, receipt: { receiptTimestamp: 10 } }).status, 'delivered');
+  assert.equal(receiptEvent('c1', { key: nossa, receipt: { readTimestamp: 11 } }).status, 'read');
+  assert.equal(receiptEvent('c1', { key: key(), receipt: { readTimestamp: 11 } }), null);
+  const lida = messageEvent('c1', {
+    key: key({ fromMe: true }),
+    message: { conversation: 'x' },
+    userReceipt: [{ userJid: 'a', receiptTimestamp: 10, readTimestamp: 12 }],
+  }, { history: true });
+  assert.equal(lida.status, 'read');
+  const semNada = messageEvent('c1', { key: key({ fromMe: true }), message: { conversation: 'x' } });
+  assert.equal(semNada.status, null);
 });

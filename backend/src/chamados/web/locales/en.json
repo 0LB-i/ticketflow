@@ -996,7 +996,8 @@
       "delivered": "Delivered",
       "read": "Read",
       "failed": "Not sent"
-    }
+    },
+    "soltar": "Drop the files to send"
   },
   "whatsappAdmin": {
     "titulo": "WhatsApp numbers",

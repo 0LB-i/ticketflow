@@ -292,7 +292,8 @@ def test_a_conversa_aberta_so_atualiza_quando_algo_muda(
     assert r.status_code == 200 and "Segunda" in r.text
     versao = _versao(r.text)
 
-    status = {"type": "status", "channel": str(canal.public_id), "jid": CLIENTE, "id": "N1"}
+    # O aviso vem pelo LID do contato, e a conversa está guardada pelo número: acha pelo id.
+    status = {"type": "status", "channel": str(canal.public_id), "jid": "123@lid", "id": "N1"}
     _chega(settings, {**status, "status": "read"})
     r = client.get(url, params={"versao": versao})
     assert r.status_code == 200 and "Lida" in r.text
@@ -346,10 +347,10 @@ def test_abas_todas_nao_lidas_e_lidas(client: TestClient, db: Session, settings:
     assert "Maria Cliente" in nao_lidas and "João" not in nao_lidas
     lidas = client.get("/whatsapp", params={"filtro": "lidas"}).text
     assert "João" in lidas and "Maria Cliente" not in lidas
-    # Aberta (e por isso lida), a conversa continua na aba Não lidas, como no WhatsApp.
+    # Aberta, a conversa fica lida e sai da aba Não lidas na hora.
     maria = _conversa(db)
     html = client.get(f"/whatsapp/conversa/{maria.public_id}", params={"filtro": "nao_lidas"}).text
-    assert "Maria Cliente" in html.split('id="conversa"')[0]
+    assert "Nenhuma conversa aqui." in html
 
 
 def test_no_grupo_do_whatsapp_aparece_quem_mandou(

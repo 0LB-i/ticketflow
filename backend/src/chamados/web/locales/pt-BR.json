@@ -996,7 +996,8 @@
       "delivered": "Entregue",
       "read": "Lida",
       "failed": "Não enviada"
-    }
+    },
+    "soltar": "Solte os arquivos para enviar"
   },
   "whatsappAdmin": {
     "titulo": "Números do WhatsApp",

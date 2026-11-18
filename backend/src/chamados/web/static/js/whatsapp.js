@@ -1,5 +1,6 @@
 // Chat do WhatsApp (web/templates/whatsapp/index.html): Enter envia (Shift+Enter quebra a linha), o
-// campo cresce com o texto, os arquivos escolhidos aparecem acima do campo (com o X para tirar), o
+// campo cresce com o texto, os arquivos escolhidos (pelo clipe ou arrastados sobre a conversa)
+// aparecem acima do campo (com o X para tirar), o
 // envio mostra o progresso, a conversa abre no fim e continua no fim quando chega mensagem (se a
 // pessoa estava lá embaixo), e a lista de conversas não volta ao topo ao se atualizar.
 
@@ -81,6 +82,45 @@ document.addEventListener('change', (e) => {
     mostrarAnexos(e.target)
     document.querySelector('[data-envia-com-enter]')?.focus()
   }
+})
+
+// Arrastar arquivos sobre a tela: o aviso aparece e, ao soltar, os arquivos se juntam aos já
+// escolhidos. Só com uma conversa aberta (é nela que vão) e só arrastando arquivos (não um texto).
+function arrastandoArquivos (e) {
+  return Array.from(e.dataTransfer?.types || []).includes('Files')
+}
+
+let arrastos = 0 // dragenter e dragleave disparam a cada elemento por baixo do mouse
+document.addEventListener('dragenter', (e) => {
+  const aviso = document.getElementById('soltar')
+  if (!aviso || !arrastandoArquivos(e)) return
+  e.preventDefault()
+  arrastos++
+  aviso.hidden = false
+})
+document.addEventListener('dragover', (e) => {
+  if (!document.getElementById('soltar') || !arrastandoArquivos(e)) return
+  e.preventDefault() // sem isto, o navegador abre o arquivo no lugar da tela
+  e.dataTransfer.dropEffect = 'copy'
+})
+document.addEventListener('dragleave', (e) => {
+  const aviso = document.getElementById('soltar')
+  if (!aviso || !arrastandoArquivos(e)) return
+  arrastos = Math.max(0, arrastos - 1)
+  if (!arrastos) aviso.hidden = true
+})
+document.addEventListener('drop', (e) => {
+  const aviso = document.getElementById('soltar')
+  const entrada = document.querySelector('[data-anexos-entrada]')
+  if (!aviso || !entrada || !arrastandoArquivos(e)) return
+  e.preventDefault()
+  arrastos = 0
+  aviso.hidden = true
+  const juntos = new DataTransfer()
+  for (const arquivo of [...entrada.files, ...e.dataTransfer.files]) juntos.items.add(arquivo)
+  entrada.files = juntos.files
+  mostrarAnexos(entrada)
+  document.querySelector('[data-envia-com-enter]')?.focus()
 })
 
 // Sem texto e sem arquivo, não envia.

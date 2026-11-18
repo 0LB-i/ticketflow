@@ -29,7 +29,7 @@ import makeWASocket, {
 import pino from 'pino';
 import QRCode from 'qrcode';
 
-import { isGroup, MEDIA_KINDS, messageEvent, statusEvent } from './content.js';
+import { isGroup, MEDIA_KINDS, messageEvent, receiptEvent, statusEvent } from './content.js';
 import { diskOk, HISTORY_MAX, incomingPath, makeSerialQueue, mediaContent, resolveInside } from './media.js';
 import { openQueue } from './queue.js';
 
@@ -219,6 +219,10 @@ async function start(id) {
   // Os ticks das nossas mensagens: entregue (✓✓) e lida (✓✓ azul).
   sock.ev.on('messages.update', (updates) => {
     queue.push(...(updates || []).map((u) => statusEvent(id, u)).filter(Boolean));
+  });
+  // No grupo, as confirmações vêm uma por participante.
+  sock.ev.on('message-receipt.update', (receipts) => {
+    queue.push(...(receipts || []).map((r) => receiptEvent(id, r)).filter(Boolean));
   });
 
   sock.ev.on('messaging-history.set', ({ chats, contacts, messages }) => {

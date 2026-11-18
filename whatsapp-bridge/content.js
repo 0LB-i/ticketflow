@@ -96,8 +96,9 @@ export function messageEvent(channel, msg, { history = false } = {}) {
     file_name: null,
     mime: null,
     size: null,
-    // A nossa mandada pelo celular já chega com o estado (os ticks).
-    status: fromMe ? statusName(msg.status) : null,
+    // A nossa mandada pelo celular (ou do histórico) já chega com o estado (os ticks); no
+    // histórico, às vezes só nas confirmações de quem recebeu (userReceipt).
+    status: fromMe ? statusName(msg.status) ?? receiptsStatus(msg.userReceipt) : null,
     ...described,
   };
 }
@@ -120,7 +121,26 @@ export function statusName(value) {
   }
 }
 
-// A mudança de estado de uma mensagem nossa (messages.update), para os ticks.
+// O estado pelas confirmações de quem recebeu: lida (ou ouvida) por alguém, ou só entregue.
+function receiptsStatus(receipts) {
+  if (!Array.isArray(receipts) || !receipts.length) return null;
+  if (receipts.some((r) => Number(r?.readTimestamp) || Number(r?.playedTimestamp))) return 'read';
+  if (receipts.some((r) => Number(r?.receiptTimestamp))) return 'delivered';
+  return null;
+}
+
+// A confirmação de um participante do grupo (message-receipt.update): no grupo, a Baileys não manda
+// o messages.update. Fica lida na primeira leitura (o WhatsApp só pinta de azul quando todos leram,
+// mas a ponte não sabe quantos são).
+export function receiptEvent(channel, { key, receipt }) {
+  if (!key?.fromMe || !key.id || !key.remoteJid || ignoredJid(key.remoteJid)) return null;
+  const status = receiptsStatus([receipt]);
+  if (!status) return null;
+  return { type: 'status', channel, jid: preferPhone(key.remoteJid, key.remoteJidAlt), id: key.id, status };
+}
+
+// A mudança de estado de uma mensagem nossa (messages.update), para os ticks. O aviso pode chegar
+// pelo LID do contato, e a conversa estar guardada pelo número: o TicketFlow acha a mensagem pelo id.
 export function statusEvent(channel, { key, update }) {
   if (!key?.fromMe || !key.id || !key.remoteJid || ignoredJid(key.remoteJid)) return null;
   const status = statusName(update?.status);
