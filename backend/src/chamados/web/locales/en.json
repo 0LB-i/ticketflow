@@ -832,6 +832,7 @@
     "semPermissao": "Select at least one permission.",
     "permissoes": "Permissions",
     "area": "Area",
+    "todasAsAreas": "All areas",
     "acoes": {
       "view": "View",
       "create": "Create",

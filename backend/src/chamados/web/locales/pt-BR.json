@@ -832,6 +832,7 @@
     "semPermissao": "Marque ao menos uma permissão.",
     "permissoes": "Permissões",
     "area": "Área",
+    "todasAsAreas": "Todas as áreas",
     "acoes": {
       "view": "Ver",
       "create": "Criar",

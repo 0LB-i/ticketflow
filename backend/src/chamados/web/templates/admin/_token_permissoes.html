@@ -14,6 +14,17 @@
       </tr>
     </thead>
     <tbody>
+      {#- Marca ou desmarca a coluna toda (app.js); não vai no formulário. #}
+      <tr>
+        <th scope="row" class="py-2 pr-3 font-medium">{{ t("tokens.todasAsAreas") }}</th>
+        {%- for action in actions %}
+        {%- set column = namespace(all=True) %}
+        {%- for area, allowed in areas.items() if action in allowed and area ~ "." ~ action not in selected %}{% set column.all = False %}{% endfor %}
+        <td class="px-3 py-2 text-center">
+          <input type="checkbox" data-marca-coluna="{{ action }}"{% if column.all %} checked{% endif %} aria-label="{{ t('tokens.todasAsAreas') }}: {{ t('tokens.acoes.' ~ action) }}" class="size-4 accent-(--tf-primary)">
+        </td>
+        {%- endfor %}
+      </tr>
       {%- for area, allowed in areas.items() %}
       <tr class="border-t border-border">
         <th scope="row" class="py-2 pr-3 font-medium">{{ t("tokens.areas." ~ area) }}</th>
@@ -21,7 +32,7 @@
         <td class="px-3 py-2 text-center">
           {%- if action in allowed %}
           {%- set code = area ~ "." ~ action %}
-          <input type="checkbox" name="permissoes" value="{{ code }}"{% if code in selected %} checked{% endif %} aria-label="{{ t('tokens.areas.' ~ area) }}: {{ t('tokens.acoes.' ~ action) }}" class="size-4 accent-(--tf-primary)">
+          <input type="checkbox" name="permissoes" value="{{ code }}" data-coluna="{{ action }}"{% if code in selected %} checked{% endif %} aria-label="{{ t('tokens.areas.' ~ area) }}: {{ t('tokens.acoes.' ~ action) }}" class="size-4 accent-(--tf-primary)">
           {%- else %}
           <span class="text-muted" aria-hidden="true">—</span>
           {%- endif %}

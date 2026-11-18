@@ -161,7 +161,10 @@ def test_admin_muda_as_permissoes_e_o_valor_continua(client: TestClient, db: Ses
     r = client.get(f"/admin/tokens/{token.public_id}")
     assert r.status_code == 200
     assert "Ana" in r.text
-    assert 'value="tickets.view" checked' in r.text and 'value="tickets.edit" aria' in r.text
+    assert 'value="tickets.view" data-coluna="view" checked' in r.text
+    assert 'value="tickets.edit" data-coluna="edit" aria' in r.text
+    # "Todas as áreas" marca a coluna; vem marcada só com a coluna toda (aqui, nenhuma)
+    assert 'data-marca-coluna="view" aria' in r.text
 
     url = f"/admin/tokens/{token.public_id}"
     r = client.post(url, data={"csrf_token": token_csrf(client)})
@@ -174,6 +177,14 @@ def test_admin_muda_as_permissoes_e_o_valor_continua(client: TestClient, db: Ses
     assert (r.status_code, r.headers["location"]) == (303, "/admin/tokens")
     db.refresh(token)
     assert token.permissions == ["tickets.view", "tickets.edit"]
+    todas_de_ver = [f"{a}.view" for a in ("tickets", "clients", "users", "reports", "settings")]
+    client.post(
+        url, data={"csrf_token": token_csrf(client), "permissoes": [*todas_de_ver, "audit.view"]}
+    )
+    assert 'data-marca-coluna="view" checked' in client.get(url).text
+    client.post(
+        url, data={"csrf_token": token_csrf(client), "permissoes": ["tickets.view", "tickets.edit"]}
+    )
     log = db.scalar(select(AuditLog).where(AuditLog.action == "api_token.updated"))
     assert log is not None and log.before is not None and log.after is not None
     assert log.before["permissions"] == ["tickets.view", "reports.view"]

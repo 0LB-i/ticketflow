@@ -168,6 +168,20 @@ document.addEventListener('click', (e) => {
 // O navegador pode restaurar as caixas marcadas ao voltar para a página.
 addEventListener('pageshow', atualizarSelecao)
 
+// Permissões do token (admin/tokens): a linha "Todas as áreas" marca ou desmarca a coluna, e fica
+// marcada quando a coluna toda está.
+document.addEventListener('change', (e) => {
+  const coluna = e.target.dataset.marcaColuna ?? e.target.dataset.coluna
+  if (!coluna) return
+  const tabela = e.target.closest('table')
+  const caixas = [...tabela.querySelectorAll(`[data-coluna="${coluna}"]`)]
+  if (e.target.dataset.marcaColuna) {
+    for (const caixa of caixas) caixa.checked = e.target.checked
+  } else {
+    tabela.querySelector(`[data-marca-coluna="${coluna}"]`).checked = caixas.every((c) => c.checked)
+  }
+})
+
 // Painéis e janelas abertos pelo endereço (data-abre-ao-carregar): abrem quando a página ou o
 // trecho trocado pelo HTMX chega; ao fechar, o endereço volta ao da lista (data-volta).
 function abrirAoCarregar(raiz) {
