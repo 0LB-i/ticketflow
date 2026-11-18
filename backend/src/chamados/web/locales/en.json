@@ -1022,7 +1022,10 @@
       "connecting": "Connecting",
       "connected": "Connected",
       "disconnected": "Offline",
-      "logged_out": "Disconnected"
-    }
+      "logged_out": "Disconnected",
+      "passkey_required": "Passkey required"
+    },
+    "passkey": "WhatsApp asked for this account's passkey to link a new device, and the bridge can't answer that request yet. That's why the phone asked to scan the QR code again. If the account has a passkey (on the phone: Settings → Account → Passkeys), delete it and try again; it can be created again after connecting.",
+    "tentarDeNovo": "Try again"
   }
 }

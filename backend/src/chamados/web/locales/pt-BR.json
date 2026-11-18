@@ -1022,7 +1022,10 @@
       "connecting": "Conectando",
       "connected": "Conectado",
       "disconnected": "Sem conexão",
-      "logged_out": "Desconectado"
-    }
+      "logged_out": "Desconectado",
+      "passkey_required": "Exige passkey"
+    },
+    "passkey": "O WhatsApp pediu a passkey (chave de acesso) desta conta para conectar um aparelho novo, e a ponte ainda não consegue responder a esse pedido. Por isso o celular pediu para ler o QR code de novo. Se a conta tem uma chave de acesso (no celular: Configurações → Conta → Chaves de acesso), apague-a e tente de novo; depois de conectar, ela pode ser criada outra vez.",
+    "tentarDeNovo": "Tentar de novo"
   }
 }

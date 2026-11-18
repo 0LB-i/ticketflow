@@ -173,6 +173,21 @@ def test_admin_cadastra_o_numero_escolhe_os_responsaveis_e_conecta(
     ]
 
 
+def test_passkey_exigida_e_numero_parado_na_ponte(
+    client: TestClient, db: Session, ponte: PonteFalsa
+) -> None:
+    criar_usuario(db, "adm@x.com", "admin", nome="Adm")
+    canal = _numero(db, state="pairing")
+    entrar(client, "adm@x.com")
+    url = f"/admin/whatsapp/{canal.public_id}"
+    # A ponte reiniciou e o pareamento ficou pela metade: a tela oferece o Conectar de novo.
+    html = client.get(url).text
+    assert "Não conectado" in html and "every 2s" not in html
+    ponte.estado = {canal.public_id: {"state": "passkey_required", "qr_svg": None}}
+    html = client.get(url).text
+    assert "Exige passkey" in html and "Chaves de acesso" in html and "Tentar de novo" in html
+
+
 def test_sem_a_ponte_a_tela_avisa(client: TestClient, db: Session, ponte: PonteFalsa) -> None:
     criar_usuario(db, "adm@x.com", "admin", nome="Adm")
     canal = _numero(db)

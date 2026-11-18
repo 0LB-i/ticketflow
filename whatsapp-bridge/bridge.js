@@ -14,7 +14,7 @@
 // A estrutura segue a ponte do Hermes Agent (NousResearch, licença MIT), com a fila em disco.
 
 import { createServer } from 'node:http';
-import { existsSync, mkdirSync, readdirSync, rmSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 
 import makeWASocket, {
@@ -85,7 +85,28 @@ async function start(id) {
   });
   channel.sock = sock;
 
-  sock.ev.on('creds.update', saveCreds);
+  // A pasta pode ter sido apagada (passkey, QR code expirado): a gravação atrasada não derruba a ponte.
+  sock.ev.on('creds.update', () => {
+    saveCreds().catch((error) => log('erro_ao_gravar_sessao', { channel: id, error: String(error) }));
+  });
+
+  // Passkey: depois da leitura do QR code, o WhatsApp pode exigir a passkey da conta para ligar um
+  // aparelho novo (o fluxo "Shortcake", desde junho de 2026). A Baileys ainda não sabe responder
+  // (Baileys#2672): sem isso, o celular pede outra leitura e a conexão expira. A ponte para e a
+  // tela explica. Numa sessão que já conectou, o pedido é ignorado, como no Hermes Agent.
+  sock.ws.on('CB:notification', (node) => {
+    const { type, from } = node?.attrs || {};
+    if (type !== 'passkey_prologue_request' || !['s.whatsapp.net', '@s.whatsapp.net'].includes(from)) return;
+    if (channel.sock !== sock || channel.state === 'connected') return;
+    log('passkey_exigida', { channel: id });
+    channel.stopping = true;
+    channel.sock = null;
+    channel.state = 'passkey_required';
+    channel.qr = null;
+    sock.end(undefined);
+    rmSync(dir, { recursive: true, force: true });
+    connectionEvent(id, channel);
+  });
 
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -105,6 +126,16 @@ async function start(id) {
       const code = lastDisconnect?.error?.output?.statusCode;
       if (channel.stopping || channel.sock !== sock) return;
       channel.sock = null; // este socket acabou; o próximo start() cria outro
+      if (channel.state === 'pairing' && code === DisconnectReason.timedOut) {
+        // Os QR codes acabaram sem ninguém ler: para aqui, e a tela volta a oferecer o Conectar
+        // (sem isso, a ponte geraria QR codes para sempre).
+        channel.state = 'new';
+        channel.qr = null;
+        rmSync(dir, { recursive: true, force: true });
+        connectionEvent(id, channel);
+        log('qrcode_expirado', { channel: id });
+        return;
+      }
       if (code === DisconnectReason.loggedOut) {
         // Desconectado pelo celular (Aparelhos conectados → Sair): a sessão não vale mais.
         channel.state = 'logged_out';
@@ -264,10 +295,23 @@ server.requestTimeout = (MAX_WAIT_S + 10) * 1000;
 if (existsSync(SOCKET)) unlinkSync(SOCKET);
 server.listen(SOCKET, () => log('ponte_iniciada', { socket: SOCKET }));
 
+// Pareado: a sessão já tem o número (creds.me). Um pareamento abandonado no meio não volta sozinho.
+function paired(id) {
+  try {
+    return Boolean(JSON.parse(readFileSync(path.join(SESSIONS, id, 'creds.json'), 'utf8')).me);
+  } catch {
+    return false;
+  }
+}
+
 // Os números já pareados voltam sozinhos.
 for (const id of readdirSync(SESSIONS)) {
-  if (UUID.test(id)) start(id).catch((error) => log('erro_ao_iniciar', { channel: id, error: String(error) }));
+  if (UUID.test(id) && paired(id)) {
+    start(id).catch((error) => log('erro_ao_iniciar', { channel: id, error: String(error) }));
+  }
 }
+
+process.on('unhandledRejection', (error) => log('erro_nao_tratado', { error: String(error) }));
 
 function shutdown() {
   for (const channel of channels.values()) {

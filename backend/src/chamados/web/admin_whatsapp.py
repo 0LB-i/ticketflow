@@ -48,9 +48,15 @@ async def _live(bridge: BridgeDep) -> tuple[dict[uuid.UUID, dict[str, Any]], boo
         return {}, False
 
 
-def _state(channel: WhatsAppChannel, live: dict[uuid.UUID, dict[str, Any]]) -> str:
+def _state(channel: WhatsAppChannel, live: dict[uuid.UUID, dict[str, Any]], bridge_up: bool) -> str:
+    """O estado na ponte. Sem a ponte, o último guardado; com ela, um número que não está rodando
+    nela (pareamento abandonado, ponte reiniciada) volta a "não conectado"."""
     state = live.get(channel.public_id, {}).get("state")
-    return str(state) if state else channel.state
+    if state:
+        return str(state)
+    if bridge_up and channel.state != "logged_out":
+        return "new"
+    return channel.state
 
 
 async def _list(
@@ -67,7 +73,7 @@ async def _list(
     return page.render(
         "admin/whatsapp.html",
         status_code=status_code,
-        channels=[(c, _state(c, live)) for c in channels],
+        channels=[(c, _state(c, live, bridge_up)) for c in channels],
         bridge_up=bridge_up,
         teams=await _teams(db),
         form=form or {"nome": "", "grupo": ""},
@@ -125,7 +131,7 @@ async def _edit(
         "admin/whatsapp_edit.html",
         status_code=status_code,
         channel=channel,
-        state=_state(channel, live),
+        state=_state(channel, live, bridge_up),
         qr_svg=live.get(channel.public_id, {}).get("qr_svg"),
         bridge_up=bridge_up,
         teams=await _teams(db),

@@ -27,7 +27,7 @@
     {{ alert(t("whatsappAdmin.ponteFora")) }}
     {%- elif state == "pairing" and qr_svg %}
     <div class="flex flex-wrap items-start gap-6">
-      <div class="size-64 shrink-0 overflow-hidden rounded-md border border-border" role="img" aria-label="{{ t('whatsappAdmin.qrcode') }}">{{ qr_svg | safe }}</div>
+      <div class="size-96 shrink-0 overflow-hidden rounded-md border border-border" role="img" aria-label="{{ t('whatsappAdmin.qrcode') }}">{{ qr_svg | safe }}</div>
       <ol class="flex list-decimal flex-col gap-2 pl-5">
         <li>{{ t("whatsappAdmin.passo1") }}</li>
         <li>{{ t("whatsappAdmin.passo2") }}</li>
@@ -36,6 +36,12 @@
     </div>
     {%- elif state in ("pairing", "connecting") %}
     <p class="text-muted">{{ t("whatsappAdmin.aguarde") }}</p>
+    {%- elif state == "passkey_required" %}
+    {{ alert(t("whatsappAdmin.passkey")) }}
+    <form method="post" action="/admin/whatsapp/{{ channel.public_id }}/conectar">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="{{ button_class() }}">{{ t("whatsappAdmin.tentarDeNovo") }}</button>
+    </form>
     {%- elif state == "connected" %}
     <div><button type="button" data-abre-dialogo="confirmar-desconexao" class="{{ button_class('danger') }}">{{ t("whatsappAdmin.desconectar") }}</button></div>
     {%- else %}

@@ -3,6 +3,6 @@
 
 {#- A situação do número, como a ponte informou. -#}
 {% macro state_badge(state) -%}
-{%- set colors = {"connected": "green", "pairing": "blue", "new": "gray", "disconnected": "red", "logged_out": "gray", "connecting": "blue"} -%}
+{%- set colors = {"connected": "green", "pairing": "blue", "new": "gray", "disconnected": "red", "logged_out": "gray", "connecting": "blue", "passkey_required": "red"} -%}
 {{ badge(t("whatsappAdmin.estados." ~ state), colors.get(state, "gray")) }}
 {%- endmacro %}
