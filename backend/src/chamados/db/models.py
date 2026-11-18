@@ -16,6 +16,12 @@ from chamados.modules.tickets.models import (
     TicketEvent,
     TicketTeam,
 )
+from chamados.modules.whatsapp.models import (
+    WhatsAppChannel,
+    WhatsAppChannelManager,
+    WhatsAppChat,
+    WhatsAppMessage,
+)
 
 __all__ = [
     "Appointment",
@@ -40,5 +46,9 @@ __all__ = [
     "TicketTeam",
     "User",
     "UserSession",
+    "WhatsAppChannel",
+    "WhatsAppChannelManager",
+    "WhatsAppChat",
+    "WhatsAppMessage",
     "WorkSchedule",
 ]

@@ -13,6 +13,8 @@ Em 2026-10-23 entraram os tokens de API (com a tela Tokens de API e a `Idempoten
 
 Em 2026-11-12 entrou a agenda, com os compromissos ligados a um chamado e o aviso no menu (3.7.3).
 
+Na branch `chat-whatsapp` (fora da `main`, em teste), o chat do WhatsApp: os números ligados pelo QR code, a ponte em Node e as conversas (3.15).
+
 ---
 
 ## 1. Visão geral
@@ -25,14 +27,16 @@ navegador ── HTTPS ──► nginx ──► uvicorn (ticketflow.service) �
                                    └─ /*        telas do servidor (Jinja2 + HTMX, web/) e /static
 
 chamados worker (ticketflow-worker.service) ──► PostgreSQL: outbox → fila de tarefas, rotinas diárias
+        │
+        └─ socket Unix ──► ponte do WhatsApp (ticketflow-whatsapp.service, Node + Baileys) ──► WhatsApp
 ```
 
-- **Um programa**, um **monólito modular** em Python (FastAPI), que na produção roda em vários workers do uvicorn. Por isso nada fica na memória de um processo: sessões, presença no chamado e limite de login ficam no banco. Ele serve a API e também a interface web, **na mesma origem**: sem CORS e com o cookie de sessão funcionando sem configuração extra ([ADR 0010](docs/adr/0010-producao-systemd.md)). As telas são renderizadas pelo próprio FastAPI (3.11); não há build de interface nem Node.
+- **Um programa**, um **monólito modular** em Python (FastAPI), que na produção roda em vários workers do uvicorn. Por isso nada fica na memória de um processo: sessões, presença no chamado e limite de login ficam no banco. Ele serve a API e também a interface web, **na mesma origem**: sem CORS e com o cookie de sessão funcionando sem configuração extra ([ADR 0010](docs/adr/0010-producao-systemd.md)). As telas são renderizadas pelo próprio FastAPI (3.11); não há build de interface (o Node só roda a ponte do WhatsApp, 3.15).
 - **Um banco**, o PostgreSQL, que guarda tudo: dados, sessões, auditoria, histórico, configurações, o logotipo, o outbox e a fila de tarefas. Não há Redis, fila externa nem armazenamento de objetos.
 - **Regras só no backend:** as telas chamam as funções da API ou os services e só montam o HTML; toda regra de negócio e toda decisão de permissão ficam nos módulos.
 - **Uma instalação por empresa** ([ADR 0005](docs/adr/0005-instalacao-por-empresa.md)): não existe `tenant_id`.
 
-Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worker** (`chamados worker`), consome o outbox e a fila de tarefas e roda as rotinas diárias (3.12).
+Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worker** (`chamados worker`), consome o outbox e a fila de tarefas e roda as rotinas diárias (3.12). Um terceiro, a **ponte do WhatsApp** (`whatsapp-bridge/`, em Node), mantém os números ligados pelo QR code; o worker grava o que chega por ela (3.15).
 
 ## 2. Mapa do repositório
 
@@ -55,7 +59,9 @@ Os anexos ficam em disco, em `FILES_DIR` (3.5.1). Um segundo processo, o **worke
 ├── scripts/               check.sh, install-hooks.sh, instalar-servico-dev.sh, css.sh,
 │                          vendor-tiptap.sh (o único uso de Node, só para trocar a versão do Tiptap),
 │                          preparar-maquina-dev.sh (Ubuntu 24.04 novo pronto para desenvolver)
-└── deploy/                units do systemd (app e worker) e nginx.conf
+├── whatsapp-bridge/       ponte do WhatsApp (Node 22 + Baileys, 3.15): bridge.js, content.js, queue.js
+│                          e os testes (node --test); as dependências no package-lock.json
+└── deploy/                units do systemd (app, worker e a ponte do WhatsApp) e nginx.conf
 ```
 
 Convenção de nomes ([ADR 0001](docs/adr/0001-registro-de-decisoes.md)): **código, banco e API em inglês** (`ticket`, `assignee`); **documentação, mensagens, testes e comentários em português**. No JavaScript das telas (`web/static/js/`), variáveis, funções e atributos `data-*` também estão em português (`escolherCliente`, `data-envia-ao-mudar`).
@@ -120,6 +126,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | sem `SMTP_HOST` | Sem SMTP, o destinatário e o assunto dos e-mails vão para o log |
 | `LOG_EMAIL_BODY` | `false` | Sem SMTP, também o corpo vai para o log (com os links de convite e de redefinição, que dão acesso à conta): só no desenvolvimento (`.env.example`) |
 | `FILES_DIR` | `/var/lib/ticketflow/files` | Anexos (só o usuário do serviço acessa; o backup, fora do programa, copia junto com o banco) |
+| `WHATSAPP_DIR` | `/var/lib/ticketflow/whatsapp` | Pasta da ponte do WhatsApp: o socket `bridge.sock`, as sessões (`sessions/<id>`) e a fila (`queue.sqlite`). A mesma variável vale para a ponte (3.15) |
 
 ### 3.3 Módulos
 
@@ -137,6 +144,7 @@ Variáveis de ambiente (em produção, `/etc/ticketflow/env`; em desenvolvimento
 | `appointments` | `models` (Appointment, AppointmentAttendee), `service` | Agenda: compromissos, participantes, o chamado ligado e o aviso de 15 minutos antes (3.7.3) | — (só a tela `/agenda`) |
 | `notifications` | `email` (`Mailer`), `handlers` (quem recebe o quê), `messages` (textos), `tasks` (envio pelo worker) | E-mail por SMTP ou para o log; notificações dos chamados (3.13) | — |
 | `mcp_server` | `server` (ferramentas, `running()` no lifespan, rota `Endpoint`) | Servidor MCP para assistentes de IA, com o token de API da pessoa (3.14) | `/mcp` (fora de `/api`) |
+| `whatsapp` | `models` (WhatsAppChannel, WhatsAppChannelManager, WhatsAppChat, WhatsAppMessage), `service` (acesso, envio, o que chega da ponte, administração dos números), `bridge` (cliente da ponte pelo socket Unix), `consumer` (os eventos da ponte, dentro do worker) | Chat do WhatsApp (3.15) | — (só as telas `/whatsapp` e `/admin/whatsapp`) |
 | `jobs` | `models` (OutboxEvent, Job), `service` (outbox, fila, repasse, agenda, limpeza), `worker` (loop, tarefas, rotinas, handlers) | Outbox de eventos, fila de tarefas e o processo `chamados worker` (3.12) | — |
 
 Os módulos podem importar modelos e services uns dos outros (por exemplo, `tickets` usa `catalog`, `organization` e `identity`), mas **a decisão de permissão de um chamado só acontece em `tickets`** e **o registro na auditoria só por `audit.service.record()`**.
@@ -323,6 +331,8 @@ web/
 ├── client_panel.py      o painel do papel Cliente (/painel), a única tela dele (3.4.1)
 ├── profile.py           Meu perfil (/perfil): nome de exibição, cargo, telefone, foto e troca da senha
 ├── admin_tokens.py      tokens de API de todas as pessoas (admin.users): filtro por pessoa, revogar
+├── whatsapp.py          chat do WhatsApp (/whatsapp): as conversas, a conversa aberta e o envio (3.15)
+├── admin_whatsapp.py    números do WhatsApp (admin.organization): cadastro, grupo, responsáveis, QR code
 ├── errors.py            páginas de erro fora de /api (error.html), no lugar do JSON da API
 ├── formatting.py        datas, "há 3 dias", duração, tamanho e os campos de data e hora (fuso da máquina)
 ├── markdown.py          render_markdown(): markdown-it-py, sem HTML bruto (filtro `markdown`)
@@ -383,6 +393,7 @@ chamados worker, a cada volta:                  ▼
 - **Tarefas** (`jobs`, `worker.TASKS`): `async def tarefa(db, settings, args)`, numa sessão própria (faz o próprio commit). Enquanto roda, a linha fica travada (`FOR UPDATE SKIP LOCKED`): outro worker a pula, e se o processo cair a transação é desfeita e a tarefa volta sozinha para a fila. Não há status "rodando". A entrega é "pelo menos uma vez".
 - **Falha:** volta para a fila com espera de 30 s, 2 min, 8 min e 32 min (`retry_delay`), com o erro em `last_error`; na 5ª (`max_attempts`) fica `failed` e vai para o log.
 - **Rotinas** (`worker.ROUTINES`, no horário da máquina): `attachments.purge` às 03:00 e `jobs.cleanup` às 03:30 (apaga tarefas `done` e eventos processados há mais de 7 dias, `failed` há mais de 30 e as `Idempotency-Key` com mais de 24 h). A `dedup_key` (`attachments.purge:2026-10-21`) é única: dois workers não agendam a mesma rotina, e um worker que sobe depois do horário a roda na hora. No lugar do advisory lock sugerido no docs/03, porque ele sozinho não lembraria se a rotina do dia já rodou.
+- **WhatsApp:** ao lado do loop, o worker roda o consumidor da ponte do WhatsApp (`whatsapp/consumer.py`, 3.15), numa tarefa asyncio própria: uma tarefa demorada da fila não atrasa as mensagens. O envio que não chegou à ponte vira a tarefa `whatsapp.send`.
 - **Encerramento:** SIGTERM (o `systemctl stop`) ou SIGINT terminam a tarefa em curso e saem. Um erro de banco derruba o processo, e o systemd o sobe de novo (`Restart=on-failure`).
 - **Serviço:** `ticketflow-worker.service` acompanha o `ticketflow.service` (`PartOf` e `WantedBy=ticketflow.service`): sobe, para e reinicia junto com ele, mas é um processo à parte. Rodar dentro do uvicorn foi descartado: o `--reload` e os reinícios da API cortariam tarefas no meio, e um travamento de um derrubaria o outro.
 
@@ -414,6 +425,24 @@ Assistentes de IA (Claude Code e outros clientes MCP) consultam e operam os cham
 - **Instância por lifespan:** o SDK só deixa rodar o gerenciador de sessões uma vez por instância; `running(app)` cria o servidor no lifespan do app (os testes reabrem o lifespan a cada teste), e a rota fixa `/mcp` repassa para `app.state.mcp_app`.
 - **DNS rebinding:** a proteção do SDK fica desligada (`TransportSecuritySettings`). Ela confere o `Host` e o `Origin` contra uma lista, e aqui não protegeria nada a mais: o ataque usa o navegador da vítima, que manda os cookies do site, mas não o `Authorization`, e sem token a rota responde 401. Ligada, a lista de endereços teria de acompanhar cada instalação (o do `APP_BASE_URL`, o IP, o 127.0.0.1).
 - **Conectar:** a tela `/admin/tokens` mostra o comando do Claude Code (`claude mcp add --transport http ticketflow <APP_BASE_URL>/mcp --header "Authorization: Bearer tf_…"`).
+
+### 3.15 Chat do WhatsApp (`modules/whatsapp/`, `whatsapp-bridge/`)
+
+Na branch `chat-whatsapp`, em teste. Os funcionários conversam com os clientes pelos números da empresa, ligados ao TicketFlow como um aparelho conectado (o WhatsApp Web), pelo QR code: vale o WhatsApp comum e o app Business. A conexão é a **Baileys**, não oficial: o número pode ser banido, e uma mudança do WhatsApp pode exigir atualizar a biblioteca.
+
+```
+WhatsApp ◄──► ponte (Node, Baileys) ── fila em disco (queue.sqlite) ── socket Unix ──► worker: grava, depois confirma
+                    ▲                                                                       │
+                    └────────── envio (tela; sem a ponte, a tarefa whatsapp.send) ◄─────────┘
+```
+
+- **A ponte** (`whatsapp-bridge/bridge.js`, `ticketflow-whatsapp.service`): um processo para todos os números, cada um com a sessão em `WHATSAPP_DIR/sessions/<public_id>`. Atende só no socket `WHATSAPP_DIR/bridge.sock`, sem porta e sem senha: a pasta é do usuário do serviço. Rotas: `GET /channels` (estado e o QR code em SVG), `POST /channels/:id/start|logout|send`, `GET /events` (long-poll) e `POST /events/ack`. Não reinicia com o app (reiniciar o app não derruba a conexão com o WhatsApp). A estrutura segue a ponte do Hermes Agent (MIT).
+- **Nada se perde:** o que chega vai para a fila em disco da ponte (o SQLite do Node) e só sai dela depois que o worker grava e confirma (`ack`). Se o worker cair antes do commit, a ponte entrega de novo, e o índice único `(chat_id, wa_id)` não deixa entrar duas vezes. Por isso as mensagens ficam no banco: os servidores do WhatsApp não as guardam, e o histórico chega uma vez só, no pareamento (`syncFullHistory`).
+- **O que chega** (`service.ingest`): `message` (cria a conversa, grava a mensagem, conta as não lidas; as do histórico, não), `names` (nomes dos contatos e assuntos dos grupos) e `connection` (o estado e o número). Os LIDs (contatos sem o número à vista) viram o número quando a Baileys o conhece (`content.js`), para a conversa ser uma só.
+- **Envio** (`service.send_text`): a mensagem é gravada (`pending`) com o id já gerado (`new_wa_id`), e a cópia que a ponte devolve é ignorada pelo índice. Com `sign_messages`, vai com o nome de quem respondeu em negrito na primeira linha (`*Ana:*`); no banco e na tela, o texto fica sem a assinatura e o nome aparece em cima do balão. Sem a ponte, a tarefa `whatsapp.send` tenta de novo.
+- **Acesso:** os membros do grupo do número (`whatsapp_channels.team_id`) veem e respondem todas as conversas dele. Os responsáveis (`whatsapp_channel_managers`) vão decidir quem tem acesso a cada conversa (fase 2). A administração dos números exige `admin.organization`, com a auditoria (`whatsapp_channel.created`, `.updated`, `.disconnected`).
+- **Telas:** `/whatsapp` no jeito do WhatsApp Web; a conversa aberta pergunta a cada 3 s (`?depois=<id>`, 204 sem novidade) e a lista, a cada 5 s (a fase 2 troca por SSE). `static/js/whatsapp.js`: Enter envia, a rolagem fica no fim (ou onde a pessoa estava) e o erro do envio (422) aparece. `/admin/whatsapp/<id>` mostra o QR code enquanto a ponte o oferece (o trecho se atualiza a cada 2 s).
+- **Testes:** `tests/telas/test_web_whatsapp.py` e `tests/worker/test_whatsapp.py`, com uma ponte falsa (a dependência `bridge_dep` das telas); `whatsapp-bridge/*.test.js` (`node --test`, no `scripts/check.sh` quando a ponte muda). As configurações dos testes apontam `whatsapp_dir` para uma pasta temporária: o teste nunca fala com a ponte de verdade.
 
 ---
 
@@ -494,7 +523,7 @@ Os itens do menu lateral (`side_nav()` em `_ui.html`) aparecem conforme `page.ca
 | `tests/api/` | API REST, services e servidor MCP, com banco (inclusive `test_visibilidade`, as 6 regras) | ~40 s |
 | `tests/telas/` | Telas do servidor, pelo HTML que devolvem (`test_web_*.py`). **Todo teste que passa por uma tela fica aqui** | ~30 s |
 | `tests/banco/` | Migrações sobem e descem; comandos `chamados db`; prazos da engine | ~7 s |
-| `tests/worker/` | Outbox, fila, worker e notificações por e-mail | ~10 s |
+| `tests/worker/` | Outbox, fila, worker, notificações por e-mail e o consumidor da ponte do WhatsApp | ~10 s |
 
 Durante a tarefa, roda-se a pasta (ou o arquivo) do que mudou: `uv run pytest tests/telas`. Uma pasta grande ou a suíte inteira vão mais rápido em paralelo: `uv run pytest -n auto` (com `--cov`, a cobertura mais que dobra o tempo de cada teste).
 

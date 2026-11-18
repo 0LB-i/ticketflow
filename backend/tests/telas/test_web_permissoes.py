@@ -24,7 +24,7 @@ from chamados.modules.organization import router as organization
 from chamados.modules.reports import router as reports
 from chamados.modules.system import router as system
 from chamados.modules.tickets import router as tickets
-from chamados.web import admin, auth, company, settings, ticket
+from chamados.web import admin, admin_whatsapp, auth, company, settings, ticket
 from chamados.web import admin_tokens as web_admin_tokens
 from chamados.web import agenda as web_agenda
 from chamados.web import board as web_board
@@ -35,6 +35,7 @@ from chamados.web import reports as web_reports
 from chamados.web import reports_all_clients as web_reports_all_clients
 from chamados.web import reports_downloads as web_reports_downloads
 from chamados.web import tickets as web_tickets
+from chamados.web import whatsapp as web_whatsapp
 
 API: tuple[ModuleType, ...] = (admin_router, admin_tokens, attachments, audit, catalog, clients)
 API += (identity,)
@@ -51,12 +52,14 @@ WEB: tuple[ModuleType, ...] = (
     web_reports_downloads,
 )
 WEB += (web_tickets, web_admin_tokens, web_board, web_client_panel, web_agenda, web_profile)
+WEB += (admin_whatsapp, web_whatsapp)
 
 # Cada área da administração e o que as telas dela exigem.
 AREAS = {
     "/admin/usuarios": {P.ADMIN_USERS},
     "/admin/tokens": {P.ADMIN_USERS},
     "/admin/grupos": {P.ADMIN_ORGANIZATION},
+    "/admin/whatsapp": {P.ADMIN_ORGANIZATION},
     "/admin/configuracoes": {P.ADMIN_SETTINGS},
     "/admin/empresa": {P.ADMIN_SETTINGS},
     "/admin/clientes": {P.CLIENT_VIEW, P.CLIENT_MANAGE},

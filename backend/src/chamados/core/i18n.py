@@ -246,4 +246,19 @@ EN: dict[str, str] = {
     "O fim do compromisso precisa ser depois do início.": "The event must end after it starts.",
     "Só quem criou o compromisso pode alterá-lo.": "Only the creator can change this event.",
     "Só quem criou o compromisso pode removê-lo.": "Only the creator can delete this event.",
+    # Chat do WhatsApp
+    "A ponte do WhatsApp não está rodando.": "The WhatsApp bridge is not running.",
+    "O número está desconectado do WhatsApp.": "The number is disconnected from WhatsApp.",
+    "A ponte do WhatsApp recusou o pedido.": "The WhatsApp bridge refused the request.",
+    "Conversa não encontrada.": "Conversation not found.",
+    "Você não tem acesso a este número do WhatsApp.": (
+        "You don't have access to this WhatsApp number."
+    ),
+    "Escreva a mensagem.": "Write the message.",
+    "A mensagem passou do limite de 4096 caracteres.": (
+        "The message is over the 4096-character limit."
+    ),
+    "Número do WhatsApp não encontrado.": "WhatsApp number not found.",
+    "Informe o nome do número.": "Enter the number's name.",
+    "Os responsáveis precisam ser membros do grupo.": "Managers must be members of the group.",
 }

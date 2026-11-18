@@ -30,7 +30,7 @@ FORA_DA_PRODUCAO=(
   /ARCHITECTURE.md /CLAUDE.md /.claude/ /docs/
   /backend/tests/ /backend/bench/ /backend/.env.example
   /scripts/check.sh /scripts/install-hooks.sh /scripts/instalar-servico-dev.sh
-  /scripts/preparar-maquina-dev.sh /scripts/vendor-tiptap.sh
+  /scripts/preparar-maquina-dev.sh /scripts/vendor-tiptap.sh /whatsapp-bridge/*.test.js
 )
 
 if [[ $# -gt 1 ]]; then
@@ -66,7 +66,8 @@ timedatectl show -p Timezone --value
 etapa "usuário e diretórios"
 id "$SERVICO" >/dev/null 2>&1 ||
   adduser --system --group --home /var/lib/ticketflow "$SERVICO"
-install -d -o "$SERVICO" -g "$SERVICO" -m 750 /var/lib/ticketflow /var/lib/ticketflow/files
+install -d -o "$SERVICO" -g "$SERVICO" -m 750 /var/lib/ticketflow /var/lib/ticketflow/files \
+  /var/lib/ticketflow/whatsapp
 install -d -o root -g "$SERVICO" -m 750 /etc/ticketflow
 
 etapa "PostgreSQL 17 (repositório oficial do PostgreSQL)"
@@ -86,6 +87,14 @@ if ! command -v uv >/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
 fi
 uv --version
+
+etapa "Node.js 22 (a ponte do WhatsApp)"
+# O Ubuntu 24.04 traz o Node 18; a Baileys pede o 20 ou mais novo e a fila da ponte, o 22.13.
+if [[ "$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)" -lt 22 ]]; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+  apt-get install -y -q nodejs
+fi
+node --version
 
 etapa "código em $DESTINO (só o que a produção usa)"
 if [[ ! -d "$DESTINO/.git" ]]; then
@@ -123,7 +132,9 @@ como_servico "$DESTINO/update.sh --force" >/dev/null
 etapa "serviços systemd"
 cp "$DESTINO"/deploy/ticketflow*.service /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable -q "$SERVICO" "$SERVICO-worker"
+systemctl enable -q "$SERVICO" "$SERVICO-worker" "$SERVICO-whatsapp"
+# A ponte do WhatsApp não reinicia com o app: iniciar não faz nada se ela já estiver rodando.
+systemctl start "$SERVICO-whatsapp"
 if systemctl is-active -q "$SERVICO"; then
   echo "O serviço já estava rodando. Para colocar a versão nova no ar (o worker reinicia junto):"
   echo "  sudo systemctl restart $SERVICO"
@@ -227,8 +238,8 @@ TicketFlow instalado em $DESTINO, versão $(como_servico "git -C '$DESTINO' desc
   domínio:      server_name e certificado em /etc/nginx/sites-available/$SERVICO, e o
                 APP_BASE_URL em $ENV_FILE (os links dos e-mails); depois:
                 sudo systemctl reload nginx && sudo systemctl restart $SERVICO
-  estado:       systemctl status $SERVICO $SERVICO-worker
-  log:          journalctl -u $SERVICO -u $SERVICO-worker -f
+  estado:       systemctl status $SERVICO $SERVICO-worker $SERVICO-whatsapp
+  log:          journalctl -u $SERVICO -u $SERVICO-worker -u $SERVICO-whatsapp -f
   atualizar:    sudo $DESTINO/update.sh && sudo systemctl restart $SERVICO
 
 LOGO EM SEGUIDA entre com admin / admin e troque a senha: até lá, qualquer pessoa que alcance o

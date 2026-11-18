@@ -40,6 +40,8 @@ pastas_afetadas() {
     case "$f" in
       # O benchmark (backend/bench) não entra nos testes: roda à parte, com python -m bench.
       docs/* | deploy/* | scripts/* | *.md | .gitignore | backend/bench/*) ;;
+      # A ponte do WhatsApp tem os próprios testes (node --test), mais abaixo.
+      whatsapp-bridge/*) ;;
       # Só a API usa web/ (as páginas de erro fora de /api), e esses testes estão em telas.
       backend/src/chamados/web/*) pastas[tests/unidade]=1 pastas[tests/telas]=1 ;;
       backend/tests/*/*)
@@ -53,6 +55,10 @@ pastas_afetadas() {
     esac
   done
   printf '%s\n' "${!pastas[@]}" | sort
+}
+
+ponte_mudou() {
+  { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | grep -q '^whatsapp-bridge/'
 }
 
 banco_no_ar() {
@@ -88,6 +94,11 @@ elif ((${#pastas[@]})); then
   (cd backend && TEST_DATABASE_URL="$PG17_URL" uv run pytest -q -n auto "${pastas[@]}")
 else
   echo "Nenhum teste afetado pela mudança (a suíte inteira: --completo)."
+fi
+
+if [[ "$modo" == --completo ]] || ponte_mudou; then
+  etapa "ponte do WhatsApp: testes"
+  (cd whatsapp-bridge && node --disable-warning=ExperimentalWarning --test)
 fi
 
 if [[ "$modo" == --completo ]]; then

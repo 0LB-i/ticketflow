@@ -60,6 +60,11 @@ fi
 # O 17 primeiro, para ficar com a porta 5432; o 16, instalado depois, fica com a 5433.
 apt-get install -y -q --no-upgrade postgresql-17
 apt-get install -y -q --no-upgrade postgresql-16
+# Node.js 22: a ponte do WhatsApp (whatsapp-bridge/; a Ubuntu 24.04 traz o 18).
+if [[ "$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)" -lt 22 ]]; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+  apt-get install -y -q nodejs
+fi
 porta() { pg_lsclusters -h | awk -v v="$1" '$1 == v && $2 == "main" { print $3 }'; }
 if [[ "$(porta 17)" != 5432 || "$(porta 16)" != 5433 ]]; then
   echo "Esperava o PostgreSQL 17 na porta 5432 e o 16 na 5433. Está assim:" >&2

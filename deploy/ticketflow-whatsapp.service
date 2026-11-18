@@ -1,0 +1,26 @@
+# Ponte do WhatsApp (whatsapp-bridge/bridge.js, Baileys): mantém os números ligados pelo QR code e
+# atende o TicketFlow num socket Unix em /var/lib/ticketflow/whatsapp (ARCHITECTURE.md 3.15).
+# Independente do ticketflow.service: reiniciar o app não derruba a conexão com o WhatsApp. O que
+# chega enquanto o app ou o worker estão fora fica na fila em disco da ponte.
+[Unit]
+Description=TicketFlow (ponte do WhatsApp)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ticketflow
+Group=ticketflow
+Environment=WHATSAPP_DIR=/var/lib/ticketflow/whatsapp
+WorkingDirectory=/opt/ticketflow/whatsapp-bridge
+# A fila usa o SQLite do Node, ainda marcado como experimental.
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning bridge.js
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/ticketflow/whatsapp
+
+[Install]
+WantedBy=multi-user.target

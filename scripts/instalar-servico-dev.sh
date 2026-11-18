@@ -8,6 +8,8 @@
 #     templates (ADR 0011);
 #   - ticketflow-worker.service: a unit da produção, que acompanha o ticketflow.service (sobe,
 #     para e reinicia com ele), com o watchfiles reiniciando o worker quando um .py muda;
+#   - ticketflow-whatsapp.service: a ponte do WhatsApp (Baileys), com o node --watch reiniciando
+#     a ponte quando um arquivo dela muda (os números reconectam sozinhos);
 #   - mailpit.service: recebe os e-mails do sistema (SMTP em 127.0.0.1:1025) e os mostra em
 #     https://IP:8025, com senha (usuário ticketflow; a senha fica em /etc/ticketflow/mailpit-senha);
 #     nenhum e-mail sai da máquina.
@@ -48,7 +50,8 @@ como_dono() {
 etapa "usuário e diretórios (docs/18 §18.3, passo 2)"
 id "$SERVICO" >/dev/null 2>&1 ||
   adduser --system --group --home /var/lib/ticketflow "$SERVICO"
-install -d -o "$SERVICO" -g "$SERVICO" -m 750 /var/lib/ticketflow /var/lib/ticketflow/files
+install -d -o "$SERVICO" -g "$SERVICO" -m 750 /var/lib/ticketflow /var/lib/ticketflow/files \
+  /var/lib/ticketflow/whatsapp
 install -d -o root -g "$SERVICO" -m 750 /etc/ticketflow
 
 etapa "configuração ($ENV_FILE)"
@@ -86,6 +89,7 @@ fi
 etapa "backend e migrações"
 # Sem --no-dev: o mesmo ambiente roda os testes do scripts/check.sh.
 como_dono "cd backend && uv sync -q --frozen"
+como_dono "cd whatsapp-bridge && npm ci --no-audit --no-fund --loglevel=error"
 set -a
 # shellcheck disable=SC1090
 . "$ENV_FILE"
@@ -184,6 +188,16 @@ ExecStart=
 ExecStart=$PWD/backend/.venv/bin/watchfiles --filter python --target-type command \\
           "$PWD/backend/.venv/bin/chamados worker" $PWD/backend/src
 FIM
+cp deploy/ticketflow-whatsapp.service /etc/systemd/system/
+install -d "/etc/systemd/system/$SERVICO-whatsapp.service.d"
+cat >"/etc/systemd/system/$SERVICO-whatsapp.service.d/desenvolvimento.conf" <<FIM
+# Só na máquina de desenvolvimento (scripts/instalar-servico-dev.sh): a ponte reinicia sozinha
+# quando um arquivo dela muda.
+[Service]
+WorkingDirectory=$PWD/whatsapp-bridge
+ExecStart=
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning --watch bridge.js
+FIM
 # A interface pelo Vite saiu com a SPA (ADR 0011).
 if [[ -f /etc/systemd/system/$SERVICO-frontend.service ]]; then
   systemctl disable -q --now "$SERVICO-frontend" || true
@@ -191,10 +205,10 @@ if [[ -f /etc/systemd/system/$SERVICO-frontend.service ]]; then
   echo "$SERVICO-frontend (Vite) desativado e apagado"
 fi
 systemctl daemon-reload
-systemctl enable -q "$SERVICO" "$SERVICO-css" "$SERVICO-worker"
-# Só inicia o do CSS e o worker (não faz nada se já estiverem rodando); iniciar o worker não
-# reinicia o ticketflow.
-systemctl start "$SERVICO-css" "$SERVICO-worker"
+systemctl enable -q "$SERVICO" "$SERVICO-css" "$SERVICO-worker" "$SERVICO-whatsapp"
+# Só inicia o do CSS, o worker e a ponte (não faz nada se já estiverem rodando); iniciar o worker
+# não reinicia o ticketflow.
+systemctl start "$SERVICO-css" "$SERVICO-worker" "$SERVICO-whatsapp"
 if systemctl is-active -q "$SERVICO"; then
   echo "O serviço já estava rodando. Para usar a configuração nova (o worker reinicia junto):"
   echo "  sudo systemctl restart $SERVICO"
@@ -268,7 +282,7 @@ cat <<FIM
 TicketFlow em https://$IP
   certificado: $TLS_DIR/ticketflow.crt (instale como confiável para o navegador não avisar)
   e-mails:     https://$IP:8025 (Mailpit; usuário ticketflow, senha em $MAILPIT_SENHA)
-  estado:      systemctl status $SERVICO $SERVICO-worker $SERVICO-css mailpit nginx
-  log:         journalctl -u $SERVICO -u $SERVICO-worker -u $SERVICO-css -f
+  estado:      systemctl status $SERVICO $SERVICO-worker $SERVICO-css $SERVICO-whatsapp mailpit nginx
+  log:         journalctl -u $SERVICO -u $SERVICO-worker -u $SERVICO-css -u $SERVICO-whatsapp -f
   Mudanças no código aparecem ao recarregar a página; migrações: cd backend && .venv/bin/chamados db upgrade
 FIM

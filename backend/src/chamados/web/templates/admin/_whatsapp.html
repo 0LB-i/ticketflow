@@ -1,0 +1,8 @@
+{#- Peças das telas dos números do WhatsApp. -#}
+{% from "_ui.html" import badge with context %}
+
+{#- A situação do número, como a ponte informou. -#}
+{% macro state_badge(state) -%}
+{%- set colors = {"connected": "green", "pairing": "blue", "new": "gray", "disconnected": "red", "logged_out": "gray", "connecting": "blue"} -%}
+{{ badge(t("whatsappAdmin.estados." ~ state), colors.get(state, "gray")) }}
+{%- endmacro %}

@@ -1,0 +1,439 @@
+"""Regras do chat do WhatsApp: quem vê cada número, o envio (com o nome de quem respondeu), o que
+chega da ponte (ingest) e a administração dos números.
+
+Acesso: os membros do grupo do número veem e respondem todas as conversas dele. Os responsáveis
+(`whatsapp_channel_managers`) vão decidir o acesso a cada conversa (fase 2).
+"""
+
+import secrets
+import uuid
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+
+import structlog
+from fastapi import HTTPException, Request
+from sqlalchemy import Select, select, true, update
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
+
+from chamados.core.permissions import Actor
+from chamados.modules.audit.service import record
+from chamados.modules.identity.deps import Auth
+from chamados.modules.identity.models import User
+from chamados.modules.jobs import service as jobs
+from chamados.modules.organization.models import Team, TeamMember
+from chamados.modules.whatsapp.bridge import Bridge, BridgeError
+from chamados.modules.whatsapp.models import (
+    STATES,
+    WhatsAppChannel,
+    WhatsAppChannelManager,
+    WhatsAppChat,
+    WhatsAppMessage,
+)
+
+log = structlog.get_logger(__name__)
+
+MAX_TEXT = 4096
+PAGE = 60  # mensagens por vez na conversa aberta
+CHATS = 300  # conversas na lista
+
+NOT_FOUND = "Conversa não encontrada."
+NO_ACCESS = "Você não tem acesso a este número do WhatsApp."
+EMPTY = "Escreva a mensagem."
+TOO_LONG = "A mensagem passou do limite de 4096 caracteres."
+CHANNEL_NOT_FOUND = "Número do WhatsApp não encontrado."
+NAME_REQUIRED = "Informe o nome do número."
+TEAM_NOT_FOUND = "Grupo não encontrado."
+MANAGER_NOT_MEMBER = "Os responsáveis precisam ser membros do grupo."
+
+
+# Acesso -----------------------------------------------------------------------------------------
+
+
+def _visible(actor: Actor) -> Select[WhatsAppChannel]:
+    return select(WhatsAppChannel).where(WhatsAppChannel.team_id.in_(actor.teams))
+
+
+async def visible_channels(db: AsyncSession, actor: Actor) -> Sequence[WhatsAppChannel]:
+    return (await db.scalars(_visible(actor).order_by(WhatsAppChannel.name))).all()
+
+
+async def get_chat(db: AsyncSession, actor: Actor, chat_id: uuid.UUID) -> WhatsAppChat:
+    chat = await db.scalar(select(WhatsAppChat).where(WhatsAppChat.public_id == chat_id))
+    if chat is None:
+        raise HTTPException(404, NOT_FOUND)
+    channel = await db.get(WhatsAppChannel, chat.channel_id)
+    if channel is None or channel.team_id not in actor.teams:
+        raise HTTPException(403, NO_ACCESS)
+    return chat
+
+
+# Leitura ----------------------------------------------------------------------------------------
+
+
+@dataclass
+class ChatRow:
+    chat: WhatsAppChat
+    last: WhatsAppMessage | None
+
+
+async def list_chats(db: AsyncSession, channel: WhatsAppChannel) -> list[ChatRow]:
+    """As conversas do número, da mais recente para trás, com a última mensagem (LATERAL: uma
+    leitura do índice por conversa)."""
+    last = (
+        select(WhatsAppMessage.id)
+        .where(WhatsAppMessage.chat_id == WhatsAppChat.id)
+        .order_by(WhatsAppMessage.sent_at.desc(), WhatsAppMessage.id.desc())
+        .limit(1)
+        .lateral()
+    )
+    message = aliased(WhatsAppMessage)
+    rows = await db.execute(
+        select(WhatsAppChat, message)
+        .select_from(WhatsAppChat)
+        .outerjoin(last, true())
+        .outerjoin(message, message.id == last.c.id)
+        .where(WhatsAppChat.channel_id == channel.id, WhatsAppChat.last_message_at.is_not(None))
+        .order_by(WhatsAppChat.last_message_at.desc().nulls_last(), WhatsAppChat.id.desc())
+        .limit(CHATS)
+    )
+    return [ChatRow(chat, msg) for chat, msg in rows]
+
+
+async def list_messages(
+    db: AsyncSession, chat: WhatsAppChat, *, after: int | None = None
+) -> list[WhatsAppMessage]:
+    """As últimas mensagens, da mais antiga para a mais nova; com `after`, só as que chegaram
+    depois desse id (a atualização da conversa aberta)."""
+    query = select(WhatsAppMessage).where(WhatsAppMessage.chat_id == chat.id)
+    if after is not None:
+        query = query.where(WhatsAppMessage.id > after)
+    rows = (
+        await db.scalars(
+            query.order_by(WhatsAppMessage.sent_at.desc(), WhatsAppMessage.id.desc()).limit(PAGE)
+        )
+    ).all()
+    return list(reversed(rows))
+
+
+async def mark_read(db: AsyncSession, chat: WhatsAppChat) -> None:
+    if chat.unread:
+        chat.unread = 0
+        await db.commit()
+
+
+# Envio ------------------------------------------------------------------------------------------
+
+
+def new_wa_id() -> str:
+    """Id da mensagem no formato do WhatsApp Web, gerado antes do envio: a cópia que a ponte
+    devolve tem o mesmo id e não entra duas vezes."""
+    return "3EB0" + secrets.token_hex(10).upper()
+
+
+def signed(text: str, name: str) -> str:
+    """O nome de quem respondeu em negrito na primeira linha (o cliente vê um número só)."""
+    return f"*{name}:*\n{text}"
+
+
+async def _deliver(db: AsyncSession, bridge: Bridge, message: WhatsAppMessage) -> None:
+    """Manda à ponte; sem ela (ou com o número desconectado), a fila tenta de novo."""
+    chat = await db.get(WhatsAppChat, message.chat_id)
+    channel = await db.get(WhatsAppChannel, chat.channel_id) if chat else None
+    if chat is None or channel is None:
+        return
+    text = message.body or ""
+    if channel.sign_messages and message.author is not None:
+        text = signed(text, message.author.display_name)
+    await bridge.send_text(channel.public_id, chat.jid, text, message.wa_id)
+    message.status = "sent"
+
+
+async def send_text(
+    db: AsyncSession, bridge: Bridge, auth: Auth, chat: WhatsAppChat, text: str
+) -> WhatsAppMessage:
+    text = text.strip()
+    if not text:
+        raise HTTPException(422, EMPTY)
+    if len(text) > MAX_TEXT:
+        raise HTTPException(422, TOO_LONG)
+    now = datetime.now(UTC)
+    message = WhatsAppMessage(
+        chat_id=chat.id,
+        wa_id=new_wa_id(),
+        from_me=True,
+        author_id=auth.user.id,
+        kind="text",
+        body=text,
+        status="pending",
+        sent_at=now,
+    )
+    db.add(message)
+    chat.last_message_at = now
+    await db.commit()
+    await db.refresh(message, ["author"])
+    try:
+        await _deliver(db, bridge, message)
+    except BridgeError as e:
+        log.warning("whatsapp_envio_para_a_fila", message_id=message.id, erro=str(e))
+        jobs.enqueue(db, "whatsapp.send", message_id=message.id)
+    await db.commit()
+    return message
+
+
+async def retry_send(db: AsyncSession, bridge: Bridge, message_id: int) -> None:
+    """Tarefa da fila (whatsapp.send): a ponte estava fora quando a pessoa enviou."""
+    message = await db.get(WhatsAppMessage, message_id)
+    if message is None or message.status != "pending":
+        return
+    await _deliver(db, bridge, message)
+    await db.commit()
+
+
+# O que chega da ponte -------------------------------------------------------------------------
+
+
+def _timestamp(value: Any) -> datetime:
+    try:
+        return datetime.fromtimestamp(int(value), UTC)
+    except (TypeError, ValueError, OverflowError):
+        return datetime.now(UTC)
+
+
+async def _chat(
+    db: AsyncSession, channel: WhatsAppChannel, jid: str, name: str | None
+) -> WhatsAppChat:
+    await db.execute(
+        insert(WhatsAppChat)
+        .values(channel_id=channel.id, jid=jid, is_group=jid.endswith("@g.us"), name=name)
+        .on_conflict_do_nothing(index_elements=["channel_id", "jid"])
+    )
+    return (
+        await db.scalars(
+            select(WhatsAppChat).where(
+                WhatsAppChat.channel_id == channel.id, WhatsAppChat.jid == jid
+            )
+        )
+    ).one()
+
+
+async def _ingest_message(
+    db: AsyncSession, channel: WhatsAppChannel, event: dict[str, Any]
+) -> None:
+    jid = str(event["jid"])
+    group = jid.endswith("@g.us")
+    push_name = event.get("push_name")
+    # O nome da conversa: o assunto do grupo ou, na individual, o nome que o contato usa.
+    name = event.get("chat_name") if group else (None if event.get("from_me") else push_name)
+    chat = await _chat(db, channel, jid, name)
+    if name and (group or not chat.name):
+        chat.name = name
+    sent_at = _timestamp(event.get("ts"))
+    inserted = await db.scalar(
+        insert(WhatsAppMessage)
+        .values(
+            chat_id=chat.id,
+            wa_id=str(event["id"]),
+            from_me=bool(event.get("from_me")),
+            sender_jid=event.get("sender"),
+            sender_name=None if event.get("from_me") else push_name,
+            kind=event.get("kind") or "other",
+            body=event.get("text"),
+            file_name=event.get("file_name"),
+            status="sent" if event.get("from_me") else "received",
+            sent_at=sent_at,
+        )
+        .on_conflict_do_nothing(index_elements=["chat_id", "wa_id"])
+        .returning(WhatsAppMessage.id)
+    )
+    if inserted is None:
+        return  # já estava guardada (a cópia do que enviamos daqui, ou um evento repetido)
+    if chat.last_message_at is None or sent_at > chat.last_message_at:
+        chat.last_message_at = sent_at
+    if not event.get("from_me") and not event.get("history"):
+        chat.unread += 1
+
+
+async def _ingest_names(db: AsyncSession, channel: WhatsAppChannel, names: Iterable[Any]) -> None:
+    for item in names:
+        if isinstance(item, dict) and item.get("jid") and item.get("name"):
+            await db.execute(
+                update(WhatsAppChat)
+                .where(WhatsAppChat.channel_id == channel.id, WhatsAppChat.jid == item["jid"])
+                .values(name=item["name"])
+            )
+
+
+async def ingest(db: AsyncSession, events: Iterable[dict[str, Any]]) -> None:
+    """Grava um lote de eventos da ponte (numa transação: a ponte só apaga depois do commit)."""
+    channels: dict[str, WhatsAppChannel | None] = {}
+    for event in events:
+        key = str(event.get("channel"))
+        if key not in channels:
+            try:
+                public_id = uuid.UUID(key)
+            except ValueError:
+                channels[key] = None
+            else:
+                channels[key] = await db.scalar(
+                    select(WhatsAppChannel).where(WhatsAppChannel.public_id == public_id)
+                )
+        channel = channels[key]
+        if channel is None:
+            continue  # número que não existe mais no TicketFlow
+        kind = event.get("type")
+        if kind == "message" and event.get("id") and event.get("jid"):
+            await _ingest_message(db, channel, event)
+        elif kind == "names":
+            await _ingest_names(db, channel, event.get("names") or [])
+        elif kind == "connection" and event.get("state") in STATES:
+            channel.state = event["state"]
+            if event.get("phone"):
+                channel.phone = str(event["phone"])
+    await db.commit()
+
+
+# Administração dos números ----------------------------------------------------------------------
+
+
+async def all_channels(db: AsyncSession) -> Sequence[WhatsAppChannel]:
+    return (await db.scalars(select(WhatsAppChannel).order_by(WhatsAppChannel.name))).all()
+
+
+async def channel_by_id(db: AsyncSession, public_id: uuid.UUID) -> WhatsAppChannel:
+    channel = await db.scalar(select(WhatsAppChannel).where(WhatsAppChannel.public_id == public_id))
+    if channel is None:
+        raise HTTPException(404, CHANNEL_NOT_FOUND)
+    return channel
+
+
+async def team_members(db: AsyncSession, team_id: int) -> Sequence[User]:
+    return (
+        await db.scalars(
+            select(User)
+            .join(TeamMember, TeamMember.user_id == User.id)
+            .where(
+                TeamMember.team_id == team_id, User.is_active.is_(True), User.deleted_at.is_(None)
+            )
+            .order_by(User.display_name)
+        )
+    ).all()
+
+
+def _snapshot(channel: WhatsAppChannel) -> dict[str, Any]:
+    return {
+        "name": channel.name,
+        "team_id": channel.team_id,
+        "sign_messages": channel.sign_messages,
+        "managers": sorted(m.user_id for m in channel.managers),
+    }
+
+
+async def _check(
+    db: AsyncSession, name: str, team_id: uuid.UUID | None, managers: Iterable[uuid.UUID]
+) -> tuple[str, Team, list[int]]:
+    name = name.strip()
+    if not name:
+        raise HTTPException(422, NAME_REQUIRED)
+    team = await db.scalar(select(Team).where(Team.public_id == team_id)) if team_id else None
+    if team is None:
+        raise HTTPException(422, TEAM_NOT_FOUND)
+    wanted = set(managers)
+    members = {u.public_id: u.id for u in await team_members(db, team.id)}
+    if not wanted <= members.keys():
+        raise HTTPException(422, MANAGER_NOT_MEMBER)
+    return name[:100], team, sorted(members[m] for m in wanted)
+
+
+async def create_channel(
+    db: AsyncSession,
+    auth: Auth,
+    request: Request | None,
+    *,
+    name: str,
+    team_id: uuid.UUID | None,
+) -> WhatsAppChannel:
+    name, team, _ = await _check(db, name, team_id, [])
+    channel = WhatsAppChannel(name=name, team_id=team.id, managers=[])
+    db.add(channel)
+    await db.flush()
+    record(
+        db,
+        "whatsapp_channel.created",
+        request=request,
+        actor_user_id=auth.user.id,
+        target_type="whatsapp_channel",
+        target_id=channel.public_id,
+        after=_snapshot(channel),
+    )
+    await db.commit()
+    return channel
+
+
+async def update_channel(
+    db: AsyncSession,
+    auth: Auth,
+    request: Request | None,
+    channel: WhatsAppChannel,
+    *,
+    name: str,
+    team_id: uuid.UUID | None,
+    managers: Iterable[uuid.UUID],
+    sign_messages: bool,
+) -> None:
+    name, team, manager_ids = await _check(db, name, team_id, managers)
+    before = _snapshot(channel)
+    channel.name = name
+    channel.team_id = team.id
+    channel.sign_messages = sign_messages
+    # Só a diferença: tirar e pôr de volta a mesma pessoa na mesma descarga violaria a chave.
+    channel.managers = [m for m in channel.managers if m.user_id in manager_ids]
+    current = {m.user_id for m in channel.managers}
+    channel.managers.extend(
+        WhatsAppChannelManager(user_id=i) for i in manager_ids if i not in current
+    )
+    await db.flush()
+    record(
+        db,
+        "whatsapp_channel.updated",
+        request=request,
+        actor_user_id=auth.user.id,
+        target_type="whatsapp_channel",
+        target_id=channel.public_id,
+        before=before,
+        after=_snapshot(channel),
+    )
+    await db.commit()
+
+
+async def connect(db: AsyncSession, bridge: Bridge, channel: WhatsAppChannel) -> None:
+    """Liga o número na ponte: sem sessão salva, ela gera o QR code para ler no celular."""
+    result = await bridge.start(channel.public_id)
+    if result.get("state") in STATES:
+        channel.state = result["state"]
+        await db.commit()
+
+
+async def disconnect(
+    db: AsyncSession,
+    bridge: Bridge,
+    auth: Auth,
+    request: Request | None,
+    channel: WhatsAppChannel,
+) -> None:
+    """Tira o TicketFlow dos aparelhos conectados do número. As conversas guardadas ficam."""
+    await bridge.logout(channel.public_id)
+    channel.state = "logged_out"
+    record(
+        db,
+        "whatsapp_channel.disconnected",
+        request=request,
+        actor_user_id=auth.user.id,
+        target_type="whatsapp_channel",
+        target_id=channel.public_id,
+        before={"phone": channel.phone},
+    )
+    await db.commit()

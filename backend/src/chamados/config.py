@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # Anexos (docs/11 §11.6): só o usuário do serviço acessa.
     files_dir: Path = Path("/var/lib/ticketflow/files")
 
+    # Chat do WhatsApp: a pasta da ponte (whatsapp-bridge/), com o socket `bridge.sock`, as
+    # sessões e a fila. A mesma variável WHATSAPP_DIR vale para a ponte.
+    whatsapp_dir: Path = Path("/var/lib/ticketflow/whatsapp")
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -20,6 +20,9 @@ from chamados.modules.attachments.service import purge
 from chamados.modules.jobs import service
 from chamados.modules.notifications import handlers
 from chamados.modules.notifications.tasks import send_email
+from chamados.modules.whatsapp import consumer as whatsapp_consumer
+from chamados.modules.whatsapp.bridge import get_bridge
+from chamados.modules.whatsapp.service import retry_send
 
 log = structlog.get_logger(__name__)
 
@@ -30,10 +33,15 @@ async def _purge_attachments(db: AsyncSession, settings: Settings, _args: dict[s
     log.info("anexos_nao_vinculados_apagados", total=await purge(db, settings.files_dir))
 
 
+async def _send_whatsapp(db: AsyncSession, settings: Settings, args: dict[str, Any]) -> None:
+    await retry_send(db, get_bridge(settings), int(args["message_id"]))
+
+
 TASKS: dict[str, service.Task] = {
     "attachments.purge": _purge_attachments,
     "jobs.cleanup": service.cleanup,
     "notifications.send_email": send_email,
+    "whatsapp.send": _send_whatsapp,
 }
 # Rotinas diárias (docs/10 §10.11), no horário da máquina.
 ROUTINES = {"attachments.purge": time(3, 0), "jobs.cleanup": time(3, 30)}
@@ -55,12 +63,16 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
     engine = create_engine(settings.database_url)
     sessionmaker = make_sessionmaker(engine)
     log.info("worker_iniciado")
+    # O que chega do WhatsApp corre ao lado da fila: uma tarefa demorada não atrasa as mensagens.
+    whatsapp = asyncio.create_task(whatsapp_consumer.run(sessionmaker, settings, stop))
     try:
         while not stop.is_set():
             if not await tick(sessionmaker, settings):
                 with suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), IDLE_SECONDS)
     finally:
+        stop.set()
+        await whatsapp
         await engine.dispose()
         log.info("worker_encerrado")
 

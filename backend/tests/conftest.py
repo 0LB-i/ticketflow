@@ -228,6 +228,8 @@ def settings(database_url: str, tmp_path: Path) -> Settings:
         cookie_secure=False,
         app_base_url="http://teste",
         files_dir=tmp_path / "files",
+        # Nunca a pasta da ponte de verdade: o teste confirmaria (e apagaria) eventos dela.
+        whatsapp_dir=tmp_path / "whatsapp",
     )
 
 
@@ -407,10 +409,13 @@ def cenario(client: "TestClient", db: Session) -> dict[str, str]:
 
 
 @pytest.fixture
-def cli_no_banco_de_teste(database_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def cli_no_banco_de_teste(
+    database_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Iterator[None]:
     """O comando `chamados` (cli.main) lê as configurações do ambiente: as do banco de teste."""
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("APP_BASE_URL", "http://teste")
+    monkeypatch.setenv("WHATSAPP_DIR", str(tmp_path / "whatsapp"))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

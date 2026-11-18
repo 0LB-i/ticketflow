@@ -5,6 +5,7 @@ from fastapi import APIRouter, Response
 from chamados.web import (
     admin,
     admin_tokens,
+    admin_whatsapp,
     agenda,
     auth,
     board,
@@ -18,6 +19,7 @@ from chamados.web import (
     settings,
     ticket,
     tickets,
+    whatsapp,
 )
 from chamados.web.page import PREFETCH_RULES
 
@@ -60,3 +62,5 @@ router.include_router(reports_all_clients.router)
 router.include_router(reports_downloads.router)
 router.include_router(client_panel.router)
 router.include_router(profile.router)
+router.include_router(whatsapp.router)
+router.include_router(admin_whatsapp.router)

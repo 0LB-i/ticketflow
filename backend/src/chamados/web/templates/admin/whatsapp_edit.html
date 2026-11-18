@@ -1,0 +1,82 @@
+{#- Um número do WhatsApp: a conexão (o QR code para ler no celular) e os dados: nome, grupo,
+    responsáveis e a assinatura com o nome de quem respondeu (web/admin_whatsapp.py). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, button_class, checkbox, field, select_field with context %}
+{% from "_fields.html" import dialog with context %}
+{% from "admin/_whatsapp.html" import state_badge with context %}
+
+{% block title %}{{ channel.name }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-3xl flex-col gap-6">
+  <div class="flex flex-col gap-1">
+    <a href="/admin/whatsapp" class="text-sm text-primary underline">{{ t("whatsappAdmin.titulo") }}</a>
+    <h1 class="text-xl font-semibold">{{ channel.name }}</h1>
+  </div>
+
+  {#- A conexão: enquanto o QR code está na tela, o trecho se atualiza a cada 2 s (o código troca
+      sozinho e, lido no celular, o estado vira Conectado). #}
+  <section id="conexao" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="conexao-titulo"
+    {%- if state in ("pairing", "connecting") %} hx-get="/admin/whatsapp/{{ channel.public_id }}" hx-trigger="every 2s" hx-select="#conexao" hx-swap="outerHTML"{% endif %}>
+    <div class="flex flex-wrap items-center gap-3">
+      <h2 id="conexao-titulo" class="font-semibold">{{ t("whatsappAdmin.conexao") }}</h2>
+      {{ state_badge(state) }}
+      {%- if channel.phone %}<span class="tabular-nums text-muted">+{{ channel.phone }}</span>{% endif %}
+    </div>
+    {%- if not bridge_up %}
+    {{ alert(t("whatsappAdmin.ponteFora")) }}
+    {%- elif state == "pairing" and qr_svg %}
+    <div class="flex flex-wrap items-start gap-6">
+      <div class="size-64 shrink-0 overflow-hidden rounded-md border border-border" role="img" aria-label="{{ t('whatsappAdmin.qrcode') }}">{{ qr_svg | safe }}</div>
+      <ol class="flex list-decimal flex-col gap-2 pl-5">
+        <li>{{ t("whatsappAdmin.passo1") }}</li>
+        <li>{{ t("whatsappAdmin.passo2") }}</li>
+        <li>{{ t("whatsappAdmin.passo3") }}</li>
+      </ol>
+    </div>
+    {%- elif state in ("pairing", "connecting") %}
+    <p class="text-muted">{{ t("whatsappAdmin.aguarde") }}</p>
+    {%- elif state == "connected" %}
+    <div><button type="button" data-abre-dialogo="confirmar-desconexao" class="{{ button_class('danger') }}">{{ t("whatsappAdmin.desconectar") }}</button></div>
+    {%- else %}
+    <p class="text-muted">{{ t("whatsappAdmin.conectarDica") }}</p>
+    <form method="post" action="/admin/whatsapp/{{ channel.public_id }}/conectar">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="{{ button_class() }}">{{ t("whatsappAdmin.conectar") }}</button>
+    </form>
+    {%- endif %}
+  </section>
+
+  <section class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="dados-titulo">
+    <h2 id="dados-titulo" class="font-semibold">{{ t("whatsappAdmin.dados") }}</h2>
+    {%- if error %}{{ alert(error) }}{% endif %}
+    <form method="post" action="/admin/whatsapp/{{ channel.public_id }}" class="flex flex-col gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ field("nome", t("whatsappAdmin.nome"), value=form.nome, hint=t("whatsappAdmin.nomeDica"), required=True, maxlength="100") }}
+      {{ select_field("grupo", t("whatsappAdmin.grupo"), teams, form.grupo, required=True) }}
+      <fieldset class="flex flex-col gap-2">
+        <legend class="font-medium">{{ t("whatsappAdmin.responsaveis") }}</legend>
+        <p class="text-sm text-muted">{{ t("whatsappAdmin.responsaveisDica") }}</p>
+        {%- for u in members %}
+        {{ checkbox("responsaveis", u.display_name, u.public_id | string in form.responsaveis, u.public_id) }}
+        {%- else %}
+        <p class="text-muted">{{ t("whatsappAdmin.grupoSemMembros") }}</p>
+        {%- endfor %}
+      </fieldset>
+      {{ checkbox("assinar", t("whatsappAdmin.assinar"), form.assinar) }}
+      <p class="-mt-3 pl-6 text-sm text-muted">{{ t("whatsappAdmin.assinarDica") }}</p>
+      <div><button type="submit" class="{{ button_class() }}">{{ t("comum.salvar") }}</button></div>
+    </form>
+  </section>
+
+  {%- if state == "connected" %}
+  {% call dialog("confirmar-desconexao", t("whatsappAdmin.desconectarTitulo"), t("whatsappAdmin.desconectarAviso")) %}
+  <form method="post" action="/admin/whatsapp/{{ channel.public_id }}/desconectar" class="mt-6 flex justify-end gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="button" data-fecha-dialogo class="{{ button_class('secondary') }}">{{ t("comum.cancelar") }}</button>
+    <button type="submit" class="{{ button_class('danger') }}">{{ t("whatsappAdmin.desconectar") }}</button>
+  </form>
+  {% endcall %}
+  {%- endif %}
+</div>
+{% endblock %}

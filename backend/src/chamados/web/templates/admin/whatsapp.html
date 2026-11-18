@@ -1,0 +1,50 @@
+{#- Números do WhatsApp (Administração): a lista e o cadastro de um número novo (web/admin_whatsapp.py). -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, badge, button_class, field, select_field with context %}
+{% from "admin/_whatsapp.html" import state_badge with context %}
+
+{% block title %}{{ t("whatsappAdmin.titulo") }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto flex max-w-pagina flex-col gap-4">
+  <h1 class="text-xl font-semibold">{{ t("whatsappAdmin.titulo") }}</h1>
+  {%- if not bridge_up %}{{ alert(t("whatsappAdmin.ponteFora")) }}{% endif %}
+
+  <div class="overflow-x-auto rounded-lg border border-border bg-surface shadow-md">
+    <table class="w-full border-collapse text-left">
+      <caption class="sr-only">{{ t("whatsappAdmin.titulo") }}</caption>
+      <thead class="bg-surface-raised text-muted">
+        <tr>
+          {%- for key in ("nome", "grupo", "numero", "responsaveis", "situacao") %}
+          <th scope="col" class="px-3 py-2 font-medium">{{ t("whatsappAdmin." ~ key) }}</th>
+          {%- endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {%- for c, state in channels %}
+        <tr class="border-t border-border">
+          <td class="px-3 py-2"><a href="/admin/whatsapp/{{ c.public_id }}" class="font-medium text-primary underline">{{ c.name }}</a></td>
+          <td class="px-3 py-2">{{ c.team.name }}</td>
+          <td class="px-3 py-2 tabular-nums">{{ "+" ~ c.phone if c.phone else "—" }}</td>
+          <td class="px-3 py-2">{{ c.managers | map(attribute="user.display_name") | join(", ") or "—" }}</td>
+          <td class="px-3 py-2">{{ state_badge(state) }}</td>
+        </tr>
+        {%- else %}
+        <tr><td colspan="5" class="px-3 py-6 text-center text-muted">{{ t("whatsappAdmin.nenhum") }}</td></tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <section class="flex max-w-xl flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md" aria-labelledby="novo-numero">
+    <h2 id="novo-numero" class="font-semibold">{{ t("whatsappAdmin.novo") }}</h2>
+    {%- if error %}{{ alert(error) }}{% endif %}
+    <form method="post" action="/admin/whatsapp" class="flex flex-col gap-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ field("nome", t("whatsappAdmin.nome"), value=form.nome, hint=t("whatsappAdmin.nomeDica"), required=True, maxlength="100") }}
+      {{ select_field("grupo", t("whatsappAdmin.grupo"), teams, form.grupo, placeholder=t("whatsappAdmin.escolhaGrupo"), required=True) }}
+      <div><button type="submit" class="{{ button_class() }}">{{ t("whatsappAdmin.cadastrar") }}</button></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

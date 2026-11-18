@@ -49,6 +49,8 @@ echo "$ANTES -> $(git describe --tags --always)"
 
 etapa "dependências"
 (cd backend && uv sync -q --frozen --no-dev)
+# A ponte do WhatsApp: as versões exatas do package-lock.json.
+(cd whatsapp-bridge && npm ci --omit=dev --no-audit --no-fund --loglevel=error)
 
 etapa "CSS das telas"
 scripts/css.sh
@@ -61,4 +63,6 @@ cat <<FIM
 Pronto: versão $(git describe --tags --always) preparada.
 Para colocar no ar, reinicie os serviços:
   sudo systemctl restart ticketflow    # o worker reinicia junto
+Se a ponte do WhatsApp mudou (whatsapp-bridge/), reinicie também ela; os números reconectam sozinhos:
+  sudo systemctl restart ticketflow-whatsapp
 FIM
