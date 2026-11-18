@@ -179,7 +179,9 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="volta" value="{{ here }}">
       {%- set system = t("idioma.padraoDoSistema", idioma=t("idioma.nomes." ~ branding.default_locale)) %}
-      {%- for value, label in [("padrao", system), ("pt-BR", t("idioma.nomes.pt-BR")), ("en", t("idioma.nomes.en"))] %}
+      {#- O idioma padrão já está na primeira opção: não se repete abaixo dela. #}
+      {%- if current == branding.default_locale %}{% set current = "padrao" %}{% endif %}
+      {%- for value, label in [("padrao", system), ("pt-BR", t("idioma.nomes.pt-BR")), ("en", t("idioma.nomes.en"))] if value != branding.default_locale %}
       <button type="submit" name="locale" value="{{ value }}" role="menuitemradio" aria-checked="{{ 'true' if value == current else 'false' }}" class="relative flex h-8 w-full items-center rounded px-2 pl-8 text-left hover:bg-surface-raised aria-checked:font-semibold">
         {%- if value == current %}{{ icon("check", "absolute left-2 size-4") }}{% endif %}
         {{ label }}
