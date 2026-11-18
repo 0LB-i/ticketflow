@@ -82,7 +82,6 @@
           </div>
           {%- endif %}
         </dl>
-        <p class="text-xs text-muted">{{ t("perfil.contaDica") }}</p>
       </section>
     </div>
 
@@ -90,7 +89,7 @@
       <form method="post" action="/perfil" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="dados-titulo">
         <h2 id="dados-titulo" class="font-semibold">{{ t("perfil.dados") }}</h2>
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        {{ field("display_name", t("usuarios.nomeExibicao"), value=form.display_name, hint=t("perfil.nomeExibicaoDica"), error=err("display_name") or None, required=True, maxlength="100") }}
+        {{ field("display_name", t("usuarios.nomeExibicao"), value=form.display_name, error=err("display_name") or None, required=True, maxlength="100") }}
         <div class="grid gap-4 sm:grid-cols-2">
           {{ field("job_title", t("perfil.cargo"), value=form.job_title, error=err("job_title") or None, maxlength="100") }}
           {{ field("phone", t("clientes.telefone"), type="tel", value=form.phone, error=err("phone") or None, autocomplete="tel", **{"data-mascara": "telefone"}) }}
