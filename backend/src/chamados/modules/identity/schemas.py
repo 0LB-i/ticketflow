@@ -1,11 +1,16 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 from chamados.core.i18n import Locale
+from chamados.modules.clients.documents import normalize_phone, valid_phone
 from chamados.modules.identity.token_access import PERMISSIONS, ordered
+
+# O mínimo vale depois de tirar os espaços: "  " viraria um nome vazio na tela e nos e-mails.
+DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)]
+JobTitle = Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
 
 
 class LoginIn(BaseModel):
@@ -50,10 +55,41 @@ class Me(BaseModel):
     teams: list[MeTeam]
     permissions: list[str]
     locale: Locale | None = Field(description="idioma escolhido; nulo segue o padrão do sistema")
+    phone: str | None = Field(description="DDD e número, só os dígitos")
+    job_title: str | None
 
 
 class MeUpdate(BaseModel):
-    locale: Locale | None = Field(description="nulo volta ao idioma padrão do sistema")
+    """Só os campos enviados mudam."""
+
+    locale: Locale | None = Field(
+        default=None, description="nulo volta ao idioma padrão do sistema"
+    )
+    display_name: DisplayName | None = Field(default=None, description="o nome que aparece")
+    phone: str | None = Field(default=None, max_length=30, description="DDD e número; vazio apaga")
+    job_title: JobTitle | None = Field(default=None, description="vazio apaga")
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("o nome de exibição não pode ficar vazio")
+        return value
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, value: str | None) -> str | None:
+        if not value or not value.strip():
+            return None
+        digits = normalize_phone(value)
+        if not valid_phone(digits):
+            raise ValueError("telefone inválido: informe o DDD e o número")
+        return digits
+
+    @field_validator("job_title")
+    @classmethod
+    def _job_title(cls, value: str | None) -> str | None:
+        return value or None
 
 
 class ApiTokenPermissionsIn(BaseModel):

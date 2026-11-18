@@ -232,6 +232,12 @@ EN: dict[str, str] = {
     ),
     "O logotipo pode ter no máximo 256 KB.": "The logo can be at most 256 KB.",
     "Nenhum logotipo cadastrado.": "No logo uploaded.",
+    # Meu perfil
+    "Foto inválida: envie uma imagem PNG, JPEG ou WebP.": (
+        "Invalid photo: upload a PNG, JPEG or WebP image."
+    ),
+    "A foto pode ter no máximo 5 MB.": "The photo can be at most 5 MB.",
+    "Nenhuma foto cadastrada.": "No photo uploaded.",
     # Agenda
     "Compromisso não encontrado.": "Event not found.",
     "Participante inválido.": "Invalid guest.",

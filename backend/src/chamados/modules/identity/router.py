@@ -213,13 +213,16 @@ async def me(auth: CurrentAuth, db: DB) -> Me:
         teams=[MeTeam(id=m.team.public_id, name=m.team.name, role=m.role) for m in memberships],
         permissions=effective_permissions(auth.actor),
         locale=auth.user.locale,
+        phone=auth.user.phone,
+        job_title=auth.user.job_title,
     )
 
 
 @router.patch("/me", response_model=Me)
 async def update_me(data: MeUpdate, auth: CurrentAuth, db: DB) -> Me:
-    """Preferências da própria pessoa: por enquanto, o idioma."""
-    auth.user.locale = data.locale
+    """Preferências e perfil da própria pessoa: idioma, nome de exibição, telefone e cargo."""
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(auth.user, field, value)
     await db.commit()
     return await me(auth, db)
 

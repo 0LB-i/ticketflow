@@ -1,0 +1,122 @@
+{#- Meu perfil (menu do usuário): à esquerda a foto e a conta (só leitura: o que muda é com a
+    administração); à direita os dados que a pessoa muda e a troca da senha. A máscara do
+    telefone é a do static/js/clientes.js. -#}
+{% extends "app.html" %}
+{% from "_ui.html" import alert, avatar, button_class, field with context %}
+
+{% block title %}{{ t("perfil.titulo") }}{% endblock %}
+
+{% block head %}
+<script src="{{ static('js/clientes.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+{%- macro err(name) %}{{ t(errors[name]) if name in errors else "" }}{% endmacro %}
+{%- set user = page.auth.user %}
+<div class="mx-auto flex max-w-5xl flex-col gap-6">
+  <h1 class="text-xl font-semibold">{{ t("perfil.titulo") }}</h1>
+
+  <div class="grid items-start gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+    <div class="flex flex-col gap-4">
+      <section id="foto" class="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-4 text-center shadow-md md:p-6" aria-labelledby="foto-titulo">
+        <h2 id="foto-titulo" class="sr-only">{{ t("perfil.foto") }}</h2>
+        {{ avatar(user, "size-32 text-5xl") }}
+        <div>
+          <p class="text-lg font-semibold">{{ user.display_name }}</p>
+          {%- if user.job_title %}
+          <p class="text-muted">{{ user.job_title }}</p>
+          {%- endif %}
+        </div>
+        <div class="flex flex-wrap justify-center gap-2">
+          {#- Escolher a imagem já envia. #}
+          <form method="post" action="/perfil/foto" enctype="multipart/form-data" data-envia-ao-mudar>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label class="cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus {{ button_class('secondary') }}">
+              {{ t("perfil.enviarFoto") if not user.avatar_hash else t("perfil.trocarFoto") }}
+              <input type="file" name="foto" accept="image/png,image/jpeg,image/webp" class="sr-only">
+            </label>
+          </form>
+          {%- if user.avatar_hash %}
+          <form method="post" action="/perfil/foto/remover">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="{{ button_class('ghost') }}">{{ t("comum.remover") }}</button>
+          </form>
+          {%- endif %}
+        </div>
+        <p class="text-xs text-muted">{{ t("perfil.fotoDica") }}</p>
+      </section>
+
+      <section class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="conta-titulo">
+        <h2 id="conta-titulo" class="font-semibold">{{ t("perfil.conta") }}</h2>
+        <dl class="flex flex-col gap-3">
+          <div>
+            <dt class="text-xs text-muted">{{ t("perfil.nomeCompleto") }}</dt>
+            <dd>{{ user.full_name }}</dd>
+          </div>
+          {%- if me.email %}
+          <div>
+            <dt class="text-xs text-muted">{{ t("usuarios.email") }}</dt>
+            <dd class="break-all">{{ me.email }}</dd>
+          </div>
+          {%- endif %}
+          {%- if me.username %}
+          <div>
+            <dt class="text-xs text-muted">{{ t("usuarios.usuario") }}</dt>
+            <dd>{{ me.username }}</dd>
+          </div>
+          {%- endif %}
+          <div>
+            <dt class="text-xs text-muted">{{ t("usuarios.papel") }}</dt>
+            <dd>{{ t("usuarios.papeis." ~ me.role) }}</dd>
+          </div>
+          {%- if me.teams %}
+          <div>
+            <dt class="text-xs text-muted">{{ t("usuarios.grupos") }}</dt>
+            <dd>
+              <ul>
+                {%- for team in me.teams %}
+                <li>{{ team.name }}{% if team.role == "supervisor" %} <span class="text-muted">({{ t("perfil.supervisor") }})</span>{% endif %}</li>
+                {%- endfor %}
+              </ul>
+            </dd>
+          </div>
+          {%- endif %}
+        </dl>
+        <p class="text-xs text-muted">{{ t("perfil.contaDica") }}</p>
+      </section>
+    </div>
+
+    <div class="flex flex-col gap-4">
+      <form method="post" action="/perfil" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="dados-titulo">
+        <h2 id="dados-titulo" class="font-semibold">{{ t("perfil.dados") }}</h2>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ field("display_name", t("usuarios.nomeExibicao"), value=form.display_name, hint=t("perfil.nomeExibicaoDica"), error=err("display_name") or None, required=True, maxlength="100") }}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {{ field("job_title", t("perfil.cargo"), value=form.job_title, error=err("job_title") or None, maxlength="100") }}
+          {{ field("phone", t("clientes.telefone"), type="tel", value=form.phone, error=err("phone") or None, autocomplete="tel", **{"data-mascara": "telefone"}) }}
+        </div>
+        <div>
+          <button type="submit" class="{{ button_class() }}">{{ t("comum.salvar") }}</button>
+        </div>
+      </form>
+
+      <form id="senha" method="post" action="/perfil/senha" class="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-md md:p-6" aria-labelledby="senha-titulo">
+        <h2 id="senha-titulo" class="font-semibold">{{ t("perfil.senha") }}</h2>
+        {%- if password_error %}
+        {{ alert(password_error) }}
+        {%- endif %}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ field("atual", t("perfil.senhaAtual"), type="password", required=True, autocomplete="current-password") }}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {{ field("senha", t("definirSenha.senha"), type="password", required=True, autocomplete="new-password", minlength="8") }}
+          {{ field("confirmar", t("definirSenha.confirmar"), type="password", required=True, autocomplete="new-password", minlength="8") }}
+        </div>
+        <p class="text-xs text-muted">{{ t("definirSenha.dica") }} {{ t("perfil.senhaSessoes") }}</p>
+        <div>
+          <button type="submit" class="{{ button_class() }}">{{ t("perfil.trocarSenha") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

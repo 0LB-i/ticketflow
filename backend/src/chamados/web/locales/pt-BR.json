@@ -54,6 +54,28 @@
     "menu": "Menu do usuário",
     "sair": "Sair"
   },
+  "perfil": {
+    "titulo": "Meu perfil",
+    "foto": "Foto",
+    "enviarFoto": "Enviar foto",
+    "trocarFoto": "Trocar foto",
+    "fotoDica": "PNG, JPEG ou WebP, até 5 MB. A imagem é recortada em quadrado, pelo centro.",
+    "fotoTipo": "Envie uma imagem PNG, JPEG ou WebP.",
+    "fotoSalva": "Foto atualizada",
+    "fotoRemovida": "Foto removida",
+    "conta": "Conta",
+    "contaDica": "Para mudar estes dados, fale com a administração do sistema.",
+    "nomeCompleto": "Nome completo",
+    "supervisor": "supervisor",
+    "dados": "Dados pessoais",
+    "nomeExibicaoDica": "O nome que as outras pessoas veem no sistema.",
+    "nomeCurto": "Use pelo menos 2 caracteres.",
+    "cargo": "Cargo",
+    "senha": "Senha",
+    "senhaAtual": "Senha atual",
+    "senhaSessoes": "Ao trocar, as suas sessões em outros navegadores são encerradas.",
+    "trocarSenha": "Trocar senha"
+  },
   "login": {
     "titulo": "Entrar",
     "email": "E-mail",

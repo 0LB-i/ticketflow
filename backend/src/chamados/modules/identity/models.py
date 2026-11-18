@@ -38,6 +38,13 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(Text)
     # O nome que aparece no sistema; o completo fica no cadastro (tela de Usuários, auditoria).
     display_name: Mapped[str] = mapped_column(Text)
+    # Perfil (tela Meu perfil): telefone (só os dígitos) e cargo, só informativos.
+    phone: Mapped[str | None] = mapped_column(Text)
+    job_title: Mapped[str | None] = mapped_column(Text)
+    # Foto: WebP 256×256 (identity/profile.py). Fica fora da leitura do usuário, que acontece a
+    # cada requisição; o hash diz se há foto e entra no endereço dela (cache do navegador).
+    avatar: Mapped[bytes | None] = mapped_column(BYTEA, deferred=True)
+    avatar_hash: Mapped[str | None] = mapped_column(Text)
     role_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("roles.id"))
     # A empresa (o cadastro de clientes) de quem tem o papel Cliente; nos outros papéis, nula.
     client_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("clients.id"), index=True)

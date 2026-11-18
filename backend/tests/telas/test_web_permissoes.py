@@ -30,6 +30,7 @@ from chamados.web import agenda as web_agenda
 from chamados.web import board as web_board
 from chamados.web import client_panel as web_client_panel
 from chamados.web import clients as web_clients
+from chamados.web import profile as web_profile
 from chamados.web import reports as web_reports
 from chamados.web import reports_all_clients as web_reports_all_clients
 from chamados.web import reports_downloads as web_reports_downloads
@@ -49,7 +50,7 @@ WEB: tuple[ModuleType, ...] = (
     web_reports_all_clients,
     web_reports_downloads,
 )
-WEB += (web_tickets, web_admin_tokens, web_board, web_client_panel, web_agenda)
+WEB += (web_tickets, web_admin_tokens, web_board, web_client_panel, web_agenda, web_profile)
 
 # Cada área da administração e o que as telas dela exigem.
 AREAS = {

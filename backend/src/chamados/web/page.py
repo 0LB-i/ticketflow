@@ -28,9 +28,10 @@ from chamados.web.templating import templates
 HOME = "/chamados"
 # Com a senha provisória, só isto abre até a troca (docs/09 §9.2).
 ALLOWED_BEFORE_PASSWORD_CHANGE = {"/trocar-senha", "/sair"}
-# O papel Cliente só abre o painel da empresa (web/client_panel.py), além da conta.
+# O papel Cliente só abre o painel da empresa (web/client_panel.py), além da conta e do perfil.
 CLIENT_PANEL = "/painel"
-ALLOWED_TO_CLIENTS = {CLIENT_PANEL, "/trocar-senha", "/sair", "/idioma"}
+PROFILE = {"/perfil", "/perfil/foto", "/perfil/foto/remover", "/perfil/senha"}
+ALLOWED_TO_CLIENTS = {CLIENT_PANEL, "/trocar-senha", "/sair", "/idioma", *PROFILE}
 FLASH_COOKIE = "tf_aviso"
 PREFETCH_RULES = "/pre-carregamento.json"
 FlashKind = Literal["success", "error"]

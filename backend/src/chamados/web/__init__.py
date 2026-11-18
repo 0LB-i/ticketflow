@@ -11,6 +11,7 @@ from chamados.web import (
     client_panel,
     clients,
     company,
+    profile,
     reports,
     reports_all_clients,
     reports_downloads,
@@ -58,3 +59,4 @@ router.include_router(reports.router)
 router.include_router(reports_all_clients.router)
 router.include_router(reports_downloads.router)
 router.include_router(client_panel.router)
+router.include_router(profile.router)

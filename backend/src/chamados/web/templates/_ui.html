@@ -144,13 +144,23 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
 {%- endmacro %}
 
 {#- Menu do usuário: nome, idioma e sair. -#}
+{#- Foto da pessoa (Meu perfil) ou, sem ela, a inicial do nome num círculo. Decorativa: o nome
+    está sempre ao lado. -#}
+{% macro avatar(user, size="size-8") -%}
+{%- if user.avatar_hash -%}
+<img src="/perfil/foto?v={{ user.avatar_hash }}" alt="" class="{{ size }} shrink-0 rounded-full object-cover">
+{%- else -%}
+<span class="inline-flex {{ size }} shrink-0 items-center justify-center rounded-full bg-primary-subtle font-semibold text-primary" aria-hidden="true">{{ user.display_name[:1] }}</span>
+{%- endif -%}
+{%- endmacro %}
+
 {% macro user_menu() -%}
 {%- set user = page.auth.user -%}
 {%- set here = page.request.url.path ~ ("?" ~ page.request.url.query if page.request.url.query else "") -%}
 {%- set current = user.locale or "padrao" -%}
 <details data-menu class="relative">
   <summary class="inline-flex h-10 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-fg hover:bg-surface-raised [&::-webkit-details-marker]:hidden" aria-label="{{ t('usuario.menu') }}">
-    <span class="inline-flex size-8 items-center justify-center rounded-full bg-primary-subtle font-semibold text-primary" aria-hidden="true">{{ user.display_name[:1] }}</span>
+    {{ avatar(user) }}
     <span class="hidden max-w-40 truncate sm:inline xl:max-w-64">{{ user.display_name }}</span>
     {{ icon("chevron-down", "size-4 text-muted") }}
   </summary>
@@ -159,6 +169,10 @@ inline-flex items-center justify-center gap-2 rounded-md font-medium transition-
       <span class="block font-medium">{{ user.display_name }}</span>
       <span class="block text-xs text-muted">{{ user.email or user.username }}</span>
     </div>
+    <div class="my-1 h-px bg-border" role="separator"></div>
+    <a href="/perfil" role="menuitem" class="flex h-8 w-full items-center gap-2 rounded px-2 hover:bg-surface-raised">
+      {{ icon("user", "size-4") }} {{ t("perfil.titulo") }}
+    </a>
     <div class="my-1 h-px bg-border" role="separator"></div>
     <p class="flex items-center gap-2 px-2 py-1 text-xs text-muted">{{ icon("languages", "size-4") }} {{ t("idioma.titulo") }}</p>
     <form method="post" action="/idioma">

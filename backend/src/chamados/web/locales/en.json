@@ -54,6 +54,28 @@
     "menu": "User menu",
     "sair": "Sign out"
   },
+  "perfil": {
+    "titulo": "My profile",
+    "foto": "Photo",
+    "enviarFoto": "Upload photo",
+    "trocarFoto": "Change photo",
+    "fotoDica": "PNG, JPEG or WebP, up to 5 MB. The image is cropped to a square from the center.",
+    "fotoTipo": "Upload a PNG, JPEG or WebP image.",
+    "fotoSalva": "Photo updated",
+    "fotoRemovida": "Photo removed",
+    "conta": "Account",
+    "contaDica": "To change these details, contact the system administrators.",
+    "nomeCompleto": "Full name",
+    "supervisor": "supervisor",
+    "dados": "Personal details",
+    "nomeExibicaoDica": "The name other people see in the system.",
+    "nomeCurto": "Use at least 2 characters.",
+    "cargo": "Job title",
+    "senha": "Password",
+    "senhaAtual": "Current password",
+    "senhaSessoes": "Changing it signs you out of your other browsers.",
+    "trocarSenha": "Change password"
+  },
   "login": {
     "titulo": "Sign in",
     "email": "Email",

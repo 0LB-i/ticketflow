@@ -19,6 +19,7 @@ from chamados.modules.clients.models import Client
 from chamados.modules.identity.deps import Auth, SettingsDep, require
 from chamados.modules.identity.models import User
 from chamados.modules.identity.passwords import MAX_LENGTH, hash_password, password_problem
+from chamados.modules.identity.schemas import DisplayName
 from chamados.modules.identity.service import issue_token, link, send_link_email
 from chamados.modules.identity.sessions import now, revoke_sessions
 from chamados.modules.identity.tokens import revoke_user_api_tokens
@@ -31,7 +32,6 @@ Admin = Annotated[Auth, Depends(require(P.ADMIN_USERS))]
 RoleCode = Literal["agent", "admin", "auditor", "client"]
 # O mínimo vale depois de tirar os espaços: "  " viraria um nome vazio na tela e nos e-mails.
 FullName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=200)]
-DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)]
 
 
 class UserTeam(BaseModel):
